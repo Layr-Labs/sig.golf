@@ -9,7 +9,7 @@ set_option linter.all false
 
 namespace SigGolfCandidate.T3.Security.BPB
 open OracleComp OracleSpec
-set_option debug.skipKernelTC true in
+set_option debug.skipKernelTC false in
 theorem shortHash_ok_low {input : HashInput} {hdr : Digest}
     (h : SigGolfCandidate.T3M.Extract.hdrBlock (pad64 input) = SphincsSecurity.bytesLE 16 hdr)
     (hm : tweakLow hdr ≠ 25984) : AllQueriesSatisfy (shortHash input) NotDigestQ := by
@@ -634,11 +634,11 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 attribute [local irreducible] Finset.univ
 
-/-- R6 (F3): `κ · Pr[producer] ≤ 28883/2500000` (Route C admBound), from the exact acceptance
-`ftsNum/ftsDen` and `κ = 15312706511442230855851857334429569516916/2^128` (relative slack: Z5R referee). -/
+/-- R6 (F3): `κ · Pr[producer] ≤ 939/80000` (Route C admBound), from the exact acceptance
+`ftsNum/ftsDen` and `κ = 15557284462666655376466157833521152917877/2^128` (relative slack: Z5R referee). -/
 theorem producerAcceptanceBound :
     SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa *
-      Pr[fun a : HashOutput => producer a = true | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ 28883/2500000 := by
+      Pr[fun a : HashOutput => producer a = true | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ 939/80000 := by
   rw [producer_acceptance_exact, SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa_eq]
   apply (ENNReal.toReal_le_toReal (by unfold ftsDen; finiteness) (by finiteness)).mp
   norm_num [ftsNum, ftsDen, ENNReal.toReal_div, ENNReal.toReal_mul]
@@ -647,8 +647,8 @@ theorem producerAcceptanceBound :
 Its infinite excess bound is never a security certificate: it is used only
 for generic accepted-output and cached-search expectation identities. -/
 noncomputable def lawSpec : FtsBankSpec Proposal where
-  specTheta := 2471117/2500000
-  admBound := 28883/2500000
+  specTheta := 79061/80000
+  admBound := 939/80000
   theta_add_admBound := by
     apply (ENNReal.toReal_eq_toReal_iff' (by finiteness)
       (by unfold SigGolfCandidate.T3.Security.CaseC.theta; finiteness)).mp
@@ -2847,17 +2847,16 @@ theorem allQ_ftsNonceSearch {P : SigGolfCandidate.T3.Spec.Domain → Prop} (coor
 /-- E8: a canonical FTS node (`ftsNodeG`) is the plain node or (heaps `8..15`) `ftsNodeHashN` trials. -/
 theorem allQ_ftsNodeG {P : SigGolfCandidate.T3.Spec.Domain → Prop} (coord index heap : Nat) (left right : Digest)
     (h0 : AllQueriesSatisfy (wctNodeHashH coord index heap left right) P)
-    (h : ∀ n, ftsGround coord heap → AllQueriesSatisfy (shortHash (ftsNodeInputN coord index heap n left right)) P) :
+    (h : ∀ n, 8 ≤ heap ∧ heap < 32 → AllQueriesSatisfy (ftsNodeHashN coord index heap n left right) P) :
     AllQueriesSatisfy (ftsNodeG coord index heap left right) P := by
   unfold ftsNodeG ftsNodeAt
   refine SigGolfCandidate.T3M.allQ_map _ ?_
   split
   · exact SigGolfCandidate.T3M.allQ_map _ h0
   · rename_i hb
-    have hg : ftsGround coord heap := by
+    have hg : 8 ≤ heap ∧ heap < 32 := by
       by_contra hn; exact hb (ftsZeroBits_off hn)
-    exact allQ_ftsNonceSearch coord index heap left right
-      (fun n => by unfold ftsNodeHashN; exact allQ_ftsHash_of_shortHash heap _ (h n hg)) _ 0
+    exact allQ_ftsNonceSearch coord index heap left right (fun n => h n hg) _ 0
 theorem ftsNodeInputN_eq_top (coord index heap n : Nat) (left right : Digest) :
     ftsNodeInputN coord index heap n left right =
       wctTopInput coord index heap left (BitVec.ofNat 128 (n % 2 ^ 64)) right := rfl
@@ -3083,7 +3082,10 @@ theorem sharedNode_allowed (first : Bool) (coord index heap : Nat)
       · exact highHash_allowed P hpublic _
       · exact shortHash_allowed P hpublic _
     · exact WCT9.allQ_ftsNodeG _ _ _ _ _ (nodeHashH_allowed P hpublic _ _ _ _ _)
-        (fun _ _ => shortHash_allowed P hpublic _)
+        (fun _ _ => by
+          unfold WCT9.ftsNodeHashN
+          rw [WCT9.ftsNodeInputN_eq_top]
+          exact ftsHash_allowed P hpublic _ _)
 include hpublic in
 theorem heapBuild_allowed (index coord : Nat) (padR : Digest) (leaves : List Digest) :
     AllQueriesSatisfy (WCT9.heapBuild index coord padR leaves) P := by
@@ -4480,7 +4482,8 @@ theorem forest_notDigest : ForestAllowed BPB.NotDigestQ where
       · exact ClaudeWCT.WCT9.allQ_ftsNodeG _ _ _ _ _
           (ClaudeWCT.WCT9.allQ_ftsHash_of_shortHash heap (ClaudeWCT.WCT9.nodeInput coord index heap left right)
             (BPB.nodeHash_ok 3 (ClaudeWCT.WCT9.nodeLayer coord) index heap left right (by decide)))
-          (fun n _ => topInput_notDigest coord index heap left (BitVec.ofNat 128 (n % 2 ^ 64)) right)
+          (fun n _ => ClaudeWCT.WCT9.allQ_ftsHash_of_shortHash heap _
+            (topInput_notDigest coord index heap left (BitVec.ofNat 128 (n % 2 ^ 64)) right))
 
 theorem payNotDigest : PayNotDigest payAfterDigest :=
   pay_allowed _ tail_notDigest forest_notDigest
@@ -5890,7 +5893,7 @@ section
 /-!
 # The FTS seed-family world (campaign X1, stage A)
 
-Hidden values of the case-C world: one coefficient vector `K f : Fin 54 → Digest` per FTS family
+Hidden values of the case-C world: one coefficient vector `K f : Fin 42 → Digest` per FTS family
 `f = (index, coord)` and the step-1..3 labels `g12`. The world's table `GCoord → Digest` is `phi K g12`: the seed
 `(a, 0)` is `familyEval (K (famOf a)) (ptOf a)`, the steps are `g12`. The lazy engine keeps today's `State` (its
 `allowed` sets record every trial and disclosure); the posterior of family `f` is `famPostA allowed f`, the vectors
@@ -5898,7 +5901,7 @@ whose seeds lie in the allowed sets, and the step labels stay a product table (`
 
 * `sampler`: trial and disclosure laws (`trialBy` / `discloseBy` on the two tables).
 * `fam_posterior`, `fam_erasure`: the eager world (`hiddenLaw`, then `fixedRun` on `phi K g12`) is the lazy run.
-* `Inv`, `Bad`, `hazard`: per-family posteriors are `famPost` with at most 53 known points while at most 51
+* `Inv`, `Bad`, `hazard`: per-family posteriors are `famPost` with at most 41 known points while at most 39
   seeds per family are retired without a guess (`¬Bad`) and at most one guess was made; then a trial at a fresh seed
   hits with probability at most `(2^128 - budget)⁻¹` (A1's `fam_hazard_prob`), labels as today.
 -/

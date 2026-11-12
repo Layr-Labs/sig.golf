@@ -48,11 +48,9 @@ theorem witnessCycles_eq : witnessCycles (submission I).sizes.witness=85 := by
   change witnessCycles 21756=85
   decide
 
-theorem claimedC_eq : claimedC=verifyCycleBound+witnessCycles (submission I).sizes.witness := by
-  rw [witnessCycles_eq];decide
-
-theorem submission_verificationBound (E : EncodingFacts) (F : SourceQueries) (P : Pending I) :
-    (submission I).VerificationBound 6960 := by
+theorem submission_verificationBound {vb : Nat} (E : EncodingFacts) (F : SourceQueries) (P : Pending I)
+    (hC : VerifyAcceptCycles I vb) :
+    (submission I).VerificationBound (vb + 85) := by
   intro hash sk m
   dsimp only
   intro h
@@ -62,12 +60,11 @@ theorem submission_verificationBound (E : EncodingFacts) (F : SourceQueries) (P 
   have heq:=Credit.Paired.verify_run_agree E F P hash (okHashBy floors wt.topHigh hash) m pk _ hagree
   rw [hcyc,witnessCycles_eq,heq]
   rw [heq] at hacc
-  have hok : HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh (ClaudeWCT.W9.T3M.Paired.witEncF16 output wt))
+  have hok : HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh (ClaudeWCT.W9.T3M.Paired.witEncF output wt))
       (okHashBy floors wt.topHigh hash) := by
-    rw [ClaudeWCT.W9.T3M.Paired.wtopHigh_witEncF16]; exact hashOkBy_okHashBy floors wt.topHigh hash
-  have hc:=P.verify_accept_cycles floors hfloors (okHashBy floors wt.topHigh hash) m pk _
+    rw [ClaudeWCT.W9.T3M.Paired.wtopHigh_witEncF]; exact hashOkBy_okHashBy floors wt.topHigh hash
+  have hc:=hC floors hfloors (okHashBy floors wt.topHigh hash) m pk _
     hok (Credit.Paired.digestCap_okHashBy floors wt.topHigh hash m pk sig output wt hx) hacc
-  unfold verifyCycleBound at hc
   omega
 end ClaudeWCT.W9.T3M.Final.Paired
 
@@ -76,14 +73,15 @@ open SigGolfCandidate.Legacy
 open ClaudeWCT.W9.T3M (Images)
 variable {I : Images}
 
-theorem certificate_of (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (S : SourceFacts) :
-    Certificate (submission I) 6960 where
+theorem certificate_of {vb : Nat} (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (S : SourceFacts)
+    (hC : VerifyAcceptCycles I vb) :
+    Certificate (submission I) (vb + 85) where
   admissible := P.admissible
   termination := submission_terminates P
   completeness := submission_complete E F P S
   compressionBounds := submission_compressionBounds E F P S
   security := submission_secure E F P S.securityP
-  verificationBound := submission_verificationBound E F P
+  verificationBound := submission_verificationBound E F P hC
 end ClaudeWCT.W9.T3M.Final.Paired
 end
 -- ==== merged from Transfer_Basic ====
@@ -1028,11 +1026,12 @@ open ClaudeWCT.W9.T3M (Images)
 def submissionNew (I : Images) : SigGolf.Submission := currentOf (submission I)
 theorem legacyOf_submissionNew (I : Images) : legacyOf (submissionNew I) = submission I :=
   legacyOf_currentOf (submission I)
-theorem certificateNew_of {I : Images} (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (S : SourceFacts) :
-    SigGolf.Certificate (submissionNew I) 6960 := by
-  have hL : SigGolfCandidate.Legacy.Certificate (legacyOf (submissionNew I)) 6960 := by
+theorem certificateNew_of {I : Images} {vb : Nat} (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (S : SourceFacts)
+    (hC : VerifyAcceptCycles I vb) :
+    SigGolf.Certificate (submissionNew I) (vb + 85) := by
+  have hL : SigGolfCandidate.Legacy.Certificate (legacyOf (submissionNew I)) (vb + 85) := by
     rw [legacyOf_submissionNew]
-    exact certificate_of E F P S
+    exact certificate_of E F P S hC
   have hrun : RunAgrees (submissionNew I) := runAgrees_of_admissible (submissionNew I) hL.admissible
   exact
     { admission := admission_of_legacy (submissionNew I) hL.admissible
@@ -4966,7 +4965,7 @@ open ClaudeWCT.W9.T3M (Images)
 variable (I : Images)
 theorem keygen_run_eq (hadm : (submission I).Admissible) (sk : SecretKey) :
     (submission I).run .keygen sk = SigGolfCandidate.T3M.submission.run .keygen sk := by
-  have hvA : ((submission I).image .keygen).Valid ⟨5186, 21756, 131072⟩ ⟨0x65A0, 0x80, 0xa0, 0x80000, 0x7000, 0x10A0⟩ :=
+  have hvA : ((submission I).image .keygen).Valid ⟨5185, 21756, 131072⟩ ⟨0x65A0, 0x80, 0xa0, 0x80000, 0x7000, 0x10A0⟩ :=
     hadm.2 .keygen
   have hvB : (SigGolfCandidate.T3M.submission.image .keygen).Valid
       ⟨SigGolfCandidate.T3M.submission.sizes.signature, SigGolfCandidate.T3M.submission.sizes.witness, 131072⟩
@@ -5067,7 +5066,7 @@ end ClaudeWCT.W9.T3M.Final
 
 namespace ClaudeWCT.W9.T3M.Final.Paired
 open ClaudeWCT.W9.T3M (Images)
-structure MachineFacts (I : Images) : Prop where
+structure MachineFacts (I : Images) (vb : Nat) : Prop where
   admissible : (submission I).Admissible
   sign_refines : SignRefines I
   sign_terminates : SignTerminates I
@@ -5075,8 +5074,8 @@ structure MachineFacts (I : Images) : Prop where
   expand_terminates : ExpandTerminates I
   verify_refines : VerifyRefines I
   verify_terminates : VerifyTerminates I
-  verify_accept_cycles : VerifyAcceptCycles I
-theorem pending_of_machine {I : Images} (M : MachineFacts I) : Pending I where
+  verify_accept_cycles : VerifyAcceptCycles I vb
+theorem pending_of_machine {I : Images} {vb : Nat} (M : MachineFacts I vb) : Pending I where
   admissible := M.admissible
   keygen_run_counts := keygen_run_counts_holds I M.admissible
   keygen_runWith := keygen_runWith_holds I M.admissible
@@ -5086,12 +5085,12 @@ theorem pending_of_machine {I : Images} (M : MachineFacts I) : Pending I where
   expand_terminates := M.expand_terminates
   verify_refines := M.verify_refines
   verify_terminates := M.verify_terminates
-  verify_accept_cycles := M.verify_accept_cycles
-theorem certificate_of_security {I : Images}
+theorem certificate_of_security {I : Images} {vb : Nat}
     (expandV6 : SigGolfCandidate.Research.SharedExpansionClosure.ExpandV6Facts) (security : SecurityP)
-    (keygenMoment : KeygenMoment) (M : MachineFacts I) :
-    SigGolf.Certificate (submissionNew I) 6960 :=
+    (keygenMoment : KeygenMoment) (M : MachineFacts I vb) :
+    SigGolf.Certificate (submissionNew I) (vb + 85) :=
   certificateNew_of encodingFacts sourceQueries_holds (pending_of_machine M) (sourceFacts_of_securityP expandV6 security keygenMoment)
+    M.verify_accept_cycles
 end ClaudeWCT.W9.T3M.Final.Paired
 end
 -- ==== merged from ClaudeWCT_W9_T3_Secc_CapFail ====
@@ -5119,10 +5118,9 @@ def CapFailT (labels : Labels) : Prop :=
   ∃ n : TreeNode, ((n.1.lay = 0 ∧ n.1.level.val < 11) ∨
       (n.1.lay ≠ 0 ∧ WCT9.lowerZeroBits n.1.lay.val (2 ^ (height n.1.lay - n.1.level.val - 1)) ≠ 0)) ∧
     n.1.nonce.val = 0 ∧ ∀ j < trialCap n.1.lay n.1.level.val, trialFails labels n j
-/-- E8: some FTS ground position (node level 3, Y7: or level 2 of coordinates `0..3`; nonce-0 representative)
-exhausts its cap. -/
+/-- E8: some FTS ground position (node level 3, nonce-0 representative) exhausts its cap. -/
 def CapFailW (labels : Labels) : Prop :=
-  ∃ m : WctNodePos, Extract.Paired.ftsNonceLevel m.1.coord.val m.1.level.val ∧ m.1.nonce.val = 0 ∧
+  ∃ m : WctNodePos, wGround m.1.coord.val m.1.level.val ∧ m.1.nonce.val = 0 ∧
     ∀ j < wTrialCap m.1.coord.val m.1.level.val, wTrialFails labels m j
 /-- Some multi-trial position (tree or, E8, FTS ground) exhausts its nonce cap. -/
 def CapFail (labels : Labels) : Prop := CapFailT labels ∨ CapFailW labels
@@ -5692,18 +5690,103 @@ theorem prob_allFail_le_low (n : TreeNode) (hl : n.1.lay ≠ 0)
   rw [trialSet_card, trialCap_lowerG hl hb]
   rfl
 
-/-! ### E8: the FTS ground positions (`b = ftsZeroBits coord heap ∈ {1, 2}`, cap `128 · 2^b`)
-Y7: the ground heaps are `8..15` (level 3) and `16..31` of coordinates `0..3` (level 2, `b = 1`); a trial's zero test
-reads the used half of its label (`Extract.Paired.proj`, the high half on even heaps), i.e. the half of a legacy
-position `p` (`wHalfPos`). -/
+/-! ### E8: the FTS ground positions (`b = ftsZeroBits coord 8 ∈ {1, 2}`, cap `128 · 2^b`) -/
 
 theorem ftsZeroBits_le_two (coord heap : Nat) : WCT9.ftsZeroBits coord heap ≤ 2 := by
   unfold WCT9.ftsZeroBits; split_ifs <;> omega
 
-theorem card_pass_digest_fts (coord heap : Nat) :
+theorem card_pass_digest_fts (coord : Nat) :
+    2 ^ (128 - WCT9.ftsZeroBits coord 8) ≤
+      (Finset.univ.filter (fun d : BitVec 128 => WCT9.ftsZeroOk coord 8 d = true)).card := by
+  have hb := ftsZeroBits_le_two coord 8
+  have hlt : 2 ^ (128 - WCT9.ftsZeroBits coord 8) ≤ 2 ^ 128 := Nat.pow_le_pow_right (by decide) (by omega)
+  have hc : (Finset.range (2 ^ (128 - WCT9.ftsZeroBits coord 8))).card = 2 ^ (128 - WCT9.ftsZeroBits coord 8) :=
+    Finset.card_range _
+  rw [← hc]
+  apply Finset.card_le_card_of_injOn (fun x : Nat => (BitVec.ofNat 128 x : BitVec 128))
+  · intro x hx
+    simp only [Finset.coe_range, Set.mem_Iio] at hx
+    refine Finset.mem_coe.mpr (Finset.mem_filter.mpr ⟨Finset.mem_univ _, ?_⟩)
+    unfold WCT9.ftsZeroOk
+    simp only [BitVec.toNat_ofNat, beq_iff_eq]
+    rw [Nat.mod_eq_of_lt (by omega)]
+    exact Nat.div_eq_of_lt hx
+  · intro x hx y hy heq
+    simp only [Finset.coe_range, Set.mem_Iio] at hx hy
+    have := congrArg BitVec.toNat heq
+    simp only [BitVec.toNat_ofNat] at this
+    rwa [Nat.mod_eq_of_lt (by omega), Nat.mod_eq_of_lt (by omega)] at this
+
+theorem card_fail_hash_fts (coord : Nat) :
+    (Finset.univ.filter (fun v : BitVec 256 =>
+        WCT9.ftsZeroOk coord 8 ((Extract.Pos.forest 0).proj v) = false)).card +
+      2 ^ (256 - WCT9.ftsZeroBits coord 8) ≤ 2 ^ 256 := by
+  have hsum := Finset.card_filter_add_card_filter_not
+    (s := (Finset.univ : Finset (BitVec 256))) (fun v => WCT9.ftsZeroOk coord 8 ((Extract.Pos.forest 0).proj v) = false)
+  rw [Finset.card_univ, Fintype.card_bitVec] at hsum
+  have := card_pass_hash_of (Extract.Pos.forest 0) (WCT9.ftsZeroOk coord 8)
+    (by have := ftsZeroBits_le_two coord 8; omega) (card_pass_digest_fts coord)
+  change _ = 2 ^ 256 at hsum
+  omega
+
+theorem prob_ftsFail_le (coord : Nat) (S : Finset Node) (hS : S.card = 128 * 2 ^ WCT9.ftsZeroBits coord 8) :
+    Pr[fun labels : Labels => ∀ a ∈ S,
+        (fun v => WCT9.ftsZeroOk coord 8 ((Extract.Pos.forest 0).proj v) = false) (labels a) |
+      ($ᵗ Labels : ProbComp Labels)] ≤ ENNReal.ofReal ((36788 / 100000 : ℝ) ^ 128) := by
+  classical
+  refine (le_of_eq (prob_forall_mem (α := Node) (β := HashOutput) (inst := instSampleableTypeLabels_capFail)
+    S (fun v => WCT9.ftsZeroOk coord 8 ((Extract.Pos.forest 0).proj v) = false))).trans ?_
+  rw [hS, Fintype.card_bitVec]
+  have hb := ftsZeroBits_le_two coord 8
+  refine le_trans ?_ (ENNReal.ofReal_le_ofReal (lowFail_le (WCT9.ftsZeroBits coord 8)))
+  rw [ENNReal.ofReal_pow (by
+    have : (1 / 2 : ℝ) ^ WCT9.ftsZeroBits coord 8 ≤ 1 := pow_le_one₀ (by norm_num) (by norm_num)
+    linarith)]
+  gcongr
+  have hf := card_fail_hash_fts coord
+  have := ratio_le hf (by omega)
+  convert this using 2
+
+theorem card_pass_hash_of_bool (high : Bool) (ok : BitVec 128 → Bool) {b : Nat} (hb : b ≤ 128)
+    (hP : 2 ^ (128 - b) ≤ (Finset.univ.filter (fun d : BitVec 128 => ok d = true)).card) :
+    2 ^ (256 - b) ≤ (Finset.univ.filter (fun v : BitVec 256 => ¬ (ok (WCT9.halfOf high v) = false))).card := by
+  set P := Finset.univ.filter (fun d : BitVec 128 => ok d = true)
+  have hcard : (P ×ˢ (Finset.univ : Finset (BitVec 128))).card = P.card * 2 ^ 128 := by
+    rw [Finset.card_product, Finset.card_univ, Fintype.card_bitVec]
+  have h256 : 2 ^ (256 - b) ≤ P.card * 2 ^ 128 := by
+    calc 2 ^ (256 - b) = 2 ^ (128 - b) * 2 ^ 128 := by
+          rw [← pow_add, show 128 - b + 128 = 256 - b by omega]
+      _ ≤ P.card * 2 ^ 128 := Nat.mul_le_mul_right _ hP
+  refine h256.trans ?_
+  rw [← hcard]
+  apply Finset.card_le_card_of_injOn
+    (fun x : BitVec 128 × BitVec 128 =>
+      if high then joinHalves x.2 x.1 else joinHalves x.1 x.2)
+  · intro x hx
+    simp only [Finset.coe_product, Finset.coe_univ, Set.prod_univ, Set.mem_preimage, Finset.mem_coe, P,
+      Finset.mem_filter, Finset.mem_univ, true_and] at hx
+    refine Finset.mem_coe.mpr (Finset.mem_filter.mpr ⟨Finset.mem_univ _, ?_⟩)
+    unfold WCT9.halfOf
+    cases high
+    · simp only [Bool.false_eq_true, ite_false, joinHalves_low, hx]; decide
+    · simp only [ite_true, joinHalves_high, hx]; decide
+  · intro x _ y _ heq
+    by_cases hp : high = true
+    · simp only [hp, ite_true] at heq
+      have h1 := congrArg (fun v : BitVec 256 => v.extractLsb' 0 128) heq
+      have h2 := congrArg (fun v : BitVec 256 => v.extractLsb' 128 128) heq
+      simp only [joinHalves_low, joinHalves_high] at h1 h2
+      exact Prod.ext h2 h1
+    · simp only [Bool.not_eq_true] at hp
+      simp only [hp, Bool.false_eq_true, ite_false] at heq
+      have h1 := congrArg (fun v : BitVec 256 => v.extractLsb' 0 128) heq
+      have h2 := congrArg (fun v : BitVec 256 => v.extractLsb' 128 128) heq
+      simp only [joinHalves_low, joinHalves_high] at h1 h2
+      exact Prod.ext h1 h2
+
+theorem card_pass_digest_fts_h (coord heap : Nat) (hb : WCT9.ftsZeroBits coord heap ≤ 2) :
     2 ^ (128 - WCT9.ftsZeroBits coord heap) ≤
       (Finset.univ.filter (fun d : BitVec 128 => WCT9.ftsZeroOk coord heap d = true)).card := by
-  have hb := ftsZeroBits_le_two coord heap
   have hlt : 2 ^ (128 - WCT9.ftsZeroBits coord heap) ≤ 2 ^ 128 := Nat.pow_le_pow_right (by decide) (by omega)
   have hc : (Finset.range (2 ^ (128 - WCT9.ftsZeroBits coord heap))).card = 2 ^ (128 - WCT9.ftsZeroBits coord heap) :=
     Finset.card_range _
@@ -5722,53 +5805,35 @@ theorem card_pass_digest_fts (coord heap : Nat) :
     simp only [BitVec.toNat_ofNat] at this
     rwa [Nat.mod_eq_of_lt (by omega), Nat.mod_eq_of_lt (by omega)] at this
 
-theorem card_fail_hash_fts (p : Extract.Pos) (coord heap : Nat) :
+theorem card_fail_hash_fts_half (high : Bool) (coord heap : Nat) (hb : WCT9.ftsZeroBits coord heap ≤ 2) :
     (Finset.univ.filter (fun v : BitVec 256 =>
-        WCT9.ftsZeroOk coord heap (p.proj v) = false)).card +
+        WCT9.ftsZeroOk coord heap (WCT9.halfOf high v) = false)).card +
       2 ^ (256 - WCT9.ftsZeroBits coord heap) ≤ 2 ^ 256 := by
   have hsum := Finset.card_filter_add_card_filter_not
-    (s := (Finset.univ : Finset (BitVec 256))) (fun v => WCT9.ftsZeroOk coord heap (p.proj v) = false)
+    (s := (Finset.univ : Finset (BitVec 256))) (fun v => WCT9.ftsZeroOk coord heap (WCT9.halfOf high v) = false)
   rw [Finset.card_univ, Fintype.card_bitVec] at hsum
-  have := card_pass_hash_of p (WCT9.ftsZeroOk coord heap)
-    (by have := ftsZeroBits_le_two coord heap; omega) (card_pass_digest_fts coord heap)
+  have := card_pass_hash_of_bool high (WCT9.ftsZeroOk coord heap) (by omega : WCT9.ftsZeroBits coord heap ≤ 128)
+    (card_pass_digest_fts_h coord heap hb)
   change _ = 2 ^ 256 at hsum
   omega
 
-theorem prob_ftsFail_le (p : Extract.Pos) (coord heap : Nat) (S : Finset Node)
-    (hS : S.card = 128 * 2 ^ WCT9.ftsZeroBits coord heap) :
+theorem prob_ftsFail_le_half (high : Bool) (coord heap : Nat) (hb : WCT9.ftsZeroBits coord heap ≤ 2)
+    (S : Finset Node) (hS : S.card = 128 * 2 ^ WCT9.ftsZeroBits coord heap) :
     Pr[fun labels : Labels => ∀ a ∈ S,
-        (fun v => WCT9.ftsZeroOk coord heap (p.proj v) = false) (labels a) |
+        (fun v => WCT9.ftsZeroOk coord heap (WCT9.halfOf high v) = false) (labels a) |
       ($ᵗ Labels : ProbComp Labels)] ≤ ENNReal.ofReal ((36788 / 100000 : ℝ) ^ 128) := by
   classical
   refine (le_of_eq (prob_forall_mem (α := Node) (β := HashOutput) (inst := instSampleableTypeLabels_capFail)
-    S (fun v => WCT9.ftsZeroOk coord heap (p.proj v) = false))).trans ?_
+    S (fun v => WCT9.ftsZeroOk coord heap (WCT9.halfOf high v) = false))).trans ?_
   rw [hS, Fintype.card_bitVec]
-  have hb := ftsZeroBits_le_two coord heap
   refine le_trans ?_ (ENNReal.ofReal_le_ofReal (lowFail_le (WCT9.ftsZeroBits coord heap)))
   rw [ENNReal.ofReal_pow (by
     have : (1 / 2 : ℝ) ^ WCT9.ftsZeroBits coord heap ≤ 1 := pow_le_one₀ (by norm_num) (by norm_num)
     linarith)]
   gcongr
-  have hf := card_fail_hash_fts p coord heap
+  have hf := card_fail_hash_fts_half high coord heap hb
   have := ratio_le hf (by omega)
   convert this using 2
-
-/-- Y7: a legacy position with the half of FTS node `m`'s paired projection (`forest 0`: low, `wctNode … 5 …`:
-high). -/
-def wHalfPos (m : WctNodePos) : Extract.Pos :=
-  if Extract.Paired.highNodeAt m.1.coord.val m.1.level.val m.1.idx.val then .wctNode 0 0 5 0 else .forest 0
-
-theorem pairedProj_wHalfPos (m : WctNodePos) :
-    Extract.Paired.proj (Node.wctNode m).toPos = (wHalfPos m).proj := by
-  funext v
-  unfold wHalfPos
-  by_cases h : Extract.Paired.highNodeAt m.1.coord.val m.1.level.val m.1.idx.val
-  · rw [if_pos h, Extract.Pos.proj_eq]
-    simp only [Node.toPos, Extract.Paired.proj, if_pos h, Extract.Pos.high]
-    rfl
-  · rw [if_neg h, Extract.Pos.proj_eq]
-    simp only [Node.toPos, Extract.Paired.proj, if_neg h, Extract.Pos.high]
-    rfl
 
 /-- The cap trials of the FTS position of `m`. -/
 def wTrialSet (m : WctNodePos) : Finset Node :=
@@ -5784,84 +5849,147 @@ theorem wTrialSet_card (m : WctNodePos) : (wTrialSet m).card = wTrialCap m.1.coo
   rwa [wWithNonce_nonce m (by omega), wWithNonce_nonce m (by omega)] at h
 
 /-- E8: one FTS ground position exhausts its `128 · 2^b` trials with probability at most `0.36788^128`. -/
-theorem prob_wAllFail_le (m : WctNodePos) (h3 : Extract.Paired.ftsNonceLevel m.1.coord.val m.1.level.val) :
+theorem prob_wAllFail_le (m : WctNodePos) (h3 : wGround m.1.coord.val m.1.level.val) :
     Pr[fun labels : Labels => ∀ j < wTrialCap m.1.coord.val m.1.level.val, wTrialFails labels m j |
       ($ᵗ Labels : ProbComp Labels)] ≤ ENNReal.ofReal ((36788 / 100000 : ℝ) ^ 128) := by
   classical
-  have hw : ∀ (labels : Labels) j, wTrialFails labels m j ↔
-      WCT9.ftsZeroOk m.1.coord.val (2 ^ (6 - m.1.level.val))
-        ((wHalfPos m).proj (labels (.wctNode (wWithNonce m j)))) = false := fun labels j => by
-    unfold wTrialFails; rw [pairedProj_wHalfPos]
+  rcases h3 with h3 | ⟨h2, hc7⟩
+  swap
+  · -- S5185 (FTS16): level 2, b = 1, cap 256 on the kept half (`ftsHalf (16 + idx)`):
+    -- (1/2)^256 ≤ 0.36788^128 (COMPUTED); `prob_ftsFail_le_half` with the half-generic event (as `card_fail_hash_fts_half`).
+    have hb16 : WCT9.ftsZeroBits m.1.coord.val 16 = 1 := WCT9.ftsZeroBits_l4 ⟨le_refl 16, by norm_num⟩ hc7
+    have hble : WCT9.ftsZeroBits m.1.coord.val 16 ≤ 2 := by omega
+    have hcapeq : wTrialCap m.1.coord.val m.1.level.val = 128 * 2 ^ WCT9.ftsZeroBits m.1.coord.val 16 := by
+      unfold wTrialCap WCT9.ftsNonceCap
+      rw [if_neg (by omega), if_pos ⟨h2, hc7⟩]
+    have hheap : (2:Nat) ^ (6 - m.1.level.val) + m.1.idx.val = 16 + m.1.idx.val := by rw [h2]; norm_num
+    have hev : (fun labels : Labels => ∀ j < wTrialCap m.1.coord.val m.1.level.val, wTrialFails labels m j) =
+        (fun labels : Labels => ∀ a ∈ wTrialSet m,
+          (fun v => WCT9.ftsZeroOk m.1.coord.val 16 (WCT9.ftsHalf (16 + m.1.idx.val) v) = false) (labels a)) := by
+      funext labels
+      have hl3 : ¬ m.1.level.val = 3 := by omega
+      simp only [wTrialFails, if_neg hl3, hheap]
+      apply propext
+      unfold wTrialSet
+      constructor
+      · intro h a ha
+        obtain ⟨j, hj, rfl⟩ := Finset.mem_image.mp ha
+        exact h j (Finset.mem_range.mp hj)
+      · intro h j hj
+        exact h _ (Finset.mem_image.mpr ⟨j, Finset.mem_range.mpr hj, rfl⟩)
+    rw [hev]
+    apply prob_ftsFail_le_half (WCT9.ftsHighHeap (16 + m.1.idx.val)) m.1.coord.val 16 hble
+    rw [wTrialSet_card, hcapeq]
   have hev : (fun labels : Labels => ∀ j < wTrialCap m.1.coord.val m.1.level.val, wTrialFails labels m j) =
       (fun labels : Labels => ∀ a ∈ wTrialSet m,
-        (fun v => WCT9.ftsZeroOk m.1.coord.val (2 ^ (6 - m.1.level.val)) ((wHalfPos m).proj v) = false)
-          (labels a)) := by
+        (fun v => WCT9.ftsZeroOk m.1.coord.val 8 ((Extract.Pos.forest 0).proj v) = false) (labels a)) := by
     funext labels
+    simp only [wTrialFails, if_pos h3]
     apply propext
     unfold wTrialSet
     constructor
     · intro h a ha
       obtain ⟨j, hj, rfl⟩ := Finset.mem_image.mp ha
-      exact (hw labels j).mp (h j (Finset.mem_range.mp hj))
+      exact h j (Finset.mem_range.mp hj)
     · intro h j hj
-      exact (hw labels j).mpr (h _ (Finset.mem_image.mpr ⟨j, Finset.mem_range.mpr hj, rfl⟩))
+      exact h _ (Finset.mem_image.mpr ⟨j, Finset.mem_range.mpr hj, rfl⟩)
   rw [hev]
   apply prob_ftsFail_le
   rw [wTrialSet_card]
   unfold wTrialCap WCT9.ftsNonceCap
   rw [if_pos h3]
 
-/-- E8: the nonce-0 representatives of the FTS ground positions (Y7: the 72 level-3 positions and the 64 level-2
-positions of coordinates `0..3` of each index). -/
+/-- E8: the nonce-0 representatives of the FTS ground positions. -/
 def wctReps : Finset WctNodePos :=
-  Finset.univ.filter (fun m : WctNodePos => Extract.Paired.ftsNonceLevel m.1.coord.val m.1.level.val ∧
-    m.1.nonce.val = 0)
+  Finset.univ.filter (fun m : WctNodePos => wGround m.1.coord.val m.1.level.val ∧ m.1.nonce.val = 0)
 
-/-- Y7: the slot of a ground representative among the `136` ground positions of its index. -/
-def wRepCode (m : WctNodePos) : Fin 136 :=
-  ⟨(if m.1.level.val = 3 then m.1.coord.val * 8 + m.1.idx.val % 8 else 72 + m.1.coord.val % 4 * 16 + m.1.idx.val % 16)
-    % 136, Nat.mod_lt _ (by norm_num)⟩
-
-theorem card_wctReps_le : wctReps.card ≤ 136 * 2 ^ 31 := by
-  have hU : (Finset.univ : Finset (Fin (2 ^ 31) × Fin 136)).card = 136 * 2 ^ 31 := by
-    rw [Finset.card_univ, Fintype.card_prod, Fintype.card_fin, Fintype.card_fin, mul_comm]
+/-- S5185 (FTS16, tier V1): the level-3 representatives (72 per index). -/
+theorem card_wctReps3_le :
+    (Finset.univ.filter (fun m : WctNodePos => m.1.level.val = 3 ∧ m.1.nonce.val = 0)).card ≤ 72 * 2 ^ 31 := by
+  have hU : (Finset.univ : Finset (Fin (2 ^ 31) × Fin 9 × Fin 8)).card = 72 * 2 ^ 31 := by
+    simp [Finset.card_univ, Fintype.card_prod, Fintype.card_fin]
   rw [← hU]
-  apply Finset.card_le_card_of_injOn (fun m : WctNodePos => (m.1.index, wRepCode m))
+  apply Finset.card_le_card_of_injOn (fun m : WctNodePos =>
+    (m.1.index, m.1.coord, (⟨m.1.idx.val % 8, Nat.mod_lt _ (by norm_num)⟩ : Fin 8)))
   · intro m _; simp
   · intro n hn m hm heq
-    simp only [wctReps, Finset.coe_filter, Finset.mem_univ, true_and, Set.mem_setOf_eq] at hn hm
+    simp only [Finset.coe_filter, Finset.mem_univ, true_and, Set.mem_setOf_eq] at hn hm
     have hvn : n.1.idx.val < 2 ^ (7 - n.1.level.val - 1) := n.2
     have hvm : m.1.idx.val < 2 ^ (7 - m.1.level.val - 1) := m.2
-    have hcn := n.1.coord.isLt
-    have hcm := m.1.coord.isLt
-    have bn : (n.1.level.val = 3 ∧ n.1.idx.val < 8) ∨ (n.1.level.val = 2 ∧ n.1.coord.val < 4 ∧ n.1.idx.val < 16) := by
-      rcases hn.1 with h | h
-      · left; rw [h] at hvn; exact ⟨h, by simpa using hvn⟩
-      · right; rw [h.1] at hvn; exact ⟨h.1, h.2, by simpa using hvn⟩
-    have bm : (m.1.level.val = 3 ∧ m.1.idx.val < 8) ∨ (m.1.level.val = 2 ∧ m.1.coord.val < 4 ∧ m.1.idx.val < 16) := by
-      rcases hm.1 with h | h
-      · left; rw [h] at hvm; exact ⟨h, by simpa using hvm⟩
-      · right; rw [h.1] at hvm; exact ⟨h.1, h.2, by simpa using hvm⟩
-    simp only [Prod.mk.injEq, wRepCode, Fin.mk.injEq] at heq
-    obtain ⟨h1, h4⟩ := heq
-    have key : n.1.coord.val = m.1.coord.val ∧ n.1.level.val = m.1.level.val ∧ n.1.idx.val = m.1.idx.val := by
-      rcases bn with ⟨hl, hi⟩ | ⟨hl, hc, hi⟩ <;> rcases bm with ⟨hl', hi'⟩ | ⟨hl', hc', hi''⟩ <;>
-        simp only [hl, hl', show (2:Nat) ≠ 3 by decide, ↓reduceIte] at h4 <;>
-        (rw [Nat.mod_eq_of_lt (show _ < 136 by omega), Nat.mod_eq_of_lt (show _ < 136 by omega)] at h4) <;> omega
-    obtain ⟨hc', hl', hi'⟩ := key
-    have hn0 := hn.2
-    have hm0 := hm.2
+    rw [hn.1] at hvn
+    rw [hm.1] at hvm
+    norm_num at hvn hvm
+    simp only [Prod.mk.injEq, Fin.mk.injEq] at heq
+    obtain ⟨h1, h2, h4⟩ := heq
+    rw [Nat.mod_eq_of_lt hvn, Nat.mod_eq_of_lt hvm] at h4
     obtain ⟨⟨index, coord, level, idx, nonce⟩, hv⟩ := n
     obtain ⟨⟨index', coord', level', idx', nonce'⟩, hv'⟩ := m
-    simp only at h1 hc' hl' hi' hn0 hm0
-    have e1 : coord = coord' := Fin.ext hc'
-    have e2 : level = level' := Fin.ext hl'
-    have e3 : idx = idx' := Fin.ext hi'
+    simp only at h1 h2 h4 hn hm
+    have e2 : level = level' := Fin.ext (by omega)
+    have e3 : idx = idx' := Fin.ext h4
+    have e4 : nonce = nonce' := Fin.ext (by omega)
+    subst h1 h2 e2 e3 e4
+    rfl
+
+/-- S5185 (FTS16, tier V1): the level-2 representatives of coordinates 0..7 (8 coordinates x 16 heaps per index). -/
+theorem card_wctReps2_le :
+    (Finset.univ.filter (fun m : WctNodePos => (m.1.level.val = 2 ∧ m.1.coord.val ≤ 7) ∧ m.1.nonce.val = 0)).card ≤
+      128 * 2 ^ 31 := by
+  have hU : (Finset.univ : Finset (Fin (2 ^ 31) × Fin 8 × Fin 16)).card = 128 * 2 ^ 31 := by
+    simp [Finset.card_univ, Fintype.card_prod, Fintype.card_fin]
+  rw [← hU]
+  apply Finset.card_le_card_of_injOn (fun m : WctNodePos =>
+    (m.1.index, (⟨m.1.coord.val % 8, Nat.mod_lt _ (by norm_num)⟩ : Fin 8),
+      (⟨m.1.idx.val % 16, Nat.mod_lt _ (by norm_num)⟩ : Fin 16)))
+  · intro m _; simp
+  · intro n hn m hm heq
+    simp only [Finset.coe_filter, Finset.mem_univ, true_and, Set.mem_setOf_eq] at hn hm
+    have hvn : n.1.idx.val < 2 ^ (7 - n.1.level.val - 1) := n.2
+    have hvm : m.1.idx.val < 2 ^ (7 - m.1.level.val - 1) := m.2
+    rw [hn.1.1] at hvn
+    rw [hm.1.1] at hvm
+    norm_num at hvn hvm
+    simp only [Prod.mk.injEq, Fin.mk.injEq] at heq
+    obtain ⟨h1, h2, h4⟩ := heq
+    rw [Nat.mod_eq_of_lt hvn, Nat.mod_eq_of_lt hvm] at h4
+    rw [Nat.mod_eq_of_lt (by omega : n.1.coord.val < 8), Nat.mod_eq_of_lt (by omega : m.1.coord.val < 8)] at h2
+    obtain ⟨⟨index, coord, level, idx, nonce⟩, hv⟩ := n
+    obtain ⟨⟨index', coord', level', idx', nonce'⟩, hv'⟩ := m
+    simp only at h1 h2 h4 hn hm
+    have e1 : coord = coord' := Fin.ext h2
+    have e2 : level = level' := Fin.ext (by omega)
+    have e3 : idx = idx' := Fin.ext h4
     have e4 : nonce = nonce' := Fin.ext (by omega)
     subst h1 e1 e2 e3 e4
     rfl
 
-theorem sum_wct_arith : ((136 * 2 ^ 31 : Nat) : ℝ) * (36788 / 100000 : ℝ) ^ 128 ≤ 1 / 2 ^ 145 := by
+/-- The subset step of `card_wctReps_le`, over an arbitrary finset with every instance unified (implicit), not
+synthesized: elaborating it directly on `Finset.univ : Finset WctNodePos` sends `whnf` into the concrete universe. -/
+theorem wct_filter_subset_union {α : Type} {_ : DecidableEq α} (s : Finset α) (P Q R : α → Prop)
+    {_ : DecidablePred P} {_ : DecidablePred Q} {_ : DecidablePred R} (h : ∀ a, P a → Q a ∨ R a) :
+    s.filter P ⊆ s.filter Q ∪ s.filter R := by
+  intro a ha
+  rw [Finset.mem_filter] at ha
+  rcases h a ha.2 with hq | hr
+  · exact Finset.mem_union_left _ (Finset.mem_filter.mpr ⟨ha.1, hq⟩)
+  · exact Finset.mem_union_right _ (Finset.mem_filter.mpr ⟨ha.1, hr⟩)
+
+/-- E8 + S5185 (FTS16, tier V1): `wctReps` splits into the level-3 part (72) and the level-2 part (128): 200 per
+index (tight: `WctNodeRaw.Valid` gives `idx < 2^(6-level)`, 8 at level 3, 16 at level 2). -/
+theorem card_wctReps_le : wctReps.card ≤ 200 * 2 ^ 31 := by
+  have hsplit : wctReps ⊆
+      Finset.univ.filter (fun m : WctNodePos => m.1.level.val = 3 ∧ m.1.nonce.val = 0) ∪
+        Finset.univ.filter (fun m : WctNodePos => (m.1.level.val = 2 ∧ m.1.coord.val ≤ 7) ∧ m.1.nonce.val = 0) := by
+    -- `wGround c l` is by definition `l = 3 ∨ (l = 2 ∧ c ≤ 7)` (Merge057), so `wctReps` lies in this union.
+    exact wct_filter_subset_union Finset.univ _ _ _ (fun m hm =>
+      Or.elim (show m.1.level.val = 3 ∨ (m.1.level.val = 2 ∧ m.1.coord.val ≤ 7) from hm.1)
+        (fun h => Or.inl ⟨h, hm.2⟩) (fun h => Or.inr ⟨h, hm.2⟩))
+  calc wctReps.card ≤ _ := Finset.card_le_card hsplit
+    _ ≤ _ := Finset.card_union_le _ _
+    _ ≤ 72 * 2 ^ 31 + 128 * 2 ^ 31 := Nat.add_le_add card_wctReps3_le card_wctReps2_le
+    _ = 200 * 2 ^ 31 := by norm_num
+
+theorem sum_wct_arith : ((200 * 2 ^ 31 : Nat) : ℝ) * (36788 / 100000 : ℝ) ^ 128 ≤ 1 / 2 ^ 145 := by
   norm_num
 
 theorem sum_wctReps_le (f : WctNodePos → ℝ≥0∞)
@@ -5870,9 +5998,9 @@ theorem sum_wctReps_le (f : WctNodePos → ℝ≥0∞)
   calc ∑ m ∈ wctReps, f m ≤ ∑ m ∈ wctReps, ENNReal.ofReal ((36788 / 100000 : ℝ) ^ 128) := Finset.sum_le_sum hf
     _ = (wctReps.card : ℝ≥0∞) * ENNReal.ofReal ((36788 / 100000 : ℝ) ^ 128) := by
         rw [Finset.sum_const, nsmul_eq_mul]
-    _ ≤ ((136 * 2 ^ 31 : Nat) : ℝ≥0∞) * ENNReal.ofReal ((36788 / 100000 : ℝ) ^ 128) := by
+    _ ≤ ((200 * 2 ^ 31 : Nat) : ℝ≥0∞) * ENNReal.ofReal ((36788 / 100000 : ℝ) ^ 128) := by
         gcongr; exact_mod_cast card_wctReps_le
-    _ = ENNReal.ofReal (((136 * 2 ^ 31 : Nat) : ℝ) * (36788 / 100000 : ℝ) ^ 128) := by
+    _ = ENNReal.ofReal (((200 * 2 ^ 31 : Nat) : ℝ) * (36788 / 100000 : ℝ) ^ 128) := by
         rw [ENNReal.ofReal_mul (by positivity), ENNReal.ofReal_natCast]
     _ ≤ ENNReal.ofReal (1 / 2 ^ 145) := ENNReal.ofReal_le_ofReal sum_wct_arith
     _ = (2 ^ 145 : ℝ≥0∞)⁻¹ := by
@@ -7230,7 +7358,8 @@ def selNonceV (v : Coord → Digest) (n : TreeNode) : Nat :=
 def wTrialCoord (n : WctNodePos) (j : Nat) : Coord := .inl (.wctNode (wWithNonce n j))
 /-- Value-level `wTrialFails`. -/
 def wTrialFailsV (v : Coord → Digest) (n : WctNodePos) (j : Nat) : Prop :=
-  WCT9.ftsZeroOk n.1.coord.val (2 ^ (6 - n.1.level.val)) (v (wTrialCoord n j)) = false
+  if n.1.level.val = 3 then WCT9.ftsZeroOk n.1.coord.val 8 (v (wTrialCoord n j)) = false
+  else WCT9.ftsZeroOk n.1.coord.val 16 (v (wTrialCoord n j)) = false  -- S5185 (FTS16, tier V2): level 2
 instance (v : Coord → Digest) (n : WctNodePos) (j : Nat) : Decidable (wTrialFailsV v n j) := by
   unfold wTrialFailsV; infer_instance
 /-- Value-level `WActive`. -/
@@ -7545,9 +7674,32 @@ theorem groundChildren_shape {c : Coord} (hc : c ∈ groundChildren) : ∃ n, c 
 theorem wGroundDisclosed_shape {c : Coord} (hc : c ∈ wGroundDisclosed) : ∃ n, c = .inl (.wctNode n) := by
   unfold wGroundDisclosed at hc
   obtain ⟨n, hn, hc⟩ := List.mem_flatMap.mp hc
-  have h23 : 2 ≤ n.1.level.val ∧ n.1.level.val ≤ 3 := by
+  have hg : n.1.level.val = 3 ∨ (n.1.level.val = 2 ∧ n.1.coord.val ≤ 7) := by
     simp only [Finset.mem_toList, Finset.mem_filter, Finset.mem_univ, true_and] at hn
-    by_contra h; exact hn.1 (wTrialCap_off (fun hl => h (Extract.Paired.ftsNonceLevel_le hl)))
+    by_contra h; push_neg at h
+    exact hn.1 (by unfold wTrialCap; rw [if_neg h.1, if_neg (fun h2 => by have := h.2 h2.1; omega)])
+  rcases hg with h3 | h2
+  swap
+  · -- S5185 (FTS16): level-2 ground position; children `ftsChild … 2 k` are FTS nodes (level 2 ≠ 0), as below.
+    rcases List.mem_append.mp hc with hc | hc
+    · unfold wTrialDeps at hc
+      split_ifs at hc
+      · cases hc
+      · obtain ⟨j, -, rfl⟩ := List.mem_map.mp hc
+        exact ⟨_, rfl⟩
+    · obtain ⟨⟨c', b⟩, hcs, rfl⟩ := List.mem_map.mp hc
+      simp only [childSlots] at hcs
+      have hf : ∀ k x, ftsChild n.1.index n.1.coord 2 k = some x → ∃ m, x = .inl (.wctNode m) := by
+        intro k x hx
+        unfold ftsChild at hx
+        rw [if_neg (by decide)] at hx
+        obtain ⟨m, -, rfl⟩ := Option.map_eq_some_iff.mp hx
+        exact ⟨m, rfl⟩
+      simp only [h2.1, List.mem_append, Option.mem_toList, Option.map_eq_some_iff, Prod.mk.injEq] at hcs
+      rcases hcs with (⟨x, hx, hxe, -⟩ | ⟨x, hx, hxe, -⟩) | hcs
+      · subst hxe; exact hf _ _ hx
+      · subst hxe; exact hf _ _ hx
+      · simp at hcs
   rcases List.mem_append.mp hc with hc | hc
   · unfold wTrialDeps at hc
     split_ifs at hc
@@ -7556,14 +7708,13 @@ theorem wGroundDisclosed_shape {c : Coord} (hc : c ∈ wGroundDisclosed) : ∃ n
       exact ⟨_, rfl⟩
   · obtain ⟨⟨c', b⟩, hcs, rfl⟩ := List.mem_map.mp hc
     simp only [childSlots] at hcs
-    have hf : ∀ k x, ftsChild n.1.index n.1.coord n.1.level.val k = some x → ∃ m, x = .inl (.wctNode m) := by
+    have hf : ∀ k x, ftsChild n.1.index n.1.coord 3 k = some x → ∃ m, x = .inl (.wctNode m) := by
       intro k x hx
       unfold ftsChild at hx
-      rw [if_neg (by omega)] at hx
+      rw [if_neg (by decide)] at hx
       obtain ⟨m, -, rfl⟩ := Option.map_eq_some_iff.mp hx
       exact ⟨m, rfl⟩
-    simp only [if_neg (show n.1.level.val ≠ 5 by omega), List.mem_append, Option.mem_toList,
-      Option.map_eq_some_iff, Prod.mk.injEq] at hcs
+    simp only [h3, List.mem_append, Option.mem_toList, Option.map_eq_some_iff, Prod.mk.injEq] at hcs
     rcases hcs with (⟨x, hx, hxe, -⟩ | ⟨x, hx, hxe, -⟩) | hcs
     · subst hxe; exact hf _ _ hx
     · subst hxe; exact hf _ _ hx
@@ -10734,16 +10885,16 @@ instance instDecidableEqWCoord : DecidableEq WCoord :=
   @instDecidableEqSum Coord (Message × Fin 2) inferInstance (@instDecidableEqProd Message (Fin 2) inferInstance inferInstance)
 /-- Top-layer WOTS seed addresses as plain secrets: none since campaign T8D (top seeds are leaf-family evaluations);
 the empty type keeps the shape of the plain coordinates. -/
-abbrev WTopAddr := {_a : CanonGraph.CoefficientAddress // False}
+abbrev WTopAddr := {_a : ChainGraph.Address // False}
 /-- WOTS seed families `(layer, tree, f)` (`f = famOf layer leaf`, `famSize layer f` coefficients; today one family per
 leaf). The name is kept from stage B. -/
 abbrev LowerLeaf := {_L : Layer × Fin (2 ^ 31) × Fin 4096 // True}
 /-- Secret cells that are not coefficients (address `(lay, tree, f, j)` with `j ≥ famSize lay f`): unused, not
 observable. -/
-abbrev WJunk := {a : CanonGraph.CoefficientAddress // WCT9.famSize a.layer a.leaf.val ≤ a.chain.val}
+abbrev WJunk := {a : ChainGraph.Address // WCT9.famSize a.layer a.leaf.val ≤ a.chain.val}
 /-- Plain (independently uniform) world coordinates: nodes, (no) top WOTS seeds, nonces. -/
 abbrev WPlain := (CanonGraph.Node ⊕ WTopAddr) ⊕ (Message × Fin 2)
-/-- Seed families: WOTS leaves (`famCount` coefficients) and FTS coordinates `(index, coord)` (54 coefficients). -/
+/-- Seed families: WOTS leaves (`famCount` coefficients) and FTS coordinates `(index, coord)` (42 coefficients). -/
 abbrev WFam := LowerLeaf ⊕ (Fin (2 ^ 31) × Fin 9)
 /-- Split of the world coordinates: WOTS seeds are their family `(layer, tree, famOf leaf)` at `famPoint layer leaf chain`
 (family slot `CanonGraph.famSlot`), FTS seeds are
@@ -10757,7 +10908,7 @@ def wsplit : WCoord → WPlain ⊕ (WFam × ℕ)
 /-- Embedding of the plain coordinates. -/
 def wembed : WPlain → WCoord
   | .inl (.inl N) => .inl (.inl N)
-  | .inl (.inr a) => False.elim a.2
+  | .inl (.inr a) => .inl (.inr (.inl a.1))
   | .inr m => .inr m
 theorem wsplit_addr (a : ChainGraph.Address) :
     wsplit (.inl (.inr (.inl a))) =
@@ -11138,7 +11289,7 @@ def pairedSplit : PairedCoord → WPlain ⊕ (WFam × Nat)
 
 def pairedEmbed (p : WPlain) : PairedCoord := ⟨wembed p⟩
 
-/-- Top degree23, lower-pair degree13, FTS degree53. -/
+/-- Top degree23, lower-pair degree13, FTS degree41. -/
 def pairedDegree : WFam → Nat
   | .inl L => if L.1.1=0 then 23 else 13
   | .inr _ => 41
@@ -11271,8 +11422,7 @@ noncomputable def cellValues : CanonGraph.Node → (Coord → Digest) → HashIn
       (2^(7-n.1.level.val-1)+n.1.idx.val)
       (ftsChildVal v n.1.index n.1.coord n.1.level.val (2*n.1.idx.val))
       (if n.1.level.val=4 then (padVals v n.1.index n.1.coord (n.1.idx.val/2)).2
-        else if Extract.Paired.ftsNonceLevel n.1.coord.val n.1.level.val then
-          BitVec.ofNat 128 (n.1.nonce.val % 2 ^ 64) else 0)
+        else if n.1.level.val=3 ∨ n.1.level.val=2 then BitVec.ofNat 128 (n.1.nonce.val % 2 ^ 64) else 0)
       (ftsChildVal v n.1.index n.1.coord n.1.level.val (2*n.1.idx.val+1))) else wphantom n
   | n,v => LargeResidual.cellValues n v
 noncomputable def cellFrom (N : CanonGraph.Node) (v : Coord → Digest) : HashInput := cellValues N v

@@ -28,7 +28,7 @@ theorem tiny_above256 (y rate overflow : ℝ)
   nlinarith
 
 theorem middle_absolute88 (y excess : ℝ) (hlow : 1 / 2 ^ 28 ≤ y)
-    (hhigh : y ≤ 2163 / 1000000) (hexcess : excess ≤ 2143 / 1000000) :
+    (hhigh : y ≤ 2163 / 1000000) (hexcess : excess ≤ 67 / 31250) :
     (397071 / 200000) * y + y * excess + (57079 / 10000) * y ^ 2 + 1 / 2 ^ 87 +
       (y / 2 ^ 18 + 1 / 2 ^ 700 + 1 / 2 ^ 152 + y / 2 ^ 128) ≤ 2 * y := by
   have hn : 0 ≤ y := le_trans (by positivity) hlow
@@ -50,7 +50,7 @@ theorem middle_absolute88 (y excess : ℝ) (hlow : 1 / 2 ^ 28 ≤ y)
   nlinarith
 
 theorem large_absolute88 (y excess : ℝ) (hlow : 2163 / 1000000 ≤ y)
-    (hexcess : excess ≤ (99076 / 100000) * y) :
+    (hexcess : excess ≤ (49561 / 50000) * y) :
     (2 * y - y ^ 2) + y * excess + y * (1 / 2 ^ 25) +
       y * (1 / 2 ^ 50) + 1 / 2 ^ 87 +
       (y / 2 ^ 18 + 1 / 2 ^ 700 + 1 / 2 ^ 152 + y / 2 ^ 128) ≤ 2 * y := by

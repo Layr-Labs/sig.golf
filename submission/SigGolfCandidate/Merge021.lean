@@ -268,10 +268,10 @@ set_option maxRecDepth 10000
 set_option exponentiation.threshold 1024
 
 theorem paired_partial_denominatorRC (y pwin : ℝ) (hy : y≤2163/1000000)
-    (h : pwin≤(((22894/50)+28883/2500000)/(2*(1-y))+1/(2*(1-y)^2))*y^2) :
-    pwin≤(22995/100)*y^2 := by
+    (h : pwin≤(((11447/25)+939/80000)/(2*(1-y))+1/(2*(1-y)^2))*y^2) :
+    pwin≤(4599/20)*y^2 := by
   have hd : 0<2*(1-y) := by linarith
-  have hn : ((22894/50)+(28883:ℝ)/2500000)/(2*(1-y))≤2294421/10000 := by
+  have hn : ((11447/25)+(939:ℝ)/80000)/(2*(1-y))≤2294422/10000 := by
     apply (div_le_iff₀ hd).2
     linarith
   have hbase : (997837:ℝ)/1000000≤1-y := by linarith
@@ -283,7 +283,7 @@ theorem paired_partial_denominatorRC (y pwin : ℝ) (hy : y≤2163/1000000)
 
 theorem chargeRC (y z near : ℝ) (hy0 : 0 ≤ y) (hy1 : y ≤ 2163 / 1000000)
     (hn : 0 ≤ near) (hcost : near * (1 - y) ≤ z)
-    (hquad : near ≤ (22995 / 100) * y ^ 2) :
+    (hquad : near ≤ (4599 / 20) * y ^ 2) :
     z + near - (397071 / 200000) * z ≤ (38579 / 10000) * y ^ 2 := by
   have hny := mul_le_mul_of_nonneg_left hy1 hn
   have hz : z + near - (397071 / 200000) * z ≤ (16777 / 1000000) * near := by
@@ -294,7 +294,7 @@ theorem class_budgetRC (p e o m y near : ℝ)
     (hp : 0 ≤ p) (he : 0 ≤ e) (ho : 0 ≤ o) (hm : 0 ≤ m)
     (hbudget : p + e + o + m ≤ y) (hy : y ≤ 2163 / 1000000)
     (hn : 0 ≤ near) (hcost : near * (1 - y) ≤ o)
-    (hquad : near ≤ (22995 / 100) * y ^ 2) :
+    (hquad : near ≤ (4599 / 20) * y ^ 2) :
     (397071 / 200000) * (p + e + m) + o + near ≤
       (397071 / 200000) * y + (38579 / 10000) * y ^ 2 := by
   have hy0 : 0 ≤ y := by linarith
@@ -303,7 +303,7 @@ theorem class_budgetRC (p e o m y near : ℝ)
 
 /-- Live middle window at gate 791: quadratic `8077/10000 + 778/1000 = 15857/10000`, excess `1153/10^6`. -/
 theorem grouped_middle_closingRC (y excess : ℝ) (hlow : 1 / 2 ^ 28 ≤ y)
-    (hhigh : y ≤ 2163 / 1000000) (hexcess : excess ≤ 2143 / 1000000) :
+    (hhigh : y ≤ 2163 / 1000000) (hexcess : excess ≤ 67 / 31250) :
     (397071 / 200000) * y + y * excess + (57079 / 10000) * y ^ 2 + 1 / 2 ^ 136 +
       (y / 2 ^ 18 + 1 / 2 ^ 700 + 1 / 2 ^ 152 + y / 2 ^ 128) ≤ 2 * y := by
   have hn : 0 ≤ y := le_trans (by positivity) hlow
@@ -326,8 +326,8 @@ theorem grouped_middle_closingRC (y excess : ℝ) (hlow : 1 / 2 ^ 28 ≤ y)
 
 theorem tiny_chargeRC (y z near : ℝ) (hy0 : 0 ≤ y) (hy1 : y ≤ 1 / 2 ^ 28)
     (hn : 0 ≤ near) (hcost : near * (1 - y) ≤ z)
-    (hquad : near ≤ (22995 / 100) * y ^ 2) :
-    z + near - (249 / 125) * z ≤ (22995 / 12000) * y ^ 2 := by
+    (hquad : near ≤ (4599 / 20) * y ^ 2) :
+    z + near - (249 / 125) * z ≤ (4599 / 2400) * y ^ 2 := by
   have hny := mul_le_mul_of_nonneg_left hy1 hn
   have hz : z + near - (249 / 125) * z ≤ (1 / 120) * near := by
     nlinarith
@@ -337,14 +337,14 @@ theorem tiny_class_budgetRC (p e o m y near : ℝ)
     (hp : 0 ≤ p) (he : 0 ≤ e) (ho : 0 ≤ o) (hm : 0 ≤ m)
     (hbudget : p + e + o + m ≤ y) (hy : y ≤ 1 / 2 ^ 28)
     (hn : 0 ≤ near) (hcost : near * (1 - y) ≤ o)
-    (hquad : near ≤ (22995 / 100) * y ^ 2) :
+    (hquad : near ≤ (4599 / 20) * y ^ 2) :
     (249 / 125) * (p + e + m) + o + near ≤
-      (249 / 125) * y + (22995 / 12000) * y ^ 2 := by
+      (249 / 125) * y + (4599 / 2400) * y ^ 2 := by
   have hy0 : 0 ≤ y := by linarith
   have hc := tiny_chargeRC y o near hy0 hy hn hcost hquad
   nlinarith
 
-theorem grouped_tiny_quadraticRC : (22921 / 12000 : ℝ) + 802 / 1000 ≤ 3 := by norm_num
+theorem grouped_tiny_quadraticRC : (4599 / 2400 : ℝ) + 802 / 1000 ≤ 3 := by norm_num
 
 end SigGolfCandidate.Research.V7Composed198Closing.CanonicalWindow
 end

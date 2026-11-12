@@ -1,5 +1,4 @@
-import SigGolfCandidate.LocalRouteResiduals
-import SigGolfCandidate.LocalRouteIndexExtra
+import SigGolfCandidate.AllRouteExpandSaved
 import SigGolfCandidate.Merge052
 import SigGolfCandidate.Merge054
 import SigGolfCandidate.Merge056
@@ -66,6 +65,2429 @@ theorem jalTo_sound {w : BitVec 32} {n m : Nat} (h : jalTo w n = some m) :
 end ClaudeWCT.W9.Machine.Expand
 end
 
+-- N7g: the forest chain on the bank window without chunk 959 (expand keeps the pre-R1 copy there).
+namespace W9Machine
+open SigGolfCandidate.Legacy.Riscv
+/-- N7g: the producer/verifier bank window minus chunk 959 (absolute words 245504..245759), where the expander
+keeps the pre-R1 copy: bank words 195584..245503 and 245760..254655 agree with the frozen verifier image. -/
+def WinX (im : Image) : Prop :=
+  (Frozen.image.code.drop 195584).take 40192 = (im.code.drop 195584).take 40192 ∧
+  (Frozen.image.code.drop 245760).take 8896 = (im.code.drop 245760).take 8896
+end W9Machine
+
+namespace W9Machine.N600
+open SigGolfCandidate.T3M SigGolfCandidate.Rv
+set_option maxRecDepth 200000
+set_option maxHeartbeats 0
+/-- N7g: all 563 chain certificates end below chunk 959 (word 245504). -/
+theorem allReady_inSharedBankX : ∀ rank : Fin 563, ∃ r : ChainRoutine,
+    Chain.RoutineReady (embed rank) r ∧
+    ∀ p ∈ r.pieces, 195584 ≤ p.pc ∧ p.pc + p.words.length ≤ 235776 :=
+Fin.cons ⟨Checks.routine0,Checks.ready0.1,by
+  have h : (Checks.routine0.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine1,Checks.ready1.1,by
+  have h : (Checks.routine1.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine2,Checks.ready2.1,by
+  have h : (Checks.routine2.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine3,Checks.ready3.1,by
+  have h : (Checks.routine3.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine4,Checks.ready4.1,by
+  have h : (Checks.routine4.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine5,Checks.ready5.1,by
+  have h : (Checks.routine5.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine6,Checks.ready6.1,by
+  have h : (Checks.routine6.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine7,Checks.ready7.1,by
+  have h : (Checks.routine7.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine8,Checks.ready8.1,by
+  have h : (Checks.routine8.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine9,Checks.ready9.1,by
+  have h : (Checks.routine9.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine10,Checks.ready10.1,by
+  have h : (Checks.routine10.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine11,Checks.ready11.1,by
+  have h : (Checks.routine11.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine12,Checks.ready12.1,by
+  have h : (Checks.routine12.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine13,Checks.ready13.1,by
+  have h : (Checks.routine13.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine14,Checks.ready14.1,by
+  have h : (Checks.routine14.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine15,Checks.ready15.1,by
+  have h : (Checks.routine15.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine16,Checks.ready16.1,by
+  have h : (Checks.routine16.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine17,Checks.ready17.1,by
+  have h : (Checks.routine17.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine18,Checks.ready18.1,by
+  have h : (Checks.routine18.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine19,Checks.ready19.1,by
+  have h : (Checks.routine19.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine20,Checks.ready20.1,by
+  have h : (Checks.routine20.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine21,Checks.ready21.1,by
+  have h : (Checks.routine21.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine22,Checks.ready22.1,by
+  have h : (Checks.routine22.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine23,Checks.ready23.1,by
+  have h : (Checks.routine23.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine24,Checks.ready24.1,by
+  have h : (Checks.routine24.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine25,Checks.ready25.1,by
+  have h : (Checks.routine25.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine26,Checks.ready26.1,by
+  have h : (Checks.routine26.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine27,Checks.ready27.1,by
+  have h : (Checks.routine27.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine28,Checks.ready28.1,by
+  have h : (Checks.routine28.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine29,Checks.ready29.1,by
+  have h : (Checks.routine29.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine30,Checks.ready30.1,by
+  have h : (Checks.routine30.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine31,Checks.ready31.1,by
+  have h : (Checks.routine31.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine32,Checks.ready32.1,by
+  have h : (Checks.routine32.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine33,Checks.ready33.1,by
+  have h : (Checks.routine33.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine34,Checks.ready34.1,by
+  have h : (Checks.routine34.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine35,Checks.ready35.1,by
+  have h : (Checks.routine35.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine36,Checks.ready36.1,by
+  have h : (Checks.routine36.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine37,Checks.ready37.1,by
+  have h : (Checks.routine37.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine38,Checks.ready38.1,by
+  have h : (Checks.routine38.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine39,Checks.ready39.1,by
+  have h : (Checks.routine39.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine40,Checks.ready40.1,by
+  have h : (Checks.routine40.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine41,Checks.ready41.1,by
+  have h : (Checks.routine41.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine42,Checks.ready42.1,by
+  have h : (Checks.routine42.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine43,Checks.ready43.1,by
+  have h : (Checks.routine43.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine44,Checks.ready44.1,by
+  have h : (Checks.routine44.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine45,Checks.ready45.1,by
+  have h : (Checks.routine45.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine46,Checks.ready46.1,by
+  have h : (Checks.routine46.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine47,Checks.ready47.1,by
+  have h : (Checks.routine47.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine48,Checks.ready48.1,by
+  have h : (Checks.routine48.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine49,Checks.ready49.1,by
+  have h : (Checks.routine49.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine50,Checks.ready50.1,by
+  have h : (Checks.routine50.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine51,Checks.ready51.1,by
+  have h : (Checks.routine51.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine52,Checks.ready52.1,by
+  have h : (Checks.routine52.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine53,Checks.ready53.1,by
+  have h : (Checks.routine53.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine54,Checks.ready54.1,by
+  have h : (Checks.routine54.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine55,Checks.ready55.1,by
+  have h : (Checks.routine55.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine56,Checks.ready56.1,by
+  have h : (Checks.routine56.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine57,Checks.ready57.1,by
+  have h : (Checks.routine57.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine58,Checks.ready58.1,by
+  have h : (Checks.routine58.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine59,Checks.ready59.1,by
+  have h : (Checks.routine59.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine60,Checks.ready60.1,by
+  have h : (Checks.routine60.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine61,Checks.ready61.1,by
+  have h : (Checks.routine61.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine62,Checks.ready62.1,by
+  have h : (Checks.routine62.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine63,Checks.ready63.1,by
+  have h : (Checks.routine63.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine64,Checks.ready64.1,by
+  have h : (Checks.routine64.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine65,Checks.ready65.1,by
+  have h : (Checks.routine65.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine66,Checks.ready66.1,by
+  have h : (Checks.routine66.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine67,Checks.ready67.1,by
+  have h : (Checks.routine67.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine68,Checks.ready68.1,by
+  have h : (Checks.routine68.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine69,Checks.ready69.1,by
+  have h : (Checks.routine69.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine70,Checks.ready70.1,by
+  have h : (Checks.routine70.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine71,Checks.ready71.1,by
+  have h : (Checks.routine71.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine72,Checks.ready72.1,by
+  have h : (Checks.routine72.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine73,Checks.ready73.1,by
+  have h : (Checks.routine73.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine74,Checks.ready74.1,by
+  have h : (Checks.routine74.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine75,Checks.ready75.1,by
+  have h : (Checks.routine75.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine76,Checks.ready76.1,by
+  have h : (Checks.routine76.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine77,Checks.ready77.1,by
+  have h : (Checks.routine77.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine78,Checks.ready78.1,by
+  have h : (Checks.routine78.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine79,Checks.ready79.1,by
+  have h : (Checks.routine79.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine80,Checks.ready80.1,by
+  have h : (Checks.routine80.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine81,Checks.ready81.1,by
+  have h : (Checks.routine81.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine82,Checks.ready82.1,by
+  have h : (Checks.routine82.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine83,Checks.ready83.1,by
+  have h : (Checks.routine83.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine84,Checks.ready84.1,by
+  have h : (Checks.routine84.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine85,Checks.ready85.1,by
+  have h : (Checks.routine85.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine86,Checks.ready86.1,by
+  have h : (Checks.routine86.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine87,Checks.ready87.1,by
+  have h : (Checks.routine87.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine88,Checks.ready88.1,by
+  have h : (Checks.routine88.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine89,Checks.ready89.1,by
+  have h : (Checks.routine89.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine90,Checks.ready90.1,by
+  have h : (Checks.routine90.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine91,Checks.ready91.1,by
+  have h : (Checks.routine91.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine92,Checks.ready92.1,by
+  have h : (Checks.routine92.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine93,Checks.ready93.1,by
+  have h : (Checks.routine93.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine94,Checks.ready94.1,by
+  have h : (Checks.routine94.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine95,Checks.ready95.1,by
+  have h : (Checks.routine95.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine96,Checks.ready96.1,by
+  have h : (Checks.routine96.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine97,Checks.ready97.1,by
+  have h : (Checks.routine97.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine98,Checks.ready98.1,by
+  have h : (Checks.routine98.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine99,Checks.ready99.1,by
+  have h : (Checks.routine99.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine100,Checks.ready100.1,by
+  have h : (Checks.routine100.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine101,Checks.ready101.1,by
+  have h : (Checks.routine101.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine102,Checks.ready102.1,by
+  have h : (Checks.routine102.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine103,Checks.ready103.1,by
+  have h : (Checks.routine103.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine104,Checks.ready104.1,by
+  have h : (Checks.routine104.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine105,Checks.ready105.1,by
+  have h : (Checks.routine105.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine106,Checks.ready106.1,by
+  have h : (Checks.routine106.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine107,Checks.ready107.1,by
+  have h : (Checks.routine107.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine108,Checks.ready108.1,by
+  have h : (Checks.routine108.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine109,Checks.ready109.1,by
+  have h : (Checks.routine109.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine110,Checks.ready110.1,by
+  have h : (Checks.routine110.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine111,Checks.ready111.1,by
+  have h : (Checks.routine111.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine112,Checks.ready112.1,by
+  have h : (Checks.routine112.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine113,Checks.ready113.1,by
+  have h : (Checks.routine113.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine114,Checks.ready114.1,by
+  have h : (Checks.routine114.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine115,Checks.ready115.1,by
+  have h : (Checks.routine115.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine116,Checks.ready116.1,by
+  have h : (Checks.routine116.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine117,Checks.ready117.1,by
+  have h : (Checks.routine117.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine118,Checks.ready118.1,by
+  have h : (Checks.routine118.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine119,Checks.ready119.1,by
+  have h : (Checks.routine119.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine120,Checks.ready120.1,by
+  have h : (Checks.routine120.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine121,Checks.ready121.1,by
+  have h : (Checks.routine121.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine122,Checks.ready122.1,by
+  have h : (Checks.routine122.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine123,Checks.ready123.1,by
+  have h : (Checks.routine123.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine124,Checks.ready124.1,by
+  have h : (Checks.routine124.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine125,Checks.ready125.1,by
+  have h : (Checks.routine125.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine126,Checks.ready126.1,by
+  have h : (Checks.routine126.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine127,Checks.ready127.1,by
+  have h : (Checks.routine127.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine128,Checks.ready128.1,by
+  have h : (Checks.routine128.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine129,Checks.ready129.1,by
+  have h : (Checks.routine129.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine130,Checks.ready130.1,by
+  have h : (Checks.routine130.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine131,Checks.ready131.1,by
+  have h : (Checks.routine131.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine132,Checks.ready132.1,by
+  have h : (Checks.routine132.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine133,Checks.ready133.1,by
+  have h : (Checks.routine133.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine134,Checks.ready134.1,by
+  have h : (Checks.routine134.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine135,Checks.ready135.1,by
+  have h : (Checks.routine135.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine136,Checks.ready136.1,by
+  have h : (Checks.routine136.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine137,Checks.ready137.1,by
+  have h : (Checks.routine137.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine138,Checks.ready138.1,by
+  have h : (Checks.routine138.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine139,Checks.ready139.1,by
+  have h : (Checks.routine139.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine140,Checks.ready140.1,by
+  have h : (Checks.routine140.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine141,Checks.ready141.1,by
+  have h : (Checks.routine141.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine142,Checks.ready142.1,by
+  have h : (Checks.routine142.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine143,Checks.ready143.1,by
+  have h : (Checks.routine143.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine144,Checks.ready144.1,by
+  have h : (Checks.routine144.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine145,Checks.ready145.1,by
+  have h : (Checks.routine145.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine146,Checks.ready146.1,by
+  have h : (Checks.routine146.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine147,Checks.ready147.1,by
+  have h : (Checks.routine147.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine148,Checks.ready148.1,by
+  have h : (Checks.routine148.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine149,Checks.ready149.1,by
+  have h : (Checks.routine149.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine150,Checks.ready150.1,by
+  have h : (Checks.routine150.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine151,Checks.ready151.1,by
+  have h : (Checks.routine151.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine152,Checks.ready152.1,by
+  have h : (Checks.routine152.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine153,Checks.ready153.1,by
+  have h : (Checks.routine153.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine154,Checks.ready154.1,by
+  have h : (Checks.routine154.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine155,Checks.ready155.1,by
+  have h : (Checks.routine155.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine156,Checks.ready156.1,by
+  have h : (Checks.routine156.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine157,Checks.ready157.1,by
+  have h : (Checks.routine157.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine158,Checks.ready158.1,by
+  have h : (Checks.routine158.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine159,Checks.ready159.1,by
+  have h : (Checks.routine159.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine160,Checks.ready160.1,by
+  have h : (Checks.routine160.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine161,Checks.ready161.1,by
+  have h : (Checks.routine161.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine162,Checks.ready162.1,by
+  have h : (Checks.routine162.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine163,Checks.ready163.1,by
+  have h : (Checks.routine163.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine164,Checks.ready164.1,by
+  have h : (Checks.routine164.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine165,Checks.ready165.1,by
+  have h : (Checks.routine165.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine166,Checks.ready166.1,by
+  have h : (Checks.routine166.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine167,Checks.ready167.1,by
+  have h : (Checks.routine167.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine168,Checks.ready168.1,by
+  have h : (Checks.routine168.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine169,Checks.ready169.1,by
+  have h : (Checks.routine169.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine170,Checks.ready170.1,by
+  have h : (Checks.routine170.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine171,Checks.ready171.1,by
+  have h : (Checks.routine171.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine172,Checks.ready172.1,by
+  have h : (Checks.routine172.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine173,Checks.ready173.1,by
+  have h : (Checks.routine173.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine174,Checks.ready174.1,by
+  have h : (Checks.routine174.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine175,Checks.ready175.1,by
+  have h : (Checks.routine175.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine176,Checks.ready176.1,by
+  have h : (Checks.routine176.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine177,Checks.ready177.1,by
+  have h : (Checks.routine177.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine178,Checks.ready178.1,by
+  have h : (Checks.routine178.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine179,Checks.ready179.1,by
+  have h : (Checks.routine179.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine180,Checks.ready180.1,by
+  have h : (Checks.routine180.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine181,Checks.ready181.1,by
+  have h : (Checks.routine181.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine182,Checks.ready182.1,by
+  have h : (Checks.routine182.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine183,Checks.ready183.1,by
+  have h : (Checks.routine183.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine184,Checks.ready184.1,by
+  have h : (Checks.routine184.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine185,Checks.ready185.1,by
+  have h : (Checks.routine185.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine186,Checks.ready186.1,by
+  have h : (Checks.routine186.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine187,Checks.ready187.1,by
+  have h : (Checks.routine187.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine188,Checks.ready188.1,by
+  have h : (Checks.routine188.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine189,Checks.ready189.1,by
+  have h : (Checks.routine189.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine190,Checks.ready190.1,by
+  have h : (Checks.routine190.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine191,Checks.ready191.1,by
+  have h : (Checks.routine191.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine192,Checks.ready192.1,by
+  have h : (Checks.routine192.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine193,Checks.ready193.1,by
+  have h : (Checks.routine193.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine194,Checks.ready194.1,by
+  have h : (Checks.routine194.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine195,Checks.ready195.1,by
+  have h : (Checks.routine195.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine196,Checks.ready196.1,by
+  have h : (Checks.routine196.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine197,Checks.ready197.1,by
+  have h : (Checks.routine197.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine198,Checks.ready198.1,by
+  have h : (Checks.routine198.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine199,Checks.ready199.1,by
+  have h : (Checks.routine199.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine200,Checks.ready200.1,by
+  have h : (Checks.routine200.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine201,Checks.ready201.1,by
+  have h : (Checks.routine201.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine202,Checks.ready202.1,by
+  have h : (Checks.routine202.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine203,Checks.ready203.1,by
+  have h : (Checks.routine203.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine204,Checks.ready204.1,by
+  have h : (Checks.routine204.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine205,Checks.ready205.1,by
+  have h : (Checks.routine205.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine206,Checks.ready206.1,by
+  have h : (Checks.routine206.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine207,Checks.ready207.1,by
+  have h : (Checks.routine207.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine208,Checks.ready208.1,by
+  have h : (Checks.routine208.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine209,Checks.ready209.1,by
+  have h : (Checks.routine209.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine210,Checks.ready210.1,by
+  have h : (Checks.routine210.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine211,Checks.ready211.1,by
+  have h : (Checks.routine211.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine212,Checks.ready212.1,by
+  have h : (Checks.routine212.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine213,Checks.ready213.1,by
+  have h : (Checks.routine213.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine214,Checks.ready214.1,by
+  have h : (Checks.routine214.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine215,Checks.ready215.1,by
+  have h : (Checks.routine215.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine216,Checks.ready216.1,by
+  have h : (Checks.routine216.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine217,Checks.ready217.1,by
+  have h : (Checks.routine217.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine218,Checks.ready218.1,by
+  have h : (Checks.routine218.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine219,Checks.ready219.1,by
+  have h : (Checks.routine219.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine220,Checks.ready220.1,by
+  have h : (Checks.routine220.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine221,Checks.ready221.1,by
+  have h : (Checks.routine221.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine222,Checks.ready222.1,by
+  have h : (Checks.routine222.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine223,Checks.ready223.1,by
+  have h : (Checks.routine223.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine224,Checks.ready224.1,by
+  have h : (Checks.routine224.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine225,Checks.ready225.1,by
+  have h : (Checks.routine225.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine226,Checks.ready226.1,by
+  have h : (Checks.routine226.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine227,Checks.ready227.1,by
+  have h : (Checks.routine227.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine228,Checks.ready228.1,by
+  have h : (Checks.routine228.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine229,Checks.ready229.1,by
+  have h : (Checks.routine229.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine230,Checks.ready230.1,by
+  have h : (Checks.routine230.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine231,Checks.ready231.1,by
+  have h : (Checks.routine231.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine232,Checks.ready232.1,by
+  have h : (Checks.routine232.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine233,Checks.ready233.1,by
+  have h : (Checks.routine233.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine234,Checks.ready234.1,by
+  have h : (Checks.routine234.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine235,Checks.ready235.1,by
+  have h : (Checks.routine235.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine236,Checks.ready236.1,by
+  have h : (Checks.routine236.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine237,Checks.ready237.1,by
+  have h : (Checks.routine237.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine238,Checks.ready238.1,by
+  have h : (Checks.routine238.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine239,Checks.ready239.1,by
+  have h : (Checks.routine239.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine240,Checks.ready240.1,by
+  have h : (Checks.routine240.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine241,Checks.ready241.1,by
+  have h : (Checks.routine241.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine242,Checks.ready242.1,by
+  have h : (Checks.routine242.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine243,Checks.ready243.1,by
+  have h : (Checks.routine243.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine244,Checks.ready244.1,by
+  have h : (Checks.routine244.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine245,Checks.ready245.1,by
+  have h : (Checks.routine245.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine246,Checks.ready246.1,by
+  have h : (Checks.routine246.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine247,Checks.ready247.1,by
+  have h : (Checks.routine247.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine248,Checks.ready248.1,by
+  have h : (Checks.routine248.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine249,Checks.ready249.1,by
+  have h : (Checks.routine249.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine250,Checks.ready250.1,by
+  have h : (Checks.routine250.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine251,Checks.ready251.1,by
+  have h : (Checks.routine251.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine252,Checks.ready252.1,by
+  have h : (Checks.routine252.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine253,Checks.ready253.1,by
+  have h : (Checks.routine253.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine254,Checks.ready254.1,by
+  have h : (Checks.routine254.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine255,Checks.ready255.1,by
+  have h : (Checks.routine255.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine256,Checks.ready256.1,by
+  have h : (Checks.routine256.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine257,Checks.ready257.1,by
+  have h : (Checks.routine257.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine258,Checks.ready258.1,by
+  have h : (Checks.routine258.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine259,Checks.ready259.1,by
+  have h : (Checks.routine259.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine260,Checks.ready260.1,by
+  have h : (Checks.routine260.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine261,Checks.ready261.1,by
+  have h : (Checks.routine261.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine262,Checks.ready262.1,by
+  have h : (Checks.routine262.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine263,Checks.ready263.1,by
+  have h : (Checks.routine263.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine264,Checks.ready264.1,by
+  have h : (Checks.routine264.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine265,Checks.ready265.1,by
+  have h : (Checks.routine265.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine266,Checks.ready266.1,by
+  have h : (Checks.routine266.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine267,Checks.ready267.1,by
+  have h : (Checks.routine267.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine268,Checks.ready268.1,by
+  have h : (Checks.routine268.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine269,Checks.ready269.1,by
+  have h : (Checks.routine269.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine270,Checks.ready270.1,by
+  have h : (Checks.routine270.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine271,Checks.ready271.1,by
+  have h : (Checks.routine271.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine272,Checks.ready272.1,by
+  have h : (Checks.routine272.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine273,Checks.ready273.1,by
+  have h : (Checks.routine273.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine274,Checks.ready274.1,by
+  have h : (Checks.routine274.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine275,Checks.ready275.1,by
+  have h : (Checks.routine275.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine276,Checks.ready276.1,by
+  have h : (Checks.routine276.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine277,Checks.ready277.1,by
+  have h : (Checks.routine277.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine278,Checks.ready278.1,by
+  have h : (Checks.routine278.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine279,Checks.ready279.1,by
+  have h : (Checks.routine279.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine280,Checks.ready280.1,by
+  have h : (Checks.routine280.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine281,Checks.ready281.1,by
+  have h : (Checks.routine281.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine282,Checks.ready282.1,by
+  have h : (Checks.routine282.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine283,Checks.ready283.1,by
+  have h : (Checks.routine283.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine284,Checks.ready284.1,by
+  have h : (Checks.routine284.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine285,Checks.ready285.1,by
+  have h : (Checks.routine285.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine286,Checks.ready286.1,by
+  have h : (Checks.routine286.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine287,Checks.ready287.1,by
+  have h : (Checks.routine287.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine288,Checks.ready288.1,by
+  have h : (Checks.routine288.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine289,Checks.ready289.1,by
+  have h : (Checks.routine289.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine290,Checks.ready290.1,by
+  have h : (Checks.routine290.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine291,Checks.ready291.1,by
+  have h : (Checks.routine291.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine292,Checks.ready292.1,by
+  have h : (Checks.routine292.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine293,Checks.ready293.1,by
+  have h : (Checks.routine293.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine294,Checks.ready294.1,by
+  have h : (Checks.routine294.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine295,Checks.ready295.1,by
+  have h : (Checks.routine295.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine296,Checks.ready296.1,by
+  have h : (Checks.routine296.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine297,Checks.ready297.1,by
+  have h : (Checks.routine297.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine298,Checks.ready298.1,by
+  have h : (Checks.routine298.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine299,Checks.ready299.1,by
+  have h : (Checks.routine299.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine300,Checks.ready300.1,by
+  have h : (Checks.routine300.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine301,Checks.ready301.1,by
+  have h : (Checks.routine301.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine302,Checks.ready302.1,by
+  have h : (Checks.routine302.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine303,Checks.ready303.1,by
+  have h : (Checks.routine303.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine304,Checks.ready304.1,by
+  have h : (Checks.routine304.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine305,Checks.ready305.1,by
+  have h : (Checks.routine305.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine306,Checks.ready306.1,by
+  have h : (Checks.routine306.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine307,Checks.ready307.1,by
+  have h : (Checks.routine307.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine308,Checks.ready308.1,by
+  have h : (Checks.routine308.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine309,Checks.ready309.1,by
+  have h : (Checks.routine309.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine310,Checks.ready310.1,by
+  have h : (Checks.routine310.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine311,Checks.ready311.1,by
+  have h : (Checks.routine311.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine312,Checks.ready312.1,by
+  have h : (Checks.routine312.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine313,Checks.ready313.1,by
+  have h : (Checks.routine313.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine314,Checks.ready314.1,by
+  have h : (Checks.routine314.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine315,Checks.ready315.1,by
+  have h : (Checks.routine315.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine316,Checks.ready316.1,by
+  have h : (Checks.routine316.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine317,Checks.ready317.1,by
+  have h : (Checks.routine317.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine318,Checks.ready318.1,by
+  have h : (Checks.routine318.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine319,Checks.ready319.1,by
+  have h : (Checks.routine319.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine320,Checks.ready320.1,by
+  have h : (Checks.routine320.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine321,Checks.ready321.1,by
+  have h : (Checks.routine321.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine322,Checks.ready322.1,by
+  have h : (Checks.routine322.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine323,Checks.ready323.1,by
+  have h : (Checks.routine323.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine324,Checks.ready324.1,by
+  have h : (Checks.routine324.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine325,Checks.ready325.1,by
+  have h : (Checks.routine325.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine326,Checks.ready326.1,by
+  have h : (Checks.routine326.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine327,Checks.ready327.1,by
+  have h : (Checks.routine327.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine328,Checks.ready328.1,by
+  have h : (Checks.routine328.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine329,Checks.ready329.1,by
+  have h : (Checks.routine329.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine330,Checks.ready330.1,by
+  have h : (Checks.routine330.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine331,Checks.ready331.1,by
+  have h : (Checks.routine331.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine332,Checks.ready332.1,by
+  have h : (Checks.routine332.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine333,Checks.ready333.1,by
+  have h : (Checks.routine333.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine334,Checks.ready334.1,by
+  have h : (Checks.routine334.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine335,Checks.ready335.1,by
+  have h : (Checks.routine335.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine336,Checks.ready336.1,by
+  have h : (Checks.routine336.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine337,Checks.ready337.1,by
+  have h : (Checks.routine337.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine338,Checks.ready338.1,by
+  have h : (Checks.routine338.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine339,Checks.ready339.1,by
+  have h : (Checks.routine339.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine340,Checks.ready340.1,by
+  have h : (Checks.routine340.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine341,Checks.ready341.1,by
+  have h : (Checks.routine341.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine342,Checks.ready342.1,by
+  have h : (Checks.routine342.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine343,Checks.ready343.1,by
+  have h : (Checks.routine343.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine344,Checks.ready344.1,by
+  have h : (Checks.routine344.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine345,Checks.ready345.1,by
+  have h : (Checks.routine345.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine346,Checks.ready346.1,by
+  have h : (Checks.routine346.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine347,Checks.ready347.1,by
+  have h : (Checks.routine347.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine348,Checks.ready348.1,by
+  have h : (Checks.routine348.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine349,Checks.ready349.1,by
+  have h : (Checks.routine349.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine350,Checks.ready350.1,by
+  have h : (Checks.routine350.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine351,Checks.ready351.1,by
+  have h : (Checks.routine351.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine352,Checks.ready352.1,by
+  have h : (Checks.routine352.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine353,Checks.ready353.1,by
+  have h : (Checks.routine353.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine354,Checks.ready354.1,by
+  have h : (Checks.routine354.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine355,Checks.ready355.1,by
+  have h : (Checks.routine355.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine356,Checks.ready356.1,by
+  have h : (Checks.routine356.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine357,Checks.ready357.1,by
+  have h : (Checks.routine357.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine358,Checks.ready358.1,by
+  have h : (Checks.routine358.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine359,Checks.ready359.1,by
+  have h : (Checks.routine359.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine360,Checks.ready360.1,by
+  have h : (Checks.routine360.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine361,Checks.ready361.1,by
+  have h : (Checks.routine361.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine362,Checks.ready362.1,by
+  have h : (Checks.routine362.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine363,Checks.ready363.1,by
+  have h : (Checks.routine363.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine364,Checks.ready364.1,by
+  have h : (Checks.routine364.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine365,Checks.ready365.1,by
+  have h : (Checks.routine365.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine366,Checks.ready366.1,by
+  have h : (Checks.routine366.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine367,Checks.ready367.1,by
+  have h : (Checks.routine367.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine368,Checks.ready368.1,by
+  have h : (Checks.routine368.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine369,Checks.ready369.1,by
+  have h : (Checks.routine369.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine370,Checks.ready370.1,by
+  have h : (Checks.routine370.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine371,Checks.ready371.1,by
+  have h : (Checks.routine371.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine372,Checks.ready372.1,by
+  have h : (Checks.routine372.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine373,Checks.ready373.1,by
+  have h : (Checks.routine373.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine374,Checks.ready374.1,by
+  have h : (Checks.routine374.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine375,Checks.ready375.1,by
+  have h : (Checks.routine375.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine376,Checks.ready376.1,by
+  have h : (Checks.routine376.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine377,Checks.ready377.1,by
+  have h : (Checks.routine377.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine378,Checks.ready378.1,by
+  have h : (Checks.routine378.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine379,Checks.ready379.1,by
+  have h : (Checks.routine379.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine380,Checks.ready380.1,by
+  have h : (Checks.routine380.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine381,Checks.ready381.1,by
+  have h : (Checks.routine381.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine382,Checks.ready382.1,by
+  have h : (Checks.routine382.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine383,Checks.ready383.1,by
+  have h : (Checks.routine383.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine384,Checks.ready384.1,by
+  have h : (Checks.routine384.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine385,Checks.ready385.1,by
+  have h : (Checks.routine385.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine386,Checks.ready386.1,by
+  have h : (Checks.routine386.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine387,Checks.ready387.1,by
+  have h : (Checks.routine387.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine388,Checks.ready388.1,by
+  have h : (Checks.routine388.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine389,Checks.ready389.1,by
+  have h : (Checks.routine389.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine390,Checks.ready390.1,by
+  have h : (Checks.routine390.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine391,Checks.ready391.1,by
+  have h : (Checks.routine391.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine392,Checks.ready392.1,by
+  have h : (Checks.routine392.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine393,Checks.ready393.1,by
+  have h : (Checks.routine393.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine394,Checks.ready394.1,by
+  have h : (Checks.routine394.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine395,Checks.ready395.1,by
+  have h : (Checks.routine395.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine396,Checks.ready396.1,by
+  have h : (Checks.routine396.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine397,Checks.ready397.1,by
+  have h : (Checks.routine397.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine398,Checks.ready398.1,by
+  have h : (Checks.routine398.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine399,Checks.ready399.1,by
+  have h : (Checks.routine399.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine400,Checks.ready400.1,by
+  have h : (Checks.routine400.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine401,Checks.ready401.1,by
+  have h : (Checks.routine401.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine402,Checks.ready402.1,by
+  have h : (Checks.routine402.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine403,Checks.ready403.1,by
+  have h : (Checks.routine403.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine404,Checks.ready404.1,by
+  have h : (Checks.routine404.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine405,Checks.ready405.1,by
+  have h : (Checks.routine405.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine406,Checks.ready406.1,by
+  have h : (Checks.routine406.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine407,Checks.ready407.1,by
+  have h : (Checks.routine407.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine408,Checks.ready408.1,by
+  have h : (Checks.routine408.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine409,Checks.ready409.1,by
+  have h : (Checks.routine409.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine410,Checks.ready410.1,by
+  have h : (Checks.routine410.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine411,Checks.ready411.1,by
+  have h : (Checks.routine411.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine412,Checks.ready412.1,by
+  have h : (Checks.routine412.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine413,Checks.ready413.1,by
+  have h : (Checks.routine413.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine414,Checks.ready414.1,by
+  have h : (Checks.routine414.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine415,Checks.ready415.1,by
+  have h : (Checks.routine415.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine416,Checks.ready416.1,by
+  have h : (Checks.routine416.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine417,Checks.ready417.1,by
+  have h : (Checks.routine417.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine418,Checks.ready418.1,by
+  have h : (Checks.routine418.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine419,Checks.ready419.1,by
+  have h : (Checks.routine419.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine420,Checks.ready420.1,by
+  have h : (Checks.routine420.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine421,Checks.ready421.1,by
+  have h : (Checks.routine421.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine422,Checks.ready422.1,by
+  have h : (Checks.routine422.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine423,Checks.ready423.1,by
+  have h : (Checks.routine423.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine424,Checks.ready424.1,by
+  have h : (Checks.routine424.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine425,Checks.ready425.1,by
+  have h : (Checks.routine425.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine426,Checks.ready426.1,by
+  have h : (Checks.routine426.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine427,Checks.ready427.1,by
+  have h : (Checks.routine427.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine428,Checks.ready428.1,by
+  have h : (Checks.routine428.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine429,Checks.ready429.1,by
+  have h : (Checks.routine429.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine430,Checks.ready430.1,by
+  have h : (Checks.routine430.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine431,Checks.ready431.1,by
+  have h : (Checks.routine431.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine432,Checks.ready432.1,by
+  have h : (Checks.routine432.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine433,Checks.ready433.1,by
+  have h : (Checks.routine433.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine434,Checks.ready434.1,by
+  have h : (Checks.routine434.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine435,Checks.ready435.1,by
+  have h : (Checks.routine435.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine436,Checks.ready436.1,by
+  have h : (Checks.routine436.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine437,Checks.ready437.1,by
+  have h : (Checks.routine437.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine438,Checks.ready438.1,by
+  have h : (Checks.routine438.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine439,Checks.ready439.1,by
+  have h : (Checks.routine439.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine440,Checks.ready440.1,by
+  have h : (Checks.routine440.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine441,Checks.ready441.1,by
+  have h : (Checks.routine441.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine442,Checks.ready442.1,by
+  have h : (Checks.routine442.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine443,Checks.ready443.1,by
+  have h : (Checks.routine443.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine444,Checks.ready444.1,by
+  have h : (Checks.routine444.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine445,Checks.ready445.1,by
+  have h : (Checks.routine445.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine446,Checks.ready446.1,by
+  have h : (Checks.routine446.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine447,Checks.ready447.1,by
+  have h : (Checks.routine447.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine448,Checks.ready448.1,by
+  have h : (Checks.routine448.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine449,Checks.ready449.1,by
+  have h : (Checks.routine449.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine450,Checks.ready450.1,by
+  have h : (Checks.routine450.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine451,Checks.ready451.1,by
+  have h : (Checks.routine451.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine452,Checks.ready452.1,by
+  have h : (Checks.routine452.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine453,Checks.ready453.1,by
+  have h : (Checks.routine453.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine454,Checks.ready454.1,by
+  have h : (Checks.routine454.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine455,Checks.ready455.1,by
+  have h : (Checks.routine455.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine456,Checks.ready456.1,by
+  have h : (Checks.routine456.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine457,Checks.ready457.1,by
+  have h : (Checks.routine457.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine458,Checks.ready458.1,by
+  have h : (Checks.routine458.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine459,Checks.ready459.1,by
+  have h : (Checks.routine459.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine460,Checks.ready460.1,by
+  have h : (Checks.routine460.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine461,Checks.ready461.1,by
+  have h : (Checks.routine461.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine462,Checks.ready462.1,by
+  have h : (Checks.routine462.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine463,Checks.ready463.1,by
+  have h : (Checks.routine463.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine464,Checks.ready464.1,by
+  have h : (Checks.routine464.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine465,Checks.ready465.1,by
+  have h : (Checks.routine465.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine466,Checks.ready466.1,by
+  have h : (Checks.routine466.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine467,Checks.ready467.1,by
+  have h : (Checks.routine467.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine468,Checks.ready468.1,by
+  have h : (Checks.routine468.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine469,Checks.ready469.1,by
+  have h : (Checks.routine469.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine470,Checks.ready470.1,by
+  have h : (Checks.routine470.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine471,Checks.ready471.1,by
+  have h : (Checks.routine471.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine472,Checks.ready472.1,by
+  have h : (Checks.routine472.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine473,Checks.ready473.1,by
+  have h : (Checks.routine473.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine474,Checks.ready474.1,by
+  have h : (Checks.routine474.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine475,Checks.ready475.1,by
+  have h : (Checks.routine475.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine476,Checks.ready476.1,by
+  have h : (Checks.routine476.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine477,Checks.ready477.1,by
+  have h : (Checks.routine477.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine478,Checks.ready478.1,by
+  have h : (Checks.routine478.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine479,Checks.ready479.1,by
+  have h : (Checks.routine479.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine480,Checks.ready480.1,by
+  have h : (Checks.routine480.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine481,Checks.ready481.1,by
+  have h : (Checks.routine481.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine482,Checks.ready482.1,by
+  have h : (Checks.routine482.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine483,Checks.ready483.1,by
+  have h : (Checks.routine483.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine484,Checks.ready484.1,by
+  have h : (Checks.routine484.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine485,Checks.ready485.1,by
+  have h : (Checks.routine485.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine486,Checks.ready486.1,by
+  have h : (Checks.routine486.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine487,Checks.ready487.1,by
+  have h : (Checks.routine487.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine488,Checks.ready488.1,by
+  have h : (Checks.routine488.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine489,Checks.ready489.1,by
+  have h : (Checks.routine489.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine490,Checks.ready490.1,by
+  have h : (Checks.routine490.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine491,Checks.ready491.1,by
+  have h : (Checks.routine491.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine492,Checks.ready492.1,by
+  have h : (Checks.routine492.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine493,Checks.ready493.1,by
+  have h : (Checks.routine493.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine494,Checks.ready494.1,by
+  have h : (Checks.routine494.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine495,Checks.ready495.1,by
+  have h : (Checks.routine495.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine496,Checks.ready496.1,by
+  have h : (Checks.routine496.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine497,Checks.ready497.1,by
+  have h : (Checks.routine497.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine498,Checks.ready498.1,by
+  have h : (Checks.routine498.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine499,Checks.ready499.1,by
+  have h : (Checks.routine499.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine500,Checks.ready500.1,by
+  have h : (Checks.routine500.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine501,Checks.ready501.1,by
+  have h : (Checks.routine501.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine502,Checks.ready502.1,by
+  have h : (Checks.routine502.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine503,Checks.ready503.1,by
+  have h : (Checks.routine503.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine504,Checks.ready504.1,by
+  have h : (Checks.routine504.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine505,Checks.ready505.1,by
+  have h : (Checks.routine505.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine506,Checks.ready506.1,by
+  have h : (Checks.routine506.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine507,Checks.ready507.1,by
+  have h : (Checks.routine507.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine508,Checks.ready508.1,by
+  have h : (Checks.routine508.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine509,Checks.ready509.1,by
+  have h : (Checks.routine509.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine510,Checks.ready510.1,by
+  have h : (Checks.routine510.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine511,Checks.ready511.1,by
+  have h : (Checks.routine511.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine512,Checks.ready512.1,by
+  have h : (Checks.routine512.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine513,Checks.ready513.1,by
+  have h : (Checks.routine513.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine514,Checks.ready514.1,by
+  have h : (Checks.routine514.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine515,Checks.ready515.1,by
+  have h : (Checks.routine515.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine516,Checks.ready516.1,by
+  have h : (Checks.routine516.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine517,Checks.ready517.1,by
+  have h : (Checks.routine517.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine518,Checks.ready518.1,by
+  have h : (Checks.routine518.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine519,Checks.ready519.1,by
+  have h : (Checks.routine519.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine520,Checks.ready520.1,by
+  have h : (Checks.routine520.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine521,Checks.ready521.1,by
+  have h : (Checks.routine521.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine522,Checks.ready522.1,by
+  have h : (Checks.routine522.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine523,Checks.ready523.1,by
+  have h : (Checks.routine523.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine524,Checks.ready524.1,by
+  have h : (Checks.routine524.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine525,Checks.ready525.1,by
+  have h : (Checks.routine525.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine526,Checks.ready526.1,by
+  have h : (Checks.routine526.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine527,Checks.ready527.1,by
+  have h : (Checks.routine527.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine528,Checks.ready528.1,by
+  have h : (Checks.routine528.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine529,Checks.ready529.1,by
+  have h : (Checks.routine529.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine530,Checks.ready530.1,by
+  have h : (Checks.routine530.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine531,Checks.ready531.1,by
+  have h : (Checks.routine531.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine532,Checks.ready532.1,by
+  have h : (Checks.routine532.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine533,Checks.ready533.1,by
+  have h : (Checks.routine533.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine534,Checks.ready534.1,by
+  have h : (Checks.routine534.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine535,Checks.ready535.1,by
+  have h : (Checks.routine535.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine536,Checks.ready536.1,by
+  have h : (Checks.routine536.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine537,Checks.ready537.1,by
+  have h : (Checks.routine537.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine538,Checks.ready538.1,by
+  have h : (Checks.routine538.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine539,Checks.ready539.1,by
+  have h : (Checks.routine539.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine540,Checks.ready540.1,by
+  have h : (Checks.routine540.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine541,Checks.ready541.1,by
+  have h : (Checks.routine541.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine542,Checks.ready542.1,by
+  have h : (Checks.routine542.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine543,Checks.ready543.1,by
+  have h : (Checks.routine543.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine544,Checks.ready544.1,by
+  have h : (Checks.routine544.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine545,Checks.ready545.1,by
+  have h : (Checks.routine545.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine546,Checks.ready546.1,by
+  have h : (Checks.routine546.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine547,Checks.ready547.1,by
+  have h : (Checks.routine547.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine548,Checks.ready548.1,by
+  have h : (Checks.routine548.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine549,Checks.ready549.1,by
+  have h : (Checks.routine549.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine550,Checks.ready550.1,by
+  have h : (Checks.routine550.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine551,Checks.ready551.1,by
+  have h : (Checks.routine551.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine552,Checks.ready552.1,by
+  have h : (Checks.routine552.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine553,Checks.ready553.1,by
+  have h : (Checks.routine553.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine554,Checks.ready554.1,by
+  have h : (Checks.routine554.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine555,Checks.ready555.1,by
+  have h : (Checks.routine555.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine556,Checks.ready556.1,by
+  have h : (Checks.routine556.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine557,Checks.ready557.1,by
+  have h : (Checks.routine557.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine558,Checks.ready558.1,by
+  have h : (Checks.routine558.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine559,Checks.ready559.1,by
+  have h : (Checks.routine559.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine560,Checks.ready560.1,by
+  have h : (Checks.routine560.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine561,Checks.ready561.1,by
+  have h : (Checks.routine561.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+Fin.cons ⟨Checks.routine562,Checks.ready562.1,by
+  have h : (Checks.routine562.pieces.all fun p => decide (195584≤p.pc ∧ p.pc+p.words.length≤235776))=true := by decide +kernel
+  intro p hp
+  exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
+(fun i => Fin.elim0 i))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
+end W9Machine.N600
+
+namespace W9Machine.N600
+open SigGolfCandidate.T3M SigGolfCandidate.Rv RiscvZkvm.Rv64
+/-- N7g: `tbsim_sharedBank` on the window without chunk 959. -/
+theorem tbsim_sharedBankX (L : Layout) (sk : BitVec 256) (hwindow : WinX L.image)
+    (hchain : ∀ rank, L.chainWord rank = Frozen.layout.chainWord rank)
+    (rank : Fin 563) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128) (u : MachineState)
+    (hu : Pre L w index k j rank u) :
+    TBSim L.image sk u 89 (program w index k j rank) (Post L w index k j u) := by
+  obtain ⟨r,hr,hbounds⟩ := allReady_inSharedBankX rank
+  apply tbsim_of_ready_layout L sk hchain V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect
+    rank r hr ?_ w index k j u hu
+  intro p hp
+  exact codeAt_of_window_eq (source := Frozen.image) (target := L.image)
+    (start := 195584) (count := 40192) (hbounds p hp).1 (hbounds p hp).2
+    (by decide) hwindow.1 (slice_at p.pc p.words (hr.linked p hp).1)
+end W9Machine.N600
+
+namespace W9Drv.SharedBank
+open SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv SigGolfCandidate.T3M
+theorem word_of_winX {target : Image} {base : Nat} (hw : W9Machine.WinX target)
+    (h : (195584 ≤ base ∧ base < 235776) ∨ (245760 ≤ base ∧ base < 254656)) :
+    target.code[base]? = W9Machine.Frozen.image.code[base]? := by
+  rcases h with ⟨hlo, hhi⟩ | ⟨hlo, hhi⟩
+  · have h := image_slice_of_window (base := base) (len := 1) hlo (by omega) hw.1
+    have h0 := congrArg (fun xs : List (BitVec 32) => xs[0]?) h
+    simpa only [List.getElem?_take, show 0 < 1 from by decide, ↓reduceIte,
+      List.getElem?_drop, Nat.add_zero] using h0.symm
+  · have h := image_slice_of_window (base := base) (len := 1) hlo (by omega) hw.2
+    have h0 := congrArg (fun xs : List (BitVec 32) => xs[0]?) h
+    simpa only [List.getElem?_take, show 0 < 1 from by decide, ↓reduceIte,
+      List.getElem?_drop, Nat.add_zero] using h0.symm
+end W9Drv.SharedBank
+
+namespace W9Drv.SharedAProof
+open SigGolfCandidate.Legacy.Riscv
+set_option maxRecDepth 100000
+set_option maxHeartbeats 0
+/-- N7g: bank A lies below chunk 959. -/
+theorem child_bank_boundsX (j : Nat) (hj : j<128) :
+    195584≤childBase j ∧ childBase j+(childWords j).length≤235776 := by
+  have hall : ∀ j : Fin 128, 195584≤childBase j.val ∧ childBase j.val+(childWords j.val).length≤235776 := by
+    intro j; fin_cases j <;> decide +kernel
+  exact hall ⟨j,hj⟩
+theorem childCodeAt_transferX {target : Image} (j : Nat) (hj : j<128) (hw : W9Machine.WinX target)
+    (hc : ChildCodeAt W9Machine.Frozen.image j) : ChildCodeAt target j := by
+  intro i word hi
+  have hb := child_bank_boundsX j hj
+  obtain ⟨hil, hival⟩ := List.getElem?_eq_some_iff.mp hi
+  rw [W9Drv.SharedBank.word_of_winX hw (Or.inl ⟨by omega, by omega⟩)]
+  exact hc i word hi
+end W9Drv.SharedAProof
+
+namespace W9Drv.SharedBProof
+open SigGolfCandidate.Legacy.Riscv
+set_option maxRecDepth 100000
+set_option maxHeartbeats 0
+/-- N7g: bank B lies above chunk 959. -/
+theorem child_bank_boundsX (j : Nat) (hj : j<128) :
+    245760≤childBase j ∧ childBase j+(childWords j).length≤254656 := by
+  have hall : ∀ j : Fin 128, 245760≤childBase j.val ∧ childBase j.val+(childWords j.val).length≤254656 := by
+    intro j; fin_cases j <;> decide +kernel
+  exact hall ⟨j,hj⟩
+theorem childCodeAt_transferX {target : Image} (j : Nat) (hj : j<128) (hw : W9Machine.WinX target)
+    (hc : ChildCodeAt W9Machine.Frozen.image j) : ChildCodeAt target j := by
+  intro i word hi
+  have hb := child_bank_boundsX j hj
+  obtain ⟨hil, hival⟩ := List.getElem?_eq_some_iff.mp hi
+  rw [W9Drv.SharedBank.word_of_winX hw (Or.inr ⟨by omega, by omega⟩)]
+  exact hc i word hi
+end W9Drv.SharedBProof
+
+namespace W9Drv.SharedCProof
+open SigGolfCandidate.Legacy.Riscv
+/- VR8: the node-8 bank (verify 235776..244223) differs between verify (inlined L3 heads) and expand (old routine
+with `ret`), so `childCodeAt_transferX` (C) is deleted; the expand C bank code is `CopyCodes.bankC`
+(FtsExpandImage `bankCode_C`).  Base text:
+set_option maxRecDepth 100000
+set_option maxHeartbeats 0
+/-- N7g: bank C lies below chunk 959. -/
+theorem child_bank_boundsX (j : Nat) (hj : j<128) :
+    195584≤childBase j ∧ childBase j+(childWords j).length≤245504 := by
+  have hall : ∀ j : Fin 128, 195584≤childBase j.val ∧ childBase j.val+(childWords j.val).length≤245504 := by
+    intro j; fin_cases j <;> decide +kernel
+  exact hall ⟨j,hj⟩
+theorem childCodeAt_transferX {target : Image} (j : Nat) (hj : j<128) (hw : W9Machine.WinX target)
+    (hc : ChildCodeAt W9Machine.Frozen.image j) : ChildCodeAt target j := by
+  intro i word hi
+  have hb := child_bank_boundsX j hj
+  obtain ⟨hil, hival⟩ := List.getElem?_eq_some_iff.mp hi
+  rw [W9Drv.SharedBank.word_of_winX hw (Or.inl ⟨by omega, by omega⟩)]
+  exact hc i word hi
+-/
+end W9Drv.SharedCProof
+
+namespace W9Drv.SharedBank
+open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
+open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify W9Machine
+open SigGolfCandidate.T3 (Digest)
+open SigGolfCandidate.FtsGrind (SEARCH searchWords trampWords widthOf W_SEARCH ftsWidth COPY_FIRST COPY_K8 COPY_ODD)
+set_option maxRecDepth 100000
+set_option maxHeartbeats 1000000
+/-- N7g: `childG_tbsim` on the window without chunk 959. -/
+theorem childG_tbsimX (L : W9Machine.Layout) (sk : BitVec 256) (k : Fin 9) (raw : Fin 128)
+    (hwindow : W9Machine.WinX L.image)
+    (hcodes : CopyCodes L.image)
+    (hchild : L.childWord raw = copyWord k.val raw.val)
+    (hbase : Chain.base L k = 9768 - 848 * k.val)
+    (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (ends : List Digest) (x : MachineState)
+    (hx : SharedChild.Pre L w index k raw ends x) :
+    TBSim L.image sk x (costG k) (SharedChild.childProgramG w index k raw ends)
+      (SharedChild.PostC L k raw x) := by
+  have hk := k.isLt
+  have hlo : 1848 ≤ Chain.base L k := by rw [hbase]; omega
+  have hB : Chain.base L k < 2 ^ 14 := by rw [hbase]; omega
+  have hw : widthOf (Chain.base L k) = ftsWidth k.val := by rw [hbase]; exact widthOf_eRegion k
+  have hpj := SharedV3.physical_lt k.val raw.val raw.isLt
+  cases hf : SharedV3.first k.val with
+  | true =>
+    have hn : k.val < 8 ∧ k.val % 2 = 0 := by simpa only [SharedV3.first, decide_eq_true_eq] using hf
+    have hphys : SharedV3.physical k.val raw.val = raw.val := by
+      simp only [SharedV3.physical, hf, SigGolfCandidate.Research.SharedForest.physicalChild, ↓reduceIte]
+    have he : L.childWord raw = SharedAProof.copyBase raw.val := by
+      rw [hchild]; unfold copyWord SharedAProof.copyBase SharedAProof.cSlot; rw [if_pos hn]
+    have H := SharedAProof.sharedC_tbsim (sk := sk) k raw hf he (hcodes.copyA _ raw.isLt)
+      (SharedAProof.childCodeAt_transferX raw.val raw.isLt hwindow (SharedAProof.shared_code raw.val raw.isLt))
+      hcodes.search (hcodes.trampA _ raw.isLt) (hcodes.search2 _) (hcodes.tramp2A _ raw.isLt) hlo hB hw w index ends x hx
+    exact H.mono (by have := copy_cost2_A raw; unfold costG; omega) (fun _ _ h => h)
+  | false =>
+    have hn : ¬(k.val < 8 ∧ k.val % 2 = 0) := by simpa only [SharedV3.first, decide_eq_false_iff_not] using hf
+    have hraw : 2 * (SharedV3.physical k.val raw.val % 64) + SharedV3.physical k.val raw.val / 64 = raw.val := by
+      have h := SigGolfCandidate.Research.SharedForest.raw_physical_child false raw.val raw.isLt
+      simpa only [SigGolfCandidate.Research.SharedForest.rawChild,
+        SharedV3.physical, hf, Bool.false_eq_true, ↓reduceIte] using h
+    by_cases hc : k.val = 8
+    · have he : L.childWord raw = SharedCProof.copyBase (SharedV3.physical k.val raw.val) := by
+        rw [hchild]; unfold copyWord SharedCProof.copyBase SharedCProof.cSlot; rw [if_neg hn, if_pos hc, hraw]
+      -- S6: coordinate 8 sits at `9768 - 848 * 8 = 2984 < 3400` (plain level 2)
+      have hB3 : Chain.base L k < 3400 := by rw [hbase]; omega
+      have H := SharedCProof.sharedC_tbsim (sk := sk) k raw hf hc he (hcodes.copyC _ hpj)
+        (hcodes.bankC _ hpj)
+        hcodes.search (hcodes.trampC _ hpj) (hcodes.search2 _) (hcodes.tramp2C _ hpj) hlo hB hB3 hw w index ends x hx
+      exact H.mono (by have := copy_cost2_C ⟨_, hpj⟩; dsimp only at this; unfold costG; omega) (fun _ _ h => h)
+    · have he : L.childWord raw = SharedBProof.copyBase (SharedV3.physical k.val raw.val) := by
+        rw [hchild]; unfold copyWord SharedBProof.copyBase SharedBProof.cSlot; rw [if_neg hn, if_neg hc, hraw]
+      have H := SharedBProof.sharedC_tbsim (sk := sk) k raw hf hc he (hcodes.copyB _ hpj)
+        (SharedBProof.childCodeAt_transferX _ hpj hwindow (SharedBProof.shared_code _ hpj))
+        hcodes.search (hcodes.trampB _ hpj) (hcodes.search2 _) (hcodes.tramp2B _ hpj) hlo hB hw w index ends x hx
+      exact H.mono (by have := copy_cost2_B ⟨_, hpj⟩; dsimp only at this; unfold costG; omega) (fun _ _ h => h)
+end W9Drv.SharedBank
+
 namespace ClaudeWCT.W9.Machine.Expand.SharedCore
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
 open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify W9Machine
@@ -75,12 +2497,12 @@ set_option maxRecDepth 100000
 
 /-- E8: after the chain and the child's copy routine (the record, the zeroed scratch). -/
 def Post (L : W9Machine.Layout) (w : W9Machine.WBytes) (index : Nat) (k : Fin 9) (raw : Fin 128)
-    (entry : MachineState) (res : Digest × Nat × Nat) (result : MachineState) : Prop :=
+    (entry : MachineState) (res : Digest × Nat) (result : MachineState) : Prop :=
   ∃ ends childEntry,Chain.Post L w index k raw entry ends childEntry ∧
     SharedChild.PostC L k raw childEntry res result
 
 theorem core_tbsim (L : W9Machine.Layout) (sk : BitVec 256)
-    (hwindow : (Frozen.image.code.drop 195584).take 59072=(L.image.code.drop 195584).take 59072)
+    (hwindow : W9Machine.WinX L.image)
     (hcodes : W9Drv.SharedBank.CopyCodes L.image)
     (k : Fin 9) (raw : Fin 128) (rank : Fin 563)
     (hchild : L.childWord raw=W9Drv.SharedBank.copyWord k.val raw.val)
@@ -103,13 +2525,13 @@ theorem core_tbsim (L : W9Machine.Layout) (sk : BitVec 256)
   rw [hspec]
   refine TBSim.bind (hchain _ _ _ hu) ?_
   intro ends childEntry hp
-  exact (W9Drv.SharedBank.childG_tbsim L sk k raw hwindow hcodes hchild hbase _ index ends childEntry
+  exact (W9Drv.SharedBank.childG_tbsimX L sk k raw hwindow hcodes hchild hbase _ index ends childEntry
     (hp.sharedChild hu)).mono le_rfl (fun res t ht=>⟨ends,childEntry,hp,ht⟩)
 
 end ClaudeWCT.W9.Machine.Expand.SharedCore
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedDispatch
-set_option debug.skipKernelTC true
+set_option debug.skipKernelTC false
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
 open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify W9Machine
 open SigGolfCandidate.T3 (Digest HashOutput)
@@ -337,8 +2759,7 @@ set_option maxHeartbeats 1000000
 
 /-- E8: the forest pass writes its frame, the search scratch (saves, `SCR`) and the nonce records. -/
 def writes (addr : Nat) : Prop := (1152≤addr ∧ addr<11000) ∨ SharedChild.scratchW addr ∨
-  (SigGolfCandidate.FtsGrind.SCR≤addr ∧ addr<SigGolfCandidate.FtsGrind.SCR+0x5000) ∨
-  (SigGolfCandidate.FtsGrind.SCR16≤addr ∧ addr<SigGolfCandidate.FtsGrind.SCR16+0x5000)
+  (SigGolfCandidate.FtsGrind.SCR≤addr ∧ addr<SigGolfCandidate.FtsGrind.SCR+0x5000)
 /-- E8: the nonce records of the coordinates already run, and the re-zeroed search scratch. -/
 structure RecInv (raw : Fin 9 → Fin 128) (n : Nat) (ns : List Nat) (u : MachineState) : Prop where
   len : ns.length=n
@@ -347,9 +2768,18 @@ structure RecInv (raw : Fin 9 → Fin 128) (n : Nat) (ns : List Nat) (u : Machin
       SigGolfCandidate.FtsGrind.WADJ)
   slot1 : ∀m:Fin 9,m.val<n → u.getMem (BitVec.ofNat 64 (SigGolfCandidate.FtsGrind.slotA (9768-848*m.val)+8))=
     BitVec.ofNat 64 (ns.getD m.val 0)
-  nle : ∀m:Fin 9,m.val<n → ns.getD m.val 0≤SigGolfCandidate.FtsGrind.FUEL (SigGolfCandidate.FtsGrind.ftsWidth m.val)
+  /-- S5185 (FTS16, TIER2B D2): `ns` holds the packed nonces `2^64 n2 + n3` (NONCE2). -/
+  nle : ∀m:Fin 9,m.val<n → ns.getD m.val 0 % 2^64≤SigGolfCandidate.FtsGrind.FUEL (SigGolfCandidate.FtsGrind.ftsWidth m.val) ∧
+    ns.getD m.val 0 / 2^64≤SigGolfCandidate.FtsGrind.FUEL 1
   saves : 0<n → ∀i<5,u.getMem (BitVec.ofNat 64 (1104+8*i))=0
   scr : 0<n → ∀i<4,u.getMem (BitVec.ofNat 64 (SigGolfCandidate.FtsGrind.SCR+8*i))=0
+  /-- S5185 (FTS16, TIER2B D2): the level-2 records (`slot2 = slotA + 16`) of coordinates `0..7` already run. -/
+  slot2a : ∀m:Fin 9,m.val<n → m.val<8 → u.getMem (BitVec.ofNat 64 (SigGolfCandidate.FtsGrind.slotA (9768-848*m.val)+16))=
+    BitVec.ofNat 64 (9768-848*m.val+SharedV3.blkOff (SharedV3.physical m.val (raw m).val) 2+SigGolfCandidate.FtsGrind.WADJ)
+  slot2b : ∀m:Fin 9,m.val<n → m.val<8 → u.getMem (BitVec.ofNat 64 (SigGolfCandidate.FtsGrind.slotA (9768-848*m.val)+24))=
+    BitVec.ofNat 64 (ns.getD m.val 0 / 2^64)
+  /-- Coordinate 8's level-2 node is plain (`2984 < 3400`): its record address word stays 0 (`copy2` skips it). -/
+  slot2z : u.getMem (BitVec.ofNat 64 (SigGolfCandidate.FtsGrind.slotA (9768-848*8)+16))=0
 def isHand (n off : Nat) : Prop :=
   if n=9 then (752≤off ∧ off<784) ∨ (816≤off ∧ off<848) else SharedV3.isHand off
 /-- r3w: absolute base of FTS region `n` in the expander (the verify region `regionAddr n` moved down 1352 bytes). -/
@@ -380,20 +2810,12 @@ structure Inv (w : W9Machine.WBytes) (index : Nat) (raw : Fin 9 → Fin 128) (ra
 
 /-- E8: what a coordinate's chain and copy routine write. -/
 def childW (L : W9Machine.Layout) (k : Fin 9) (raw : Fin 128) (A : Nat) : Prop :=
-  SharedChild.writes L k raw A ∨ SharedChild.recW (Chain.base L k) A ∨ SharedChild.scratchW A ∨
-    SharedChild.recW16 (Chain.base L k) A
+  SharedChild.writes L k raw A ∨ SharedChild.recW (Chain.base L k) A ∨ SharedChild.scratchW A
 
 theorem child_writes_bounds {image : Image} (k : Fin 9) (raw : Fin 128) (addr : Nat)
     (h : childW (SharedDispatch.layout image k) k raw addr) : writes addr := by
   have hk:=k.isLt
-  rcases h with h|h|h|h
-  rotate_left 3
-  · unfold SharedChild.recW16 SigGolfCandidate.FtsGrind.slot16 at h
-    rw [SharedDispatch.layout_base] at h
-    unfold coordinateBase at h
-    unfold writes SigGolfCandidate.FtsGrind.SCR16 at *
-    right; right; right
-    omega
+  rcases h with h|h|h
   · simp only [SharedChild.writes, SharedChild.outputAddr, SharedChild.handAddr, SharedDispatch.layout_base] at h
     unfold coordinateBase at h
     unfold writes
@@ -412,7 +2834,7 @@ theorem fields_frame {index : Nat} {raw : Fin 9 → Fin 128} {ranks : Fin 9 → 
     Fields index raw ranks t := by
   have hm (addr : Nat) (ha : 11000≤addr) (hb : addr<0x7e0000) :
       t.getMem (BitVec.ofNat 64 addr)=u.getMem (BitVec.ofNat 64 addr) :=
-    hf addr (by omega) (by unfold writes SharedChild.scratchW SigGolfCandidate.FtsGrind.SCR SigGolfCandidate.FtsGrind.SCR16; omega)
+    hf addr (by omega) (by unfold writes SharedChild.scratchW SigGolfCandidate.FtsGrind.SCR;omega)
   refine ⟨(hm 0x66010 (by decide) (by decide)).trans hu.index,?_,?_⟩
   · intro k
     rw [SharedDispatch.rawRead,hm _ (by fin_cases k <;> decide) (by fin_cases k <;> decide)]
@@ -445,7 +2867,7 @@ theorem witness_view {w : W9Machine.WBytes} {index : Nat} {raw : Fin 9 → Fin 1
     simpa only [W9Machine.OrigWD,he] using hw
 
 theorem core_frame {L : W9Machine.Layout} {w : W9Machine.WBytes} {index : Nat} {k : Fin 9}
-    {raw : Fin 128} {u entry t : MachineState} {ends : List Digest} {computed : Digest × Nat × Nat}
+    {raw : Fin 128} {u entry t : MachineState} {ends : List Digest} {computed : Digest × Nat}
     (hp : Chain.Post L w index k raw u ends entry) (ht : SharedChild.PostC L k raw entry computed t) :
     Frame u t (childW L k raw) := by
   intro addr ha hn
@@ -460,7 +2882,7 @@ theorem core_frame {L : W9Machine.Layout} {w : W9Machine.WBytes} {index : Nat} {
   split <;> omega
 
 theorem core_frame_dispatch {L : W9Machine.Layout} {w : W9Machine.WBytes} {index : Nat} {k : Fin 9}
-    {raw : Fin 128} {u entry t : MachineState} {ends : List Digest} {computed : Digest × Nat × Nat}
+    {raw : Fin 128} {u entry t : MachineState} {ends : List Digest} {computed : Digest × Nat}
     (hp : Chain.Post L w index k raw ((SharedDispatch.result k.val).toState u) ends entry)
     (ht : SharedChild.PostC L k raw entry computed t) : Frame u t (childW L k raw) := by
   intro addr ha hn
@@ -510,15 +2932,10 @@ theorem next_other {image : Image} (w : W9Machine.WBytes) (k : Fin 9) (raw : Fin
       unfold SharedV3.handR SharedV3.handL at hoff
       unfold eRegion at hw
       split_ifs at hoff <;> omega
-    · rcases hw with hw|hw
-      · unfold SharedChild.scratchW SigGolfCandidate.FtsGrind.SCR at hw
-        unfold SharedV3.handR SharedV3.handL at hoff
-        unfold eRegion at hw
-        split_ifs at hoff <;> omega
-      · unfold SharedChild.recW16 SigGolfCandidate.FtsGrind.slot16 SigGolfCandidate.FtsGrind.SCR16 at hw
-        unfold SharedV3.handR SharedV3.handL at hoff
-        unfold eRegion at hw
-        split_ifs at hoff <;> omega
+    · unfold SharedChild.scratchW SigGolfCandidate.FtsGrind.SCR at hw
+      unfold SharedV3.handR SharedV3.handL at hoff
+      unfold eRegion at hw
+      split_ifs at hoff <;> omega
 
 end ClaudeWCT.W9.Machine.Expand.SharedForestRun
 
@@ -531,7 +2948,7 @@ set_option maxHeartbeats 1000000
 
 theorem next {image : Image} {w : W9Machine.WBytes} {index : Nat} {raw : Fin 9 → Fin 128}
     {ranks : Fin 9 → Fin 563} {initial u entry t : MachineState} {k : Fin 9} {prev : Digest×Digest}
-    {ends : List Digest} {computed : Digest × Nat × Nat} (hu : Inv w index raw ranks initial k.val prev u)
+    {ends : List Digest} {computed : Digest × Nat} (hu : Inv w index raw ranks initial k.val prev u)
     (hp : Chain.Post (SharedDispatch.layout image k) (SharedV3.viewWB 2904 w k.val u) index k (raw k)
       ((SharedDispatch.result k.val).toState u) ends entry)
     (ht : SharedChild.PostC (SharedDispatch.layout image k) k (raw k) entry computed t) :
@@ -585,13 +3002,9 @@ theorem next {image : Image} {w : W9Machine.WBytes} {index : Nat} {raw : Fin 9 �
       rw [SharedDispatch.layout_base] at hw
       unfold coordinateBase eRegion at *
       omega
-    · rcases hw with hw|hw
-      · unfold SharedChild.scratchW SigGolfCandidate.FtsGrind.SCR at hw
-        unfold eRegion at *
-        omega
-      · unfold SharedChild.recW16 SigGolfCandidate.FtsGrind.slot16 SigGolfCandidate.FtsGrind.SCR16 at hw
-        unfold eRegion at *
-        omega
+    · unfold SharedChild.scratchW SigGolfCandidate.FtsGrind.SCR at hw
+      unfold eRegion at *
+      omega
     simp only [SharedChild.writes, SharedChild.outputAddr, SharedChild.handAddr, SharedDispatch.layout_base] at hw
     unfold coordinateBase at hw
     have hmk:eRegion m+848≤eRegion k.val:=by unfold eRegion;omega
@@ -644,17 +3057,17 @@ set_option maxHeartbeats 1000000
 /-- E8: one coordinate step's records. -/
 theorem rec_next {image : Image} {w : W9Machine.WBytes} {index : Nat} {raw : Fin 9 → Fin 128}
     {u entry t : MachineState} {k : Fin 9} {ns : List Nat}
-    {ends : List Digest} {res : Digest × Nat × Nat} (hr : RecInv raw k.val ns u)
+    {ends : List Digest} {res : Digest × Nat} (hr : RecInv raw k.val ns u)
     (hp : Chain.Post (SharedDispatch.layout image k) (SharedV3.viewWB 2904 w k.val u) index k (raw k)
       ((SharedDispatch.result k.val).toState u) ends entry)
     (ht : SharedChild.PostC (SharedDispatch.layout image k) k (raw k) entry res t) :
-    RecInv raw (k.val+1) (ns++[res.2.1]) t := by
+    RecInv raw (k.val+1) (ns++[res.2]) t := by
   have hk:=k.isLt
   have hf:=core_frame_dispatch hp ht
   have hb:Chain.base (SharedDispatch.layout image k) k=9768-848*k.val := by
     rw [SharedDispatch.layout_base]; unfold coordinateBase; omega
   have hlen:=hr.len
-  have keep (m : Fin 9) (hm : m.val<k.val) (o : Nat) (ho : o<16) :
+  have keep (m : Fin 9) (o : Nat) (hm : m.val≠k.val ∨ (k.val=8 ∧ 16≤o)) (ho : o<32) :
       t.getMem (BitVec.ofNat 64 (SigGolfCandidate.FtsGrind.slotA (9768-848*m.val)+o))=
         u.getMem (BitVec.ofNat 64 (SigGolfCandidate.FtsGrind.slotA (9768-848*m.val)+o)) := by
     apply hf _ (by unfold SigGolfCandidate.FtsGrind.slotA SigGolfCandidate.FtsGrind.SCR; omega)
@@ -668,22 +3081,17 @@ theorem rec_next {image : Image} {w : W9Machine.WBytes} {index : Nat} {raw : Fin
       have := m.isLt
       unfold SigGolfCandidate.FtsGrind.slotA at *
       omega
-    · rcases hw with hw|hw
-      · unfold SharedChild.scratchW SigGolfCandidate.FtsGrind.slotA SigGolfCandidate.FtsGrind.SCR at hw
-        omega
-      · unfold SharedChild.recW16 SigGolfCandidate.FtsGrind.slot16 SigGolfCandidate.FtsGrind.slotA
-          SigGolfCandidate.FtsGrind.SCR16 SigGolfCandidate.FtsGrind.SCR at hw
-        rw [hb] at hw
-        omega
-  have gd_old (m : Nat) (hm : m<k.val) : (ns++[res.2.1]).getD m 0=ns.getD m 0 := by
+    · unfold SharedChild.scratchW SigGolfCandidate.FtsGrind.slotA SigGolfCandidate.FtsGrind.SCR at hw
+      omega
+  have gd_old (m : Nat) (hm : m<k.val) : (ns++[res.2]).getD m 0=ns.getD m 0 := by
     simp only [List.getD_eq_getElem?_getD, List.getElem?_append_left (show m<ns.length by omega)]
-  have gd_new : (ns++[res.2.1]).getD k.val 0=res.2.1 := by
+  have gd_new : (ns++[res.2]).getD k.val 0=res.2 := by
     simp only [List.getD_eq_getElem?_getD, List.getElem?_append_right (show ns.length≤k.val by omega), hlen,
       Nat.sub_self, List.getElem?_cons_zero, Option.getD_some]
-  refine ⟨by simp [hlen],?_,?_,?_,fun _=>ht.saves,fun _=>ht.scr⟩
+  refine ⟨by simp [hlen],?_,?_,?_,fun _=>ht.saves,fun _=>ht.scr,?_,?_,?_⟩
   · intro m hm
     rcases Nat.lt_or_ge m.val k.val with h|h
-    · have := keep m h 0 (by decide)
+    · have := keep m 0 (Or.inl (Nat.ne_of_lt h)) (by decide)
       rw [Nat.add_zero] at this
       rw [this]; exact hr.slot0 m h
     · obtain rfl : m=k := Fin.ext (by omega)
@@ -692,7 +3100,7 @@ theorem rec_next {image : Image} {w : W9Machine.WBytes} {index : Nat} {raw : Fin
       exact this
   · intro m hm
     rcases Nat.lt_or_ge m.val k.val with h|h
-    · rw [keep m h 8 (by decide), gd_old _ h]; exact hr.slot1 m h
+    · rw [keep m 8 (Or.inl (Nat.ne_of_lt h)) (by decide), gd_old _ h]; exact hr.slot1 m h
     · obtain rfl : m=k := Fin.ext (by omega)
       have := ht.slot1
       rw [hb] at this
@@ -702,96 +3110,38 @@ theorem rec_next {image : Image} {w : W9Machine.WBytes} {index : Nat} {raw : Fin
     · rw [gd_old _ h]; exact hr.nle m h
     · obtain rfl : m=k := Fin.ext (by omega)
       rw [gd_new]; exact ht.nle
-
-/-- Y5 #1: the level-2 nonce records of the coordinates already run (coordinates `0..3`), the nonces 0 elsewhere. -/
-structure RecInv16 (raw : Fin 9 → Fin 128) (n : Nat) (ns : List Nat) (u : MachineState) : Prop where
-  len : ns.length=n
-  slot0 : ∀m:Fin 9,m.val<n → m.val<4 →
-    u.getMem (BitVec.ofNat 64 (SigGolfCandidate.FtsGrind.slot16 (9768-848*m.val)))=
-      BitVec.ofNat 64 (9768-848*m.val+SharedV3.blkOff (SharedV3.physical m.val (raw m).val) 2+
-        SigGolfCandidate.FtsGrind.WADJ)
-  slot1 : ∀m:Fin 9,m.val<n → m.val<4 →
-    u.getMem (BitVec.ofNat 64 (SigGolfCandidate.FtsGrind.slot16 (9768-848*m.val)+8))=BitVec.ofNat 64 (ns.getD m.val 0)
-  nle : ∀m:Fin 9,m.val<n → ns.getD m.val 0≤255
-  n0 : ∀m:Fin 9,m.val<n → 4 ≤ m.val → ns.getD m.val 0=0
-
-theorem rec16_next {image : Image} {w : W9Machine.WBytes} {index : Nat} {raw : Fin 9 → Fin 128}
-    {u entry t : MachineState} {k : Fin 9} {ns : List Nat}
-    {ends : List Digest} {res : Digest × Nat × Nat} (hr : RecInv16 raw k.val ns u)
-    (hp : Chain.Post (SharedDispatch.layout image k) (SharedV3.viewWB 2904 w k.val u) index k (raw k)
-      ((SharedDispatch.result k.val).toState u) ends entry)
-    (ht : SharedChild.PostC (SharedDispatch.layout image k) k (raw k) entry res t) :
-    RecInv16 raw (k.val+1) (ns++[res.2.2]) t := by
-  have hk:=k.isLt
-  have hf:=core_frame_dispatch hp ht
-  have hb:Chain.base (SharedDispatch.layout image k) k=9768-848*k.val := by
-    rw [SharedDispatch.layout_base]; unfold coordinateBase; omega
-  have hlen:=hr.len
-  have keep (m : Fin 9) (hm : m.val<k.val) (o : Nat) (ho : o<16) :
-      t.getMem (BitVec.ofNat 64 (SigGolfCandidate.FtsGrind.slot16 (9768-848*m.val)+o))=
-        u.getMem (BitVec.ofNat 64 (SigGolfCandidate.FtsGrind.slot16 (9768-848*m.val)+o)) := by
-    apply hf _ (by unfold SigGolfCandidate.FtsGrind.slot16 SigGolfCandidate.FtsGrind.SCR16; omega)
-    intro hw
-    have := m.isLt
-    rcases hw with hw|hw|hw|hw
-    · simp only [SharedChild.writes, SharedChild.outputAddr, SharedChild.handAddr, SharedDispatch.layout_base] at hw
-      unfold coordinateBase SigGolfCandidate.FtsGrind.slot16 SigGolfCandidate.FtsGrind.SCR16 at hw
-      split_ifs at hw <;> omega
-    · unfold SharedChild.recW SigGolfCandidate.FtsGrind.slotA SigGolfCandidate.FtsGrind.SCR at hw
-      unfold SigGolfCandidate.FtsGrind.slot16 SigGolfCandidate.FtsGrind.SCR16 at hw
-      rw [hb] at hw
-      omega
-    · unfold SharedChild.scratchW SigGolfCandidate.FtsGrind.SCR at hw
-      unfold SigGolfCandidate.FtsGrind.slot16 SigGolfCandidate.FtsGrind.SCR16 at hw
-      omega
-    · unfold SharedChild.recW16 SigGolfCandidate.FtsGrind.slot16 SigGolfCandidate.FtsGrind.SCR16 at hw
-      rw [hb] at hw
-      omega
-  have gd_old (m : Nat) (hm : m<k.val) : (ns++[res.2.2]).getD m 0=ns.getD m 0 := by
-    simp only [List.getD_eq_getElem?_getD, List.getElem?_append_left (show m<ns.length by omega)]
-  have gd_new : (ns++[res.2.2]).getD k.val 0=res.2.2 := by
-    simp only [List.getD_eq_getElem?_getD, List.getElem?_append_right (show ns.length≤k.val by omega), hlen,
-      Nat.sub_self, List.getElem?_cons_zero, Option.getD_some]
-  refine ⟨by simp [hlen],?_,?_,?_,?_⟩
-  · intro m hm h4
+  · intro m hm h8
     rcases Nat.lt_or_ge m.val k.val with h|h
-    · have := keep m h 0 (by decide)
-      rw [Nat.add_zero] at this
-      rw [this]; exact hr.slot0 m h h4
+    · rw [keep m 16 (Or.inl (Nat.ne_of_lt h)) (by decide)]; exact hr.slot2a m h h8
     · obtain rfl : m=k := Fin.ext (by omega)
-      have := ht.rec0 h4
+      have := ht.rec2a (by rw [hb]; omega)
+      unfold SigGolfCandidate.FtsGrind.slot2 at this
       rw [hb] at this
       exact this
-  · intro m hm h4
+  · intro m hm h8
     rcases Nat.lt_or_ge m.val k.val with h|h
-    · rw [keep m h 8 (by decide), gd_old _ h]; exact hr.slot1 m h h4
+    · rw [keep m 24 (Or.inl (Nat.ne_of_lt h)) (by decide), gd_old _ h]; exact hr.slot2b m h h8
     · obtain rfl : m=k := Fin.ext (by omega)
-      have := ht.rec1 h4
-      rw [hb] at this
+      have := ht.rec2b (by rw [hb]; omega)
+      unfold SigGolfCandidate.FtsGrind.slot2 at this
+      rw [hb, Nat.add_assoc] at this
       rw [gd_new]; exact this
-  · intro m hm
-    rcases Nat.lt_or_ge m.val k.val with h|h
-    · rw [gd_old _ h]; exact hr.nle m h
-    · obtain rfl : m=k := Fin.ext (by omega)
-      rw [gd_new]; exact ht.nle16
-  · intro m hm h4
-    rcases Nat.lt_or_ge m.val k.val with h|h
-    · rw [gd_old _ h]; exact hr.n0 m h h4
-    · obtain rfl : m=k := Fin.ext (by omega)
-      rw [gd_new]; exact ht.n0 h4
+  · by_cases hk8 : k.val=8
+    · exact (keep ⟨8,by decide⟩ 16 (Or.inr ⟨hk8, le_refl 16⟩) (by decide)).trans hr.slot2z
+    · exact (keep ⟨8,by decide⟩ 16 (Or.inl (by show 8≠k.val; omega)) (by decide)).trans hr.slot2z
 
-/-- E8 and Y5 #1: per-coordinate cycle bound (dispatch, chain, copy routine and both searches). -/
-def stepW : Nat := 39+89+102+SigGolfCandidate.FtsGrind.W_SEARCH 2+SigGolfCandidate.FtsGrind.W_SEARCH16
+/-- E8: per-coordinate cycle bound (dispatch, chain, copy routine and its search). -/
+def stepW : Nat := 39+89+110+SigGolfCandidate.FtsGrind.W_SEARCH 2+SigGolfCandidate.FtsGrind.W_SEARCH2
 
 theorem step_tbsim (image : Image) (sk : BitVec 256)
-    (hwindow : (Frozen.image.code.drop 195584).take 59072=(image.code.drop 195584).take 59072)
+    (hwindow : W9Machine.WinX image)
     (hchecked : ∀k:Fin 9,symRun {} (SharedDispatch.words k.val) (pcOf (SharedDispatch.start k.val))
       (SharedDispatch.length k.val)=some (SharedDispatch.result k.val))
     (hcode : ∀k:Fin 9,CodeAt image (pcOf (SharedDispatch.start k.val)) (SharedDispatch.words k.val))
     (hslot : ∀rank:Fin 563,Frozen.layout.chainWord (N600.embed rank)=195584+64*rank.val)
     (hcodes : W9Drv.SharedBank.CopyCodes image)
     (hcore : ∀ (L:W9Machine.Layout) (k:Fin 9) (j:Fin 128) (rank:Fin 563),
-      (Frozen.image.code.drop 195584).take 59072=(L.image.code.drop 195584).take 59072 → 
+      W9Machine.WinX L.image → 
       W9Drv.SharedBank.CopyCodes L.image →
       L.childWord j=W9Drv.SharedBank.copyWord k.val j.val → Chain.base L k=9768-848*k.val →
       (∀r,L.chainWord r=Frozen.layout.chainWord r) → 
@@ -803,14 +3153,11 @@ theorem step_tbsim (image : Image) (sk : BitVec 256)
         (N600.program w index k j rank >>=fun ends=>SharedV3.childNG w index k j ends padL padR)
         (SharedCore.Post L (SharedV3.viewWB 2904 w k.val snapshot) index k j u))
     (w : W9Machine.WBytes) (index : Nat) (hi : index<2^31) (raw : Fin 9 → Fin 128)
-    (ranks : Fin 9 → Fin 563) (initial : MachineState) (k : Fin 9) (prev : (Digest×Digest)×List Nat×List Nat)
-    (u : MachineState)
-    (hu : Inv w index raw ranks initial k.val prev.1 u ∧ RecInv raw k.val prev.2.1 u ∧ RecInv16 raw k.val prev.2.2 u) :
+    (ranks : Fin 9 → Fin 563) (initial : MachineState) (k : Fin 9) (prev : (Digest×Digest)×List Nat)
+    (u : MachineState) (hu : Inv w index raw ranks initial k.val prev.1 u ∧ RecInv raw k.val prev.2 u) :
     TBSim image sk u stepW
-      (SharedV3.coordinateG w index k (raw k) (N600.embed (ranks k)) prev.1 >>= fun r=>
-        pure (r.1,prev.2.1++[r.2.1],prev.2.2++[r.2.2]))
-      (fun acc t=>Inv w index raw ranks initial (k.val+1) acc.1 t ∧ RecInv raw (k.val+1) acc.2.1 t ∧
-        RecInv16 raw (k.val+1) acc.2.2 t) := by
+      (SharedV3.coordinateG w index k (raw k) (N600.embed (ranks k)) prev.1 >>= fun r=>pure (r.1,prev.2++[r.2]))
+      (fun acc t=>Inv w index raw ranks initial (k.val+1) acc.1 t ∧ RecInv raw (k.val+1) acc.2 t) := by
   let L:=SharedDispatch.layout image k
   let v:=(SharedDispatch.result k.val).toState u
   have hs:=SharedDispatch.steps image k u (hchecked k) (hcode k)
@@ -832,20 +3179,17 @@ theorem step_tbsim (image : Image) (sk : BitVec 256)
       ((N600.program w index k (raw k) (ranks k) >>=fun ends=>
         SharedV3.childNG w index k (raw k) ends prev.1.1 prev.1.2) >>=fun computed=>
         pure ((SharedV3.orderPair k.val (SharedV3.physical k.val (raw k).val) computed.1
-          (SharedV3.topOther w k.val (SharedV3.physical k.val (raw k).val))),prev.2.1++[computed.2.1],
-          prev.2.2++[computed.2.2]))
-      (fun acc t=>Inv w index raw ranks initial (k.val+1) acc.1 t ∧ RecInv raw (k.val+1) acc.2.1 t ∧
-        RecInv16 raw (k.val+1) acc.2.2 t) := by
+          (SharedV3.topOther w k.val (SharedV3.physical k.val (raw k).val))),prev.2++[computed.2]))
+      (fun acc t=>Inv w index raw ranks initial (k.val+1) acc.1 t ∧ RecInv raw (k.val+1) acc.2 t) := by
     refine TBSim.bind hb ?_
     intro computed t ht
     obtain ⟨ends,entry,hp,ht⟩:=ht
-    exact TBSim.pure ⟨next hu.1 hp ht,rec_next hu.2.1 hp ht,rec16_next hu.2.2 hp ht⟩
+    exact TBSim.pure ⟨next hu.1 hp ht,rec_next hu.2 hp ht⟩
   have hh:=TBSim.steps hs hj'
   have hlen:SharedDispatch.length k.val≤39:=by fin_cases k <;> decide
-  have hcost:W9Drv.SharedBank.costG k≤102+SigGolfCandidate.FtsGrind.W_SEARCH 2+SigGolfCandidate.FtsGrind.W_SEARCH16:=by
+  have hcost:W9Drv.SharedBank.costG k≤110+SigGolfCandidate.FtsGrind.W_SEARCH 2+SigGolfCandidate.FtsGrind.W_SEARCH2:=by
     unfold W9Drv.SharedBank.costG SigGolfCandidate.FtsGrind.W_SEARCH SigGolfCandidate.FtsGrind.FUEL
-      SigGolfCandidate.FtsGrind.ftsWidth SigGolfCandidate.FtsGrind.W16 SigGolfCandidate.FtsGrind.W_SEARCH16
-      SigGolfCandidate.FtsGrind.W_PLAIN16
+      SigGolfCandidate.FtsGrind.ftsWidth SigGolfCandidate.FtsGrind.W_SEARCH2
     split_ifs <;> omega
   simpa only [SharedV3.coordinateG,N600.program,bind_assoc,pure_bind] using
     hh.mono (show SharedDispatch.length k.val+((89+W9Drv.SharedBank.costG k)+0)≤ stepW by unfold stepW; omega)
@@ -853,25 +3197,23 @@ theorem step_tbsim (image : Image) (sk : BitVec 256)
 
 /-- E8: the expand forest pass, with the 9 ground nonces and their records. -/
 def forestW : Nat := 9*stepW
-theorem forestW_val : forestW=138708 := by decide
+theorem forestW_val : forestW=129564 := by decide
 
 /-- The forest pass's end: the hand-off pair, the frame, the fields, and the 9 nonce records. -/
 def ForestPost (initial : MachineState) (index : Nat) (raw : Fin 9 → Fin 128) (ranks : Fin 9 → Fin 563)
-    (res : (Digest×Digest)×List Nat×List Nat) (t : MachineState) : Prop :=
+    (res : (Digest×Digest)×List Nat) (t : MachineState) : Prop :=
   t.pc=pcOf 46862 ∧ DigAt t 2904 res.1.1 ∧ DigAt t 2952 res.1.2 ∧
-    Frame initial t writes ∧ Fields index raw ranks t ∧ t.getReg .x8=BitVec.ofNat 64 2984 ∧ RecInv raw 9 res.2.1 t ∧
-    RecInv16 raw 9 res.2.2 t
+    Frame initial t writes ∧ Fields index raw ranks t ∧ t.getReg .x8=BitVec.ofNat 64 2984 ∧ RecInv raw 9 res.2 t
 
  theorem forest_tbsim (image : Image) (sk : BitVec 256)
     (w : W9Machine.WBytes) (index : Nat) (raw : Fin 9 → Fin 128) (ranks : Fin 9 → Fin 563)
     (initial : MachineState)
-    (hstep : ∀k:Fin 9,∀(prev:(Digest×Digest)×List Nat×List Nat) u,
-      Inv w index raw ranks initial k.val prev.1 u ∧ RecInv raw k.val prev.2.1 u ∧ RecInv16 raw k.val prev.2.2 u →
+    (hstep : ∀k:Fin 9,∀(prev:(Digest×Digest)×List Nat) u,
+      Inv w index raw ranks initial k.val prev.1 u ∧ RecInv raw k.val prev.2 u → 
       TBSim image sk u stepW
-        (SharedV3.coordinateG w index k (raw k) (N600.embed (ranks k)) prev.1 >>= fun r=>
-          pure (r.1,prev.2.1++[r.2.1],prev.2.2++[r.2.2]))
-        (fun acc t=>Inv w index raw ranks initial (k.val+1) acc.1 t ∧ RecInv raw (k.val+1) acc.2.1 t ∧
-          RecInv16 raw (k.val+1) acc.2.2 t))
+        (SharedV3.coordinateG w index k (raw k) (N600.embed (ranks k)) prev.1 >>= fun r=>pure (r.1,prev.2++[r.2]))
+        (fun acc t=>Inv w index raw ranks initial (k.val+1) acc.1 t ∧ RecInv raw (k.val+1) acc.2 t))
+    (hz2 : initial.getMem (BitVec.ofNat 64 (SigGolfCandidate.FtsGrind.slotA (9768-848*8)+16))=0)
     (h0 : Inv w index raw ranks initial 0 (SharedV3.initialPair w) initial) :
     TBSim image sk initial forestW (SharedV3.forestG w index raw (fun k=>N600.embed (ranks k)))
       (ForestPost initial index raw ranks) := by
@@ -886,19 +3228,17 @@ def ForestPost (initial : MachineState) (index : Nat) (raw : Fin 9 → Fin 128) 
   rw [he]
   have r0 : RecInv raw 0 [] initial :=
     ⟨rfl,fun m h=>absurd h (by omega),fun m h=>absurd h (by omega),fun m h=>absurd h (by omega),
-      fun h=>absurd h (by omega),fun h=>absurd h (by omega)⟩
-  have r16 : RecInv16 raw 0 [] initial :=
-    ⟨rfl,fun m h=>absurd h (by omega),fun m h=>absurd h (by omega),fun m h=>absurd h (by omega),
-      fun m h=>absurd h (by omega)⟩
+      fun h=>absurd h (by omega),fun h=>absurd h (by omega),fun m h=>absurd h (by omega),
+      fun m h=>absurd h (by omega),hz2⟩
   have hs:=TBSim.foldlM_range' (image:=image) (sk:=sk) 0 9
-    (fun (prev:(Digest×Digest)×List Nat×List Nat) (n:Nat)=>if h:n<9 then
+    (fun (prev:(Digest×Digest)×List Nat) (n:Nat)=>if h:n<9 then
       (SharedV3.coordinateG w index ⟨n,h⟩ (raw ⟨n,h⟩) (N600.embed (ranks ⟨n,h⟩)) prev.1 >>= fun r=>
-        pure (r.1,prev.2.1++[r.2.1],prev.2.2++[r.2.2])) else pure prev)
-    (SharedV3.initialPair w,[],[])
-    (fun n prev u=>Inv w index raw ranks initial n prev.1 u ∧ RecInv raw n prev.2.1 u ∧ RecInv16 raw n prev.2.2 u) stepW
-    (fun n hn prev u hu=>by simpa only [Nat.zero_add,dif_pos hn] using hstep ⟨n,hn⟩ prev u hu) ⟨h0,r0,r16⟩
+        pure (r.1,prev.2++[r.2])) else pure prev)
+    (SharedV3.initialPair w,[])
+    (fun n prev u=>Inv w index raw ranks initial n prev.1 u ∧ RecInv raw n prev.2 u) stepW
+    (fun n hn prev u hu=>by simpa only [Nat.zero_add,dif_pos hn] using hstep ⟨n,hn⟩ prev u hu) ⟨h0,r0⟩
   exact hs.mono (by unfold forestW; omega)
-    (fun pair t ht=>⟨ht.1.pc,ht.1.prevL,ht.1.prevR,ht.1.frame,ht.1.fields,ht.1.x8 (by decide),ht.2.1,ht.2.2⟩)
+    (fun pair t ht=>⟨ht.1.pc,ht.1.prevL,ht.1.prevR,ht.1.frame,ht.1.fields,ht.1.x8 (by decide),ht.2⟩)
 
 end ClaudeWCT.W9.Machine.Expand.SharedForestRun
 
@@ -910,22 +3250,23 @@ set_option maxRecDepth 100000
 set_option maxHeartbeats 1000000
 
 theorem forest_tbsim_of_copies (image : Image) (sk : BitVec 256)
-    (hwindow : (Frozen.image.code.drop 195584).take 59072=(image.code.drop 195584).take 59072)
+    (hwindow : W9Machine.WinX image)
     (hcodes : W9Drv.SharedBank.CopyCodes image)
     (hcode : ∀k:Fin 9,CodeAt image (pcOf (SharedDispatch.start k.val)) (SharedDispatch.words k.val))
     (hslot : ∀rank:Fin 563,Frozen.layout.chainWord (N600.embed rank)=195584+64*rank.val)
     (hchain : ∀ (L : W9Machine.Layout),
-      (Frozen.image.code.drop 195584).take 59072=(L.image.code.drop 195584).take 59072 →
+      W9Machine.WinX L.image →
       (∀ rank,L.chainWord rank=Frozen.layout.chainWord rank) →
       ∀ (rank:Fin 563) (w:W9Machine.WBytes) (index:Nat) (k:Fin 9) (j:Fin 128) (u:MachineState),
       N600.Pre L w index k j rank u →
       TBSim L.image sk u 89 (N600.program w index k j rank) (N600.Post L w index k j u))
     (w : W9Machine.WBytes) (index : Nat) (hi:index<2^31) (raw : Fin 9 → Fin 128)
     (ranks : Fin 9 → Fin 563) (initial : MachineState)
+    (hz2 : initial.getMem (BitVec.ofNat 64 (SigGolfCandidate.FtsGrind.slotA (9768-848*8)+16))=0)
     (h0 : Inv w index raw ranks initial 0 (SharedV3.initialPair w) initial) :
     TBSim image sk initial forestW (SharedV3.forestG w index raw (fun k=>N600.embed (ranks k)))
       (ForestPost initial index raw ranks) := by
-  apply forest_tbsim image sk w index raw ranks initial ?_ h0
+  apply forest_tbsim image sk w index raw ranks initial ?_ hz2 h0
   intro k prev u hu
   apply step_tbsim image sk hwindow SharedDispatch.checked hcode hslot hcodes ?_ w index hi raw ranks initial k prev u hu
   intro L k j rank hw hcodes' hc hb hcw w index snapshot u padL padR hpre hL hR
@@ -945,7 +3286,7 @@ set_option autoImplicit false
 set_option maxHeartbeats 2000000
 set_option maxRecDepth 20000
 structure LInv (sig : WCT9.Signature) (hints : BitVec 16) (index n : Nat) (value : WCT9.LayerMsg) (s : MachineState) extends BC.LInv sig index n value s where
-  hintsLt : hints.toNat<12288
+  hintsLt : hints.toNat<9000
   hintsMem : s.getMem (0x66000#64)=BitVec.ofNat 64 hints.toNat
   zt : SigGolfCandidate.T3M.Search.ZeroCap.ZtOK 354 s
   /-- T51: the packed top tables in the expand data at `0xFF9E00` (KCOPY's source, copied to `0xA0000`). -/
@@ -1060,7 +3401,7 @@ theorem stage_good {sig : WCT9.Signature} {hints : BitVec 16} {index n : Nat} {v
       floorLt := hintFloor_lt (route index lay).1 hints lay,
       floorTop := fun he => by
         change lay=0 at he
-        change hintFloor leaf hints lay = max 18 (LocalRouteMachineHelpers.poolForLeaf leaf-57)
+        change hintFloor leaf hints lay = max 16 (WCT9.CanonicalPolicy.routePool leaf-56)
         rw [he]
         exact SigGolfCandidate.T3M.Search.CanonicalExpandHooks.hintFloor_top leaf hints,
       hintsLt := hI.hintsLt, floorEq := rfl,
@@ -1685,61 +4026,82 @@ open SigGolfCandidate.Research
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 
-/-- img-v6 machine policy check: pool 72, hints `576·f1 + 24·f2 + f3`; L1 residual < 58, L2 < 42, L3 < 24. -/
+/-- img-v6 machine policy check: pool `requiredCredit index` (74 minus the top path save), hints `529·f1 + 23·f2 + f3`; L1 residual < 57, L2 < 42, L3 < 23 (L1/L2 residuals net of the lower route saves). -/
 def policyCondition (index : Nat) (hints : BitVec 16) (digits : List (List Nat)) (lows : List Bool) : Prop :=
-  let r1:=(SharedForest.requiredCredit index)-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])-SharedForest.LocalRoute.ownSave index 1
-  let r2:=r1-CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 [])-SharedForest.LocalRoute.ownSave index 2
-  let r3:=r2-CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 [])-SharedForest.LocalRoute.ownSave index 3
-  r1<58 ∧ r2<42 ∧ r3<24 ∧
-    hints.toNat/576=ClaudeWCT.WCT9.Policy75Safe23.threshold 1 r1 ∧
-    hints.toNat/24%24=ClaudeWCT.WCT9.Policy75Safe23.threshold 2 r2 ∧ hints.toNat%24=ClaudeWCT.WCT9.Policy75Safe23.lowerThreeFloor r3
+  let r1:=(SharedForest.requiredCredit index)-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])
+  let r2:=r1-(CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 [])+SigGolfCandidate.AllRoute.usedSave 1 (SigGolfCandidate.T3.route index 1).1)
+  let r3:=r2-(CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 [])+SigGolfCandidate.AllRoute.usedSave 2 (SigGolfCandidate.T3.route index 2).1)
+  r1<57 ∧ r2<42 ∧ r3<23 ∧
+    hints.toNat/529=CanonicalPolicy.threshold 1 r1 ∧
+    hints.toNat/23%23=CanonicalPolicy.threshold 2 r2 ∧ hints.toNat%23=CanonicalPolicy.threshold 3 r3
 
 theorem policyCondition_iff (index : Nat) (hints : BitVec 16) (digits : List (List Nat)) (lows : List Bool)
-    (hh : hints.toNat<12288) (hlen : digits.length=4)
-    (hc0 : ClaudeWCT.WCT9.Policy75Safe23.threshold 0 (SharedForest.requiredCredit index)≤CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []))
+    (hh : hints.toNat<9000) (hlen : digits.length=4)
+    (hc0 : CanonicalPolicy.threshold 0 (SharedForest.requiredCredit index)≤CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []))
     (hc1 : SharedForest.hintFloor index hints 1≤CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 []))
     (hc2 : SharedForest.hintFloor index hints 2≤CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 [])) :
     policyCondition index hints digits lows ↔ SharedForest.policyHintsValid index hints digits lows=true := by
-  rw [ClaudeWCT.WCT9.Policy75Safe23.threshold_top] at hc0
-  have h1 : SharedForest.hintFloor index hints 1=hints.toNat/576%24 := by
-    simp only [SharedForest.hintFloor,show (1:Layer)≠0 by decide,ite_false]; rfl
-  have h2 : SharedForest.hintFloor index hints 2=hints.toNat/24%24 := by
-    simp only [SharedForest.hintFloor,show (2:Layer)≠0 by decide,ite_false]; rfl
-  have h3 : SharedForest.hintFloor index hints 3=hints.toNat%24 := by
-    simp only [SharedForest.hintFloor,show (3:Layer)≠0 by decide,ite_false]
-    show hints.toNat/1%24=_
-    rw [Nat.div_one]
-  rw [h1] at hc1
-  rw [h2] at hc2
-  simp only [SharedForest.policyHintsValid,decide_eq_true_eq,SharedForest.routeResidual,CanonicalPolicy.nextResidual,Fin.val_zero,Fin.val_one,show (2:SigGolfCandidate.T3.Layer).val=2 by rfl,
-    ClaudeWCT.WCT9.Policy75Safe23.threshold_top,hlen,true_and,and_true,h1,h2,h3]
-  norm_num only at *
-  unfold policyCondition
+  rw [CanonicalPolicy.threshold_top] at hc0
+  have hf1 : SharedForest.hintFloor index hints 1 = hints.toNat/529%23 := rfl
+  have hf2 : SharedForest.hintFloor index hints 2 = hints.toNat/23%23 := rfl
+  have hf3 : SharedForest.hintFloor index hints 3 = hints.toNat%23 := by
+    unfold SharedForest.hintFloor; simp
+  have hthr1_le : ∀ r, r<57 → CanonicalPolicy.threshold 1 r ≤ 15 := by
+    intro r hr
+    unfold CanonicalPolicy.threshold
+    rw [if_neg (show (1:Nat)≠0 by decide), if_pos (show (1:Nat)=1 by decide)]
+    interval_cases r <;> decide
+  have hthr1_301 : ∀ r, 57≤r → CanonicalPolicy.threshold 1 r = 301 := by
+    intro r hr
+    unfold CanonicalPolicy.threshold
+    rw [if_neg (show (1:Nat)≠0 by decide), if_pos (show (1:Nat)=1 by decide)]
+    refine List.getD_eq_default _ _ ?_
+    rw [show CanonicalPolicy.lowerOneThresholds.length=57 from by decide]; omega
+  have hthr2_301 : ∀ r, 42≤r → CanonicalPolicy.threshold 2 r = 301 := by
+    intro r hr
+    unfold CanonicalPolicy.threshold
+    rw [if_neg (show (2:Nat)≠0 by decide), if_neg (show (2:Nat)≠1 by decide), if_pos (show (2:Nat)=2 by decide)]
+    refine List.getD_eq_default _ _ ?_
+    rw [show CanonicalPolicy.lowerTwoThresholds.length=42 from by decide]; omega
+  have hthr3_301 : ∀ r, 23≤r → CanonicalPolicy.threshold 3 r = 301 := by
+    intro r hr
+    unfold CanonicalPolicy.threshold
+    rw [if_neg (show (3:Nat)≠0 by decide), if_neg (show (3:Nat)≠1 by decide),
+        if_neg (show (3:Nat)≠2 by decide), if_neg (show ¬((3:Nat)=3∧r≤22) by omega)]
+  simp only [policyCondition, SharedForest.policyHintsValid, SharedForest.nextResidualAt, SharedForest.routeCredit,
+    (show (0:Layer).val=0 from rfl),(show (1:Layer).val=1 from rfl),(show (2:Layer).val=2 from rfl),
+    SigGolfCandidate.AllRoute.usedSave_top, Nat.add_zero, CanonicalPolicy.nextResidual, CanonicalPolicy.threshold_top,
+    decide_eq_true_eq, hf1, hf2, hf3]
+  set r1 := (SharedForest.requiredCredit index)-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) with hr1def
+  set r2 := r1-(CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 [])+SigGolfCandidate.AllRoute.usedSave 1 (SigGolfCandidate.T3.route index 1).1) with hr2def
+  set r3 := r2-(CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 [])+SigGolfCandidate.AllRoute.usedSave 2 (SigGolfCandidate.T3.route index 2).1) with hr3def
   constructor
-  · rintro ⟨hR1,hR2,hR3,he1,he2,he3⟩
-    have hlt := ClaudeWCT.WCT9.Policy75Safe23.lower_one_floor_lt ⟨_,hR1⟩
-    simp only [Fin.val_mk] at hlt
-    refine ⟨by omega,by omega,he2,?_⟩
-    rw [ClaudeWCT.WCT9.Policy75Safe23.lower_three_progress _ hR3]
-    exact he3
-  · rintro ⟨hH,he1,he2,he3⟩
-    have hr1 : (SharedForest.requiredCredit index)-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])-SharedForest.LocalRoute.ownSave index 1<58 := by omega
-    have ht1 := (ClaudeWCT.WCT9.Policy75Safe23.lower_one_progress ⟨_,hr1⟩).2
-    simp only [Fin.val_mk] at ht1
-    have hr2 : (SharedForest.requiredCredit index)-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])-SharedForest.LocalRoute.ownSave index 1-
-        CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 [])-SharedForest.LocalRoute.ownSave index 2<42 := by
-      rw [←he1] at ht1
+  · rintro ⟨h1,h2,h3,e1,e2,e3⟩
+    have hb1 := hthr1_le r1 h1
+    exact ⟨by omega,hlen,by omega,e2,e3⟩
+  · rintro ⟨h7744,_,e1,e2,e3⟩
+    have hlt484 : hints.toNat/529<23 := by omega
+    have e1' : hints.toNat/529 = CanonicalPolicy.threshold 1 r1 := by
+      rw [← Nat.mod_eq_of_lt hlt484]; exact e1
+    have hr1lt : r1 < 57 := by
+      by_contra hge
+      push_neg at hge
+      have hc := hthr1_301 r1 hge
+      rw [hc] at e1
       omega
-    have ht2 := (ClaudeWCT.WCT9.Policy75Safe23.lower_two_progress ⟨_,hr2⟩).2
-    simp only [Fin.val_mk] at ht2
-    have hr3 : (SharedForest.requiredCredit index)-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])-SharedForest.LocalRoute.ownSave index 1-
-        CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 [])-SharedForest.LocalRoute.ownSave index 2-
-        CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 [])-SharedForest.LocalRoute.ownSave index 3<24 := by
-      rw [←he2] at ht2
+    have hr2lt : r2 < 42 := by
+      by_contra hge
+      push_neg at hge
+      have hc := hthr2_301 r2 hge
+      rw [hc] at e2
       omega
-    refine ⟨hr1,hr2,hr3,by omega,he2,?_⟩
-    rw [ClaudeWCT.WCT9.Policy75Safe23.lower_three_progress _ hr3] at he3
-    exact he3
+    have hr3lt : r3 < 23 := by
+      by_contra hge
+      push_neg at hge
+      have hc := hthr3_301 r3 hge
+      rw [hc] at e3
+      omega
+    exact ⟨hr1lt,hr2lt,hr3lt,e1',e2,e3⟩
 end ClaudeWCT.W9.Machine.Expand.SharedValidate
 
 namespace SigGolfCandidate.T3M.Expand.SharedLayers
@@ -1775,26 +4137,26 @@ set_option Elab.async false
 def Tables (s : MachineState) : Prop :=
   ∀i,i<2160 → s.getByte (BitVec.ofNat 64 (16747408+i))=Images.expandSharedData.getD i 0
 
-theorem data1 (r : Fin 58) : Images.expandSharedData.getD (2048+r.val) 0=
-    BitVec.ofNat 8 (ClaudeWCT.WCT9.Policy75Safe23.threshold 1 r.val) := by
+theorem data1 (r : Fin 57) : Images.expandSharedData.getD (2048+r.val) 0=
+    BitVec.ofNat 8 (CanonicalPolicy.threshold 1 r.val) := by
   fin_cases r <;> decide +kernel
 theorem data2 (r : Fin 42) : Images.expandSharedData.getD (2112+r.val) 0=
-    BitVec.ofNat 8 (ClaudeWCT.WCT9.Policy75Safe23.threshold 2 r.val) := by
+    BitVec.ofNat 8 (CanonicalPolicy.threshold 2 r.val) := by
   fin_cases r <;> decide +kernel
-theorem threshold1_lt (r : Nat) (hr : r<58) : ClaudeWCT.WCT9.Policy75Safe23.threshold 1 r<24 := by
-  have h : ∀r:Fin 58,ClaudeWCT.WCT9.Policy75Safe23.threshold 1 r.val<24 := by decide +kernel
+theorem threshold1_lt (r : Nat) (hr : r<57) : CanonicalPolicy.threshold 1 r<22 := by
+  have h : ∀r:Fin 57,CanonicalPolicy.threshold 1 r.val<22 := by decide +kernel
   exact h ⟨r,hr⟩
-theorem threshold2_lt (r : Nat) (hr : r<42) : ClaudeWCT.WCT9.Policy75Safe23.threshold 2 r<24 := by
-  have h : ∀r:Fin 42,ClaudeWCT.WCT9.Policy75Safe23.threshold 2 r.val<24 := by decide +kernel
+theorem threshold2_lt (r : Nat) (hr : r<42) : CanonicalPolicy.threshold 2 r<22 := by
+  have h : ∀r:Fin 42,CanonicalPolicy.threshold 2 r.val<22 := by decide +kernel
   exact h ⟨r,hr⟩
-theorem Tables.first {s : MachineState} (h : Tables s) (r : Nat) (hr : r<58) :
-    s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (ClaudeWCT.WCT9.Policy75Safe23.threshold 1 r) := by
+theorem Tables.first {s : MachineState} (h : Tables s) (r : Nat) (hr : r<57) :
+    s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (CanonicalPolicy.threshold 1 r) := by
   have he:=h (2048+r) (by omega)
   rw [data1 ⟨r,hr⟩] at he
   rw [show 16747408+(2048+r)=16749456+r by omega] at he
   exact he
 theorem Tables.second {s : MachineState} (h : Tables s) (r : Nat) (hr : r<42) :
-    s.getByte (BitVec.ofNat 64 (16749520+r))=BitVec.ofNat 8 (ClaudeWCT.WCT9.Policy75Safe23.threshold 2 r) := by
+    s.getByte (BitVec.ofNat 64 (16749520+r))=BitVec.ofNat 8 (CanonicalPolicy.threshold 2 r) := by
   have he:=h (2112+r) (by omega)
   rw [data2 ⟨r,hr⟩] at he
   rw [show 16747408+(2112+r)=16749520+r by omega] at he
@@ -1957,7 +4319,7 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 open ClaudeWCT.W9.Machine.Sign.SharedDigest
 set_option maxHeartbeats 4000000
 set_option maxRecDepth 100000
-set_option debug.skipKernelTC true in
+set_option debug.skipKernelTC false in
 instance digestLabelCode : DigestLabel.Code Images.expandImage true where
   hook_at := by
     change CodeAt Images.expandImage (pcOf 45070) [0x7552506f]
@@ -2063,19 +4425,21 @@ set_option maxHeartbeats 1000000
 theorem installed_forest_good (sk : BitVec 256) (output : HashOutput)
     (witness : SigGolfCandidate.Research.SharedForest.Witness) (index : Nat) (hi : index<2^31)
     (s : MachineState)
+    (hz2 : s.getMem (BitVec.ofNat 64 (SigGolfCandidate.FtsGrind.slotA (9768-848*8)+16))=0)
     (h0 : Inv (Paired.witEnc output witness) index (rawChildFromOutput output)
       (fun k=>forestRank output k.val) s 0 (SharedV3.initialPair (Paired.witEnc output witness)) s) :
     TBSim Images.expandImage sk s forestW
       (recoverForest index (forestSelectionFromOutput output) (forestWordsFromOutput output) witness.signature.forest)
       (ForestPost s index (rawChildFromOutput output) (fun k=>forestRank output k.val)) := by
-  have hwin : (Frozen.image.code.drop 195584).take 59072=(Images.expandImage.code.drop 195584).take 59072 := by
+  have hwin : W9Machine.WinX Images.expandImage := by
+    unfold W9Machine.WinX
     rw [W9Machine.Frozen.image_eq]
-    exact Images.expand_banks_eq_verify.symm
+    exact ⟨Images.expand_window_lo.symm, Images.expand_window_hi.symm⟩
   have hm:=forest_tbsim_of_copies Images.expandImage sk hwin W9Drv.SharedBank.installed_copies
     SharedDispatch.installed_code W9Drv.slot_entry
-    (fun L hw hc rank w index k j u hu=>N600.tbsim_sharedBank L sk hw hc rank w index k j u hu)
+    (fun L hw hc rank w index k j u hu=>N600.tbsim_sharedBankX L sk hw hc rank w index k j u hu)
     (Paired.witEnc output witness) index hi (rawChildFromOutput output)
-    (fun k=>forestRank output k.val) s h0
+    (fun k=>forestRank output k.val) s hz2 h0
   rw[show N600.embed=ClaudeWCT.WCT9.embed from N600.embed_eq_c1] at hm
   rw[W9Drv.SharedCanonical.forest_witEncG' output witness index hi] at hm
   exact hm
@@ -5506,10 +7870,11 @@ section
 
 /-! # img-v6 expand final policy check (canon-v6 porter)
 
-Machine proof of the expand policy check at 46929..46979 for the img-v6 image: credit pool 72, policy hints in
-the mixed radix `484·f1 + 22·f2 + f3`, L1 floors by residual `< 55`, L2 `< 40`, L3 floor = residual `< 22`.
+Machine proof of the expand policy check at 46929..46979 for the img-v6 image: credit pool `requiredCredit index` (71..73), policy hints in
+the mixed radix `484·f1 + 22·f2 + f3`, L1 floors by residual `< 55`, L2 `< 41` (NB f2-19), L3 floor = least `nbA3`
+value `≥` residual `< 22` (NBZ5R NB: L3C at 56217, entered from 46975).
 Adapted from `SharedValidate` in `Expand/H2Front.lean` (e7b: pool 72, radix 20); new namespace
-`SharedValidateV6`, result `validate_source_steps` against `SharedForest.policyHintsValid` (bound 8192). -/
+`SharedValidateV6`, result `validate_source_steps` against `SharedForest.policyHintsValid` (bound 8464). -/
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedValidateV6
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv SigGolfCandidate.T3M
@@ -5523,7 +7888,7 @@ sym_block zero0Run := symRun {noAlias:=true} zero0Code (pcOf 46937) 20
 def sub0Code : List (BitVec 32) := [0x406a8ab3]
 sym_block sub0Run := symRun {noAlias:=true} sub0Code (pcOf 46939) 20
 theorem first0_steps {im : Image} (hc : CodeAt im (pcOf 46933) first0Code)
-    (s : MachineState) (hp : s.pc=pcOf 46933) (R C : Nat) (hR : R≤76) (hC : C<2^64)
+    (s : MachineState) (hp : s.pc=pcOf 46933) (R C : Nat) (hR : R≤74) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417856=BitVec.ofNat 64 C) :
     ∃t,Steps im s 4 4 t ∧ t.pc=(if C<R then pcOf 46939 else pcOf 46937) ∧
       t.getReg .x6=BitVec.ofNat 64 C ∧ RegsExcept s t [.x6,.x28] ∧ Frame s t (fun _=>False) := by
@@ -5549,7 +7914,7 @@ theorem zero0_steps {im : Image} (hc : CodeAt im (pcOf 46937) zero0Code)
   · intro A hA hn;rfl
 
 theorem sub0_steps {im : Image} (hc : CodeAt im (pcOf 46939) sub0Code)
-    (s : MachineState) (hp : s.pc=pcOf 46939) (R C : Nat) (hR : R≤76) (hC : C<R)
+    (s : MachineState) (hp : s.pc=pcOf 46939) (R C : Nat) (hR : R≤74) (hC : C<R)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h6 : s.getReg .x6=BitVec.ofNat 64 C) :
     ∃t,Steps im s 1 1 t ∧ t.pc=pcOf 46940 ∧ t.getReg .x21=BitVec.ofNat 64 (R-C) ∧
       RegsExcept s t [.x21] ∧ Frame s t (fun _=>False) := by
@@ -5567,7 +7932,7 @@ class Residual0Code (im : Image) : Prop where
   sub : CodeAt im (pcOf 46939) sub0Code
 
 theorem residual0_steps {im : Image} [hc : Residual0Code im]
-    (s : MachineState) (hp : s.pc=pcOf 46933) (R C : Nat) (hR : R≤76) (hC : C<2^64)
+    (s : MachineState) (hp : s.pc=pcOf 46933) (R C : Nat) (hR : R≤74) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417856=BitVec.ofNat 64 C) :
     ∃t n,n≤6 ∧ Steps im s n n t ∧ t.pc=pcOf 46940 ∧ t.getReg .x21=BitVec.ofNat 64 (R-C) ∧
       RegsExcept s t [.x6,.x21,.x28] ∧ Frame s t (fun _=>False) := by
@@ -5584,10 +7949,10 @@ def first1Code : List (BitVec 32) := [0x66e37,0xe0e13,0x48e3303,0x1536663]
 sym_block first1Run := symRun {noAlias:=true} first1Code (pcOf 46949) 20
 def zero1Code : List (BitVec 32) := [0xa93,0x80006f]
 sym_block zero1Run := symRun {noAlias:=true} zero1Code (pcOf 46953) 20
-def sub1Code : List (BitVec 32) := [0x406a8ab3]
+def sub1Code : List (BitVec 32) := [0x2540906f]
 sym_block sub1Run := symRun {noAlias:=true} sub1Code (pcOf 46955) 20
 theorem first1_steps {im : Image} (hc : CodeAt im (pcOf 46949) first1Code)
-    (s : MachineState) (hp : s.pc=pcOf 46949) (R C : Nat) (hR : R≤76) (hC : C<2^64)
+    (s : MachineState) (hp : s.pc=pcOf 46949) (R C : Nat) (hR : R≤74) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417864=BitVec.ofNat 64 C) :
     ∃t,Steps im s 4 4 t ∧ t.pc=(if C<R then pcOf 46955 else pcOf 46953) ∧
       t.getReg .x6=BitVec.ofNat 64 C ∧ RegsExcept s t [.x6,.x28] ∧ Frame s t (fun _=>False) := by
@@ -5613,33 +7978,37 @@ theorem zero1_steps {im : Image} (hc : CodeAt im (pcOf 46953) zero1Code)
   · intro A hA hn;rfl
 
 theorem sub1_steps {im : Image} (hc : CodeAt im (pcOf 46955) sub1Code)
-    (s : MachineState) (hp : s.pc=pcOf 46955) (R C : Nat) (hR : R≤76) (hC : C<R)
+    (hg : AllRouteHelpers.ExpandOneSavedCode im)
+    (s : MachineState) (hp : s.pc=pcOf 46955) (index R C : Nat) (hi : index<2^31) (hR : R≤74) (hC : C<R)
+    (hmidx : s.getMem (0x20550#64)=BitVec.ofNat 64 index)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h6 : s.getReg .x6=BitVec.ofNat 64 C) :
-    ∃t,Steps im s 1 1 t ∧ t.pc=pcOf 46956 ∧ t.getReg .x21=BitVec.ofNat 64 (R-C) ∧
-      RegsExcept s t [.x21] ∧ Frame s t (fun _=>False) := by
-  refine ⟨_,symRun_sound sub1Run hc s hp (by simp [sub1Run.res,rv_simp]),?_,?_,?_,?_⟩
-  · rfl
-  · simp only [Result.toState_getReg,sub1Run.res]
-    t3n [h21,h6]
-    exact BitVec.ofNat_sub_ofNat_of_le R C (by omega) (by omega)
-  · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
-  · intro A hA hn;rfl
+    ∃ t n, Steps im s n n t ∧ n≤34 ∧ t.pc=pcOf 46956 ∧
+      t.getReg .x21=BitVec.ofNat 64 ((R-C)-SigGolfCandidate.AllRoute.usedSave 1 (SigGolfCandidate.T3.route index 1).1) ∧
+      RegsExcept s t [.x6,.x7,.x21,.x28] ∧ Frame s t (fun _=>False) := by
+  obtain ⟨a,sa,pa,ra,fa⟩ := SigGolfCandidate.T3M.Search.T51.jump_hook (k:=46955) (t:=56320)
+    (off:=37460) (fun _=>rfl) hc (by norm_num [pcOf]) (by norm_num [pcOf]) (by norm_num [pcOf]) s hp
+  obtain ⟨t,nt,ast,hnt,pt,t21,rt,ft⟩ := AllRouteHelpers.expandOneSaved_steps hg a pa index R C hi (by omega) (by omega)
+    ((ra.get (by decide)).trans h21) ((ra.get (by decide)).trans h6) ((fa.get (by decide) (by simp)).trans hmidx)
+  exact ⟨t,1+nt,sa.trans ast,by omega,pt,t21,(ra.trans rt).mono (by simp),(fa.trans ft).mono (by simp)⟩
 
 class Residual1Code (im : Image) : Prop where
   first : CodeAt im (pcOf 46949) first1Code
   zero : CodeAt im (pcOf 46953) zero1Code
   sub : CodeAt im (pcOf 46955) sub1Code
+  saved : AllRouteHelpers.ExpandOneSavedCode im
 
 theorem residual1_steps {im : Image} [hc : Residual1Code im]
-    (s : MachineState) (hp : s.pc=pcOf 46949) (R C : Nat) (hR : R≤76) (hC : C<2^64)
+    (s : MachineState) (hp : s.pc=pcOf 46949) (index : Nat) (hi : index<2^31)
+    (hmidx : s.getMem (0x20550#64)=BitVec.ofNat 64 index) (R C : Nat) (hR : R≤74) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417864=BitVec.ofNat 64 C) :
-    ∃t n,n≤6 ∧ Steps im s n n t ∧ t.pc=pcOf 46956 ∧ t.getReg .x21=BitVec.ofNat 64 (R-C) ∧
-      RegsExcept s t [.x6,.x21,.x28] ∧ Frame s t (fun _=>False) := by
+    ∃t n,n≤38 ∧ Steps im s n n t ∧ t.pc=pcOf 46956 ∧ t.getReg .x21=BitVec.ofNat 64 ((R-C)-SigGolfCandidate.AllRoute.usedSave 1 (SigGolfCandidate.T3.route index 1).1) ∧
+      RegsExcept s t [.x6,.x7,.x21,.x28] ∧ Frame s t (fun _=>False) := by
   obtain ⟨u,su,pu,u6,ru,fu⟩:=first1_steps hc.first s hp R C hR hC h21 hm
   by_cases h : C<R
   · rw [if_pos h] at pu
-    obtain ⟨t,st,pt,ht,rr,ff⟩:=sub1_steps hc.sub u pu R C hR h (by rw [ru.get (by decide)];exact h21) u6
-    exact ⟨t,5,by omega,su.trans st,pt,ht,(ru.trans rr).mono (by decide),(fu.trans ff).mono (by simp)⟩
+    obtain ⟨t,nt,st,hnt,pt,ht,rr,ff⟩:=sub1_steps hc.sub hc.saved u pu index R C hi hR h
+      ((fu.get (by decide) (by simp)).trans hmidx) (by rw [ru.get (by decide)];exact h21) u6
+    exact ⟨t,4+nt,by omega,su.trans st,pt,ht,(ru.trans rr).mono (by decide),(fu.trans ff).mono (by simp)⟩
   · rw [if_neg h] at pu
     obtain ⟨t,st,pt,ht,rr,ff⟩:=zero1_steps hc.zero u pu
     exact ⟨t,6,by omega,su.trans st,pt,by simpa [show R-C=0 by omega] using ht,
@@ -5648,10 +8017,10 @@ def first2Code : List (BitVec 32) := [0x66e37,0xe0e13,0x50e3303,0x1536663]
 sym_block first2Run := symRun {noAlias:=true} first2Code (pcOf 46966) 20
 def zero2Code : List (BitVec 32) := [0xa93,0x80006f]
 sym_block zero2Run := symRun {noAlias:=true} zero2Code (pcOf 46970) 20
-def sub2Code : List (BitVec 32) := [0x406a8ab3]
+def sub2Code : List (BitVec 32) := [0x3100906f]
 sym_block sub2Run := symRun {noAlias:=true} sub2Code (pcOf 46972) 20
 theorem first2_steps {im : Image} (hc : CodeAt im (pcOf 46966) first2Code)
-    (s : MachineState) (hp : s.pc=pcOf 46966) (R C : Nat) (hR : R≤76) (hC : C<2^64)
+    (s : MachineState) (hp : s.pc=pcOf 46966) (R C : Nat) (hR : R≤74) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417872=BitVec.ofNat 64 C) :
     ∃t,Steps im s 4 4 t ∧ t.pc=(if C<R then pcOf 46972 else pcOf 46970) ∧
       t.getReg .x6=BitVec.ofNat 64 C ∧ RegsExcept s t [.x6,.x28] ∧ Frame s t (fun _=>False) := by
@@ -5677,33 +8046,37 @@ theorem zero2_steps {im : Image} (hc : CodeAt im (pcOf 46970) zero2Code)
   · intro A hA hn;rfl
 
 theorem sub2_steps {im : Image} (hc : CodeAt im (pcOf 46972) sub2Code)
-    (s : MachineState) (hp : s.pc=pcOf 46972) (R C : Nat) (hR : R≤76) (hC : C<R)
+    (hg : AllRouteHelpers.ExpandTwoSavedCode im)
+    (s : MachineState) (hp : s.pc=pcOf 46972) (index R C : Nat) (hi : index<2^31) (hR : R≤74) (hC : C<R)
+    (hmidx : s.getMem (0x20550#64)=BitVec.ofNat 64 index)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h6 : s.getReg .x6=BitVec.ofNat 64 C) :
-    ∃t,Steps im s 1 1 t ∧ t.pc=pcOf 46973 ∧ t.getReg .x21=BitVec.ofNat 64 (R-C) ∧
-      RegsExcept s t [.x21] ∧ Frame s t (fun _=>False) := by
-  refine ⟨_,symRun_sound sub2Run hc s hp (by simp [sub2Run.res,rv_simp]),?_,?_,?_,?_⟩
-  · rfl
-  · simp only [Result.toState_getReg,sub2Run.res]
-    t3n [h21,h6]
-    exact BitVec.ofNat_sub_ofNat_of_le R C (by omega) (by omega)
-  · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
-  · intro A hA hn;rfl
+    ∃ t n, Steps im s n n t ∧ n≤34 ∧ t.pc=pcOf 46973 ∧
+      t.getReg .x21=BitVec.ofNat 64 ((R-C)-SigGolfCandidate.AllRoute.usedSave 2 (SigGolfCandidate.T3.route index 2).1) ∧
+      RegsExcept s t [.x6,.x7,.x21,.x28] ∧ Frame s t (fun _=>False) := by
+  obtain ⟨a,sa,pa,ra,fa⟩ := SigGolfCandidate.T3M.Search.T51.jump_hook (k:=46972) (t:=56384)
+    (off:=37648) (fun _=>rfl) hc (by norm_num [pcOf]) (by norm_num [pcOf]) (by norm_num [pcOf]) s hp
+  obtain ⟨t,nt,ast,hnt,pt,t21,rt,ft⟩ := AllRouteHelpers.expandTwoSaved_steps hg a pa index R C hi (by omega) (by omega)
+    ((ra.get (by decide)).trans h21) ((ra.get (by decide)).trans h6) ((fa.get (by decide) (by simp)).trans hmidx)
+  exact ⟨t,1+nt,sa.trans ast,by omega,pt,t21,(ra.trans rt).mono (by simp),(fa.trans ft).mono (by simp)⟩
 
 class Residual2Code (im : Image) : Prop where
   first : CodeAt im (pcOf 46966) first2Code
   zero : CodeAt im (pcOf 46970) zero2Code
   sub : CodeAt im (pcOf 46972) sub2Code
+  saved : AllRouteHelpers.ExpandTwoSavedCode im
 
 theorem residual2_steps {im : Image} [hc : Residual2Code im]
-    (s : MachineState) (hp : s.pc=pcOf 46966) (R C : Nat) (hR : R≤76) (hC : C<2^64)
+    (s : MachineState) (hp : s.pc=pcOf 46966) (index : Nat) (hi : index<2^31)
+    (hmidx : s.getMem (0x20550#64)=BitVec.ofNat 64 index) (R C : Nat) (hR : R≤74) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417872=BitVec.ofNat 64 C) :
-    ∃t n,n≤6 ∧ Steps im s n n t ∧ t.pc=pcOf 46973 ∧ t.getReg .x21=BitVec.ofNat 64 (R-C) ∧
-      RegsExcept s t [.x6,.x21,.x28] ∧ Frame s t (fun _=>False) := by
+    ∃t n,n≤38 ∧ Steps im s n n t ∧ t.pc=pcOf 46973 ∧ t.getReg .x21=BitVec.ofNat 64 ((R-C)-SigGolfCandidate.AllRoute.usedSave 2 (SigGolfCandidate.T3.route index 2).1) ∧
+      RegsExcept s t [.x6,.x7,.x21,.x28] ∧ Frame s t (fun _=>False) := by
   obtain ⟨u,su,pu,u6,ru,fu⟩:=first2_steps hc.first s hp R C hR hC h21 hm
   by_cases h : C<R
   · rw [if_pos h] at pu
-    obtain ⟨t,st,pt,ht,rr,ff⟩:=sub2_steps hc.sub u pu R C hR h (by rw [ru.get (by decide)];exact h21) u6
-    exact ⟨t,5,by omega,su.trans st,pt,ht,(ru.trans rr).mono (by decide),(fu.trans ff).mono (by simp)⟩
+    obtain ⟨t,nt,st,hnt,pt,ht,rr,ff⟩:=sub2_steps hc.sub hc.saved u pu index R C hi hR h
+      ((fu.get (by decide) (by simp)).trans hmidx) (by rw [ru.get (by decide)];exact h21) u6
+    exact ⟨t,4+nt,by omega,su.trans st,pt,ht,(ru.trans rr).mono (by decide),(fu.trans ff).mono (by simp)⟩
   · rw [if_neg h] at pu
     obtain ⟨t,st,pt,ht,rr,ff⟩:=zero2_steps hc.zero u pu
     exact ⟨t,6,by omega,su.trans st,pt,by simpa [show R-C=0 by omega] using ht,
@@ -5717,43 +8090,35 @@ set_option maxHeartbeats 1500000
 set_option maxRecDepth 10000
 def initCode : List (BitVec 32) := [0x38c0706f]
 sym_block initRun := symRun {noAlias:=true} initCode (pcOf 46929) 100
-def range1Code : List (BitVec 32) := [0x3a00393,0x87afc63]
+def range1Code : List (BitVec 32) := [0x3900393,0x87afc63]
 sym_block range1Run := symRun {noAlias:=true} range1Code (pcOf 46940) 100
 def range2Code : List (BitVec 32) := [0x2a00393,0x47afc63]
 sym_block range2Run := symRun {noAlias:=true} range2Code (pcOf 46956) 100
-def range3Code : List (BitVec 32) := [0x1800393,0x7afa63]
+def range3Code : List (BitVec 32) := [0x1700393,0x7afa63]
 sym_block range3Run := symRun {noAlias:=true} range3Code (pcOf 46973) 100
-/-- Y5: 46975 jumps to the L3 check at 87800: `t4 := lowerThreeFloor s5` (branch-free), `t3 := s4 % 24`,
-`bne t3, t4` → 87813 (`j 46979`) else 87812 (`j 46978`). -/
-def lastCode : List (BitVec 32) := [0x5e52706f]
+def lastCode : List (BitVec 32) := [0x680906f,0x27a7eb3,0x1da9463]
 sym_block lastRun := symRun {noAlias:=true} lastCode (pcOf 46975) 100
-def l3eCode : List (BitVec 32) := [0x9abe13,0x900e93,0x415e8eb3,0x3ce8eb3,0x15e8eb3,0x7abe13,0x1e1393,0x7e0e33,0x41ce8eb3,0x57c0006f]
-sym_block l3eRun := symRun {noAlias:=true} l3eCode (pcOf 87800) 100
-def l3HelperCode : List (BitVec 32) := [0xaec393,0x13b393,0x7e8eb3,0x1800393,0x27a7e33,0xa9de10e3,0xa79ff06f]
-sym_block l3HelperRun := symRun {noAlias:=true} (l3HelperCode.take 6) (pcOf 88160) 100
-sym_block l3HelperJump := symRun {noAlias:=true} (l3HelperCode.drop 6) (pcOf 88166) 10
-def l3OkCode : List (BitVec 32) := [0x89cd406f]
-sym_block l3OkRun := symRun {noAlias:=true} l3OkCode (pcOf 87812) 100
-def l3BadCode : List (BitVec 32) := [0x9f8d806f]
-sym_block l3BadRun := symRun {noAlias:=true} l3BadCode (pcOf 87813) 100
+/-- NBZ5R (NB): L3C (expand 56217..56252, in the NOP pad): `f3 = H % 23` must equal `nbThr3 r3` (least `nbA3` value
+`≥ r3`); exits `j 42795` (good) or `j 354` (bad). -/
+def l3cCode : List (BitVec 32) := [0x1600313,0x1600393,0x67afa63,0x1500313,0x1500393,0x67af463,0x1400313,0x1400393,0x47afe63,0x1300313,0x1300393,0x47af863,0x1200313,0x1200393,0x47af263,0x1100313,0x1100393,0x27afc63,0x1000313,0x1000393,0x27af663,0xf00313,0xe00393,0x27af063,0xd00313,0xc00393,0x7afa63,0xb00313,0x900393,0x7af463,0x800313,0x1700393,0x27a7eb3,0x1d31463,0xdc1f206f,0xe98c906f]
 def goodCode : List (BitVec 32) := [0xea5fb06f]
 sym_block goodRun := symRun {noAlias:=true} goodCode (pcOf 46978) 100
 def badCode : List (BitVec 32) := [0xf7cd206f]
 sym_block badRun := symRun {noAlias:=true} badCode (pcOf 46979) 100
 theorem range1_steps {im : Image} (hc : CodeAt im (pcOf 46940) range1Code)
-    (s : MachineState) (hp : s.pc=pcOf 46940) (R : Nat) (hR : R≤75)
+    (s : MachineState) (hp : s.pc=pcOf 46940) (R : Nat) (hR : R≤74)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) :
-    ∃t,Steps im s 2 2 t ∧ t.pc=(if R<58 then pcOf 46942 else pcOf 46979) ∧
+    ∃t,Steps im s 2 2 t ∧ t.pc=(if R<57 then pcOf 46942 else pcOf 46979) ∧
       RegsExcept s t [.x7] ∧ Frame s t (fun _=>False) := by
   refine ⟨_,symRun_sound range1Run hc s hp (by simp [range1Run.res,rv_simp]),?_,?_,?_⟩
   · simp only [Result.toState_pc,range1Run.res]
     t3n [h21]
     simp only [BitVec.ult,BitVec.toNat_ofNat,Nat.mod_eq_of_lt (show R<2^64 by omega),decide_eq_true_eq]
-    by_cases h : R<58 <;> simp [h]
+    by_cases h : R<57 <;> simp [h]
   · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
   · intro A hA hn;rfl
 theorem range2_steps {im : Image} (hc : CodeAt im (pcOf 46956) range2Code)
-    (s : MachineState) (hp : s.pc=pcOf 46956) (R : Nat) (hR : R≤75)
+    (s : MachineState) (hp : s.pc=pcOf 46956) (R : Nat) (hR : R≤74)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) :
     ∃t,Steps im s 2 2 t ∧ t.pc=(if R<42 then pcOf 46958 else pcOf 46979) ∧
       RegsExcept s t [.x7] ∧ Frame s t (fun _=>False) := by
@@ -5765,15 +8130,15 @@ theorem range2_steps {im : Image} (hc : CodeAt im (pcOf 46956) range2Code)
   · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
   · intro A hA hn;rfl
 theorem range3_steps {im : Image} (hc : CodeAt im (pcOf 46973) range3Code)
-    (s : MachineState) (hp : s.pc=pcOf 46973) (R : Nat) (hR : R≤75)
+    (s : MachineState) (hp : s.pc=pcOf 46973) (R : Nat) (hR : R≤74)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) :
-    ∃t,Steps im s 2 2 t ∧ t.pc=(if R<24 then pcOf 46975 else pcOf 46979) ∧
+    ∃t,Steps im s 2 2 t ∧ t.pc=(if R<23 then pcOf 46975 else pcOf 46979) ∧
       RegsExcept s t [.x7] ∧ Frame s t (fun _=>False) := by
   refine ⟨_,symRun_sound range3Run hc s hp (by simp [range3Run.res,rv_simp]),?_,?_,?_⟩
   · simp only [Result.toState_pc,range3Run.res]
     t3n [h21]
     simp only [BitVec.ult,BitVec.toNat_ofNat,Nat.mod_eq_of_lt (show R<2^64 by omega),decide_eq_true_eq]
-    by_cases h : R<24 <;> simp [h]
+    by_cases h : R<23 <;> simp [h]
   · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
   · intro A hA hn;rfl
 theorem init_steps {im : Image} (hc : CodeAt im (pcOf 46929) initCode)
@@ -5795,41 +8160,30 @@ theorem init_steps {im : Image} (hc : CodeAt im (pcOf 46929) initCode)
     apply Nat.mod_eq_of_lt
     omega
   have he : SigGolfCandidate.Research.SharedForest.requiredCredit index =
-      LocalRouteMachineHelpers.poolForLeaf (index/2^19) := by
-    unfold SigGolfCandidate.Research.SharedForest.requiredCredit SigGolfCandidate.Research.SharedForest.LocalRoute.pool
+      ClaudeWCT.WCT9.CanonicalPolicy.routePool (index/2^19) := by
+    unfold SigGolfCandidate.Research.SharedForest.requiredCredit
     rw [hr]
-    rfl
   rw [he]
   exact tpool
 end ClaudeWCT.W9.Machine.Expand.SharedValidateV6
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedValidateV6
 open RiscvZkvm.Rv64
-theorem rem22 (n : Nat) (hn : n<2^64) : rv64_remu (BitVec.ofNat 64 n) 24#64=BitVec.ofNat 64 (n%24) := by
+theorem rem23 (n : Nat) (hn : n<2^64) : rv64_remu (BitVec.ofNat 64 n) 23#64=BitVec.ofNat 64 (n%23) := by
   apply BitVec.eq_of_toNat_eq
   simp [rv64_remu,BitVec.toNat_umod,BitVec.toNat_ofNat,Nat.mod_eq_of_lt hn,
-    Nat.mod_eq_of_lt (show n%24<2^64 by omega)]
+    Nat.mod_eq_of_lt (show n%23<2^64 by omega)]
   omega
-theorem div22 (n : Nat) (hn : n<2^64) : rv64_divu (BitVec.ofNat 64 n) 24#64=BitVec.ofNat 64 (n/24) := by
+theorem div23 (n : Nat) (hn : n<2^64) : rv64_divu (BitVec.ofNat 64 n) 23#64=BitVec.ofNat 64 (n/23) := by
   apply BitVec.eq_of_toNat_eq
   simp [rv64_divu,BitVec.toNat_udiv,BitVec.toNat_ofNat,Nat.mod_eq_of_lt hn,
-    Nat.mod_eq_of_lt (show n/24<2^64 by omega)]
+    Nat.mod_eq_of_lt (show n/23<2^64 by omega)]
   omega
-theorem div484 (n : Nat) (hn : n<2^64) : rv64_divu (BitVec.ofNat 64 n) 576#64=BitVec.ofNat 64 (n/576) := by
+theorem div529 (n : Nat) (hn : n<2^64) : rv64_divu (BitVec.ofNat 64 n) 529#64=BitVec.ofNat 64 (n/529) := by
   apply BitVec.eq_of_toNat_eq
   simp [rv64_divu,BitVec.toNat_udiv,BitVec.toNat_ofNat,Nat.mod_eq_of_lt hn,
-    Nat.mod_eq_of_lt (show n/576<2^64 by omega)]
+    Nat.mod_eq_of_lt (show n/529<2^64 by omega)]
   omega
-/-- Y5: the branch-free L3 floor of the check routine, on every residual `R ≤ 75`. -/
-def l3BaseVal (R : Word) : Word :=
-  ((9#64 - R) * (if R.ult 9#64 then 1#64 else 0#64) + R) -
-    ((if R.ult 7#64 then 1#64 else 0#64) + ((if R.ult 7#64 then 1#64 else 0#64) <<< 1))
-def l3Val (R : Word) : Word :=
-  let f := l3BaseVal R
-  f + (if (f ^^^ 10#64).ult 1#64 then 1#64 else 0#64)
-theorem l3Val_table : ∀ R : Fin 76,
-    l3Val (BitVec.ofNat 64 R.val) = BitVec.ofNat 64 (ClaudeWCT.WCT9.Policy75Safe23.lowerThreeFloor R.val) := by
-  decide +kernel
 end ClaudeWCT.W9.Machine.Expand.SharedValidateV6
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedValidateV6
@@ -5840,7 +8194,7 @@ set_option maxRecDepth 10000
 def lookup1PreCode : List (BitVec 32) := [0xff9e37,0x390e0e13,0x15e0e33]
 sym_block lookup1PreRun := symRun {noAlias:=true} lookup1PreCode (pcOf 46942) 100
 def lookup1LoadCode : List (BitVec 32) := [0xe4303]
-def lookup1PostCode : List (BitVec 32) := [0x24000393,0x27a5eb3,0x7d31e63]
+def lookup1PostCode : List (BitVec 32) := [0x21100393,0x27a5eb3,0x7d31e63]
 sym_block lookup1PostRun := symRun {noAlias:=true} lookup1PostCode (pcOf 46946) 100
 theorem lookup1_pre {im : Image} (hc : CodeAt im (pcOf 46942) lookup1PreCode)
     (s : MachineState) (hp : s.pc=pcOf 46942) (R : Nat) (h21 : s.getReg .x21=BitVec.ofNat 64 R) :
@@ -5872,26 +8226,26 @@ theorem lookup1_load {im : Image} (hc : CodeAt im (pcOf 46945) lookup1LoadCode)
   · intro A hA hn;simp
 
 theorem lookup1_post {im : Image} (hc : CodeAt im (pcOf 46946) lookup1PostCode)
-    (s : MachineState) (hp : s.pc=pcOf 46946) (H F : Nat) (hH : H<12288) (hF : F<24)
+    (s : MachineState) (hp : s.pc=pcOf 46946) (H F : Nat) (hH : H<9000) (hF : F<22)
     (h6 : s.getReg .x6=BitVec.ofNat 64 F) (h20 : s.getReg .x20=BitVec.ofNat 64 H) :
-    ∃t,Steps im s 3 6 t ∧ t.pc=(if F=H/576 then pcOf 46949 else pcOf 46979) ∧
+    ∃t,Steps im s 3 6 t ∧ t.pc=(if F=H/529 then pcOf 46949 else pcOf 46979) ∧
       RegsExcept s t [.x7,.x29] ∧ Frame s t (fun _=>False) := by
   refine ⟨_,symRun_sound lookup1PostRun hc s hp (by simp [lookup1PostRun.res,rv_simp]),?_,?_,?_⟩
   · simp only [Result.toState_pc,lookup1PostRun.res]
     t3n [h6,h20]
-    simp only [div484 H (by omega)]
-    have he : (BitVec.ofNat 64 F=BitVec.ofNat 64 (H/576)) ↔ F=H/576 := by
+    simp only [div529 H (by omega)]
+    have he : (BitVec.ofNat 64 F=BitVec.ofNat 64 (H/529)) ↔ F=H/529 := by
       constructor
       · intro h;have:=congrArg BitVec.toNat h;simp only [BitVec.toNat_ofNat] at this;omega
       · intro h;rw [h]
     simp only [he]
-    by_cases h : F=H/576 <;> simp [h]
+    by_cases h : F=H/529 <;> simp [h]
   · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
   · intro A hA hn;rfl
 def lookup2PreCode : List (BitVec 32) := [0xff9e37,0x3d0e0e13,0x15e0e33]
 sym_block lookup2PreRun := symRun {noAlias:=true} lookup2PreCode (pcOf 46958) 100
 def lookup2LoadCode : List (BitVec 32) := [0xe4303]
-def lookup2PostCode : List (BitVec 32) := [0x1800393,0x27a5eb3,0x27efeb3,0x3d31c63]
+def lookup2PostCode : List (BitVec 32) := [0x1700393,0x27a5eb3,0x27efeb3,0x3d31c63]
 sym_block lookup2PostRun := symRun {noAlias:=true} lookup2PostCode (pcOf 46962) 100
 theorem lookup2_pre {im : Image} (hc : CodeAt im (pcOf 46958) lookup2PreCode)
     (s : MachineState) (hp : s.pc=pcOf 46958) (R : Nat) (h21 : s.getReg .x21=BitVec.ofNat 64 R) :
@@ -5923,20 +8277,20 @@ theorem lookup2_load {im : Image} (hc : CodeAt im (pcOf 46961) lookup2LoadCode)
   · intro A hA hn;simp
 
 theorem lookup2_post {im : Image} (hc : CodeAt im (pcOf 46962) lookup2PostCode)
-    (s : MachineState) (hp : s.pc=pcOf 46962) (H F : Nat) (hH : H<12288) (hF : F<24)
+    (s : MachineState) (hp : s.pc=pcOf 46962) (H F : Nat) (hH : H<9000) (hF : F<22)
     (h6 : s.getReg .x6=BitVec.ofNat 64 F) (h20 : s.getReg .x20=BitVec.ofNat 64 H) :
-    ∃t,Steps im s 4 10 t ∧ t.pc=(if F=H/24%24 then pcOf 46966 else pcOf 46979) ∧
+    ∃t,Steps im s 4 10 t ∧ t.pc=(if F=H/23%23 then pcOf 46966 else pcOf 46979) ∧
       RegsExcept s t [.x7,.x29] ∧ Frame s t (fun _=>False) := by
   refine ⟨_,symRun_sound lookup2PostRun hc s hp (by simp [lookup2PostRun.res,rv_simp]),?_,?_,?_⟩
   · simp only [Result.toState_pc,lookup2PostRun.res]
     t3n [h6,h20]
-    simp only [div22 H (by omega),rem22 (H/24) (by omega)]
-    have he : (BitVec.ofNat 64 F=BitVec.ofNat 64 (H/24%24)) ↔ F=H/24%24 := by
+    simp only [div23 H (by omega),rem23 (H/23) (by omega)]
+    have he : (BitVec.ofNat 64 F=BitVec.ofNat 64 (H/23%23)) ↔ F=H/23%23 := by
       constructor
       · intro h;have:=congrArg BitVec.toNat h;simp only [BitVec.toNat_ofNat] at this;omega
       · intro h;rw [h]
     simp only [he]
-    by_cases h : F=H/24%24 <;> simp [h]
+    by_cases h : F=H/23%23 <;> simp [h]
   · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
   · intro A hA hn;rfl
 end ClaudeWCT.W9.Machine.Expand.SharedValidateV6
@@ -5950,10 +8304,10 @@ theorem lookup1_steps {im : Image}
     (hpre : CodeAt im (pcOf 46942) lookup1PreCode)
     (hload : CodeAt im (pcOf 46945) lookup1LoadCode)
     (hpost : CodeAt im (pcOf 46946) lookup1PostCode)
-    (s : MachineState) (hp : s.pc=pcOf 46942) (R H F : Nat) (hR : R<58) (hH : H<12288) (hF : F<24)
+    (s : MachineState) (hp : s.pc=pcOf 46942) (R H F : Nat) (hR : R<57) (hH : H<9000) (hF : F<22)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h20 : s.getReg .x20=BitVec.ofNat 64 H)
     (hm : s.getByte (BitVec.ofNat 64 (16749456+R))=BitVec.ofNat 8 F) :
-    ∃t,Steps im s 7 10 t ∧ t.pc=(if F=H/576 then pcOf 46949 else pcOf 46979) ∧
+    ∃t,Steps im s 7 10 t ∧ t.pc=(if F=H/529 then pcOf 46949 else pcOf 46979) ∧
       RegsExcept s t [.x6,.x7,.x28,.x29] ∧ Frame s t (fun _=>False) := by
   obtain ⟨u,su,pu,u28,ru,fu⟩:=lookup1_pre hpre s hp R h21
   obtain ⟨v,sv,pv,v6,rv,fv⟩:=lookup1_load hload u pu (16749456+R) F (by omega) (by omega) u28
@@ -5966,10 +8320,10 @@ theorem lookup2_steps {im : Image}
     (hpre : CodeAt im (pcOf 46958) lookup2PreCode)
     (hload : CodeAt im (pcOf 46961) lookup2LoadCode)
     (hpost : CodeAt im (pcOf 46962) lookup2PostCode)
-    (s : MachineState) (hp : s.pc=pcOf 46958) (R H F : Nat) (hR : R<42) (hH : H<12288) (hF : F<24)
+    (s : MachineState) (hp : s.pc=pcOf 46958) (R H F : Nat) (hR : R<42) (hH : H<9000) (hF : F<22)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h20 : s.getReg .x20=BitVec.ofNat 64 H)
     (hm : s.getByte (BitVec.ofNat 64 (16749520+R))=BitVec.ofNat 8 F) :
-    ∃t,Steps im s 8 14 t ∧ t.pc=(if F=H/24%24 then pcOf 46966 else pcOf 46979) ∧
+    ∃t,Steps im s 8 14 t ∧ t.pc=(if F=H/23%23 then pcOf 46966 else pcOf 46979) ∧
       RegsExcept s t [.x6,.x7,.x28,.x29] ∧ Frame s t (fun _=>False) := by
   obtain ⟨u,su,pu,u28,ru,fu⟩:=lookup2_pre hpre s hp R h21
   obtain ⟨v,sv,pv,v6,rv,fv⟩:=lookup2_load hload u pu (16749520+R) F (by omega) (by omega) u28
@@ -5978,72 +8332,412 @@ theorem lookup2_steps {im : Image}
     (by rw [rv.get (by decide),ru.get (by decide)];exact h20)
   exact ⟨t,(su.trans sv).trans st,pt,((ru.trans rv).trans rt).mono (by decide),
     ((fu.trans fv).trans ft).mono (by simp)⟩
-theorem last_steps {im : Image} (hc : CodeAt im (pcOf 46975) lastCode) (he : CodeAt im (pcOf 87800) l3eCode)
-    (hh : CodeAt im (pcOf 88160) l3HelperCode)
-    (hok : CodeAt im (pcOf 87812) l3OkCode) (hbad : CodeAt im (pcOf 87813) l3BadCode)
-    (s : MachineState) (hp : s.pc=pcOf 46975) (R H : Nat) (hR : R≤75) (hH : H<12288)
+def l3c0Code : List (BitVec 32) := [l3cCode[0]!,l3cCode[1]!,l3cCode[2]!]
+def l3c1Code : List (BitVec 32) := [l3cCode[3]!,l3cCode[4]!,l3cCode[5]!]
+def l3c2Code : List (BitVec 32) := [l3cCode[6]!,l3cCode[7]!,l3cCode[8]!]
+def l3c3Code : List (BitVec 32) := [l3cCode[9]!,l3cCode[10]!,l3cCode[11]!]
+def l3c4Code : List (BitVec 32) := [l3cCode[12]!,l3cCode[13]!,l3cCode[14]!]
+def l3c5Code : List (BitVec 32) := [l3cCode[15]!,l3cCode[16]!,l3cCode[17]!]
+def l3c6Code : List (BitVec 32) := [l3cCode[18]!,l3cCode[19]!,l3cCode[20]!]
+def l3c7Code : List (BitVec 32) := [l3cCode[21]!,l3cCode[22]!,l3cCode[23]!]
+def l3c8Code : List (BitVec 32) := [l3cCode[24]!,l3cCode[25]!,l3cCode[26]!]
+def l3c9Code : List (BitVec 32) := [l3cCode[27]!,l3cCode[28]!,l3cCode[29]!]
+def l3cFloorCode : List (BitVec 32) := [l3cCode[30]!]
+def l3cTailCode : List (BitVec 32) := [l3cCode[31]!,l3cCode[32]!,l3cCode[33]!]
+def l3cGoodCode : List (BitVec 32) := [l3cCode[34]!]
+def l3cBadCode : List (BitVec 32) := [l3cCode[35]!]
+def lastJCode : List (BitVec 32) := [lastCode[0]!]
+
+sym_block l3c0Run := symRun {noAlias:=true} l3c0Code (pcOf 56217) 10
+sym_block l3c1Run := symRun {noAlias:=true} l3c1Code (pcOf 56220) 10
+sym_block l3c2Run := symRun {noAlias:=true} l3c2Code (pcOf 56223) 10
+sym_block l3c3Run := symRun {noAlias:=true} l3c3Code (pcOf 56226) 10
+sym_block l3c4Run := symRun {noAlias:=true} l3c4Code (pcOf 56229) 10
+sym_block l3c5Run := symRun {noAlias:=true} l3c5Code (pcOf 56232) 10
+sym_block l3c6Run := symRun {noAlias:=true} l3c6Code (pcOf 56235) 10
+sym_block l3c7Run := symRun {noAlias:=true} l3c7Code (pcOf 56238) 10
+sym_block l3c8Run := symRun {noAlias:=true} l3c8Code (pcOf 56241) 10
+sym_block l3c9Run := symRun {noAlias:=true} l3c9Code (pcOf 56244) 10
+sym_block l3cFloorRun := symRun {noAlias:=true} l3cFloorCode (pcOf 56247) 10
+sym_block l3cTailRun := symRun {noAlias:=true} l3cTailCode (pcOf 56248) 10
+sym_block l3cGoodRun := symRun {noAlias:=true} l3cGoodCode (pcOf 56251) 10
+sym_block l3cBadRun := symRun {noAlias:=true} l3cBadCode (pcOf 56252) 10
+sym_block lastJRun := symRun {noAlias:=true} lastJCode (pcOf 46975) 10
+
+theorem l3c0_steps {im : Image} (hc : CodeAt im (pcOf 56217) l3c0Code)
+    (s : MachineState) (hp : s.pc=pcOf 56217) (R : Nat) (hR : R<2^64)
+    (h21 : s.getReg .x21=BitVec.ofNat 64 R) :
+    ∃t,Steps im s 3 3 t ∧ t.pc=(if 22≤R then pcOf 56248 else pcOf 56220) ∧
+      t.getReg .x6=BitVec.ofNat 64 22 ∧ RegsExcept s t [.x6,.x7] ∧ Frame s t (fun _=>False) := by
+  refine ⟨_,symRun_sound l3c0Run hc s hp (by simp [l3c0Run.res,rv_simp]),?_,?_,?_,?_⟩
+  · simp only [Result.toState_pc,l3c0Run.res]
+    t3n [h21]
+    simp only [BitVec.ult, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (show (22:Nat)<2^64 by omega),
+      Nat.mod_eq_of_lt hR, ← decide_not, decide_eq_true_eq, not_lt]
+  · simp [l3c0Run.res,rv_simp]
+  · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
+  · intro A hA hn;rfl
+
+theorem l3c1_steps {im : Image} (hc : CodeAt im (pcOf 56220) l3c1Code)
+    (s : MachineState) (hp : s.pc=pcOf 56220) (R : Nat) (hR : R<2^64)
+    (h21 : s.getReg .x21=BitVec.ofNat 64 R) :
+    ∃t,Steps im s 3 3 t ∧ t.pc=(if 21≤R then pcOf 56248 else pcOf 56223) ∧
+      t.getReg .x6=BitVec.ofNat 64 21 ∧ RegsExcept s t [.x6,.x7] ∧ Frame s t (fun _=>False) := by
+  refine ⟨_,symRun_sound l3c1Run hc s hp (by simp [l3c1Run.res,rv_simp]),?_,?_,?_,?_⟩
+  · simp only [Result.toState_pc,l3c1Run.res]
+    t3n [h21]
+    simp only [BitVec.ult, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (show (21:Nat)<2^64 by omega),
+      Nat.mod_eq_of_lt hR, ← decide_not, decide_eq_true_eq, not_lt]
+  · simp [l3c1Run.res,rv_simp]
+  · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
+  · intro A hA hn;rfl
+
+theorem l3c2_steps {im : Image} (hc : CodeAt im (pcOf 56223) l3c2Code)
+    (s : MachineState) (hp : s.pc=pcOf 56223) (R : Nat) (hR : R<2^64)
+    (h21 : s.getReg .x21=BitVec.ofNat 64 R) :
+    ∃t,Steps im s 3 3 t ∧ t.pc=(if 20≤R then pcOf 56248 else pcOf 56226) ∧
+      t.getReg .x6=BitVec.ofNat 64 20 ∧ RegsExcept s t [.x6,.x7] ∧ Frame s t (fun _=>False) := by
+  refine ⟨_,symRun_sound l3c2Run hc s hp (by simp [l3c2Run.res,rv_simp]),?_,?_,?_,?_⟩
+  · simp only [Result.toState_pc,l3c2Run.res]
+    t3n [h21]
+    simp only [BitVec.ult, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (show (20:Nat)<2^64 by omega),
+      Nat.mod_eq_of_lt hR, ← decide_not, decide_eq_true_eq, not_lt]
+  · simp [l3c2Run.res,rv_simp]
+  · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
+  · intro A hA hn;rfl
+
+theorem l3c3_steps {im : Image} (hc : CodeAt im (pcOf 56226) l3c3Code)
+    (s : MachineState) (hp : s.pc=pcOf 56226) (R : Nat) (hR : R<2^64)
+    (h21 : s.getReg .x21=BitVec.ofNat 64 R) :
+    ∃t,Steps im s 3 3 t ∧ t.pc=(if 19≤R then pcOf 56248 else pcOf 56229) ∧
+      t.getReg .x6=BitVec.ofNat 64 19 ∧ RegsExcept s t [.x6,.x7] ∧ Frame s t (fun _=>False) := by
+  refine ⟨_,symRun_sound l3c3Run hc s hp (by simp [l3c3Run.res,rv_simp]),?_,?_,?_,?_⟩
+  · simp only [Result.toState_pc,l3c3Run.res]
+    t3n [h21]
+    simp only [BitVec.ult, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (show (19:Nat)<2^64 by omega),
+      Nat.mod_eq_of_lt hR, ← decide_not, decide_eq_true_eq, not_lt]
+  · simp [l3c3Run.res,rv_simp]
+  · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
+  · intro A hA hn;rfl
+
+theorem l3c4_steps {im : Image} (hc : CodeAt im (pcOf 56229) l3c4Code)
+    (s : MachineState) (hp : s.pc=pcOf 56229) (R : Nat) (hR : R<2^64)
+    (h21 : s.getReg .x21=BitVec.ofNat 64 R) :
+    ∃t,Steps im s 3 3 t ∧ t.pc=(if 18≤R then pcOf 56248 else pcOf 56232) ∧
+      t.getReg .x6=BitVec.ofNat 64 18 ∧ RegsExcept s t [.x6,.x7] ∧ Frame s t (fun _=>False) := by
+  refine ⟨_,symRun_sound l3c4Run hc s hp (by simp [l3c4Run.res,rv_simp]),?_,?_,?_,?_⟩
+  · simp only [Result.toState_pc,l3c4Run.res]
+    t3n [h21]
+    simp only [BitVec.ult, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (show (18:Nat)<2^64 by omega),
+      Nat.mod_eq_of_lt hR, ← decide_not, decide_eq_true_eq, not_lt]
+  · simp [l3c4Run.res,rv_simp]
+  · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
+  · intro A hA hn;rfl
+
+theorem l3c5_steps {im : Image} (hc : CodeAt im (pcOf 56232) l3c5Code)
+    (s : MachineState) (hp : s.pc=pcOf 56232) (R : Nat) (hR : R<2^64)
+    (h21 : s.getReg .x21=BitVec.ofNat 64 R) :
+    ∃t,Steps im s 3 3 t ∧ t.pc=(if 17≤R then pcOf 56248 else pcOf 56235) ∧
+      t.getReg .x6=BitVec.ofNat 64 17 ∧ RegsExcept s t [.x6,.x7] ∧ Frame s t (fun _=>False) := by
+  refine ⟨_,symRun_sound l3c5Run hc s hp (by simp [l3c5Run.res,rv_simp]),?_,?_,?_,?_⟩
+  · simp only [Result.toState_pc,l3c5Run.res]
+    t3n [h21]
+    simp only [BitVec.ult, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (show (17:Nat)<2^64 by omega),
+      Nat.mod_eq_of_lt hR, ← decide_not, decide_eq_true_eq, not_lt]
+  · simp [l3c5Run.res,rv_simp]
+  · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
+  · intro A hA hn;rfl
+
+theorem l3c6_steps {im : Image} (hc : CodeAt im (pcOf 56235) l3c6Code)
+    (s : MachineState) (hp : s.pc=pcOf 56235) (R : Nat) (hR : R<2^64)
+    (h21 : s.getReg .x21=BitVec.ofNat 64 R) :
+    ∃t,Steps im s 3 3 t ∧ t.pc=(if 16≤R then pcOf 56248 else pcOf 56238) ∧
+      t.getReg .x6=BitVec.ofNat 64 16 ∧ RegsExcept s t [.x6,.x7] ∧ Frame s t (fun _=>False) := by
+  refine ⟨_,symRun_sound l3c6Run hc s hp (by simp [l3c6Run.res,rv_simp]),?_,?_,?_,?_⟩
+  · simp only [Result.toState_pc,l3c6Run.res]
+    t3n [h21]
+    simp only [BitVec.ult, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (show (16:Nat)<2^64 by omega),
+      Nat.mod_eq_of_lt hR, ← decide_not, decide_eq_true_eq, not_lt]
+  · simp [l3c6Run.res,rv_simp]
+  · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
+  · intro A hA hn;rfl
+
+theorem l3c7_steps {im : Image} (hc : CodeAt im (pcOf 56238) l3c7Code)
+    (s : MachineState) (hp : s.pc=pcOf 56238) (R : Nat) (hR : R<2^64)
+    (h21 : s.getReg .x21=BitVec.ofNat 64 R) :
+    ∃t,Steps im s 3 3 t ∧ t.pc=(if 14≤R then pcOf 56248 else pcOf 56241) ∧
+      t.getReg .x6=BitVec.ofNat 64 15 ∧ RegsExcept s t [.x6,.x7] ∧ Frame s t (fun _=>False) := by
+  refine ⟨_,symRun_sound l3c7Run hc s hp (by simp [l3c7Run.res,rv_simp]),?_,?_,?_,?_⟩
+  · simp only [Result.toState_pc,l3c7Run.res]
+    t3n [h21]
+    simp only [BitVec.ult, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (show (14:Nat)<2^64 by omega),
+      Nat.mod_eq_of_lt hR, ← decide_not, decide_eq_true_eq, not_lt]
+  · simp [l3c7Run.res,rv_simp]
+  · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
+  · intro A hA hn;rfl
+
+theorem l3c8_steps {im : Image} (hc : CodeAt im (pcOf 56241) l3c8Code)
+    (s : MachineState) (hp : s.pc=pcOf 56241) (R : Nat) (hR : R<2^64)
+    (h21 : s.getReg .x21=BitVec.ofNat 64 R) :
+    ∃t,Steps im s 3 3 t ∧ t.pc=(if 12≤R then pcOf 56248 else pcOf 56244) ∧
+      t.getReg .x6=BitVec.ofNat 64 13 ∧ RegsExcept s t [.x6,.x7] ∧ Frame s t (fun _=>False) := by
+  refine ⟨_,symRun_sound l3c8Run hc s hp (by simp [l3c8Run.res,rv_simp]),?_,?_,?_,?_⟩
+  · simp only [Result.toState_pc,l3c8Run.res]
+    t3n [h21]
+    simp only [BitVec.ult, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (show (12:Nat)<2^64 by omega),
+      Nat.mod_eq_of_lt hR, ← decide_not, decide_eq_true_eq, not_lt]
+  · simp [l3c8Run.res,rv_simp]
+  · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
+  · intro A hA hn;rfl
+
+theorem l3c9_steps {im : Image} (hc : CodeAt im (pcOf 56244) l3c9Code)
+    (s : MachineState) (hp : s.pc=pcOf 56244) (R : Nat) (hR : R<2^64)
+    (h21 : s.getReg .x21=BitVec.ofNat 64 R) :
+    ∃t,Steps im s 3 3 t ∧ t.pc=(if 9≤R then pcOf 56248 else pcOf 56247) ∧
+      t.getReg .x6=BitVec.ofNat 64 11 ∧ RegsExcept s t [.x6,.x7] ∧ Frame s t (fun _=>False) := by
+  refine ⟨_,symRun_sound l3c9Run hc s hp (by simp [l3c9Run.res,rv_simp]),?_,?_,?_,?_⟩
+  · simp only [Result.toState_pc,l3c9Run.res]
+    t3n [h21]
+    simp only [BitVec.ult, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (show (9:Nat)<2^64 by omega),
+      Nat.mod_eq_of_lt hR, ← decide_not, decide_eq_true_eq, not_lt]
+  · simp [l3c9Run.res,rv_simp]
+  · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
+  · intro A hA hn;rfl
+
+theorem l3cFloor_steps {im : Image} (hc : CodeAt im (pcOf 56247) l3cFloorCode)
+    (s : MachineState) (hp : s.pc=pcOf 56247) :
+    ∃t,Steps im s 1 1 t ∧ t.pc=pcOf 56248 ∧ t.getReg .x6=BitVec.ofNat 64 8 ∧
+      RegsExcept s t [.x6] ∧ Frame s t (fun _=>False) := by
+  refine ⟨_,symRun_sound l3cFloorRun hc s hp (by simp [l3cFloorRun.res,rv_simp]),rfl,?_,?_,?_⟩
+  · simp [l3cFloorRun.res,rv_simp]
+  · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
+  · intro A hA hn;rfl
+
+theorem l3cTail_steps {im : Image} (hc : CodeAt im (pcOf 56248) l3cTailCode)
+    (s : MachineState) (hp : s.pc=pcOf 56248) (val H : Nat) (hval : val<2^64) (hH : H<9000)
+    (h6 : s.getReg .x6=BitVec.ofNat 64 val) (h20 : s.getReg .x20=BitVec.ofNat 64 H) :
+    ∃t,Steps im s 3 6 t ∧ t.pc=(if H%23=val then pcOf 56251 else pcOf 56252) ∧
+      RegsExcept s t [.x7,.x29] ∧ Frame s t (fun _=>False) := by
+  refine ⟨_,symRun_sound l3cTailRun hc s hp (by simp [l3cTailRun.res,rv_simp]),?_,?_,?_⟩
+  · simp only [Result.toState_pc,l3cTailRun.res]
+    t3n [h6,h20]
+    simp only [CmpOp.eval, bne, rv64_remu, BitVec.toNat_umod, BitVec.toNat_ofNat, BitVec.toNat_eq,
+      Nat.mod_eq_of_lt hval, Nat.mod_eq_of_lt (show H<2^64 by omega),
+      Nat.mod_eq_of_lt (show H%23<2^64 by omega), ← decide_not, decide_eq_true_eq]
+    split_ifs with h1 h2 h2 <;>
+      first
+      | rfl
+      | (exfalso; simp_all [decide_eq_true_eq, decide_eq_false_iff_not] <;> omega)
+  · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
+  · intro A hA hn;rfl
+
+theorem l3cGood_steps {im : Image} (hc : CodeAt im (pcOf 56251) l3cGoodCode)
+    (s : MachineState) (hp : s.pc=pcOf 56251) :
+    ∃t,Steps im s 1 1 t ∧ t.pc=pcOf 42795 ∧ RegsExcept s t [] ∧ Frame s t (fun _=>False) := by
+  exact ⟨_,symRun_sound l3cGoodRun hc s hp (by simp [l3cGoodRun.res,rv_simp]),rfl,
+    fun r _=>by cases r <;> rfl,fun A _ _=>rfl⟩
+theorem l3cBad_steps {im : Image} (hc : CodeAt im (pcOf 56252) l3cBadCode)
+    (s : MachineState) (hp : s.pc=pcOf 56252) :
+    ∃t,Steps im s 1 1 t ∧ t.pc=pcOf 354 ∧ RegsExcept s t [] ∧ Frame s t (fun _=>False) := by
+  exact ⟨_,symRun_sound l3cBadRun hc s hp (by simp [l3cBadRun.res,rv_simp]),rfl,
+    fun r _=>by cases r <;> rfl,fun A _ _=>rfl⟩
+theorem lastJ_steps {im : Image} (hc : CodeAt im (pcOf 46975) lastJCode)
+    (s : MachineState) (hp : s.pc=pcOf 46975) :
+    ∃t,Steps im s 1 1 t ∧ t.pc=pcOf 56217 ∧ RegsExcept s t [] ∧ Frame s t (fun _=>False) := by
+  exact ⟨_,symRun_sound lastJRun hc s hp (by simp [lastJRun.res,rv_simp]),rfl,
+    fun r _=>by cases r <;> rfl,fun A _ _=>rfl⟩
+
+theorem l3c_tail_from {im : Image}
+    (hcTail : CodeAt im (pcOf 56248) l3cTailCode) (hcGood : CodeAt im (pcOf 56251) l3cGoodCode)
+    (hcBad : CodeAt im (pcOf 56252) l3cBadCode)
+    (t : MachineState) (pt : t.pc=pcOf 56248) (val H : Nat) (hval : val<2^64) (hH : H<9000)
+    (h6 : t.getReg .x6=BitVec.ofNat 64 val) (h20 : t.getReg .x20=BitVec.ofNat 64 H) :
+    ∃t',Steps im t 4 7 t' ∧ t'.pc=(if H%23=val then pcOf 42795 else pcOf 354) ∧
+      RegsExcept t t' [.x6,.x7,.x29] ∧ Frame t t' (fun _=>False) := by
+  obtain ⟨t2,st2,pt2,rt2,ft2⟩ := l3cTail_steps hcTail t pt val H hval hH h6 h20
+  by_cases hg : H%23=val
+  · rw [if_pos hg] at pt2
+    obtain ⟨t3,st3,pt3,rt3,ft3⟩ := l3cGood_steps hcGood t2 pt2
+    exact ⟨t3,st2.trans st3,by rw [pt3,if_pos hg],(rt2.trans rt3).mono (by decide),
+      (ft2.trans ft3).mono (by simp)⟩
+  · rw [if_neg hg] at pt2
+    obtain ⟨t3,st3,pt3,rt3,ft3⟩ := l3cBad_steps hcBad t2 pt2
+    exact ⟨t3,st2.trans st3,by rw [pt3,if_neg hg],(rt2.trans rt3).mono (by decide),
+      (ft2.trans ft3).mono (by simp)⟩
+
+/-- NBZ5R (NB): 46975 `j 56217` then L3C: at most 36 steps / 39 cycles to 42795 (`H % 23 = nbThr3 R`) or 354. -/
+theorem last_steps {im : Image} (hc : CodeAt im (pcOf 46975) lastCode) (hl : CodeAt im (pcOf 56217) l3cCode)
+    (s : MachineState) (hp : s.pc=pcOf 46975) (R H : Nat) (hR : R<23) (hH : H<9000)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h20 : s.getReg .x20=BitVec.ofNat 64 H) :
-    ∃t n c,n≤19 ∧ c≤35 ∧ Steps im s n c t ∧
-      t.pc=(if H%24=ClaudeWCT.WCT9.Policy75Safe23.lowerThreeFloor R then pcOf 42795 else pcOf 46979) ∧
-      RegsExcept s t [.x7,.x28,.x29] ∧ Frame s t (fun _=>False) := by
-  let u := lastRun.res.toState s
-  have s1 := symRun_sound lastRun hc s hp (by simp [lastRun.res,rv_simp])
-  have pu : u.pc=pcOf 87800 := rfl
-  have ru : RegsExcept s u [] := by intro r _;cases r <;> rfl
-  have s2 := symRun_sound l3eRun he u pu (by simp [l3eRun.res,rv_simp])
-  let w := l3eRun.res.toState u
-  have pw : w.pc=pcOf 88160 := rfl
-  have rw_ : RegsExcept u w [.x7,.x28,.x29] := by
-    intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
-  have hw : w.getReg .x29=l3BaseVal (u.getReg .x21) := by
-    simp only [w,Result.toState_getReg,l3eRun.res,rv_simp];rfl
-  have hc6 : CodeAt im (pcOf 88160) (l3HelperCode.take 6) := codeAt_sub 0 hh (by decide) rfl
-  have hc1 : CodeAt im (pcOf 88166) (l3HelperCode.drop 6) := by
-    have := CodeAt.drop_prefix (pre:=l3HelperCode.take 6) (seg:=l3HelperCode.drop 6) (post:=[]) hh
-    simpa only [show (l3HelperCode.take 6).length=6 from rfl, show pcOf 88160+BitVec.ofNat 64 (4*6)=pcOf 88166 from rfl] using this
-  have s3 := symRun_sound l3HelperRun hc6 w pw (by simp [l3HelperRun.res,rv_simp])
-  let v := l3HelperRun.res.toState w
-  have v29 : v.getReg .x29=BitVec.ofNat 64 (ClaudeWCT.WCT9.Policy75Safe23.lowerThreeFloor R) := by
-    have hv : v.getReg .x29=w.getReg .x29+(if ((w.getReg .x29) ^^^ 10#64).ult 1#64 then 1#64 else 0#64) := by
-      simp only [v,Result.toState_getReg,l3HelperRun.res,rv_simp] <;> rfl
-    rw [hv,hw,ru.get (by decide),h21]
-    exact l3Val_table ⟨R,by omega⟩
-  have v28 : v.getReg .x28=BitVec.ofNat 64 (H%24) := by
-    have hv : v.getReg .x28=rv64_remu (w.getReg .x20) 24#64 := by
-      simp only [v,Result.toState_getReg,l3HelperRun.res,rv_simp] <;> rfl
-    rw [hv,rw_.get (by decide),ru.get (by decide),h20]
-    exact rem22 H (by omega)
-  have hcmp : (v.getReg .x28=v.getReg .x29) ↔ H%24=ClaudeWCT.WCT9.Policy75Safe23.lowerThreeFloor R := by
-    rw [v28,v29]
-    constructor
-    · intro h;have := congrArg BitVec.toNat h
-      simp only [BitVec.toNat_ofNat] at this
-      unfold ClaudeWCT.WCT9.Policy75Safe23.lowerThreeFloor at this ⊢;split_ifs at this ⊢ <;> omega
-    · intro h;rw [h]
-  have pv : v.pc=(if v.getReg .x28=v.getReg .x29 then pcOf 88166 else pcOf 87813) := by
-    simp only [v,Result.toState_pc,l3HelperRun.res];t3n []
-    by_cases h : (l3HelperRun.res.toState w).getReg .x28=(l3HelperRun.res.toState w).getReg .x29 <;> simp_all
-  have rv : RegsExcept w v [.x7,.x28,.x29] := by
-    intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
-  have mv : ∀ A,v.getMem A=s.getMem A := by intro A;rfl
-  by_cases hq : H%24=ClaudeWCT.WCT9.Policy75Safe23.lowerThreeFloor R
-  · rw [if_pos (hcmp.2 hq)] at pv
-    have sj := symRun_sound l3HelperJump hc1 v pv (by simp [l3HelperJump.res,rv_simp])
-    let x := l3HelperJump.res.toState v
-    have px : x.pc=pcOf 87812 := rfl
-    have sx := symRun_sound l3OkRun hok x px (by simp [l3OkRun.res,rv_simp])
-    refine ⟨_,_,_,by decide,by decide,(((s1.trans s2).trans s3).trans sj).trans sx,?_,?_,?_⟩
-    · rw [if_pos hq];rfl
-    · exact ((((ru.trans rw_).trans rv).trans
-        (show RegsExcept v (l3OkRun.res.toState x) [] from by intro r _;cases r <;> rfl))).mono (by decide)
-    · intro A _ _;exact mv A
-  · rw [if_neg (fun h=>hq (hcmp.1 h))] at pv
-    have sx := symRun_sound l3BadRun hbad v pv (by simp [l3BadRun.res,rv_simp])
-    refine ⟨_,_,_,by decide,by decide,((s1.trans s2).trans s3).trans sx,?_,?_,?_⟩
-    · rw [if_neg hq];rfl
-    · exact ((((ru.trans rw_).trans rv).trans
-        (show RegsExcept v (l3BadRun.res.toState v) [] from by intro r _;cases r <;> rfl))).mono (by decide)
-    · intro A _ _;exact mv A
+    ∃t n c,n≤36 ∧ c≤39 ∧ Steps im s n c t ∧
+      t.pc=(if H%23=ClaudeWCT.W9.T3M.SharedCodec.nbThr3 R then pcOf 42795 else pcOf 354) ∧
+      RegsExcept s t [.x6,.x7,.x29] ∧ Frame s t (fun _=>False) := by
+  have lcc : CodeAt im (pcOf 46975) lastJCode := ClaudeWCT.W9.Machine.Expand.SharedCounterHooks.code_slice hc (off:=0) (by decide) (by decide)
+  have hc0 : CodeAt im (pcOf 56217) l3c0Code := ClaudeWCT.W9.Machine.Expand.SharedCounterHooks.code_slice hl (off:=0) (by decide) (by decide)
+  have hc1 : CodeAt im (pcOf 56220) l3c1Code := ClaudeWCT.W9.Machine.Expand.SharedCounterHooks.code_slice hl (off:=3) (by decide) (by decide)
+  have hc2 : CodeAt im (pcOf 56223) l3c2Code := ClaudeWCT.W9.Machine.Expand.SharedCounterHooks.code_slice hl (off:=6) (by decide) (by decide)
+  have hc3 : CodeAt im (pcOf 56226) l3c3Code := ClaudeWCT.W9.Machine.Expand.SharedCounterHooks.code_slice hl (off:=9) (by decide) (by decide)
+  have hc4 : CodeAt im (pcOf 56229) l3c4Code := ClaudeWCT.W9.Machine.Expand.SharedCounterHooks.code_slice hl (off:=12) (by decide) (by decide)
+  have hc5 : CodeAt im (pcOf 56232) l3c5Code := ClaudeWCT.W9.Machine.Expand.SharedCounterHooks.code_slice hl (off:=15) (by decide) (by decide)
+  have hc6 : CodeAt im (pcOf 56235) l3c6Code := ClaudeWCT.W9.Machine.Expand.SharedCounterHooks.code_slice hl (off:=18) (by decide) (by decide)
+  have hc7 : CodeAt im (pcOf 56238) l3c7Code := ClaudeWCT.W9.Machine.Expand.SharedCounterHooks.code_slice hl (off:=21) (by decide) (by decide)
+  have hc8 : CodeAt im (pcOf 56241) l3c8Code := ClaudeWCT.W9.Machine.Expand.SharedCounterHooks.code_slice hl (off:=24) (by decide) (by decide)
+  have hc9 : CodeAt im (pcOf 56244) l3c9Code := ClaudeWCT.W9.Machine.Expand.SharedCounterHooks.code_slice hl (off:=27) (by decide) (by decide)
+  have hcFloor : CodeAt im (pcOf 56247) l3cFloorCode := ClaudeWCT.W9.Machine.Expand.SharedCounterHooks.code_slice hl (off:=30) (by decide) (by decide)
+  have hcTail : CodeAt im (pcOf 56248) l3cTailCode := ClaudeWCT.W9.Machine.Expand.SharedCounterHooks.code_slice hl (off:=31) (by decide) (by decide)
+  have hcGood : CodeAt im (pcOf 56251) l3cGoodCode := ClaudeWCT.W9.Machine.Expand.SharedCounterHooks.code_slice hl (off:=34) (by decide) (by decide)
+  have hcBad : CodeAt im (pcOf 56252) l3cBadCode := ClaudeWCT.W9.Machine.Expand.SharedCounterHooks.code_slice hl (off:=35) (by decide) (by decide)
+  obtain ⟨u,su,pu,ru,fu⟩ := lastJ_steps lcc s hp
+  have h21u : u.getReg .x21 = BitVec.ofNat 64 R := (ru.get (by decide)).trans h21
+  have h20u : u.getReg .x20 = BitVec.ofNat 64 H := (ru.get (by decide)).trans h20
+  by_cases h0 : (22:Nat)≤R
+  · obtain ⟨t0,st0,pt0,x6t0,rt0,ft0⟩ := l3c0_steps hc0 u pu R (by omega) h21u
+    rw [if_pos h0] at pt0
+    have hthr0 : ClaudeWCT.W9.T3M.SharedCodec.nbThr3 R = 22 := by
+      unfold ClaudeWCT.W9.T3M.SharedCodec.nbThr3; split_ifs <;> omega
+    have h20t0 : t0.getReg .x20 = BitVec.ofNat 64 H := (rt0.get (by decide)).trans h20u
+    obtain ⟨t0',st0',pt0',rt0',ft0'⟩ := l3c_tail_from hcTail hcGood hcBad t0 pt0 22 H (by omega) hH x6t0 h20t0
+    refine ⟨t0',8,11,by omega,by omega,su.trans (st0.trans st0'),?_,
+      ((ru.trans rt0).trans rt0').mono (by decide),((fu.trans ft0).trans ft0').mono (by simp)⟩
+    rw [hthr0];exact pt0'
+  · obtain ⟨t0,st0,pt0,x6t0,rt0,ft0⟩ := l3c0_steps hc0 u pu R (by omega) h21u
+    rw [if_neg h0] at pt0
+    have h21t0 : t0.getReg .x21 = BitVec.ofNat 64 R := (rt0.get (by decide)).trans h21u
+    have h20t0 : t0.getReg .x20 = BitVec.ofNat 64 H := (rt0.get (by decide)).trans h20u
+    by_cases h1 : (21:Nat)≤R
+    · obtain ⟨t1,st1,pt1,x6t1,rt1,ft1⟩ := l3c1_steps hc1 t0 pt0 R (by omega) h21t0
+      rw [if_pos h1] at pt1
+      have hthr1 : ClaudeWCT.W9.T3M.SharedCodec.nbThr3 R = 21 := by
+        unfold ClaudeWCT.W9.T3M.SharedCodec.nbThr3; split_ifs <;> omega
+      have h20t1 : t1.getReg .x20 = BitVec.ofNat 64 H := (rt1.get (by decide)).trans h20t0
+      obtain ⟨t1',st1',pt1',rt1',ft1'⟩ := l3c_tail_from hcTail hcGood hcBad t1 pt1 21 H (by omega) hH x6t1 h20t1
+      refine ⟨t1',11,14,by omega,by omega,(su.trans st0).trans (st1.trans st1'),?_,
+        (((ru.trans rt0).trans rt1).trans rt1').mono (by decide),(((fu.trans ft0).trans ft1).trans ft1').mono (by simp)⟩
+      rw [hthr1];exact pt1'
+    · obtain ⟨t1,st1,pt1,x6t1,rt1,ft1⟩ := l3c1_steps hc1 t0 pt0 R (by omega) h21t0
+      rw [if_neg h1] at pt1
+      have h21t1 : t1.getReg .x21 = BitVec.ofNat 64 R := (rt1.get (by decide)).trans h21t0
+      have h20t1 : t1.getReg .x20 = BitVec.ofNat 64 H := (rt1.get (by decide)).trans h20t0
+      by_cases h2 : (20:Nat)≤R
+      · obtain ⟨t2,st2,pt2,x6t2,rt2,ft2⟩ := l3c2_steps hc2 t1 pt1 R (by omega) h21t1
+        rw [if_pos h2] at pt2
+        have hthr2 : ClaudeWCT.W9.T3M.SharedCodec.nbThr3 R = 20 := by
+          unfold ClaudeWCT.W9.T3M.SharedCodec.nbThr3; split_ifs <;> omega
+        have h20t2 : t2.getReg .x20 = BitVec.ofNat 64 H := (rt2.get (by decide)).trans h20t1
+        obtain ⟨t2',st2',pt2',rt2',ft2'⟩ := l3c_tail_from hcTail hcGood hcBad t2 pt2 20 H (by omega) hH x6t2 h20t2
+        refine ⟨t2',14,17,by omega,by omega,((su.trans st0).trans st1).trans (st2.trans st2'),?_,
+          ((((ru.trans rt0).trans rt1).trans rt2).trans rt2').mono (by decide),((((fu.trans ft0).trans ft1).trans ft2).trans ft2').mono (by simp)⟩
+        rw [hthr2];exact pt2'
+      · obtain ⟨t2,st2,pt2,x6t2,rt2,ft2⟩ := l3c2_steps hc2 t1 pt1 R (by omega) h21t1
+        rw [if_neg h2] at pt2
+        have h21t2 : t2.getReg .x21 = BitVec.ofNat 64 R := (rt2.get (by decide)).trans h21t1
+        have h20t2 : t2.getReg .x20 = BitVec.ofNat 64 H := (rt2.get (by decide)).trans h20t1
+        by_cases h3 : (19:Nat)≤R
+        · obtain ⟨t3,st3,pt3,x6t3,rt3,ft3⟩ := l3c3_steps hc3 t2 pt2 R (by omega) h21t2
+          rw [if_pos h3] at pt3
+          have hthr3 : ClaudeWCT.W9.T3M.SharedCodec.nbThr3 R = 19 := by
+            unfold ClaudeWCT.W9.T3M.SharedCodec.nbThr3; split_ifs <;> omega
+          have h20t3 : t3.getReg .x20 = BitVec.ofNat 64 H := (rt3.get (by decide)).trans h20t2
+          obtain ⟨t3',st3',pt3',rt3',ft3'⟩ := l3c_tail_from hcTail hcGood hcBad t3 pt3 19 H (by omega) hH x6t3 h20t3
+          refine ⟨t3',17,20,by omega,by omega,(((su.trans st0).trans st1).trans st2).trans (st3.trans st3'),?_,
+            (((((ru.trans rt0).trans rt1).trans rt2).trans rt3).trans rt3').mono (by decide),(((((fu.trans ft0).trans ft1).trans ft2).trans ft3).trans ft3').mono (by simp)⟩
+          rw [hthr3];exact pt3'
+        · obtain ⟨t3,st3,pt3,x6t3,rt3,ft3⟩ := l3c3_steps hc3 t2 pt2 R (by omega) h21t2
+          rw [if_neg h3] at pt3
+          have h21t3 : t3.getReg .x21 = BitVec.ofNat 64 R := (rt3.get (by decide)).trans h21t2
+          have h20t3 : t3.getReg .x20 = BitVec.ofNat 64 H := (rt3.get (by decide)).trans h20t2
+          by_cases h4 : (18:Nat)≤R
+          · obtain ⟨t4,st4,pt4,x6t4,rt4,ft4⟩ := l3c4_steps hc4 t3 pt3 R (by omega) h21t3
+            rw [if_pos h4] at pt4
+            have hthr4 : ClaudeWCT.W9.T3M.SharedCodec.nbThr3 R = 18 := by
+              unfold ClaudeWCT.W9.T3M.SharedCodec.nbThr3; split_ifs <;> omega
+            have h20t4 : t4.getReg .x20 = BitVec.ofNat 64 H := (rt4.get (by decide)).trans h20t3
+            obtain ⟨t4',st4',pt4',rt4',ft4'⟩ := l3c_tail_from hcTail hcGood hcBad t4 pt4 18 H (by omega) hH x6t4 h20t4
+            refine ⟨t4',20,23,by omega,by omega,((((su.trans st0).trans st1).trans st2).trans st3).trans (st4.trans st4'),?_,
+              ((((((ru.trans rt0).trans rt1).trans rt2).trans rt3).trans rt4).trans rt4').mono (by decide),((((((fu.trans ft0).trans ft1).trans ft2).trans ft3).trans ft4).trans ft4').mono (by simp)⟩
+            rw [hthr4];exact pt4'
+          · obtain ⟨t4,st4,pt4,x6t4,rt4,ft4⟩ := l3c4_steps hc4 t3 pt3 R (by omega) h21t3
+            rw [if_neg h4] at pt4
+            have h21t4 : t4.getReg .x21 = BitVec.ofNat 64 R := (rt4.get (by decide)).trans h21t3
+            have h20t4 : t4.getReg .x20 = BitVec.ofNat 64 H := (rt4.get (by decide)).trans h20t3
+            by_cases h5 : (17:Nat)≤R
+            · obtain ⟨t5,st5,pt5,x6t5,rt5,ft5⟩ := l3c5_steps hc5 t4 pt4 R (by omega) h21t4
+              rw [if_pos h5] at pt5
+              have hthr5 : ClaudeWCT.W9.T3M.SharedCodec.nbThr3 R = 17 := by
+                unfold ClaudeWCT.W9.T3M.SharedCodec.nbThr3; split_ifs <;> omega
+              have h20t5 : t5.getReg .x20 = BitVec.ofNat 64 H := (rt5.get (by decide)).trans h20t4
+              obtain ⟨t5',st5',pt5',rt5',ft5'⟩ := l3c_tail_from hcTail hcGood hcBad t5 pt5 17 H (by omega) hH x6t5 h20t5
+              refine ⟨t5',23,26,by omega,by omega,(((((su.trans st0).trans st1).trans st2).trans st3).trans st4).trans (st5.trans st5'),?_,
+                (((((((ru.trans rt0).trans rt1).trans rt2).trans rt3).trans rt4).trans rt5).trans rt5').mono (by decide),(((((((fu.trans ft0).trans ft1).trans ft2).trans ft3).trans ft4).trans ft5).trans ft5').mono (by simp)⟩
+              rw [hthr5];exact pt5'
+            · obtain ⟨t5,st5,pt5,x6t5,rt5,ft5⟩ := l3c5_steps hc5 t4 pt4 R (by omega) h21t4
+              rw [if_neg h5] at pt5
+              have h21t5 : t5.getReg .x21 = BitVec.ofNat 64 R := (rt5.get (by decide)).trans h21t4
+              have h20t5 : t5.getReg .x20 = BitVec.ofNat 64 H := (rt5.get (by decide)).trans h20t4
+              by_cases h6 : (16:Nat)≤R
+              · obtain ⟨t6,st6,pt6,x6t6,rt6,ft6⟩ := l3c6_steps hc6 t5 pt5 R (by omega) h21t5
+                rw [if_pos h6] at pt6
+                have hthr6 : ClaudeWCT.W9.T3M.SharedCodec.nbThr3 R = 16 := by
+                  unfold ClaudeWCT.W9.T3M.SharedCodec.nbThr3; split_ifs <;> omega
+                have h20t6 : t6.getReg .x20 = BitVec.ofNat 64 H := (rt6.get (by decide)).trans h20t5
+                obtain ⟨t6',st6',pt6',rt6',ft6'⟩ := l3c_tail_from hcTail hcGood hcBad t6 pt6 16 H (by omega) hH x6t6 h20t6
+                refine ⟨t6',26,29,by omega,by omega,((((((su.trans st0).trans st1).trans st2).trans st3).trans st4).trans st5).trans (st6.trans st6'),?_,
+                  ((((((((ru.trans rt0).trans rt1).trans rt2).trans rt3).trans rt4).trans rt5).trans rt6).trans rt6').mono (by decide),((((((((fu.trans ft0).trans ft1).trans ft2).trans ft3).trans ft4).trans ft5).trans ft6).trans ft6').mono (by simp)⟩
+                rw [hthr6];exact pt6'
+              · obtain ⟨t6,st6,pt6,x6t6,rt6,ft6⟩ := l3c6_steps hc6 t5 pt5 R (by omega) h21t5
+                rw [if_neg h6] at pt6
+                have h21t6 : t6.getReg .x21 = BitVec.ofNat 64 R := (rt6.get (by decide)).trans h21t5
+                have h20t6 : t6.getReg .x20 = BitVec.ofNat 64 H := (rt6.get (by decide)).trans h20t5
+                by_cases h7 : (14:Nat)≤R
+                · obtain ⟨t7,st7,pt7,x6t7,rt7,ft7⟩ := l3c7_steps hc7 t6 pt6 R (by omega) h21t6
+                  rw [if_pos h7] at pt7
+                  have hthr7 : ClaudeWCT.W9.T3M.SharedCodec.nbThr3 R = 15 := by
+                    unfold ClaudeWCT.W9.T3M.SharedCodec.nbThr3; split_ifs <;> omega
+                  have h20t7 : t7.getReg .x20 = BitVec.ofNat 64 H := (rt7.get (by decide)).trans h20t6
+                  obtain ⟨t7',st7',pt7',rt7',ft7'⟩ := l3c_tail_from hcTail hcGood hcBad t7 pt7 15 H (by omega) hH x6t7 h20t7
+                  refine ⟨t7',29,32,by omega,by omega,(((((((su.trans st0).trans st1).trans st2).trans st3).trans st4).trans st5).trans st6).trans (st7.trans st7'),?_,
+                    (((((((((ru.trans rt0).trans rt1).trans rt2).trans rt3).trans rt4).trans rt5).trans rt6).trans rt7).trans rt7').mono (by decide),(((((((((fu.trans ft0).trans ft1).trans ft2).trans ft3).trans ft4).trans ft5).trans ft6).trans ft7).trans ft7').mono (by simp)⟩
+                  rw [hthr7];exact pt7'
+                · obtain ⟨t7,st7,pt7,x6t7,rt7,ft7⟩ := l3c7_steps hc7 t6 pt6 R (by omega) h21t6
+                  rw [if_neg h7] at pt7
+                  have h21t7 : t7.getReg .x21 = BitVec.ofNat 64 R := (rt7.get (by decide)).trans h21t6
+                  have h20t7 : t7.getReg .x20 = BitVec.ofNat 64 H := (rt7.get (by decide)).trans h20t6
+                  by_cases h8 : (12:Nat)≤R
+                  · obtain ⟨t8,st8,pt8,x6t8,rt8,ft8⟩ := l3c8_steps hc8 t7 pt7 R (by omega) h21t7
+                    rw [if_pos h8] at pt8
+                    have hthr8 : ClaudeWCT.W9.T3M.SharedCodec.nbThr3 R = 13 := by
+                      unfold ClaudeWCT.W9.T3M.SharedCodec.nbThr3; split_ifs <;> omega
+                    have h20t8 : t8.getReg .x20 = BitVec.ofNat 64 H := (rt8.get (by decide)).trans h20t7
+                    obtain ⟨t8',st8',pt8',rt8',ft8'⟩ := l3c_tail_from hcTail hcGood hcBad t8 pt8 13 H (by omega) hH x6t8 h20t8
+                    refine ⟨t8',32,35,by omega,by omega,((((((((su.trans st0).trans st1).trans st2).trans st3).trans st4).trans st5).trans st6).trans st7).trans (st8.trans st8'),?_,
+                      ((((((((((ru.trans rt0).trans rt1).trans rt2).trans rt3).trans rt4).trans rt5).trans rt6).trans rt7).trans rt8).trans rt8').mono (by decide),((((((((((fu.trans ft0).trans ft1).trans ft2).trans ft3).trans ft4).trans ft5).trans ft6).trans ft7).trans ft8).trans ft8').mono (by simp)⟩
+                    rw [hthr8];exact pt8'
+                  · obtain ⟨t8,st8,pt8,x6t8,rt8,ft8⟩ := l3c8_steps hc8 t7 pt7 R (by omega) h21t7
+                    rw [if_neg h8] at pt8
+                    have h21t8 : t8.getReg .x21 = BitVec.ofNat 64 R := (rt8.get (by decide)).trans h21t7
+                    have h20t8 : t8.getReg .x20 = BitVec.ofNat 64 H := (rt8.get (by decide)).trans h20t7
+                    by_cases h9 : (9:Nat)≤R
+                    · obtain ⟨t9,st9,pt9,x6t9,rt9,ft9⟩ := l3c9_steps hc9 t8 pt8 R (by omega) h21t8
+                      rw [if_pos h9] at pt9
+                      have hthr9 : ClaudeWCT.W9.T3M.SharedCodec.nbThr3 R = 11 := by
+                        unfold ClaudeWCT.W9.T3M.SharedCodec.nbThr3; split_ifs <;> omega
+                      have h20t9 : t9.getReg .x20 = BitVec.ofNat 64 H := (rt9.get (by decide)).trans h20t8
+                      obtain ⟨t9',st9',pt9',rt9',ft9'⟩ := l3c_tail_from hcTail hcGood hcBad t9 pt9 11 H (by omega) hH x6t9 h20t9
+                      refine ⟨t9',35,38,by omega,by omega,(((((((((su.trans st0).trans st1).trans st2).trans st3).trans st4).trans st5).trans st6).trans st7).trans st8).trans (st9.trans st9'),?_,
+                        (((((((((((ru.trans rt0).trans rt1).trans rt2).trans rt3).trans rt4).trans rt5).trans rt6).trans rt7).trans rt8).trans rt9).trans rt9').mono (by decide),(((((((((((fu.trans ft0).trans ft1).trans ft2).trans ft3).trans ft4).trans ft5).trans ft6).trans ft7).trans ft8).trans ft9).trans ft9').mono (by simp)⟩
+                      rw [hthr9];exact pt9'
+                    · obtain ⟨t9,st9,pt9,x6t9,rt9,ft9⟩ := l3c9_steps hc9 t8 pt8 R (by omega) h21t8
+                      rw [if_neg h9] at pt9
+                      have h21t9 : t9.getReg .x21 = BitVec.ofNat 64 R := (rt9.get (by decide)).trans h21t8
+                      have h20t9 : t9.getReg .x20 = BitVec.ofNat 64 H := (rt9.get (by decide)).trans h20t8
+                      obtain ⟨tf,stf,ptf,x6tf,rtf,ftf⟩ := l3cFloor_steps hcFloor t9 pt9
+                      have hthrf : ClaudeWCT.W9.T3M.SharedCodec.nbThr3 R = 8 := by
+                        unfold ClaudeWCT.W9.T3M.SharedCodec.nbThr3; split_ifs <;> omega
+                      have h20tf : tf.getReg .x20 = BitVec.ofNat 64 H := (rtf.get (by decide)).trans h20t9
+                      obtain ⟨tf',stf',ptf',rtf',ftf'⟩ := l3c_tail_from hcTail hcGood hcBad tf ptf 8 H (by omega) hH x6tf h20tf
+                      refine ⟨tf',36,39,by omega,by omega,((((((((((su.trans st0).trans st1).trans st2).trans st3).trans st4).trans st5).trans st6).trans st7).trans st8).trans st9).trans (stf.trans stf'),?_,
+                        ((((((((((((ru.trans rt0).trans rt1).trans rt2).trans rt3).trans rt4).trans rt5).trans rt6).trans rt7).trans rt8).trans rt9).trans rtf).trans rtf').mono (by decide),((((((((((((fu.trans ft0).trans ft1).trans ft2).trans ft3).trans ft4).trans ft5).trans ft6).trans ft7).trans ft8).trans ft9).trans ftf).trans ftf').mono (by simp)⟩
+                      rw [hthrf];exact ptf'
 
 theorem good_steps {im : Image} (hc : CodeAt im (pcOf 46978) goodCode) (s : MachineState) (hp : s.pc=pcOf 46978) :
     ∃t,Steps im s 1 1 t ∧ t.pc=pcOf 42795 ∧ RegsExcept s t [] ∧ Frame s t (fun _=>False) := by
@@ -6061,9 +8755,9 @@ set_option maxRecDepth 20000
 structure Code (im : Image) : Prop where
   init : CodeAt im (pcOf 46929) initCode
   poolHelper : CodeAt im (pcOf 54324) TopRoutePool.expandIndexCode
-  r0 : LocalRouteResiduals.Code0 im
-  r1 : LocalRouteResiduals.Code1 im
-  r2 : LocalRouteResiduals.Code2 im
+  r0 : Residual0Code im
+  r1 : Residual1Code im
+  r2 : Residual2Code im
   range1 : CodeAt im (pcOf 46940) range1Code
   range2 : CodeAt im (pcOf 46956) range2Code
   range3 : CodeAt im (pcOf 46973) range3Code
@@ -6074,32 +8768,27 @@ structure Code (im : Image) : Prop where
   lookup2Load : CodeAt im (pcOf 46961) lookup2LoadCode
   lookup2Post : CodeAt im (pcOf 46962) lookup2PostCode
   last : CodeAt im (pcOf 46975) lastCode
-  l3e : CodeAt im (pcOf 87800) l3eCode
-  l3Helper : CodeAt im (pcOf 88160) l3HelperCode
-  l3Ok : CodeAt im (pcOf 87812) l3OkCode
-  l3Bad : CodeAt im (pcOf 87813) l3BadCode
+  l3c : CodeAt im (pcOf 56217) l3cCode
   good : CodeAt im (pcOf 46978) goodCode
   bad : CodeAt im (pcOf 46979) badCode
 
 def regs : List Reg := [.x6,.x7,.x21,.x28,.x29]
 theorem phase1_steps {im : Image} (hc : Code im)
-    (s : MachineState) (hp : s.pc=pcOf 46933) (index R C H : Nat) (hi : index<2^64) (hR : R≤75) (hC : C<2^64) (hH : H<12288)
+    (s : MachineState) (hp : s.pc=pcOf 46933) (R C H : Nat) (hR : R≤74) (hC : C<2^64) (hH : H<9000)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h20 : s.getReg .x20=BitVec.ofNat 64 H)
-    (hindex : s.getMem (0x20550#64)=BitVec.ofNat 64 index)
     (hm : s.getMem (417856#64)=BitVec.ofNat 64 C)
-    (T : Nat→Nat) (hT : ∀ r,r<58 → T r<24)
-    (hbytes : ∀ r,r<58 → s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (T r)) :
-    ∃t n c,n≤27 ∧ c≤30 ∧ Steps im s n c t ∧
-      t.pc=(if (R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1)<58 ∧ H/576=T ((R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1)) then pcOf 46949 else pcOf 46979) ∧
-      t.getReg .x21=BitVec.ofNat 64 ((R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1)) ∧ RegsExcept s t regs ∧ Frame s t (fun _=>False) := by
-  obtain ⟨u,n,hn,su,pu,u21,ru,fu⟩:=LocalRouteResiduals.residual0_steps hc.r0 s hp index R C hi hR hC h21 hm hindex
-  simp only [Nat.reducePow,Nat.div_one] at u21
-  rw [← SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave_one_div] at u21
-  obtain ⟨v,sv,pv,rv,fv⟩:=range1_steps hc.range1 u pu ((R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1)) (by omega) u21
-  by_cases hlt : (R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1)<58
+    (T : Nat→Nat) (hT : ∀ r,r<57 → T r<22)
+    (hbytes : ∀ r,r<57 → s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (T r)) :
+    ∃t n c,n≤15 ∧ c≤18 ∧ Steps im s n c t ∧
+      t.pc=(if R-C<57 ∧ H/529=T (R-C) then pcOf 46949 else pcOf 46979) ∧
+      t.getReg .x21=BitVec.ofNat 64 (R-C) ∧ RegsExcept s t regs ∧ Frame s t (fun _=>False) := by
+  letI:=hc.r0
+  obtain ⟨u,n,hn,su,pu,u21,ru,fu⟩:=residual0_steps (im:=im) s hp R C hR hC h21 hm
+  obtain ⟨v,sv,pv,rv,fv⟩:=range1_steps hc.range1 u pu (R-C) (by omega) u21
+  by_cases hlt : R-C<57
   · rw [if_pos hlt] at pv
     obtain ⟨t,st,pt,rt,ft⟩:=lookup1_steps hc.lookup1Pre hc.lookup1Load hc.lookup1Post v pv
-      ((R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1)) H (T ((R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1))) hlt hH (hT _ hlt)
+      (R-C) H (T (R-C)) hlt hH (hT _ hlt)
       (by rw [rv.get (by decide)];exact u21)
       (by rw [rv.get (by decide),ru.get (by decide)];exact h20)
       (by rw [fv.getByte (by omega) (by simp),fu.getByte (by omega) (by simp)];exact hbytes _ hlt)
@@ -6115,23 +8804,23 @@ theorem phase1_steps {im : Image} (hc : Code im)
     · exact (ru.trans rv).mono (by decide)
     · exact (fu.trans fv).mono (by simp)
 theorem phase2_steps {im : Image} (hc : Code im)
-    (s : MachineState) (hp : s.pc=pcOf 46949) (index R C H : Nat) (hi : index<2^64) (hR : R≤75) (hC : C<2^64) (hH : H<12288)
+    (s : MachineState) (hp : s.pc=pcOf 46949) (index : Nat) (hi : index<2^31)
+    (hmidx : s.getMem (0x20550#64)=BitVec.ofNat 64 index) (R C H : Nat) (hR : R≤74) (hC : C<2^64) (hH : H<9000)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h20 : s.getReg .x20=BitVec.ofNat 64 H)
-    (hindex : s.getMem (0x20550#64)=BitVec.ofNat 64 index)
     (hm : s.getMem (417864#64)=BitVec.ofNat 64 C)
-    (T : Nat→Nat) (hT : ∀ r,r<42 → T r<24)
+    (T : Nat→Nat) (hT : ∀ r,r<42 → T r<22)
     (hbytes : ∀ r,r<42 → s.getByte (BitVec.ofNat 64 (16749520+r))=BitVec.ofNat 8 (T r)) :
-    ∃t n c,n≤28 ∧ c≤34 ∧ Steps im s n c t ∧
-      t.pc=(if (R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 2)<42 ∧ H/24%24=T ((R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 2)) then pcOf 46966 else pcOf 46979) ∧
-      t.getReg .x21=BitVec.ofNat 64 ((R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 2)) ∧ RegsExcept s t regs ∧ Frame s t (fun _=>False) := by
-  obtain ⟨u,n,hn,su,pu,u21,ru,fu⟩:=LocalRouteResiduals.residual1_steps hc.r1 s hp index R C hi hR hC h21 hm hindex
-  simp only [Nat.reducePow,Nat.div_one] at u21
-  rw [← SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave_two_div] at u21
-  obtain ⟨v,sv,pv,rv,fv⟩:=range2_steps hc.range2 u pu ((R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 2)) (by omega) u21
-  by_cases hlt : (R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 2)<42
+    ∃t n c,n≤48 ∧ c≤54 ∧ Steps im s n c t ∧
+      t.pc=(if R-(C+SigGolfCandidate.AllRoute.usedSave 1 (SigGolfCandidate.T3.route index 1).1)<42 ∧ H/23%23=T (R-(C+SigGolfCandidate.AllRoute.usedSave 1 (SigGolfCandidate.T3.route index 1).1)) then pcOf 46966 else pcOf 46979) ∧
+      t.getReg .x21=BitVec.ofNat 64 (R-(C+SigGolfCandidate.AllRoute.usedSave 1 (SigGolfCandidate.T3.route index 1).1)) ∧ RegsExcept s t regs ∧ Frame s t (fun _=>False) := by
+  letI:=hc.r1
+  obtain ⟨u,n,hn,su,pu,u21,ru,fu⟩:=residual1_steps (im:=im) s hp index hi hmidx R C hR hC h21 hm
+  have u21 : u.getReg .x21=BitVec.ofNat 64 (R-(C+SigGolfCandidate.AllRoute.usedSave 1 (SigGolfCandidate.T3.route index 1).1)) := by simpa [Nat.sub_sub] using u21
+  obtain ⟨v,sv,pv,rv,fv⟩:=range2_steps hc.range2 u pu (R-(C+SigGolfCandidate.AllRoute.usedSave 1 (SigGolfCandidate.T3.route index 1).1)) (by omega) u21
+  by_cases hlt : R-(C+SigGolfCandidate.AllRoute.usedSave 1 (SigGolfCandidate.T3.route index 1).1)<42
   · rw [if_pos hlt] at pv
     obtain ⟨t,st,pt,rt,ft⟩:=lookup2_steps hc.lookup2Pre hc.lookup2Load hc.lookup2Post v pv
-      ((R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 2)) H (T ((R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 2))) hlt hH (hT _ hlt)
+      (R-(C+SigGolfCandidate.AllRoute.usedSave 1 (SigGolfCandidate.T3.route index 1).1)) H (T (R-(C+SigGolfCandidate.AllRoute.usedSave 1 (SigGolfCandidate.T3.route index 1).1))) hlt hH (hT _ hlt)
       (by rw [rv.get (by decide)];exact u21)
       (by rw [rv.get (by decide),ru.get (by decide)];exact h20)
       (by rw [fv.getByte (by omega) (by simp),fu.getByte (by omega) (by simp)];exact hbytes _ hlt)
@@ -6147,33 +8836,35 @@ theorem phase2_steps {im : Image} (hc : Code im)
     · exact (ru.trans rv).mono (by decide)
     · exact (fu.trans fv).mono (by simp)
 theorem phase3_steps {im : Image} (hc : Code im)
-    (s : MachineState) (hp : s.pc=pcOf 46966) (index R C H : Nat) (hi : index<2^64) (hR : R≤75) (hC : C<2^64) (hH : H<12288)
+    (s : MachineState) (hp : s.pc=pcOf 46966) (index : Nat) (hi : index<2^31)
+    (hmidx : s.getMem (0x20550#64)=BitVec.ofNat 64 index) (R C H : Nat) (hR : R≤74) (hC : C<2^64) (hH : H<9000)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h20 : s.getReg .x20=BitVec.ofNat 64 H)
-    (hindex : s.getMem (0x20550#64)=BitVec.ofNat 64 index)
     (hm : s.getMem (417872#64)=BitVec.ofNat 64 C) :
-    ∃t n c,n≤38 ∧ c≤54 ∧ Steps im s n c t ∧
-      t.pc=(if (R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 3)<24 ∧ H%24=ClaudeWCT.WCT9.Policy75Safe23.lowerThreeFloor ((R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 3)) then pcOf 42795 else pcOf 46979) ∧
-      t.getReg .x21=BitVec.ofNat 64 ((R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 3)) ∧ RegsExcept s t regs ∧ Frame s t (fun _=>False) := by
-  obtain ⟨u,n,hn,su,pu,u21,ru,fu⟩:=LocalRouteResiduals.residual2_steps hc.r2 s hp index R C hi hR hC h21 hm hindex
-  simp only [Nat.reducePow,Nat.div_one] at u21
-  rw [← SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave_three_div] at u21
-  obtain ⟨v,sv,pv,rv,fv⟩:=range3_steps hc.range3 u pu ((R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 3)) (by omega) u21
-  by_cases hlt : (R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 3)<24
+    ∃t n c,n≤76 ∧ c≤79 ∧ Steps im s n c t ∧
+      t.pc=(if R-(C+SigGolfCandidate.AllRoute.usedSave 2 (SigGolfCandidate.T3.route index 2).1)<23 ∧ H%23=ClaudeWCT.W9.T3M.SharedCodec.nbThr3 (R-(C+SigGolfCandidate.AllRoute.usedSave 2 (SigGolfCandidate.T3.route index 2).1)) then pcOf 42795 else pcOf 354) ∧
+      t.getReg .x21=BitVec.ofNat 64 (R-(C+SigGolfCandidate.AllRoute.usedSave 2 (SigGolfCandidate.T3.route index 2).1)) ∧ RegsExcept s t regs ∧ Frame s t (fun _=>False) := by
+  letI:=hc.r2
+  obtain ⟨u,n,hn,su,pu,u21,ru,fu⟩:=residual2_steps (im:=im) s hp index hi hmidx R C hR hC h21 hm
+  have u21 : u.getReg .x21=BitVec.ofNat 64 (R-(C+SigGolfCandidate.AllRoute.usedSave 2 (SigGolfCandidate.T3.route index 2).1)) := by simpa [Nat.sub_sub] using u21
+  obtain ⟨v,sv,pv,rv,fv⟩:=range3_steps hc.range3 u pu (R-(C+SigGolfCandidate.AllRoute.usedSave 2 (SigGolfCandidate.T3.route index 2).1)) (by omega) u21
+  by_cases hlt : R-(C+SigGolfCandidate.AllRoute.usedSave 2 (SigGolfCandidate.T3.route index 2).1)<23
   · rw [if_pos hlt] at pv
-    obtain ⟨t,n3,c3,hn3,hc3,st,pt,rt,ft⟩:=last_steps hc.last hc.l3e hc.l3Helper hc.l3Ok hc.l3Bad v pv ((R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 3)) H (by omega) hH
-      (by rw [rv.get (by decide)];exact u21)
-      (by rw [rv.get (by decide),ru.get (by decide)];exact h20)
-    refine ⟨t,n+2+n3,n+2+c3,by omega,by omega,(su.trans sv).trans st,?_,?_,?_,?_⟩
+    have h20u : u.getReg .x20=BitVec.ofNat 64 H := (ru.get (by decide)).trans h20
+    have h20v : v.getReg .x20=BitVec.ofNat 64 H := (rv.get (by decide)).trans h20u
+    have v21 : v.getReg .x21=BitVec.ofNat 64 (R-(C+SigGolfCandidate.AllRoute.usedSave 2 (SigGolfCandidate.T3.route index 2).1)) := (rv.get (by decide)).trans u21
+    obtain ⟨t,n',c',hn',hc',st,pt,rt,ft⟩:=last_steps hc.last hc.l3c v pv (R-(C+SigGolfCandidate.AllRoute.usedSave 2 (SigGolfCandidate.T3.route index 2).1)) H (by omega) hH v21 h20v
+    refine ⟨t,n+2+n',n+2+c',by omega,by omega,(su.trans sv).trans st,?_,?_,?_,?_⟩
+    · simpa [hlt] using pt
+    · rw [rt.get (by decide)];exact v21
+    · exact ((ru.trans rv).trans rt).mono (by decide)
+    · exact ((fu.trans fv).trans ft).mono (by simp)
+  · rw [if_neg hlt] at pv
+    obtain ⟨t,st,pt,rt,ft⟩:=bad_steps hc.bad v pv
+    refine ⟨t,n+2+1,n+2+1,by omega,by omega,(su.trans sv).trans st,?_,?_,?_,?_⟩
     · simpa [hlt] using pt
     · rw [rt.get (by decide),rv.get (by decide)];exact u21
     · exact ((ru.trans rv).trans rt).mono (by decide)
     · exact ((fu.trans fv).trans ft).mono (by simp)
-  · rw [if_neg hlt] at pv
-    refine ⟨v,n+2,n+2,by omega,by omega,su.trans sv,?_,?_,?_,?_⟩
-    · simpa [hlt] using pv
-    · rw [rv.get (by decide)];exact u21
-    · exact (ru.trans rv).mono (by decide)
-    · exact (fu.trans fv).mono (by simp)
 end ClaudeWCT.W9.Machine.Expand.SharedValidateV6
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedValidateV6
@@ -6182,74 +8873,81 @@ set_option autoImplicit false
 set_option maxHeartbeats 2500000
 set_option maxRecDepth 20000
 
-abbrev Condition (index H C0 C1 C2 : Nat) (T1 T2 : Nat→Nat) : Prop :=
-  let R1:=(SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1
-  let R2:=R1-C1-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 2
-  let R3:=R2-C2-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 3
-  R1<58 ∧ R2<42 ∧ R3<24 ∧ H/576=T1 R1 ∧ H/24%24=T2 R2 ∧ H%24=ClaudeWCT.WCT9.Policy75Safe23.lowerThreeFloor R3
+abbrev Condition (pool H C0 C1 C2 : Nat) (T1 T2 : Nat→Nat) : Prop :=
+  let R1:=pool-C0
+  let R2:=R1-C1
+  let R3:=R2-C2
+  R1<57 ∧ R2<42 ∧ R3<23 ∧ H/529=T1 R1 ∧ H/23%23=T2 R2 ∧ H%23=ClaudeWCT.W9.T3M.SharedCodec.nbThr3 R3
 
 theorem validate_steps {im : Image} (hc : Code im)
     (s : MachineState) (hp : s.pc=pcOf 46929) (index : Nat) (hi : index<2^31)
     (hmidx : s.getMem (0x20550#64)=BitVec.ofNat 64 index) (H C0 C1 C2 : Nat)
-    (hH : H<12288) (hC0 : C0<2^64) (hC1 : C1<2^64) (hC2 : C2<2^64)
+    (hH : H<9000) (hC0 : C0<2^64) (hC1 : C1<2^64) (hC2 : C2<2^64)
     (hm : s.getMem (0x66000#64)=BitVec.ofNat 64 H)
     (hm0 : s.getMem (417856#64)=BitVec.ofNat 64 C0)
     (hm1 : s.getMem (417864#64)=BitVec.ofNat 64 C1)
     (hm2 : s.getMem (417872#64)=BitVec.ofNat 64 C2)
-    (T1 T2 : Nat→Nat) (ht1 : ∀r,r<58→T1 r<24) (ht2 : ∀r,r<42→T2 r<24)
-    (hb1 : ∀r,r<58→s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (T1 r))
+    (T1 T2 : Nat→Nat) (ht1 : ∀r,r<57→T1 r<22) (ht2 : ∀r,r<42→T2 r<22)
+    (hb1 : ∀r,r<57→s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (T1 r))
     (hb2 : ∀r,r<42→s.getByte (BitVec.ofNat 64 (16749520+r))=BitVec.ofNat 8 (T2 r)) :
-    ∃t n c,n≤109 ∧ c≤134 ∧ Steps im s n c t ∧
-      t.pc=(if Condition index H C0 C1 C2 T1 T2 then pcOf 42795 else pcOf 354) ∧
+    ∃t n c,n≤154 ∧ c≤166 ∧ Steps im s n c t ∧
+      t.pc=(if Condition (SigGolfCandidate.Research.SharedForest.requiredCredit index) H C0 (C1+SigGolfCandidate.AllRoute.usedSave 1 (SigGolfCandidate.T3.route index 1).1) (C2+SigGolfCandidate.AllRoute.usedSave 2 (SigGolfCandidate.T3.route index 2).1) T1 T2 then pcOf 42795 else pcOf 354) ∧
       RegsExcept s t [.x6,.x7,.x20,.x21,.x28,.x29] ∧ Frame s t (fun _=>False) := by
   obtain ⟨u,su,pu,u20,u21,ru,fu⟩:=init_steps hc.init hc.poolHelper s hp index H hi hmidx hm
   have hpool := SigGolfCandidate.Research.SharedForest.requiredCredit_bounds index
-  obtain ⟨v,n1,c1,hn1,hc1,sv,pv,v21,rv,fv⟩:=phase1_steps hc u pu index (SigGolfCandidate.Research.SharedForest.requiredCredit index) C0 H (by omega) (by omega) hC0 hH u21 u20
-    (by rw [fu.get (by decide) (by simp)];exact hmidx)
-    (by rw [fu.get (by decide) (by simp)];exact hm0) T1 ht1
-    (fun r hr=>by rw [fu.getByte (by omega) (by simp)];exact hb1 r hr)
-  by_cases h1 : (SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1<58 ∧ H/576=T1 ((SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1)
-  · rw [if_pos h1] at pv
-    obtain ⟨w,n2,c2,hn2,hc2,sw,pw,w21,rw_,fw⟩:=phase2_steps hc v pv index ((SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1) C1 H (by omega) (by omega) hC1 hH v21
-      (by rw [rv.get (by decide)];exact u20)
-      (by rw [fv.get (by decide) (by simp),fu.get (by decide) (by simp)];exact hmidx)
-      (by rw [fv.get (by decide) (by simp),fu.get (by decide) (by simp)];exact hm1) T2 ht2
-      (fun r hr=>by rw [fv.getByte (by omega) (by simp),fu.getByte (by omega) (by simp)];exact hb2 r hr)
-    by_cases h2 : (SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1-C1-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 2<42 ∧ H/24%24=T2 ((SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1-C1-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 2)
-    · rw [if_pos h2] at pw
-      obtain ⟨x,n3,c3,hn3,hc3,sx,px,x21,rx,fx⟩:=phase3_steps hc w pw index ((SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1-C1-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 2) C2 H (by omega) (by omega) hC2 hH w21
-        (by rw [rw_.get (by decide),rv.get (by decide)];exact u20)
-        (by rw [fw.get (by decide) (by simp),fv.get (by decide) (by simp),fu.get (by decide) (by simp)];exact hmidx)
-        (by rw [fw.get (by decide) (by simp),fv.get (by decide) (by simp),fu.get (by decide) (by simp)];exact hm2)
-      by_cases h3 : (SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1-C1-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 2-C2-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 3<24 ∧ H%24=ClaudeWCT.WCT9.Policy75Safe23.lowerThreeFloor ((SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1-C1-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 2-C2-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 3)
-      · rw [if_pos h3] at px
-        -- Y5: the L3 check at 87812 jumps to 42795 directly (word 46978 is not visited on success).
-        refine ⟨x,15+n1+n2+n3,15+c1+c2+c3,by omega,by omega,((su.trans sv).trans sw).trans sx,?_,?_,?_⟩
-        · have hcond : Condition index H C0 C1 C2 T1 T2 := by exact ⟨h1.1,h2.1,h3.1,h1.2,h2.2,h3.2⟩
-          simpa only [if_pos hcond] using px
-        · exact (((ru.trans rv).trans rw_).trans rx).mono (by decide)
-        · exact (((fu.trans fv).trans fw).trans fx).mono (by simp)
-      · rw [if_neg h3] at px
-        obtain ⟨t,st,pt,rt,ft⟩:=bad_steps hc.bad x px
-        refine ⟨t,15+n1+n2+n3+1,15+c1+c2+c3+1,by omega,by omega,(((su.trans sv).trans sw).trans sx).trans st,?_,?_,?_⟩
-        · have hcond : ¬Condition index H C0 C1 C2 T1 T2 := by intro h;exact h3 ⟨h.2.2.1,h.2.2.2.2.2⟩
-          simpa [hcond] using pt
-        · exact ((((ru.trans rv).trans rw_).trans rx).trans rt).mono (by decide)
-        · exact ((((fu.trans fv).trans fw).trans fx).trans ft).mono (by simp)
-    · rw [if_neg h2] at pw
-      obtain ⟨t,st,pt,rt,ft⟩:=bad_steps hc.bad w pw
-      refine ⟨t,15+n1+n2+1,15+c1+c2+1,by omega,by omega,((su.trans sv).trans sw).trans st,?_,?_,?_⟩
-      · have hcond : ¬Condition index H C0 C1 C2 T1 T2 := by intro h;exact h2 ⟨h.2.1,h.2.2.2.2.1⟩
-        simpa [hcond] using pt
-      · exact (((ru.trans rv).trans rw_).trans rt).mono (by decide)
-      · exact (((fu.trans fv).trans fw).trans ft).mono (by simp)
-  · rw [if_neg h1] at pv
-    obtain ⟨t,st,pt,rt,ft⟩:=bad_steps hc.bad v pv
-    refine ⟨t,15+n1+1,15+c1+1,by omega,by omega,(su.trans sv).trans st,?_,?_,?_⟩
-    · have hcond : ¬Condition index H C0 C1 C2 T1 T2 := by intro h;exact h1 ⟨h.1,h.2.2.2.1⟩
-      simpa [hcond] using pt
-    · exact ((ru.trans rv).trans rt).mono (by decide)
-    · exact ((fu.trans fv).trans ft).mono (by simp)
+  have hmidxu : u.getMem (0x20550#64)=BitVec.ofNat 64 index := (fu.get (by decide) (by simp)).trans hmidx
+  have hm0u : u.getMem (417856#64)=BitVec.ofNat 64 C0 := (fu.get (by decide) (by simp)).trans hm0
+  have hm1u : u.getMem (417864#64)=BitVec.ofNat 64 C1 := (fu.get (by decide) (by simp)).trans hm1
+  have hm2u : u.getMem (417872#64)=BitVec.ofNat 64 C2 := (fu.get (by decide) (by simp)).trans hm2
+  have hb1u : ∀ r,r<57 → u.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (T1 r) :=
+    fun r hr => (fu.getByte (by omega) (by simp)).trans (hb1 r hr)
+  have hb2u : ∀ r,r<42 → u.getByte (BitVec.ofNat 64 (16749520+r))=BitVec.ofNat 8 (T2 r) :=
+    fun r hr => (fu.getByte (by omega) (by simp)).trans (hb2 r hr)
+  obtain ⟨w,n1,c1,hn1,hc1,sw,pw,w21,rw1,fw⟩:=
+    phase1_steps hc u pu (SigGolfCandidate.Research.SharedForest.requiredCredit index) C0 H (by omega) hC0 hH u21 u20 hm0u T1 ht1 hb1u
+  by_cases hlt1 : ((SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0<57 ∧ H/529=T1 ((SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0))
+  · rw [if_pos hlt1] at pw
+    have h20w : w.getReg .x20=BitVec.ofNat 64 H := (rw1.get (by decide)).trans u20
+    have hmidxw : w.getMem (0x20550#64)=BitVec.ofNat 64 index := (fw.get (by decide) (by simp)).trans hmidxu
+    have hm1w : w.getMem (417864#64)=BitVec.ofNat 64 C1 := (fw.get (by decide) (by simp)).trans hm1u
+    have hm2w : w.getMem (417872#64)=BitVec.ofNat 64 C2 := (fw.get (by decide) (by simp)).trans hm2u
+    have hb2w : ∀ r,r<42 → w.getByte (BitVec.ofNat 64 (16749520+r))=BitVec.ofNat 8 (T2 r) :=
+      fun r hr => (fw.getByte (by omega) (by simp)).trans (hb2u r hr)
+    obtain ⟨x,n2,c2,hn2,hc2,sx,px,x21,rx1,fx⟩:=
+      phase2_steps hc w pw index hi hmidxw ((SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0) C1 H (by omega) hC1 hH w21 h20w hm1w T2 ht2 hb2w
+    by_cases hlt2 : (((SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0)-(C1+SigGolfCandidate.AllRoute.usedSave 1 (SigGolfCandidate.T3.route index 1).1)<42 ∧ H/23%23=T2 (((SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0)-(C1+SigGolfCandidate.AllRoute.usedSave 1 (SigGolfCandidate.T3.route index 1).1)))
+    · rw [if_pos hlt2] at px
+      have h20x : x.getReg .x20=BitVec.ofNat 64 H := (rx1.get (by decide)).trans h20w
+      have hmidxx : x.getMem (0x20550#64)=BitVec.ofNat 64 index := (fx.get (by decide) (by simp)).trans hmidxw
+      have hm2x : x.getMem (417872#64)=BitVec.ofNat 64 C2 := (fx.get (by decide) (by simp)).trans hm2w
+      obtain ⟨y,n3,c3,hn3,hc3,sy,py,y21,ry1,fy⟩:=
+        phase3_steps hc x px index hi hmidxx (((SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0)-(C1+SigGolfCandidate.AllRoute.usedSave 1 (SigGolfCandidate.T3.route index 1).1)) C2 H (by omega) hC2 hH x21 h20x hm2x
+      refine ⟨y,15+n1+n2+n3,15+c1+c2+c3,by omega,by omega,((su.trans sw).trans sx).trans sy,?_,
+        (((ru.trans rw1).trans rx1).trans ry1).mono (by decide),
+        (((fu.trans fw).trans fx).trans fy).mono (by simp)⟩
+      have hiff : Condition (SigGolfCandidate.Research.SharedForest.requiredCredit index) H C0 (C1+SigGolfCandidate.AllRoute.usedSave 1 (SigGolfCandidate.T3.route index 1).1) (C2+SigGolfCandidate.AllRoute.usedSave 2 (SigGolfCandidate.T3.route index 2).1) T1 T2 ↔
+          (((SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0)-(C1+SigGolfCandidate.AllRoute.usedSave 1 (SigGolfCandidate.T3.route index 1).1)-(C2+SigGolfCandidate.AllRoute.usedSave 2 (SigGolfCandidate.T3.route index 2).1)<23 ∧ H%23=ClaudeWCT.W9.T3M.SharedCodec.nbThr3 (((SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0)-(C1+SigGolfCandidate.AllRoute.usedSave 1 (SigGolfCandidate.T3.route index 1).1)-(C2+SigGolfCandidate.AllRoute.usedSave 2 (SigGolfCandidate.T3.route index 2).1))) := by
+        unfold Condition
+        constructor
+        · rintro ⟨_,_,h3,_,_,h6⟩; exact ⟨h3,h6⟩
+        · rintro ⟨h3,h6⟩; exact ⟨hlt1.1,hlt2.1,h3,hlt1.2,hlt2.2,h6⟩
+      simp only [hiff]; exact py
+    · rw [if_neg hlt2] at px
+      obtain ⟨y,sy,py,ry1,fy⟩:=bad_steps hc.bad x px
+      refine ⟨y,15+n1+n2+1,15+c1+c2+1,by omega,by omega,((su.trans sw).trans sx).trans sy,?_,
+        (((ru.trans rw1).trans rx1).trans ry1).mono (by decide),
+        (((fu.trans fw).trans fx).trans fy).mono (by simp)⟩
+      have hcond : ¬ Condition (SigGolfCandidate.Research.SharedForest.requiredCredit index) H C0 (C1+SigGolfCandidate.AllRoute.usedSave 1 (SigGolfCandidate.T3.route index 1).1) (C2+SigGolfCandidate.AllRoute.usedSave 2 (SigGolfCandidate.T3.route index 2).1) T1 T2 := by
+        unfold Condition; rintro ⟨a,b,c,d,e,f⟩; exact hlt2 ⟨b,e⟩
+      rw [if_neg hcond]; exact py
+  · rw [if_neg hlt1] at pw
+    obtain ⟨y,sy,py,ry1,fy⟩:=bad_steps hc.bad w pw
+    refine ⟨y,15+n1+1,15+c1+1,by omega,by omega,(su.trans sw).trans sy,?_,
+      ((ru.trans rw1).trans ry1).mono (by decide),
+      ((fu.trans fw).trans fy).mono (by simp)⟩
+    have hcond : ¬ Condition (SigGolfCandidate.Research.SharedForest.requiredCredit index) H C0 (C1+SigGolfCandidate.AllRoute.usedSave 1 (SigGolfCandidate.T3.route index 1).1) (C2+SigGolfCandidate.AllRoute.usedSave 2 (SigGolfCandidate.T3.route index 2).1) T1 T2 := by
+      unfold Condition; rintro ⟨a,b,c,d,e,f⟩; exact hlt1 ⟨a,d⟩
+    rw [if_neg hcond]; exact py
 end ClaudeWCT.W9.Machine.Expand.SharedValidateV6
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedValidateV6
@@ -6257,36 +8955,34 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 set_option maxHeartbeats 3000000
 set_option maxRecDepth 100000
 set_option Elab.async false
+/-- S5185 INTEG (STATEMENT CHANGE, K1): `hnb` added. The `l3c` field (`CodeAt im (pcOf 56217) l3cCode`) lies in the NB
+pad chunk (`Images.expandNBCode` at 56100, offset 117), not in the 1957-word driver: the old bullet
+`code_slice (off:=11161) hc` was kernel-false (11161 + 36 > 1957; integ/runs/kr1.receipt.json), and the old statement
+FALSE (an image with the driver at 45056 and other words at 56217). -/
 theorem code_of_driver {im : Image}
     (hc : CodeAt im (pcOf 45056) Images.expandSharedDriver)
-    (hy : CodeAt im (pcOf 84000) Images.expandY5Code)
+    (hnb : CodeAt im (pcOf 56100) Images.expandNBCode)
     (hp : CodeAt im (pcOf 54324) TopRoutePool.expandIndexCode)
-    (hh0 : CodeAt im (pcOf 88060) LocalRouteMachineHelpers.expand1Code)
-    (hh1 : CodeAt im (pcOf 88072) LocalRouteMachineHelpers.expand2Code)
-    (hh2 : CodeAt im (pcOf 88084) LocalRouteMachineHelpers.expand3Code)
-    (he : CodeAt im (pcOf 88160) l3HelperCode)
-    : Code im := by
+    (h1 : AllRouteHelpers.ExpandOneSavedCode im) (h2 : AllRouteHelpers.ExpandTwoSavedCode im) : Code im := by
   constructor
   · exact SharedCounterHooks.code_slice (off:=1873) hc (by decide +kernel) (by decide +kernel)
   · exact hp
   · constructor
     · exact SharedCounterHooks.code_slice (off:=1877) hc (by decide +kernel) (by decide +kernel)
-    · exact hh0
-    · exact SharedCounterHooks.code_slice (off:=1880) hc (by decide +kernel) (by decide +kernel)
     · exact SharedCounterHooks.code_slice (off:=1881) hc (by decide +kernel) (by decide +kernel)
     · exact SharedCounterHooks.code_slice (off:=1883) hc (by decide +kernel) (by decide +kernel)
   · constructor
     · exact SharedCounterHooks.code_slice (off:=1893) hc (by decide +kernel) (by decide +kernel)
-    · exact hh1
-    · exact SharedCounterHooks.code_slice (off:=1896) hc (by decide +kernel) (by decide +kernel)
     · exact SharedCounterHooks.code_slice (off:=1897) hc (by decide +kernel) (by decide +kernel)
     · exact SharedCounterHooks.code_slice (off:=1899) hc (by decide +kernel) (by decide +kernel)
+    · exact h1
+
   · constructor
     · exact SharedCounterHooks.code_slice (off:=1910) hc (by decide +kernel) (by decide +kernel)
-    · exact hh2
-    · exact SharedCounterHooks.code_slice (off:=1913) hc (by decide +kernel) (by decide +kernel)
     · exact SharedCounterHooks.code_slice (off:=1914) hc (by decide +kernel) (by decide +kernel)
     · exact SharedCounterHooks.code_slice (off:=1916) hc (by decide +kernel) (by decide +kernel)
+    · exact h2
+
   · exact SharedCounterHooks.code_slice (off:=1884) hc (by decide +kernel) (by decide +kernel)
   · exact SharedCounterHooks.code_slice (off:=1900) hc (by decide +kernel) (by decide +kernel)
   · exact SharedCounterHooks.code_slice (off:=1917) hc (by decide +kernel) (by decide +kernel)
@@ -6297,19 +8993,17 @@ theorem code_of_driver {im : Image}
   · exact SharedCounterHooks.code_slice (off:=1905) hc (by decide +kernel) (by decide +kernel)
   · exact SharedCounterHooks.code_slice (off:=1906) hc (by decide +kernel) (by decide +kernel)
   · exact SharedCounterHooks.code_slice (off:=1919) hc (by decide +kernel) (by decide +kernel)
-  · exact codeAt_sub 3800 hy (by decide) (by decide +kernel)
-  · exact he
-  · exact codeAt_sub 3812 hy (by decide) (by decide +kernel)
-  · exact codeAt_sub 3813 hy (by decide) (by decide +kernel)
+  · exact SharedCounterHooks.code_slice (off:=117) hnb (by decide +kernel) (by decide +kernel)
   · exact SharedCounterHooks.code_slice (off:=1922) hc (by decide +kernel) (by decide +kernel)
   · exact SharedCounterHooks.code_slice (off:=1923) hc (by decide +kernel) (by decide +kernel)
 theorem installed_poolHelper : CodeAt Images.expandImage (pcOf 54324) TopRoutePool.expandIndexCode := by
   apply codeAt_t51_at <;> decide +kernel
-theorem installed_code : Code Images.expandImage := code_of_driver codeAt_expand_shared_driver ClaudeWCT.W9.Machine.Expand.PrePass.codeAt_y5 installed_poolHelper
-  (by apply codeAt_expand_lastR <;> decide +kernel)
-  (by apply codeAt_expand_lastR <;> decide +kernel)
-  (by apply codeAt_expand_lastR <;> decide +kernel)
-  (by apply codeAt_expand_lastR <;> decide +kernel)
+theorem installed_savedOne : AllRouteHelpers.ExpandOneSavedCode Images.expandImage := by
+  constructor <;> (apply codeAt_expand_lastR <;> decide +kernel)
+theorem installed_savedTwo : AllRouteHelpers.ExpandTwoSavedCode Images.expandImage := by
+  constructor <;> (apply codeAt_expand_lastR <;> decide +kernel)
+theorem installed_code : Code Images.expandImage :=
+  code_of_driver codeAt_expand_shared_driver ClaudeWCT.W9.Machine.Expand.PrePass.codeAt_nb installed_poolHelper installed_savedOne installed_savedTwo
 end ClaudeWCT.W9.Machine.Expand.SharedValidateV6
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedValidateV6
@@ -6336,17 +9030,17 @@ theorem credit_lt (lay : SigGolfCandidate.T3.Layer) (low : Bool) (digits : List 
 theorem validate_source_steps {im : Image} (hc : Code im)
     (s : MachineState) (hp : s.pc=pcOf 46929) (index : Nat) (hi : index<2^31)
     (hmidx : s.getMem (0x20550#64)=BitVec.ofNat 64 index) (hints : BitVec 16) (digits : List (List Nat)) (lows : List Bool)
-    (hH : hints.toNat<12288) (hlen : digits.length=4)
+    (hH : hints.toNat<9000) (hlen : digits.length=4)
     (hfloor : ∀lay:SigGolfCandidate.T3.Layer, SharedForest.hintFloor index hints lay≤
       CanonicalPolicy.credit lay (lows.getD lay.val true) (digits.getD lay.val []))
     (hm : s.getMem (0x66000#64)=BitVec.ofNat 64 hints.toNat)
     (hcredits : ∀lay:SigGolfCandidate.T3.Layer,s.getMem (BitVec.ofNat 64 (417856+8*lay.val))=
       BitVec.ofNat 64 (CanonicalPolicy.credit lay (lows.getD lay.val true) (digits.getD lay.val [])))
-    (ht1 : ∀r,r<58→ClaudeWCT.WCT9.Policy75Safe23.threshold 1 r<24)
-    (ht2 : ∀r,r<42→ClaudeWCT.WCT9.Policy75Safe23.threshold 2 r<24)
-    (hb1 : ∀r,r<58→s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (ClaudeWCT.WCT9.Policy75Safe23.threshold 1 r))
-    (hb2 : ∀r,r<42→s.getByte (BitVec.ofNat 64 (16749520+r))=BitVec.ofNat 8 (ClaudeWCT.WCT9.Policy75Safe23.threshold 2 r)) :
-    ∃t n c,n≤109 ∧ c≤134 ∧ Steps im s n c t ∧
+    (ht1 : ∀r,r<57→CanonicalPolicy.threshold 1 r<22)
+    (ht2 : ∀r,r<42→CanonicalPolicy.threshold 2 r<22)
+    (hb1 : ∀r,r<57→s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (CanonicalPolicy.threshold 1 r))
+    (hb2 : ∀r,r<42→s.getByte (BitVec.ofNat 64 (16749520+r))=BitVec.ofNat 8 (CanonicalPolicy.threshold 2 r)) :
+    ∃t n c,n≤154 ∧ c≤166 ∧ Steps im s n c t ∧
       t.pc=(if SharedForest.policyHintsValid index hints digits lows then pcOf 42795 else pcOf 354) ∧
       RegsExcept s t [.x6,.x7,.x20,.x21,.x28,.x29] ∧ Frame s t (fun _=>False) := by
   obtain ⟨t,n,c,hn,hc',st,pt,rt,ft⟩:=validate_steps hc s hp index hi hmidx hints.toNat
@@ -6355,14 +9049,34 @@ theorem validate_source_steps {im : Image} (hc : Code im)
     (CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 [])) hH (credit_lt _ _ _) (credit_lt _ _ _)
     (credit_lt _ _ _) hm
     (hcredits 0) (hcredits 1) (hcredits 2)
-    (ClaudeWCT.WCT9.Policy75Safe23.threshold 1) (ClaudeWCT.WCT9.Policy75Safe23.threshold 2) ht1 ht2 hb1 hb2
+    (CanonicalPolicy.threshold 1) (CanonicalPolicy.threshold 2) ht1 ht2 hb1 hb2
   refine ⟨t,n,c,hn,hc',st,?_,rt,ft⟩
-  have hh:=SharedValidate.policyCondition_iff index hints digits lows hH hlen (by simpa [SharedForest.hintFloor,CanonicalPolicy.topFloor] using hfloor 0)
-    (hfloor 1) (hfloor 2)
-  change (Condition index hints.toNat (CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []))
-    (CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 []))
-    (CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 []))
-    (ClaudeWCT.WCT9.Policy75Safe23.threshold 1) (ClaudeWCT.WCT9.Policy75Safe23.threshold 2) ↔ SharedForest.policyHintsValid index hints digits lows=true) at hh
-  simpa only [hh] using pt
+  have hnb3 : ∀ r, r<23 → ClaudeWCT.W9.T3M.SharedCodec.nbThr3 r = CanonicalPolicy.threshold 3 r := by
+    intro r hr
+    unfold ClaudeWCT.W9.T3M.SharedCodec.nbThr3 CanonicalPolicy.threshold
+    rw [if_neg (show (3:Nat)≠0 by decide), if_neg (show (3:Nat)≠1 by decide), if_neg (show (3:Nat)≠2 by decide),
+        if_pos (show (3:Nat)=3∧r≤22 by omega)]
+    interval_cases r <;> decide
+  have hciff : Condition (SharedForest.requiredCredit index) hints.toNat
+      (CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []))
+      (CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 [])+SigGolfCandidate.AllRoute.usedSave 1 (SigGolfCandidate.T3.route index 1).1)
+      (CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 [])+SigGolfCandidate.AllRoute.usedSave 2 (SigGolfCandidate.T3.route index 2).1)
+      (CanonicalPolicy.threshold 1) (CanonicalPolicy.threshold 2) ↔ ClaudeWCT.W9.Machine.Expand.SharedValidate.policyCondition index hints digits lows := by
+    unfold Condition ClaudeWCT.W9.Machine.Expand.SharedValidate.policyCondition
+    constructor
+    · rintro ⟨h1,h2,h3,e1,e2,e3⟩
+      refine ⟨h1,h2,h3,e1,e2,?_⟩
+      rw [← hnb3 _ h3]; exact e3
+    · rintro ⟨h1,h2,h3,e1,e2,e3⟩
+      refine ⟨h1,h2,h3,e1,e2,?_⟩
+      rw [hnb3 _ h3]; exact e3
+  have hiff2 : ClaudeWCT.W9.Machine.Expand.SharedValidate.policyCondition index hints digits lows ↔ SharedForest.policyHintsValid index hints digits lows=true :=
+    ClaudeWCT.W9.Machine.Expand.SharedValidate.policyCondition_iff index hints digits lows hH hlen
+      (by first
+        | simpa only [SharedForest.hintFloor, if_pos, Fin.val_zero, Fin.isValue] using hfloor 0
+        | (have h0 := hfloor 0; simp only [SharedForest.hintFloor, if_pos] at h0 ⊢; exact h0)
+        | simpa [SharedForest.hintFloor] using hfloor 0) (hfloor 1) (hfloor 2)
+  have hiff := hciff.trans hiff2
+  simp only [← hiff]; exact pt
 end ClaudeWCT.W9.Machine.Expand.SharedValidateV6
 end

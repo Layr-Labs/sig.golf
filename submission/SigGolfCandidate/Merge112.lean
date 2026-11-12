@@ -6,7 +6,6 @@ import SigGolfCandidate.Merge058
 import SigGolfCandidate.Merge110
 import SigGolfCandidate.Merge111
 import SigGolfCandidate.OverflowClosingFacts
-import SigGolfCandidate.MixedSideChannel
 set_option debug.skipKernelTC true
 set_option linter.all false
 
@@ -258,49 +257,6 @@ theorem revSetF_card_le {S : FamScheme} (C : FamCaps S) (F : FamAddr) (R : Table
     _ ≤ C.zcap F.lay * famMembers S F.lay F.fam + 3 := Nat.add_le_add_right (Nat.mul_le_mul_left _ hrc) 3
     _ ≤ S.size F.lay F.fam := C.size_ge F.lay F.fam
 
-theorem revSetF_card_le_four {S : FamScheme} (C : FamCaps S) (F : FamAddr) (R : Tables U)
-    (hcap : C.zcap F.lay * famMembers S F.lay F.fam + 4 ≤ S.size F.lay F.fam) :
-    (RawFam.revSetF S F R).card + 4 ≤ S.size F.lay F.fam := by
-  set realL : Finset (Fin (S.grp F.lay)) :=
-    Finset.univ.filter fun l => S.grp F.lay * F.fam + l.val < 2 ^ height F.lay with hreal
-  set Z : Fin (S.grp F.lay) → Finset (GChainW (S.grp F.lay) (chainCount F.lay)) := fun l =>
-    (Finset.univ.filter fun i : Fin (chainCount F.lay) =>
-      CanonicalRef.depth (raw R) zeroMessages ⟨famLeaf (S.grp F.lay) F l, i⟩ = 0).map
-      ⟨fun i => (l, i), fun i j h => by simpa using h⟩ with hZ
-  have hsub : RawFam.revSetF S F R ⊆ realL.biUnion Z := by
-    intro c hc
-    simp only [RawFam.revSetF, Finset.mem_filter, Finset.mem_univ, true_and] at hc
-    rw [Finset.mem_biUnion]
-    refine ⟨c.1, ?_, ?_⟩
-    · rw [hreal, Finset.mem_filter]; exact ⟨Finset.mem_univ _, hc.1⟩
-    · rw [hZ]
-      exact Finset.mem_map.mpr ⟨c.2, Finset.mem_filter.mpr ⟨Finset.mem_univ _, hc.2⟩, rfl⟩
-  have hZc : ∀ l, (Z l).card ≤ C.zcap F.lay := by
-    intro l
-    rw [hZ]
-    simp only [Finset.card_map]
-    convert C.zeros_le R (famLeaf (S.grp F.lay) F l) <;> rfl
-  have hrc : realL.card ≤ famMembers S F.lay F.fam := by
-    unfold famMembers
-    refine le_min ?_ ?_
-    · exact (Finset.card_filter_le _ _).trans (by simp)
-    · have hs : realL.map Fin.valEmbedding ⊆ Finset.range (2 ^ height F.lay - S.grp F.lay * F.fam) := by
-        intro x hx
-        rw [Finset.mem_map] at hx
-        obtain ⟨l, hl, rfl⟩ := hx
-        rw [hreal, Finset.mem_filter] at hl
-        rw [Finset.mem_range, Fin.valEmbedding_apply]
-        omega
-      have := Finset.card_le_card hs
-      rwa [Finset.card_map, Finset.card_range] at this
-  calc (RawFam.revSetF S F R).card + 4 ≤ (realL.biUnion Z).card + 4 :=
-        Nat.add_le_add_right (Finset.card_le_card hsub) 4
-    _ ≤ (∑ l ∈ realL, (Z l).card) + 4 := Nat.add_le_add_right Finset.card_biUnion_le 4
-    _ ≤ (∑ _l ∈ realL, C.zcap F.lay) + 4 := Nat.add_le_add_right (Finset.sum_le_sum fun l _ => hZc l) 4
-    _ = C.zcap F.lay * realL.card + 4 := by rw [Finset.sum_const, smul_eq_mul, Nat.mul_comm]
-    _ ≤ C.zcap F.lay * famMembers S F.lay F.fam + 4 := Nat.add_le_add_right (Nat.mul_le_mul_left _ hrc) 4
-    _ ≤ S.size F.lay F.fam := hcap
-
 section Decomp
 variable (S : FamScheme) {F : FamAddr} (hF : FamOkS S F) (htb : F.tree < 2 ^ ClaudeWCT.W9.T3M.Extract.treeBits F.lay)
   {a : ChainAddr} (ca : (GChainW (S.grp F.lay) (chainCount F.lay)))
@@ -476,29 +432,11 @@ theorem tdepth_testRunF (p : PDataF (S.grp F.lay) (chainCount F.lay) (RawPrefix.
   ClaudeWCT.Arith.SideChannel.tdepth_simulate_le _ RefCharged
     (fun qu s => FamTest.tdepth_testImplF (F := F) (a := a) (TstF hU S F a R p r) aF _ qu s) _ q _ (hGq _)
 
-/-- Select the tighter bound whenever the actual reveal set leaves four degrees. -/
-noncomputable def restartFactor (S : FamScheme) (F : FamAddr) (R : Tables U) (q : Nat) : ℝ :=
-  ClaudeWCT.Arith.SideChannel.Mixed.factor (decide ((RawFam.revSetF S F R).card + 4 ≤ S.size F.lay F.fam)) q
-
-theorem restartFactor_nonneg (S : FamScheme) (F : FamAddr) (R : Tables U) (q : Nat) :
-    0 ≤ restartFactor S F R q := ClaudeWCT.Arith.SideChannel.Mixed.factor_nonneg _ _
-
-theorem restartFactor_le_old (S : FamScheme) (F : FamAddr) (R : Tables U) (q : Nat) :
-    restartFactor S F R q ≤ 2 * ((Fintype.card Digest : ℝ)⁻¹)^3 * ClaudeWCT.Arith.SideChannel.kconst q :=
-  ClaudeWCT.Arith.SideChannel.Mixed.factor_le_old _ _
-
-theorem restartFactor_lower (F : FamAddr) (R : Tables U) (q : Nat) (hl : F.lay ≠ 0) :
-    restartFactor layoutScheme F R q ≤ ClaudeWCT.Arith.SideChannel.Mixed.fourFactor q := by
-  have hfour := revSetF_card_le_four layoutCaps F R (layout_lower_four F.lay F.fam hl)
-  unfold restartFactor
-  rw [show decide ((RawFam.revSetF layoutScheme F R).card + 4 ≤ layoutScheme.size F.lay F.fam) = true from decide_eq_true hfour]
-  exact ClaudeWCT.Arith.SideChannel.Mixed.factor_le_four q
-
 /-- The per-rest-table error of the family restart: `2 δ K(q) E_{p,K}[amLen]`. -/
 noncomputable def errRF : ℝ :=
   ∑ p : PDataF (S.grp F.lay) (chainCount F.lay) (RawPrefix.restDepth a R), ∑ K : Fin (S.size F.lay F.fam) → Digest,
     (Fintype.card (Fin (S.size F.lay F.fam) → Digest) : ℝ)⁻¹ * ((Fintype.card (PDataF (S.grp F.lay) (chainCount F.lay) (RawPrefix.restDepth a R)) : ℝ)⁻¹ *
-      (restartFactor S F R q *
+      (2 * ((Fintype.card Digest : ℝ)⁻¹) ^ 3 * ClaudeWCT.Arith.SideChannel.kconst q *
         amLen (testRunF hU GD aF p (seedsR (gptS (S.stride F.lay)) (RawFam.revSetF S F R) K))))
 
 variable (C : FamCaps S) (hws : chainCount F.lay ≤ S.stride F.lay)
@@ -544,7 +482,7 @@ theorem frozen_le_mix_RF (E : FamData (S.grp F.lay) (chainCount F.lay) (S.size F
   set cK : ℝ := (Fintype.card (Fin (S.size F.lay F.fam) → Digest) : ℝ)⁻¹ with hcK
   set cp : ℝ := (Fintype.card (PDataF (S.grp F.lay) (chainCount F.lay) (RawPrefix.restDepth a R)) : ℝ)⁻¹ with hcp
   set cD : ℝ := (Fintype.card Digest : ℝ)⁻¹ with hcD
-  set Cc : ℝ := restartFactor S F R q with hC
+  set Cc : ℝ := 2 * ((Fintype.card Digest : ℝ)⁻¹) ^ 3 * ClaudeWCT.Arith.SideChannel.kconst q with hC
   set x := fun (K : Fin (S.size F.lay F.fam) → Digest) (p : PDataF (S.grp F.lay) (chainCount F.lay) (RawPrefix.restDepth a R)) =>
     prT (seedsY (gptS (S.stride F.lay)) (RawFam.revSetF S F R) K) (A p (seedsR (gptS (S.stride F.lay)) (RawFam.revSetF S F R) K))
       (testRunF hU GD aF p (seedsR (gptS (S.stride F.lay)) (RawFam.revSetF S F R) K)) with hx
@@ -578,12 +516,13 @@ theorem frozen_le_mix_RF (E : FamData (S.grp F.lay) (chainCount F.lay) (S.size F
   have hZ : 0 ≤ errRF hU (a := a) R GD aF q := by
     unfold errRF
     refine Finset.sum_nonneg fun p _ => Finset.sum_nonneg fun K _ => mul_nonneg hcK0 (mul_nonneg hcp0 ?_)
-    exact mul_nonneg (restartFactor_nonneg S F R q) (ClaudeWCT.Arith.SideChannel.amLen_nonneg _)
+    exact mul_nonneg (mul_nonneg (mul_nonneg (by norm_num) (pow_nonneg (inv_nonneg.mpr (Nat.cast_nonneg _)) 3))
+      (Nat.cast_nonneg _)) (ClaudeWCT.Arith.SideChannel.amLen_nonneg _)
   rw [← ENNReal.ofReal_add hY hZ]
   apply ENNReal.ofReal_le_ofReal
   have key : ∀ p : PDataF (S.grp F.lay) (chainCount F.lay) (RawPrefix.restDepth a R), ∑ K, x K p ≤
       ∑ K, (∑ s, z K p s) / Fintype.card Digest + Cc * ∑ K, m K p := fun p =>
-    ClaudeWCT.Arith.SideChannel.Mixed.family_test_le hpt hsmall hRev _ (fun h => of_decide_eq_true h) aF (A p)
+    ClaudeWCT.Arith.SideChannel.family_test_le hpt hsmall hRev aF (A p)
       (fun r => testRunF hU GD aF p r) q (fun r => tdepth_testRunF hU R GD aF q hGq p r)
   have e1 : ∑ K : Fin (S.size F.lay F.fam) → Digest, cK * ∑ p : PDataF (S.grp F.lay) (chainCount F.lay) (RawPrefix.restDepth a R), cp * x K p =
       ∑ p : PDataF (S.grp F.lay) (chainCount F.lay) (RawPrefix.restDepth a R), (cK * cp) * ∑ K, x K p := by
@@ -644,7 +583,7 @@ theorem mix_le_frozen_RF (E : FamData (S.grp F.lay) (chainCount F.lay) (S.size F
   set cK : ℝ := (Fintype.card (Fin (S.size F.lay F.fam) → Digest) : ℝ)⁻¹ with hcK
   set cp : ℝ := (Fintype.card (PDataF (S.grp F.lay) (chainCount F.lay) (RawPrefix.restDepth a R)) : ℝ)⁻¹ with hcp
   set cD : ℝ := (Fintype.card Digest : ℝ)⁻¹ with hcD
-  set Cc : ℝ := restartFactor S F R q with hC
+  set Cc : ℝ := 2 * ((Fintype.card Digest : ℝ)⁻¹) ^ 3 * ClaudeWCT.Arith.SideChannel.kconst q with hC
   set x := fun (K : Fin (S.size F.lay F.fam) → Digest) (p : PDataF (S.grp F.lay) (chainCount F.lay) (RawPrefix.restDepth a R)) =>
     prT (seedsY (gptS (S.stride F.lay)) (RawFam.revSetF S F R) K) (A p (seedsR (gptS (S.stride F.lay)) (RawFam.revSetF S F R) K))
       (testRunF hU GD aF p (seedsR (gptS (S.stride F.lay)) (RawFam.revSetF S F R) K)) with hx
@@ -678,12 +617,13 @@ theorem mix_le_frozen_RF (E : FamData (S.grp F.lay) (chainCount F.lay) (S.size F
   have hZ : 0 ≤ errRF hU (a := a) R GD aF q := by
     unfold errRF
     refine Finset.sum_nonneg fun p _ => Finset.sum_nonneg fun K _ => mul_nonneg hcK0 (mul_nonneg hcp0 ?_)
-    exact mul_nonneg (restartFactor_nonneg S F R q) (ClaudeWCT.Arith.SideChannel.amLen_nonneg _)
+    exact mul_nonneg (mul_nonneg (mul_nonneg (by norm_num) (pow_nonneg (inv_nonneg.mpr (Nat.cast_nonneg _)) 3))
+      (Nat.cast_nonneg _)) (ClaudeWCT.Arith.SideChannel.amLen_nonneg _)
   rw [← ENNReal.ofReal_add hY hZ]
   apply ENNReal.ofReal_le_ofReal
   have key : ∀ p : PDataF (S.grp F.lay) (chainCount F.lay) (RawPrefix.restDepth a R), ∑ K, (∑ s, z K p s) / Fintype.card Digest ≤
       ∑ K, x K p + Cc * ∑ K, m K p := fun p =>
-    ClaudeWCT.Arith.SideChannel.Mixed.family_test_ge hpt hsmall hRev _ (fun h => of_decide_eq_true h) aF (A p)
+    ClaudeWCT.Arith.SideChannel.family_test_ge hpt hsmall hRev aF (A p)
       (fun r => testRunF hU GD aF p r) q (fun r => tdepth_testRunF hU R GD aF q hGq p r)
   have e1 : ∑ K : Fin (S.size F.lay F.fam) → Digest, cK * ∑ p : PDataF (S.grp F.lay) (chainCount F.lay) (RawPrefix.restDepth a R), cp * x K p =
       ∑ p : PDataF (S.grp F.lay) (chainCount F.lay) (RawPrefix.restDepth a R), (cK * cp) * ∑ K, x K p := by
@@ -1209,9 +1149,9 @@ noncomputable def tcountF (out : (Res × List RefWorld.Domain) × TObs (RawPrefi
 
 include hGq C hws hb in
 /-- **The family error is charged to the expected test count.** -/
-theorem errR_le_countF_exact :
+theorem errR_le_countF :
     FamCore.errRF hU (a := a) R (fun T => recorded (G0 T)) aF q * (1 - (Fintype.card Digest : ℝ)⁻¹ * q) ≤
-      FamCore.restartFactor S F R q *
+      2 * ((Fintype.card Digest : ℝ)⁻¹) ^ 3 * ClaudeWCT.Arith.SideChannel.kconst q *
         ∑ p : PDataF (S.grp F.lay) (chainCount F.lay) (RawPrefix.restDepth a R), ∑ K : Fin (S.size F.lay F.fam) → Digest,
           (Fintype.card (Fin (S.size F.lay F.fam) → Digest) : ℝ)⁻¹ *
             ((Fintype.card (PDataF (S.grp F.lay) (chainCount F.lay) (RawPrefix.restDepth a R)) : ℝ)⁻¹ *
@@ -1224,10 +1164,11 @@ theorem errR_le_countF_exact :
     ClaudeWCT.Arith.SideChannel.GroupedFamily.gptS_injective hws
   have hsmall : ∀ c : GChainW (S.grp F.lay) (chainCount F.lay), gptS (S.stride F.lay) c < 1024 :=
     ClaudeWCT.Arith.SideChannel.GroupedFamily.gptS_lt hb
-  set C' : ℝ := FamCore.restartFactor S F R q with hC'
+  set C' : ℝ := 2 * ((Fintype.card Digest : ℝ)⁻¹) ^ 3 * ClaudeWCT.Arith.SideChannel.kconst q with hC'
   set cK : ℝ := (Fintype.card (Fin (S.size F.lay F.fam) → Digest) : ℝ)⁻¹
   set cp : ℝ := (Fintype.card (PDataF (S.grp F.lay) (chainCount F.lay) (RawPrefix.restDepth a R)) : ℝ)⁻¹
-  have hC0 : 0 ≤ C' := FamCore.restartFactor_nonneg S F R q
+  have hC0 : 0 ≤ C' := mul_nonneg (mul_nonneg (by norm_num) (pow_nonneg (inv_nonneg.mpr (Nat.cast_nonneg _)) 3))
+    (Nat.cast_nonneg _)
   have hcK : 0 ≤ cK := inv_nonneg.mpr (Nat.cast_nonneg _)
   have hcp : 0 ≤ cp := inv_nonneg.mpr (Nat.cast_nonneg _)
   have e1 : FamCore.errRF hU (a := a) R (fun T => recorded (G0 T)) aF q =
@@ -1270,38 +1211,6 @@ theorem errR_le_countF_exact :
           enT (seedsY (gptS (S.stride F.lay)) (RawFam.revSetF S F R) K)
             (FamCore.testRunF hU (fun T => recorded (G0 T)) aF p (seedsR (gptS (S.stride F.lay)) (RawFam.revSetF S F R) K))) := by
         ring
-
-include hGq C hws hb in
-theorem errR_le_countF :
-    FamCore.errRF hU (a := a) R (fun T => recorded (G0 T)) aF q * (1 - (Fintype.card Digest : ℝ)⁻¹ * q) ≤
-      2 * ((Fintype.card Digest : ℝ)⁻¹) ^ 3 * ClaudeWCT.Arith.SideChannel.kconst q *
-        ∑ p : PDataF (S.grp F.lay) (chainCount F.lay) (RawPrefix.restDepth a R), ∑ K : Fin (S.size F.lay F.fam) → Digest,
-          (Fintype.card (Fin (S.size F.lay F.fam) → Digest) : ℝ)⁻¹ *
-            ((Fintype.card (PDataF (S.grp F.lay) (chainCount F.lay) (RawPrefix.restDepth a R)) : ℝ)⁻¹ *
-              exT (seedsY (gptS (S.stride F.lay)) (RawFam.revSetF S F R) K)
-                (fun out => (tcountF (S := S) (F := F) (a := a) R out : ℝ))
-                (FamCore.testRunF hU (fun T => recorded (G0 T)) aF p
-                  (seedsR (gptS (S.stride F.lay)) (RawFam.revSetF S F R) K))) := by
-  refine (errR_le_countF_exact hU R G0 aF q hGq C hws hb).trans ?_
-  apply mul_le_mul_of_nonneg_right (FamCore.restartFactor_le_old S F R q)
-  refine Finset.sum_nonneg fun p _ => Finset.sum_nonneg fun K _ => mul_nonneg (by positivity) (mul_nonneg (by positivity) ?_)
-  exact ClaudeWCT.Arith.SideChannel.exT_nonneg _ (fun _ => Nat.cast_nonneg _) _
-
-include hGq C hws hb in
-theorem errR_le_countF_bound (B : ℝ) (hB : FamCore.restartFactor S F R q ≤ B) :
-    FamCore.errRF hU (a := a) R (fun T => recorded (G0 T)) aF q * (1 - (Fintype.card Digest : ℝ)⁻¹ * q) ≤
-      B *
-        ∑ p : PDataF (S.grp F.lay) (chainCount F.lay) (RawPrefix.restDepth a R), ∑ K : Fin (S.size F.lay F.fam) → Digest,
-          (Fintype.card (Fin (S.size F.lay F.fam) → Digest) : ℝ)⁻¹ *
-            ((Fintype.card (PDataF (S.grp F.lay) (chainCount F.lay) (RawPrefix.restDepth a R)) : ℝ)⁻¹ *
-              exT (seedsY (gptS (S.stride F.lay)) (RawFam.revSetF S F R) K)
-                (fun out => (tcountF (S := S) (F := F) (a := a) R out : ℝ))
-                (FamCore.testRunF hU (fun T => recorded (G0 T)) aF p
-                  (seedsR (gptS (S.stride F.lay)) (RawFam.revSetF S F R) K))) := by
-  refine (errR_le_countF_exact hU R G0 aF q hGq C hws hb).trans ?_
-  apply mul_le_mul_of_nonneg_right hB
-  refine Finset.sum_nonneg fun p _ => Finset.sum_nonneg fun K _ => mul_nonneg (by positivity) (mul_nonneg (by positivity) ?_)
-  exact ClaudeWCT.Arith.SideChannel.exT_nonneg _ (fun _ => Nat.cast_nonneg _) _
 
 include hF htb haF hd1 hG haca in
 /-- The expected test count of the decomposed frozen law (family version). -/
@@ -1406,48 +1315,6 @@ theorem errAR_sum_leF :
         (Nat.cast_nonneg _)) 3)) (Nat.cast_nonneg _)) hpos.le)]
     apply ENNReal.ofReal_le_ofReal
     have h := errR_le_countF hU (a := a) R G0 (selfFF S ca haF R hd1) q hGq C hws hb
-    rw [hC', div_mul_eq_mul_div, le_div_iff₀ hpos]
-    exact h
-  · exact bot_le
-include hF htb haF hG hGq C hws hb hq in
-theorem errAR_sum_leF_bound (B : ℝ) (hB0 : 0 ≤ B)
-    (hB : ∀ R : Tables U, FamCore.restartFactor S F R q ≤ B) :
-    ∑' R, Core.restLaw U R * errARF hU S ca haF (fun T => recorded (G0 T)) q R ≤
-      ENNReal.ofReal (B /
-        (1 - (Fintype.card Digest : ℝ)⁻¹ * q)) *
-        frozenCountF hU (S := S) (F := F) (a := a) (fun T => recorded (G0 T)) := by
-  set C' : ℝ := B /
-    (1 - (Fintype.card Digest : ℝ)⁻¹ * q) with hC'
-  have hpos : 0 < 1 - (Fintype.card Digest : ℝ)⁻¹ * q := by linarith
-  let Ψd : ℕ → Tables U → ℝ≥0∞ := fun d R' =>
-    ∑' z, Core.frozenLaw hU a d R' (fun T => recorded (G0 T)) z *
-      (calls (isTestQF (S.grp F.lay) (chainCount F.lay) F a d (RawFam.revSetF S F R')) z.2.1.2 : ℝ≥0∞)
-  have hres := restLaw_resampleF_tsum hU hF (fun R => Ψd (RawPrefix.restDepth a R) R)
-  unfold frozenCountF
-  change _ ≤ ENNReal.ofReal C' * ∑' R, Core.restLaw U R * Ψd (RawPrefix.restDepth a R) R
-  rw [hres, ← ENNReal.tsum_mul_left]
-  refine ENNReal.tsum_le_tsum fun R => ?_
-  rw [mul_left_comm]
-  refine mul_le_mul' le_rfl ?_
-  unfold errARF
-  split_ifs with hd1
-  · have hy : ∀ y, Ψd (RawPrefix.restDepth a
-          (RawFam.ovF (S.grp F.lay) (chainCount F.lay) (S.cnt F.lay) (S.size F.lay F.fam) F R y))
-          (RawFam.ovF (S.grp F.lay) (chainCount F.lay) (S.cnt F.lay) (S.size F.lay F.fam) F R y) =
-        ∑' z, Core.frozenLaw hU a (RawPrefix.restDepth a R)
-          (RawFam.ovF (S.grp F.lay) (chainCount F.lay) (S.cnt F.lay) (S.size F.lay F.fam) F R y)
-          (fun T => recorded (G0 T)) z * (tcountF (S := S) (F := F) (a := a) R z.2 : ℝ≥0∞) := by
-      intro y
-      rw [RawFam.restDepth_ovF S hF R y a]
-      simp only [Ψd, revSetF_ovF S hF R y]
-      rfl
-    simp only [hy]
-    rw [← SphincsSecurity.Concrete.PartialChainEndpoint.expectation_bind,
-      ← count_frozenF hU hF htb ca haF R hd1 G0 hG (selfFF S ca haF R hd1) rfl]
-    rw [← ENNReal.ofReal_mul (by
-      rw [hC']; exact div_nonneg hB0 hpos.le)]
-    apply ENNReal.ofReal_le_ofReal
-    have h := errR_le_countF_bound hU (a := a) R G0 (selfFF S ca haF R hd1) q hGq C hws hb B (hB R)
     rw [hC', div_mul_eq_mul_div, le_div_iff₀ hpos]
     exact h
   · exact bot_le
@@ -2511,17 +2378,6 @@ theorem seedErrorBoundF {S : FamScheme} {Cmax : Nat} (H : FamHyps S Cmax) (hC : 
   (errTotF_toReal H adversary q hq).trans
     (grouped_seed_error Cmax _ (Nat.cast_nonneg _) (by exact_mod_cast hC) (by positivity) hy)
 
-/-- Scheme-wide seed-error facts, independent of a single maximum family charge. -/
-def SmallSeedBound (S : FamScheme) : Prop :=
-  ∀ (adversary : Final.Paired.AdversaryP) (q : Nat), q < 2^128 →
-    (q:ℝ)/2^128 ≤ 1251/1000000 →
-    (errTotF S adversary q).toReal ≤ (755/1000)*((q:ℝ)/2^128)^2
-
-def SplitSeedBound (S : FamScheme) : Prop :=
-  ∀ (adversary : Final.Paired.AdversaryP) (q : Nat), q < 2^128 →
-    (q:ℝ)/2^128 ≤ 2163/1000000 →
-    (errTotF S adversary q).toReal ≤ (261/200)*((q:ℝ)/2^128)^2
-
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamTot
 end
 -- ==== merged from ClaudeWCT_W9_T3_Secc_WotsFamContacts ====
@@ -2904,11 +2760,11 @@ theorem chainCount_cases (lay : Layer) : chainCount lay = if lay = 0 then 51 els
 
 /-- The scheme of the `Correctness` layout (v6 lower 7-leaf families, top per-leaf until the top port): charge
 `max(1 · 51, 7 · 43) = 301`. -/
-def layoutHyps : FamHyps layoutScheme 688 where
+def layoutHyps : FamHyps layoutScheme 301 where
   caps := layoutCaps
   grp_le lay := by show WCT9.famGrp lay ≤ 2 ^ 20; unfold WCT9.famGrp; split_ifs <;> norm_num
   charge lay := by
-    show WCT9.famGrp lay * chainCount lay ≤ 688
+    show WCT9.famGrp lay * chainCount lay ≤ 301
     unfold WCT9.famGrp; rw [chainCount_cases]; split_ifs <;> decide
   width lay := WCT9.famStride_ge lay
   points lay := by
@@ -3260,7 +3116,7 @@ theorem errTotF_ne_topFam (S : FamScheme) {Cmax : Nat} (H : FamTot.FamHyps S Cma
     FamTot.errTotF S adversary q≠⊤ :=
   ne_top_of_le_ne_top (by finiteness) (FamTot.errTotF_le H adversary q hq)
 
-theorem primitive_real_of_rawFam (S : FamScheme) {Cmax : Nat} (H : FamTot.FamHyps S Cmax) (hC : ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamTot.SmallSeedBound S)
+theorem primitive_real_of_rawFam (S : FamScheme) {Cmax : Nat} (H : FamTot.FamHyps S Cmax) (hC : Cmax ≤ 301)
     (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q<2^128)
     (hy : (q:ℝ)/2^128≤1251/1000000) (w v : ENNReal) (hw:w≠⊤) (hv:v≠⊤) (hwv:w+v=1)
     (hp:prefixMass adversary q≠⊤) (he:encodingMass adversary q≠⊤)
@@ -3287,7 +3143,7 @@ theorem primitive_real_of_rawFam (S : FamScheme) {Cmax : Nat} (H : FamTot.FamHyp
   have he0 : 0≤canonicalError ((q:ℝ)/2^128) w.toReal := by
     rw [←errCoeff_toReal q hq w v hw hv hwv]
     exact ENNReal.toReal_nonneg
-  have hseed := hC adversary q hq hy
+  have hseed := FamTot.seedErrorBoundF H hC adversary q hq hy
   have herr:=grouped_weighted_error ((q:ℝ)/2^128) (FamTot.errTotF S adversary q).toReal
     (canonicalError ((q:ℝ)/2^128) w.toReal) he0 herror hseed
   have hp' := mul_le_mul_of_nonneg_right hprefix (show 0≤(prefixMass adversary q).toReal/2^128 by positivity)
@@ -3295,7 +3151,7 @@ theorem primitive_real_of_rawFam (S : FamScheme) {Cmax : Nat} (H : FamTot.FamHyp
   simp only [div_eq_mul_inv] at h hp' he' herr ⊢
   nlinarith
 
-theorem primitive_real_of_failureFam (S : FamScheme) {Cmax : Nat} (H : FamTot.FamHyps S Cmax) (hC : ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamTot.SmallSeedBound S)
+theorem primitive_real_of_failureFam (S : FamScheme) {Cmax : Nat} (H : FamTot.FamHyps S Cmax) (hC : Cmax ≤ 301)
     (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
     (hy : (q:ℝ)/2^128≤1251/1000000) (w v : ENNReal) (hw:w≠⊤) (hv:v≠⊤) (hwv:w+v=1)
     (hfailed : Pr[ReferenceFailed | PairedReference.referenceExperiment adversary q] ≤ 1/(2:ENNReal)^139)
@@ -3314,7 +3170,7 @@ theorem primitive_real_of_failureFam (S : FamScheme) {Cmax : Nat} (H : FamTot.Fa
     _ (PairedSmallT.otherMass adversary q) hf.2.2.1 hraw theta hprefix hencoding herror
 
 theorem primitive_middle_real_of_failureFam (S : FamScheme) {Cmax : Nat} (H : FamTot.FamHyps S Cmax)
-    (hC : ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamTot.SmallSeedBound S) (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
+    (hC : Cmax ≤ 301) (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
     (hy : (q:ℝ)/2^128≤1251/1000000)
     (hfailed : Pr[ReferenceFailed | PairedReference.referenceExperiment adversary q] ≤ 1/(2:ENNReal)^139) :
     (Pr[Combined | PairedReference.referenceExperiment adversary q]).toReal ≤
@@ -3329,7 +3185,7 @@ theorem primitive_middle_real_of_failureFam (S : FamScheme) {Cmax : Nat} (H : Fa
   · simpa only [ENNReal.toReal_div,ENNReal.toReal_ofNat] using hc.2.2
 
 theorem primitive_tiny_real_of_failureFam (S : FamScheme) {Cmax : Nat} (H : FamTot.FamHyps S Cmax)
-    (hC : ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamTot.SmallSeedBound S) (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
+    (hC : Cmax ≤ 301) (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
     (hy : (q:ℝ)/2^128≤1/2^28)
     (hfailed : Pr[ReferenceFailed | PairedReference.referenceExperiment adversary q] ≤ 1/(2:ENNReal)^139) :
     (Pr[Combined | PairedReference.referenceExperiment adversary q]).toReal ≤
@@ -3356,7 +3212,7 @@ set_option exponentiation.threshold 1024
 set_option backward.isDefEq.respectTransparency false
 
 theorem primitive_middle_realFam (S : FamScheme) {Cmax : Nat} (H : CanonicalRef.Normalized.FamTot.FamHyps S Cmax)
-    (hC : ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamTot.SmallSeedBound S) (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
+    (hC : Cmax ≤ 301) (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
     (hy : (q:ℝ)/2^128≤1251/1000000) :
     (Pr[Combined | PairedReference.referenceExperiment adversary q]).toReal ≤
       (1996581/1000000)*((PairedSmallT.prefixMass adversary q).toReal/2^128+
@@ -3365,7 +3221,7 @@ theorem primitive_middle_realFam (S : FamScheme) {Cmax : Nat} (H : CanonicalRef.
   primitive_middle_real_of_failureFam S H hC adversary q hq hy (reference_failed_le adversary q)
 
 theorem primitive_tiny_realFam (S : FamScheme) {Cmax : Nat} (H : CanonicalRef.Normalized.FamTot.FamHyps S Cmax)
-    (hC : ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamTot.SmallSeedBound S) (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
+    (hC : Cmax ≤ 301) (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
     (hy : (q:ℝ)/2^128≤1/2^28) :
     (Pr[Combined | PairedReference.referenceExperiment adversary q]).toReal ≤
       (249/125)*((PairedSmallT.prefixMass adversary q).toReal/2^128+
@@ -3386,7 +3242,7 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 
 theorem tiny_boundFam (S : FamScheme) {Cmax : Nat} (H : CanonicalRef.Normalized.FamTot.FamHyps S Cmax)
-    (hC : ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamTot.SmallSeedBound S) (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
+    (hC : Cmax ≤ 301) (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
     (hpositive:1≤q) (hhigh:(q:ℝ)/2^128≤1/2^28) :
     Pr[QueryRecorded.CleanWin q | PairedOuter.PaddedGame.tracedExperiment adversary q hq]+
       q/(2:ENNReal)^146+(2:ENNReal)⁻¹^700+((2:ENNReal)^152)⁻¹+
@@ -3398,7 +3254,7 @@ theorem tiny_boundFam (S : FamScheme) {Cmax : Nat} (H : CanonicalRef.Normalized.
   have h:=clean_probability_real_overflow adversary q hq (completed_split_canonical adversary q hq)
     (249/125) (18/5000) (by finiteness) (by finiteness) (by
       simpa (disch:=positivity) only [ENNReal.ofReal_div_of_pos,ENNReal.ofReal_ofNat,ENNReal.ofReal_one] using
-        ENNReal.ofReal_le_ofReal (by norm_num : (28883:ℝ)/2500000≤249/125))
+        ENNReal.ofReal_le_ofReal (by norm_num : (939:ℝ)/80000≤249/125))
     excess_tiny_actualG (802/1000) (by simpa only [ENNReal.toReal_div,ENNReal.toReal_ofNat] using! hp)
     (completed_incomplete_bound adversary q hq)
     (tinyOverflowBound q) (tinyOverflowBound_finite q) (completed_tinyOverflow adversary q hq)
@@ -3445,13 +3301,13 @@ G chain at `+16`, F chain at `+40`; `= W9.T3M.chainSlot 0 i`). -/
 def topSlot (i : Nat) : Nat := if i = 50 then 144 else if i % 2 = 0 then 224 + 104 * (24 - i / 2) else 248 + 104 * (24 - i / 2)
 /-- Top chain format (T51): chain `i` is G (value first) iff it is even and `i ≤ 50` (`= T3.topIsG`). -/
 def topG (i : Nat) : Bool := decide (i%2=0 ∧ i ≤ 50)
-def off (i : Nat) : Word := BitVec.ofNat 64 (topSlot i)-BitVec.ofNat 64 1872
+def off (i : Nat) : Word := BitVec.ofNat 64 (topSlot i)-BitVec.ofNat 64 1664
 /-- T51 endpad top leaf: `end_0` at 15288 (tp + 512), the tweak at 15304, `end_i` at `15304 + 16 i` (i ≥ 1). -/
 def slot (i : Nat) : Nat := if i=0 then 15288 else 15304+16*i
 /-- Target of chain `i`'s terminal hash: chain 0 (c0hi) writes its last 32-byte answer at `slot 0 - 16 = 15272`
 (the HIGH half lands on `end_0`); every other chain at its slot. -/
 def termSlot (i : Nat) : Nat := if i=0 then 15272 else slot i
-def slotOffset (a : Nat) : Nat := a-14336
+def slotOffset (a : Nat) : Nat := a-14776
 def rungR (d : Nat) (sl : Option Nat) (p : Nat) : Result :=
   T3M.rungRB d (sl.map slotOffset) p
 def copyN (rb : Reg) (o : Word) (sl tgt : Nat) (g : Bool := false) : Result :=
@@ -3615,10 +3471,10 @@ def tailsOK (q sl p : Nat) : Bool :=
   (List.range (mx q)).all fun m =>
     rOK (vrun (p+2*m+1) 2) (tailR (if m+1=mx q then some sl else none) (p+2*m+1))
 def partOK (q i d p : Nat) (skip : Bool := false) : Bool :=
-  if d=mx q then (if skip then rOK (vrun p 0) (emptyR p) else rOK (vrun p 4) (copyFH .x4 (off i) (slot i) p (topG i)))
+  if d=mx q then (if skip then rOK (vrun p 0) (emptyR p) else rOK (vrun p 4) (copyFH .x8 (off i) (slot i) p (topG i)))
   else rOK (vrun p 8)
-      (if d+1=mx q then headRHT .x4 (off i) d (slot i) p i
-       else headRH .x4 (off i) d none p i (topG i)) &&
+      (if d+1=mx q then headRHT .x8 (off i) d (slot i) p i
+       else headRH .x8 (off i) d none p i (topG i)) &&
     rungsOK q (d+1) (slot i) (p+5)
 def s8Check (q k : Nat) : Bool := if q=16 ∧ k=0 then rOK (vrun (entW q k) 0) (emptyR (entW q k)) else
   (if q=0 then rOK (vrun (entW 0 k) 1) (guardR k) else rOK (vrun (entW q k) 1) (s8R (kss q k) (entW q k)))
@@ -3636,11 +3492,11 @@ def inlineCheck (q k : Nat) : Bool :=
   s8Check q k &&
   (if dA=mx q then
     (if skipA q k then rOK (vrun (leadPc q k) 0) (emptyR (leadPc q k))
-     else rOK (vrun (leadPc q k) 4) (copyFH .x4 (off (3*q)) (slot (3*q)) (leadPc q k) (topG (3*q))))
+     else rOK (vrun (leadPc q k) 4) (copyFH .x8 (off (3*q)) (slot (3*q)) (leadPc q k) (topG (3*q))))
    else
     rOK (vrun (leadPc q k) (if dA+1=mx q then 3 else 4))
-      (if dA+1=mx q then headJDTermF .x4 (off (3*q)) (gbase q k+2*dA+1) (3*q) dA
-       else headJDF .x4 (off (3*q)) (gbase q k+2*dA+1) (3*q) dA (topG (3*q))) &&
+      (if dA+1=mx q then headJDTermF .x8 (off (3*q)) (gbase q k+2*dA+1) (3*q) dA
+       else headJDF .x8 (off (3*q)) (gbase q k+2*dA+1) (3*q) dA (topG (3*q))) &&
     rOK (vrun (gbase q k+2*dA+1) 2)
       (tailR (if dA+1=mx q then some (termSlot (3*q)) else none) (gbase q k+2*dA+1)) &&
     rungsOK q (dA+1) (termSlot (3*q)) (gbase q k+2*(dA+1))) &&
@@ -3651,13 +3507,14 @@ def entCheck (q k : Nat) : Bool :=
   let dA := kdig q k 0
   if dA=mx q then
     (if q=0 then rOK (vrun (leadPc q k) 1) (T3M.skipJB (gB q k))
-     else rOK (vrun (leadPc q k) 7) (copyN .x4 (off (3*q)) (slot (3*q)) (gB q k) (topG (3*q))))
+     else rOK (vrun (leadPc q k) 7) (copyN .x8 (off (3*q)) (slot (3*q)) (gB q k) (topG (3*q))))
   else rOK (vrun (leadPc q k) 7)
-    (if dA+1=mx q then headJDTerm .x4 (off (3*q)) (gbase q k+2*dA+1) (3*q) dA
-     else headJD .x4 (off (3*q)) (gbase q k+2*dA+1) (3*q) dA (topG (3*q)))
-/-- Live shared blocks: r6 groups and non-inline r5 rows. Every r7 rank is inline (`rowInl 16 k = true`), so its retired shared bodies are never executed and impose no machine-code obligations. -/
+    (if dA+1=mx q then headJDTerm .x8 (off (3*q)) (gbase q k+2*dA+1) (3*q) dA
+     else headJD .x8 (off (3*q)) (gbase q k+2*dA+1) (3*q) dA (topG (3*q)))
+/-- Live shared blocks: every block of an r6 group; the r7 pair's 7 bodies (`x = dB`); for #938's non-inline r5
+groups only the blocks with `dB + dC < 3` (a row with `kss ≥ 3` is inline; the dead blocks are not checked). -/
 def liveBlock (q x : Nat) : Bool :=
-  if q=16 then true
+  if q=16 then blockCheck 16 x 0
   else if q<9 ∨ x/(mx q+1)+x%(mx q+1) < 3 then blockCheck q (x/(mx q+1)) (x%(mx q+1)) else true
 /-- Number of ranks of group `q` (`216` r6, `125` r5, `49` the r7 pair). -/
 def nRank (q : Nat) : Nat := if q=16 then 49 else (mx q+1)^3
@@ -3710,8 +3567,8 @@ structure NCtx where
   digits : Nat → Nat
   ret : Nat
 namespace NCtx
-/-- Charge 85: chain `i`'s block (`= WIT + chainBlock 0 i` for `S3 = 14336`). -/
-def blk (c : NCtx) (i : Nat) : Nat := c.S3 - 1872 + topSlot i
+/-- Charge 85: chain `i`'s block (`= WIT + chainBlock 0 i` for `S3 = 14128`). -/
+def blk (c : NCtx) (i : Nat) : Nat := c.S3 - 1664 + topSlot i
 /-- Address of the supplied value (G: block start, F: block + 48). -/
 def vAt (c : NCtx) (i : Nat) : Nat := c.blk i + 48 * (i % 2)
 /-- Hash destination of an interior step (G: block - 16, so the high half lands on the value; F: block + 48). -/
@@ -3737,11 +3594,11 @@ def pad1 (c : NCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.pad1At i 
 def padHeader (c : NCtx) (i : Nat) : Word := (ClaudeWCT.W9.T3M.wdig c.w (c.blk i - Verify.WIT + 16)).extractLsb' 64 64
 def val (c : NCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.vAt i - Verify.WIT)
 def ok (c : NCtx) : Prop :=
-  c.tree = 0 ∧ c.leaf < 4096 ∧ c.S3 % 8 = 0 ∧ Verify.WIT + 8208 + 1872 ≤ c.S3 ∧ c.S3 + 936 ≤ 15272 ∧
+  c.tree = 0 ∧ c.leaf < 4096 ∧ c.S3 % 8 = 0 ∧ Verify.WIT + 8208 + 1664 ≤ c.S3 ∧ c.S3 + 1144 ≤ 15272 ∧
     c.ret < 209920
 def known (c : NCtx) : List (Reg × Word) :=
   [(.x5, 0), (.x11, 64), (.x9, 0x7fc01), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
-   (.x28, BitVec.ofNat 64 c.pre0), (.x4, BitVec.ofNat 64 c.S3), (.x2, BitVec.ofNat 64 0xffbde0), (.x4, 14336)]
+   (.x28, BitVec.ofNat 64 c.pre0), (.x8, BitVec.ofNat 64 c.S3), (.x2, BitVec.ofNat 64 0xffbde0), (.x4, 14776)]
 /-- Rank of top group `q`: the digit triple in radix `mx q + 1`; group 16 (the r7 pair, chains 48 and 49) has only two
 digits, `d48 + 7 d49`. -/
 def kOf (c : NCtx) (q : Nat) : Nat :=
@@ -3788,9 +3645,9 @@ spills its junk 16 bytes into pair `p - 1`, chain 1 past the area), and the G ha
 when `i` is odd. -/
 def Wr (c : NCtx) (i : Nat) (A : Nat) : Prop :=
   (slot 1 ≤ A ∧ A < c.bufferEnd i) ∨ (0 < i ∧ slot 0 - 16 ≤ A ∧ A < slot 0 + 16) ∨
-    (c.S3 + 104 * (27 - i / 2) ≤ A + 1872 ∧ A < c.S3 + 952) ∨
-    (i % 2 = 1 ∧ c.S3 + 104 * (26 - i / 2) + 24 * (i / 51 % 2) ≤ A + 1872 ∧
-      A + 1872 < c.S3 + 104 * (26 - i / 2) + 40 + 24 * (i / 51 % 2))
+    (c.S3 + 104 * (27 - i / 2) ≤ A + 1664 ∧ A < c.S3 + 1160) ∨
+    (i % 2 = 1 ∧ c.S3 + 104 * (26 - i / 2) + 24 * (i / 51 % 2) ≤ A + 1664 ∧
+      A + 1664 < c.S3 + 104 * (26 - i / 2) + 40 + 24 * (i / 51 % 2))
 /-- Chain `i`'s own writes: its header word and the 32-byte destination of its interior steps. -/
 def WrIn (c : NCtx) (i : Nat) (A : Nat) : Prop :=
   c.Wr i A ∨ (c.blk i + 16 ≤ A ∧ A < c.blk i + 24) ∨ (c.oAt i ≤ A ∧ A < c.oAt i + 32)
@@ -3833,10 +3690,10 @@ theorem blk_props (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 51) :
   obtain ⟨-, -, h64, hlo, hhi, -⟩ := hc
   have := topSlot_props i hi
   unfold blk Verify.WIT at *; refine ⟨?_, ?_, ?_⟩ <;> omega
-/-- Chain `i`'s block lies in pair `i / 2` (`[pair, pair + 104)` with `pair = S3 - 1872 + 104 (26 - i / 2)`;
+/-- Chain `i`'s block lies in pair `i / 2` (`[pair, pair + 104)` with `pair = S3 - 1664 + 104 (26 - i / 2)`;
 the checksum chain 50 sits 24 bytes higher in pair 25, so it starts on the old top path's last word). -/
 theorem blk_eq (c : NCtx) (i : Nat) (hi : i < 51) :
-    c.blk i = c.S3 - 1872 + 104 * (26 - i / 2) + 16 + 24 * (i % 2) + 24 * (i / 50) := by
+    c.blk i = c.S3 - 1664 + 104 * (26 - i / 2) + 16 + 24 * (i % 2) + 24 * (i / 50) := by
   unfold blk topSlot; split_ifs <;> omega
 theorem vAt_props (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 51) :
     c.vAt i % 8 = 0 ∧ c.vAt i = c.blk i + 48 * (i % 2) := by
@@ -3886,14 +3743,14 @@ theorem base_off (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 51) (k : Nat) (hk : 
   obtain ⟨-, -, -, hlo, hhi, -⟩ := hc
   have := topSlot_props i hi
   unfold off blk
-  rw [ofNat_add_off _ _ _ _ (by omega) (by omega), show c.S3 + topSlot i - 1872 = c.S3 - 1872 + topSlot i by
+  rw [ofNat_add_off _ _ _ _ (by omega) (by omega), show c.S3 + topSlot i - 1664 = c.S3 - 1664 + topSlot i by
     omega]
 theorem base_off0 (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 51) :
     BitVec.ofNat 64 c.S3 + off i = BitVec.ofNat 64 (c.blk i) := by
   obtain ⟨-, -, -, hlo, hhi, -⟩ := hc
   have := topSlot_props i hi
   unfold off blk
-  rw [ofNat_add_off0 _ _ _ (by omega) (by omega), show c.S3 + topSlot i - 1872 = c.S3 - 1872 + topSlot i by
+  rw [ofNat_add_off0 _ _ _ (by omega) (by omega), show c.S3 + topSlot i - 1664 = c.S3 - 1664 + topSlot i by
     omega]
 /-- The hash destination register of an interior step (`gOut`). -/
 theorem oAt_eval (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 51) (x : Word) (hx : x = BitVec.ofNat 64 (c.blk i)) :
@@ -4169,7 +4026,7 @@ theorem bufferSafe_end (c : NCtx) (i : Nat) (hs : c.bufferSafe i) :
   · simp [bufferEnd, h.2.2.2]
 
 theorem bufferSafe_protected (c : NCtx) (i A : Nat) (hs : c.bufferSafe i)
-    (hb : c.S3 + 952 ≤ slot 0) (ha : slot i ≤ A) : ¬ c.Wr i A := by
+    (hb : c.S3 + 1160 ≤ slot 0) (ha : slot i ≤ A) : ¬ c.Wr i A := by
   rw [Wr, c.bufferSafe_end i hs]
   by_cases hi : i = 0
   · subst hi; rw [slot0, slot1] at *; omega
@@ -4178,7 +4035,7 @@ theorem bufferSafe_protected (c : NCtx) (i A : Nat) (hs : c.bufferSafe i)
 
 theorem bufferVal_at {c : NCtx} {s0 t : MachineState} (h0 : c.bufferOrig s0)
     {i : Nat} (hi : i < 51) (hs : c.bufferSafe i)
-    (hb : c.S3 + 952 ≤ slot 0) (hF : Frame s0 t (c.Wr i)) :
+    (hb : c.S3 + 1160 ≤ slot 0) (hF : Frame s0 t (c.Wr i)) :
     DigAt t (slot i) (c.bufferVal i) := by
   have hp := slot_props i hi
   have hi50 : i < 50 := by rcases hs.2 with h | h <;> omega
@@ -4208,7 +4065,7 @@ theorem bufferSlot_source (i : Nat) :
   split_ifs <;> simp_all <;> omega
 theorem bufferVal_source (c : NCtx) (digits : List Nat)
     (hd : ∀ j, j < 51 → digits.getD j 0 = c.dig j)
-    (hS : c.S3 = 14336) (i : Nat) (hi : i < 51) :
+    (hS : c.S3 = 14128) (i : Nat) (hi : i < 51) :
     c.bufferVal i = ClaudeWCT.W9.T3M.wvalueFor c.w 0 digits i := by
   unfold bufferVal ClaudeWCT.W9.T3M.wvalueFor
   simp only [← c.bufferSafe_source digits hd i hi, bufferSlot_source]

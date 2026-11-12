@@ -2108,7 +2108,7 @@ theorem trialRows_queried (A : Answers) (published : SigGolfCandidate.T3.Cache) 
         rw [List.mem_range] at hk
         dsimp only at hk
         obtain ⟨k0, -, hk0, hck, hrej⟩ := r1 c N (hsd ▸ hfound)
-        have hlim : WCT9.digestAttemptLimit = (11*2^17) := rfl
+        have hlim : WCT9.digestAttemptLimit = 2 ^ 21 := rfl
         have hct : c.toNat = k0 := by
           rw [hck, BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt (by omega)
         exact search_queried A rho request.message WCT9.digestAttemptLimit 0 k (Nat.zero_le _) (by omega)

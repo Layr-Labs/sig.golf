@@ -352,7 +352,7 @@ theorem childLevelP_eq (k index j : Nat) (pads : Nat → Digest) (tws sibs : Nat
 theorem nodeIn_blocks (k index j : Nat) (pads : Nat → Digest) (tws sibs : Nat → Digest) (v : Digest) (l : Nat) :
     (toQ (pad64 (nodeIn k index j pads (hpOf j tws) sibs v l))).blocks = 1 := by
   unfold nodeIn; exact blocks_blk4 _ _ _ _
-set_option debug.skipKernelTC true in
+set_option debug.skipKernelTC false in
 theorem hdr11_lo (k index heap : Nat) (hp : BitVec 64) :
     (nodeHeader k index heap hp).extractLsb' 0 64 =
       BitVec.ofNat 64 (if 8 ≤ heap ∧ heap < 128 then w0n k index + 2 ^ 64 - heap else w0n k index) := by
@@ -362,7 +362,7 @@ theorem hdr11_hi (k index heap : Nat) (hp : BitVec 64) :
     (nodeHeader k index heap hp).extractLsb' 64 64 = if 8 ≤ heap ∧ heap < 128 then hp else BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap) := by
   unfold nodeHeader V3.nodeHdr
   split <;> exact BitVec.extractLsb'_append_eq_left
-set_option debug.skipKernelTC true in
+set_option debug.skipKernelTC false in
 theorem ofNat_add_neg_wrap (a h : Nat) (hh : h < 2 ^ 64) :
     BitVec.ofNat 64 a + BitVec.ofNat 64 (2 ^ 64 - h) = BitVec.ofNat 64 (a + 2 ^ 64 - h) := by
   rw [← BitVec.ofNat_add]
@@ -1287,7 +1287,7 @@ theorem childLevelP_eq (k index j : Nat) (pads : Nat → Digest) (tws sibs : Nat
 theorem nodeIn_blocks (k index j : Nat) (pads : Nat → Digest) (tws sibs : Nat → Digest) (v : Digest) (l : Nat) :
     (toQ (pad64 (nodeIn k index j pads (hpOf j tws) sibs v l))).blocks = 1 := by
   unfold nodeIn; exact blocks_blk4 _ _ _ _
-set_option debug.skipKernelTC true in
+set_option debug.skipKernelTC false in
 theorem hdr11_lo (k index heap : Nat) (hp : BitVec 64) :
     (nodeHeader k index heap hp).extractLsb' 0 64 =
       BitVec.ofNat 64 (if 8 ≤ heap ∧ heap < 128 then w0n k index + 2 ^ 64 - heap else w0n k index) := by
@@ -1297,7 +1297,7 @@ theorem hdr11_hi (k index heap : Nat) (hp : BitVec 64) :
     (nodeHeader k index heap hp).extractLsb' 64 64 = if 8 ≤ heap ∧ heap < 128 then hp else BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap) := by
   unfold nodeHeader V3.nodeHdr
   split <;> exact BitVec.extractLsb'_append_eq_left
-set_option debug.skipKernelTC true in
+set_option debug.skipKernelTC false in
 theorem ofNat_add_neg_wrap (a h : Nat) (hh : h < 2 ^ 64) :
     BitVec.ofNat 64 a + BitVec.ofNat 64 (2 ^ 64 - h) = BitVec.ofNat 64 (a + 2 ^ 64 - h) := by
   rw [← BitVec.ofNat_add]
@@ -2193,7 +2193,7 @@ theorem childLevelP_eq (k index j : Nat) (pads : Nat → Digest) (tws sibs : Nat
 theorem nodeIn_blocks (k index j : Nat) (pads : Nat → Digest) (tws sibs : Nat → Digest) (v : Digest) (l : Nat) :
     (toQ (pad64 (nodeIn k index j pads (hpOf j tws) sibs v l))).blocks = 1 := by
   unfold nodeIn; exact blocks_blk4 _ _ _ _
-set_option debug.skipKernelTC true in
+set_option debug.skipKernelTC false in
 theorem hdr11_lo (k index heap : Nat) (hp : BitVec 64) :
     (nodeHeader k index heap hp).extractLsb' 0 64 =
       BitVec.ofNat 64 (if 8 ≤ heap ∧ heap < 128 then w0n k index + 2 ^ 64 - heap else w0n k index) := by
@@ -2203,7 +2203,7 @@ theorem hdr11_hi (k index heap : Nat) (hp : BitVec 64) :
     (nodeHeader k index heap hp).extractLsb' 64 64 = if 8 ≤ heap ∧ heap < 128 then hp else BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap) := by
   unfold nodeHeader V3.nodeHdr
   split <;> exact BitVec.extractLsb'_append_eq_left
-set_option debug.skipKernelTC true in
+set_option debug.skipKernelTC false in
 theorem ofNat_add_neg_wrap (a h : Nat) (hh : h < 2 ^ 64) :
     BitVec.ofNat 64 a + BitVec.ofNat 64 (2 ^ 64 - h) = BitVec.ofNat 64 (a + 2 ^ 64 - h) := by
   rw [← BitVec.ofNat_add]
@@ -2924,6 +2924,143 @@ open SigGolfCandidate.T3 (Digest HashOutput M shortHash pad64)
 open SphincsSecurity (bytesLE bytesLE_length)
 def ChildCodeAt (im : Image) (j : Nat) : Prop :=
   ∀ i w, (childWords j)[i]? = some w → im.code[childBase j + i]? = some w
+/-- VR8: the inlined L3 head/tail words of node-8 slot `raw` (raw slot order; host slots 32 words, other slots an
+11-word head branching to the nearest host's X8/X10), starting at `childBase` + `ecIdx j 6 + 1` (the old `ret`). Generated
+from img/VR8only (p2/NBZ5R/port/work/vr8/tools/gen_vr8data.py). -/
+def vr8Slot : List (List (BitVec 32)) := [
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x2008c2e3,0x63803,0x200852e3,0x1f90006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x1008c2e3,0x63803,0x100852e3,0xf90006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c4e3,0x63803,0x854e3,0x7fc0006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x7008c463,0x63803,0x70085463,0x6fc0006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x6008c463,0x63803,0x60085463,0x5fc0006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x5008c463,0x63803,0x50085463,0x4fc0006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x4008c463,0x63803,0x40085463,0x3fc0006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x3008c463,0x63803,0x30085463,0x2fc0006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x2008c463,0x63803,0x20085463,0x1fc0006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x1008c463,0x63803,0x10085463,0xfc0006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0xf008c4e3,0x63803,0xf00854e3,0xefdff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0xe008c4e3,0x63803,0xe00854e3,0xdfdff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x2008c463,0x63803,0x20085463,0x1fc0006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x1008c463,0x63803,0x10085463,0xfc0006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0xf008c4e3,0x63803,0xf00854e3,0xefdff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0xe008c4e3,0x63803,0xe00854e3,0xdfdff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0xd008c2e3,0x63803,0xd00852e3,0xcf9ff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0xc008c2e3,0x63803,0xc00852e3,0xbf9ff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x4008c463,0x63803,0x40085463,0x3fc0006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x3008c463,0x63803,0x30085463,0x2fc0006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x2008c463,0x63803,0x20085463,0x1fc0006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x1008c463,0x63803,0x10085463,0xfc0006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0xf008c4e3,0x63803,0xf00854e3,0xefdff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x1008c463,0x63803,0x10085463,0xfc0006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0xf008c4e3,0x63803,0xf00854e3,0xefdff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0xe008c4e3,0x63803,0xe00854e3,0xdfdff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x2008c463,0x63803,0x20085463,0x1fc0006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x1008c463,0x63803,0x10085463,0xfc0006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0xf008c4e3,0x63803,0xf00854e3,0xefdff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0xe008c4e3,0x63803,0xe00854e3,0xdfdff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0xd008c4e3,0x63803,0xd00854e3,0xcfdff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0xc008c4e3,0x63803,0xc00854e3,0xbfdff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0xb008c4e3,0x63803,0xb00854e3,0xafdff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0xa008c4e3,0x63803,0xa00854e3,0x9fdff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x9008c4e3,0x63803,0x900854e3,0x8fdff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8008c4e3,0x63803,0x800854e3,0xffcff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0xf008c263,0x63803,0xf0085263,0xef8ff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0xe008c263,0x63803,0xe0085263,0xdf8ff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x2008c2e3,0x63803,0x200852e3,0x1f90006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x1008c2e3,0x63803,0x100852e3,0xf90006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c4e3,0x63803,0x854e3,0x7fc0006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x7008c463,0x63803,0x70085463,0x6fc0006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x6008c463,0x63803,0x60085463,0x5fc0006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x5008c463,0x63803,0x50085463,0x4fc0006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x4008c463,0x63803,0x40085463,0x3fc0006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x3008c463,0x63803,0x30085463,0x2fc0006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x2008c463,0x63803,0x20085463,0x1fc0006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x1008c463,0x63803,0x10085463,0xfc0006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0xf008c4e3,0x63803,0xf00854e3,0xefdff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0xe008c4e3,0x63803,0xe00854e3,0xdfdff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x2008c463,0x63803,0x20085463,0x1fc0006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x1008c463,0x63803,0x10085463,0xfc0006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0xf008c4e3,0x63803,0xf00854e3,0xefdff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0xe008c4e3,0x63803,0xe00854e3,0xdfdff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0xd008c2e3,0x63803,0xd00852e3,0xcf9ff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0xc008c2e3,0x63803,0xc00852e3,0xbf9ff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x4008c463,0x63803,0x40085463,0x3fc0006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x3008c463,0x63803,0x30085463,0x2fc0006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x2008c463,0x63803,0x20085463,0x1fc0006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x1008c463,0x63803,0x10085463,0xfc0006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0xf008c4e3,0x63803,0xf00854e3,0xefdff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x1008c463,0x63803,0x10085463,0xfc0006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0xf008c4e3,0x63803,0xf00854e3,0xefdff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0xe008c4e3,0x63803,0xe00854e3,0xdfdff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x2008c463,0x63803,0x20085463,0x1fc0006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x1008c463,0x63803,0x10085463,0xfc0006f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8c663,0x63803,0x85663,0x1063803,0x1863883,0x19013083,0x187cb3,0x18f1b3,0x3c8cb3,0x11801b3,0x419181b3,0x31d193,0x3c8cb3,0x6cd193,0x3c8cb3,0x18cfcb3,0x32cfeb3,0x3fb7b93,0x6b5f93,0x41db8b93,0xa81713,0x977733,0x14dd93,0x9b9b93,0x7c870067],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0xf008c4e3,0x63803,0xf00854e3,0xefdff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0xe008c4e3,0x63803,0xe00854e3,0xdfdff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0xd008c4e3,0x63803,0xd00854e3,0xcfdff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0xc008c4e3,0x63803,0xc00854e3,0xbfdff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0xb008c4e3,0x63803,0xb00854e3,0xafdff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0xa008c4e3,0x63803,0xa00854e3,0x9fdff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x9008c4e3,0x63803,0x900854e3,0x8fdff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0x8008c4e3,0x63803,0x800854e3,0xffcff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0xf008c263,0x63803,0xf0085263,0xef8ff06f],
+  bv_list% 32 [0x1a813183,0x3b6b33,0x10b1e13,0xfdc43023,0xfb040513,0x73,0x863883,0xe008c263,0x63803,0xe0085263,0xdf8ff06f]]
+/-- VR8: the verify image's node-8 routine: the shared template up to (excluding) the old `ret`, then the slot code. -/
+def childWordsV (j : Nat) : List (BitVec 32) := (childWords j).take (ecIdx j 6 + 1)
+def childSlotV (j : Nat) : List (BitVec 32) := childWordsV j ++ vr8Slot.getD (2 * (j % 64) + j / 64) []
+def ChildCodeAtV (im : Image) (j : Nat) : Prop :=
+  ∀ i w, (childWordsV j)[i]? = some w → im.code[childBase j + i]? = some w
 structure ChildPre (j B k index : Nat) (leaf pads sibs tws : Nat → Digest) (u : MachineState) : Prop where
   pc : u.pc = pcOf (childBase j + 1)
   base8 : B % 8 = 0
@@ -3102,7 +3239,7 @@ theorem childLevelP_eq (k index j : Nat) (pads : Nat → Digest) (tws sibs : Nat
 theorem nodeIn_blocks (k index j : Nat) (pads : Nat → Digest) (tws sibs : Nat → Digest) (v : Digest) (l : Nat) :
     (toQ (pad64 (nodeIn k index j pads (hpOf j tws) sibs v l))).blocks = 1 := by
   unfold nodeIn; exact blocks_blk4 _ _ _ _
-set_option debug.skipKernelTC true in
+set_option debug.skipKernelTC false in
 theorem hdr11_lo (k index heap : Nat) (hp : BitVec 64) :
     (nodeHeader k index heap hp).extractLsb' 0 64 =
       BitVec.ofNat 64 (if 8 ≤ heap ∧ heap < 128 then w0n k index + 2 ^ 64 - heap else w0n k index) := by
@@ -3112,7 +3249,7 @@ theorem hdr11_hi (k index heap : Nat) (hp : BitVec 64) :
     (nodeHeader k index heap hp).extractLsb' 64 64 = if 8 ≤ heap ∧ heap < 128 then hp else BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap) := by
   unfold nodeHeader V3.nodeHdr
   split <;> exact BitVec.extractLsb'_append_eq_left
-set_option debug.skipKernelTC true in
+set_option debug.skipKernelTC false in
 theorem ofNat_add_neg_wrap (a h : Nat) (hh : h < 2 ^ 64) :
     BitVec.ofNat 64 a + BitVec.ofNat 64 (2 ^ 64 - h) = BitVec.ofNat 64 (a + 2 ^ 64 - h) := by
   rw [← BitVec.ofNat_add]
@@ -4000,42 +4137,6 @@ variable {P : SigGolfCandidate.Legacy.Hash → Prop}
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
 open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify W9Machine
 open SigGolfCandidate.T3 (Digest)
-theorem post_to_shared (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (k : Fin 9)
-    (raw : Fin 128) (ends : List Digest) (u v t : MachineState) (hf : SharedV3.first k.val = false) (hc : k.val = 8)
-    (hu : SharedChild.Pre (SharedLayout.layout k) w index k raw ends u)
-    (hr : ∀ r, v.getReg r = u.getReg r) (hm : ∀ a, v.getMem a = u.getMem a)
-    (computed : Digest) (ht : HandPost (Chain.base (SharedLayout.layout k) k) (SharedV3.physical k.val raw.val) v computed t) :
-    SharedChild.Post (SharedLayout.layout k) k raw u computed t := by
-  have hb : 768 ≤ Chain.base (SharedLayout.layout k) k := by unfold Chain.base coordinateBase Layout.shift; have := k.isLt; omega
-  -- Cm (stage 2): the value lands at `B - valO` (`WIT + 0` / `WIT + 48`), the hash output at `B - handO`
-  -- (`WIT - 16`, high half, for the left root; `WIT + 48`, low half, for the right root)
-  have hh : Chain.base (SharedLayout.layout k) k - valO (SharedV3.physical k.val raw.val) = SharedChild.handAddr (SharedLayout.layout k) k raw := by
-    unfold SharedChild.handAddr SharedV3.direction SharedV3.lastLevel valO bitAt
-    simp only [hf, if_pos hc, Bool.false_eq_true, ↓reduceIte]
-    split_ifs <;> omega
-  have ho : Chain.base (SharedLayout.layout k) k - handO (SharedV3.physical k.val raw.val) =
-      SharedChild.outputAddr (SharedLayout.layout k) k raw := by
-    unfold SharedChild.outputAddr SharedChild.handAddr SharedV3.direction SharedV3.lastLevel handO bitAt
-    simp only [hf, if_pos hc, Bool.false_eq_true, ↓reduceIte]
-    split_ifs <;> omega
-  refine ⟨?_, ht.a1, ?_, ?_, ?_, ?_⟩
-  · rw [ht.pc, hr, hu.returnPC]
-    simp only [if_pos hc, ↓reduceIte]
-    fin_cases k <;> decide +kernel
-  · rw [← hh]; exact ht.top
-  · rw [ht.a2, ho]
-  · intro r hr'
-    simp only [Child.clobbers, List.mem_cons, List.not_mem_nil, or_false, not_or] at hr'
-    exact (ht.keep r hr'.1 hr'.2.1 hr'.2.2.1 hr'.2.2.2.1).trans (hr r)
-  · intro addr ha hn
-    have hn' : ¬(prefixWrites (Chain.base (SharedLayout.layout k) k) addr ∨
-        (Chain.base (SharedLayout.layout k) k - handO (SharedV3.physical k.val raw.val) ≤ addr ∧
-         addr < Chain.base (SharedLayout.layout k) k - handO (SharedV3.physical k.val raw.val) + 32)) := by
-      intro h; apply hn; unfold SharedChild.writes; rw [← ho]; unfold prefixWrites at h
-      rcases h with h | h
-      · left; split <;> omega
-      · right; exact h
-    exact (ht.frame addr ha hn').trans (hm _)
 end W9Drv.SharedCProof
 
 
@@ -4069,10 +4170,550 @@ theorem shared_good (k : Fin 9) (raw : Fin 128) (hf : SharedV3.first k.val = fal
       (fun _ => rfl) (fun _ => rfl) computed ht))
   have hcost : SharedChild.cost k raw = 91 - childSaveC (SharedV3.physical k.val raw.val) := by
     rw [childSaveC_eq _ hpj]
-    simp only [SharedChild.cost, SharedChild.spill, hf, Bool.false_eq_true, ↓reduceIte, Nat.add_zero]
+    simp only [SharedChild.cost, SharedChild.spill, hf, Bool.false_eq_true, ↓reduceIte, Nat.add_zero, if_neg hc]
   rw [sharedProgram_eq w index k raw ends hf hc] at ⊢
   exact H.mono (by omega) (by omega) (fun h => ⟨h, by rw [hcost] <;> omega⟩)
 end W9Drv.SharedBProof
+
+/-! VR8-8: `ChildCodeAtV`-typed copies of the shared child chain for the singleton (k = 8) routine, whose code image
+stops at `ecIdx j 6 + 1` (no `p7`/`ret` piece; `vr8Slot` data follows). -/
+section
+namespace W9Drv.SharedCProof
+variable {P : SigGolfCandidate.Legacy.Hash → Prop}
+open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
+open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify W9Machine
+open SigGolfCandidate.T3 (Digest HashOutput M shortHash pad64)
+open SphincsSecurity (bytesLE bytesLE_length)
+def childLookV (j n : Nat) : Option (BitVec 32) :=
+  if childBase j ≤ n then (childWordsV j)[n - childBase j]? else none
+def childRunV (j i : Nat) (dirs : List Dir) : Option PRes :=
+  pathAux cfg0 (childLookV j) [] 64 (pcOf (childBase j + i)) dirs (σK []) []
+def childPiecesOKV (j : Nat) : Bool :=
+  optBeq (childRunV j 1 []) (p0Res j) &&
+    (List.range 6).all (fun l => optBeq (childRunV j (ecIdx j l + 1) []) (lvlRes j l))
+def childPiecesRangeV (lo n : Nat) : Bool := (List.range' lo n).all childPiecesOKV
+theorem childLookV_ok {im : Image} {j : Nat} (h : ChildCodeAtV im j) : LookOK im (childLookV j) := by
+  intro n w hw
+  unfold childLookV at hw
+  split at hw
+  · rename_i hle
+    have := h (n - childBase j) w hw
+    rwa [Nat.add_sub_cancel' hle] at this
+  · cases hw
+theorem childRunV_sound {im : Image} {j i : Nat} {dirs : List Dir} {r : PRes} (hcode : ChildCodeAtV im j)
+    (h : childRunV j i dirs = some r) (s : MachineState) (hpc : s.pc = pcOf (childBase j + i))
+    (hobl : ∀ o ∈ r.st.obl, o.holds s) (hbr : r.brs = []) :
+    Steps im s r.steps r.cycles (r.toState s) ∧
+      (r.ecall = true → fetch im (r.toState s) = some (.base .ECALL)) :=
+  pathRun_sound (known := []) h (childLookV_ok hcode) s hpc (by intro p hp; cases hp) hobl
+    (by rw [hbr]; intro b hb; cases hb)
+set_option maxRecDepth 100000 in
+set_option maxHeartbeats 0 in
+theorem childPiecesV_0 : childPiecesRangeV 0 16 = true := by decide +kernel
+set_option maxRecDepth 100000 in
+set_option maxHeartbeats 0 in
+theorem childPiecesV_1 : childPiecesRangeV 16 16 = true := by decide +kernel
+set_option maxRecDepth 100000 in
+set_option maxHeartbeats 0 in
+theorem childPiecesV_2 : childPiecesRangeV 32 16 = true := by decide +kernel
+set_option maxRecDepth 100000 in
+set_option maxHeartbeats 0 in
+theorem childPiecesV_3 : childPiecesRangeV 48 16 = true := by decide +kernel
+set_option maxRecDepth 100000 in
+set_option maxHeartbeats 0 in
+theorem childPiecesV_4 : childPiecesRangeV 64 16 = true := by decide +kernel
+set_option maxRecDepth 100000 in
+set_option maxHeartbeats 0 in
+theorem childPiecesV_5 : childPiecesRangeV 80 16 = true := by decide +kernel
+set_option maxRecDepth 100000 in
+set_option maxHeartbeats 0 in
+theorem childPiecesV_6 : childPiecesRangeV 96 16 = true := by decide +kernel
+set_option maxRecDepth 100000 in
+set_option maxHeartbeats 0 in
+theorem childPiecesV_7 : childPiecesRangeV 112 16 = true := by decide +kernel
+theorem childPiecesOKV_at (j : Nat) (hj : j < 128) : childPiecesOKV j = true := by
+  have hall : ∀ lo n, childPiecesRangeV lo n = true → lo ≤ j → j < lo + n → childPiecesOKV j = true :=
+    fun lo n h h1 h2 => List.all_eq_true.mp h j (List.mem_range'_1.mpr ⟨h1, h2⟩)
+  by_cases h0 : j < 16; · exact hall 0 16 childPiecesV_0 (by omega) (by omega)
+  by_cases h1 : j < 32; · exact hall 16 16 childPiecesV_1 (by omega) (by omega)
+  by_cases h2 : j < 48; · exact hall 32 16 childPiecesV_2 (by omega) (by omega)
+  by_cases h3 : j < 64; · exact hall 48 16 childPiecesV_3 (by omega) (by omega)
+  by_cases h4 : j < 80; · exact hall 64 16 childPiecesV_4 (by omega) (by omega)
+  by_cases h5 : j < 96; · exact hall 80 16 childPiecesV_5 (by omega) (by omega)
+  by_cases h6 : j < 112; · exact hall 96 16 childPiecesV_6 (by omega) (by omega)
+  exact hall 112 16 childPiecesV_7 (by omega) (by omega)
+theorem childRunV_p0 (j : Nat) (hj : j < 128) : childRunV j 1 [] = some (p0Res j) := by
+  have h := childPiecesOKV_at j hj
+  simp only [childPiecesOKV, Bool.and_eq_true] at h
+  exact SigGolfCandidate.T3M.Verify.optBeq_eq h.1
+theorem childRunV_lvl (j : Nat) (hj : j < 128) (l : Nat) (hl : l < 6) :
+    childRunV j (ecIdx j l + 1) [] = some (lvlRes j l) := by
+  have h := childPiecesOKV_at j hj
+  simp only [childPiecesOKV, Bool.and_eq_true] at h
+  exact SigGolfCandidate.T3M.Verify.optBeq_eq (List.all_eq_true.mp h.2 l (List.mem_range.mpr hl))
+set_option maxRecDepth 100000 in
+set_option maxHeartbeats 0 in
+theorem retIdx8_all : ∀ raw : Fin 128, SharedChild.retIdx8 raw.val = ecIdx (SharedV3.physical 8 raw.val) 6 + 1 := by
+  intro raw; fin_cases raw <;> decide +kernel
+theorem lvl_coreV {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAtV im j)
+    {B k index : Nat} {leaf pads sibs tws : Nat → Digest} {u : MachineState}
+    (hu : ChildPre j B k index leaf pads sibs tws u) (l : Nat) (hl : l < 6) (v : Digest) (s : MachineState)
+    (hs : Mid j B k index u l v s) :
+    ∃ t, Steps im s (lvlSt j l) (lvlSt j l) t ∧ fetch im t = some (.base .ECALL) ∧ t.getReg .x5 = 0 ∧
+      t.getReg .x10 = BitVec.ofNat 64 (B + blkO j l) ∧ t.getReg .x11 = BitVec.ofNat 64 64 ∧
+      t.getReg .x12 = ((lvlRegs j l).get .x12).eval s ∧
+      t.pc = pcOf (childBase j + ecIdx j (l + 1)) ∧
+      (∀ r : Reg, r ≠ .x3 → r ≠ .x10 → r ≠ .x11 → r ≠ .x12 → t.getReg r = u.getReg r) ∧
+      t.getReg .x3 = ((lvlRegs j l).get .x3).eval s ∧
+      hashInput t = toQ (pad64 (nodeIn k index j pads (hpOf j tws) sibs v l)) ∧
+      Frame s t (fun A => A = B + tw24 j l ∨ A = B + blkO j l + 16) := by
+  have h8 := hu.base8
+  have hhi := hu.baseHi
+  unfold MEMORY_BYTES at hhi
+  have hbl := blk_bounds j hj l hl
+  have hkeep : ∀ r : Reg, r ≠ .x3 → r ≠ .x10 → r ≠ .x11 → r ≠ .x12 → s.getReg r = u.getReg r := hs.keep
+  have hx8 : s.getReg .x8 = BitVec.ofNat 64 B := (hkeep .x8 (by decide) (by decide) (by decide) (by decide)).trans hu.s0
+  have hpc : s.pc = pcOf (childBase j + (ecIdx j l + 1)) := by rw [hs.pc, Nat.add_assoc]
+  obtain ⟨hst, hec⟩ := childRunV_sound hcode (childRunV_lvl j hj l hl) s hpc
+    (lvlObl_holds j hj l hl hx8 h8 (by unfold MEMORY_BYTES; omega)) rfl
+  have hreg : ∀ x, ((lvlRes j l).toState s).getReg x = ((lvlRegs j l).get x).eval s :=
+    fun x => PRes.toState_getReg _ _ _
+  have hmem : ∀ A, A < 2 ^ 64 → ((lvlRes j l).toState s).getMem (BitVec.ofNat 64 A) =
+      if A = B + blkO j l + 24 ∧ ¬ l ≤ 3 then s.getReg (heapReg (heapOf l j))
+      else if A = B + blkO j l + 16 then (if l ≤ 3 then (lowE j l).eval s else s.getReg .x15)
+      else s.getMem (BitVec.ofNat 64 A) :=
+    fun A hA => (PRes.toState_getMem _ _ _).trans (lvlMem_get hx8 (by omega) j hj l A hl hA)
+  have hpcT : ((lvlRes j l).toState s).pc = pcOf (childBase j + ecIdx j (l + 1)) := by
+    rw [PRes.toState_pc (lvlRes j l) s rfl]; rfl
+  generalize ht : (lvlRes j l).toState s = t at hst hec hreg hmem hpcT
+  have hb := bitAt_lt j l
+  have h10 : t.getReg .x10 = BitVec.ofNat 64 (B + blkO j l) := by rw [hreg, lvlRegs_x10, eX8_eval hx8]
+  have h11 : t.getReg .x11 = BitVec.ofNat 64 64 := by
+    rw [hreg, lvlRegs_x11]
+    split_ifs with h0
+    · rfl
+    · exact hs.a1 h0
+  have hother : ∀ r : Reg, r ≠ .x3 → r ≠ .x10 → r ≠ .x11 → r ≠ .x12 → t.getReg r = u.getReg r := by
+    intro r h3 h10' h11' h12'
+    rw [hreg, lvlRegs_other j l r h3 h10' h11' h12', RegFile.init_get_eval]
+    exact hkeep r h3 h10' h11' h12'
+  have h5 : t.getReg .x5 = 0 := (hother .x5 (by decide) (by decide) (by decide) (by decide)).trans hu.t0
+  have tS : ∀ o, o ≤ 1024 → o ≠ blkO j l + 16 → o ≠ blkO j l + 24 →
+      t.getMem (BitVec.ofNat 64 (B + o)) = s.getMem (BitVec.ofNat 64 (B + o)) := by
+    intro o ho h16 h24
+    rw [hmem _ (by omega), if_neg (fun h => h24 (by have := h.1; omega)), if_neg (by omega)]
+  have sU : ∀ o, o ≤ 1024 → o ∉ stagesW j (l + 1) →
+      s.getMem (BitVec.ofNat 64 (B + o)) = u.getMem (BitVec.ofNat 64 (B + o)) := by
+    intro o ho hn
+    refine hs.frame (B + o) (by omega) ?_
+    rintro ⟨off, hoff, he⟩
+    have : off = o := by omega
+    subst this; exact hn hoff
+  have hf := fun off (h : off ∈ stagesW j (l + 1)) => stagesW_free (off := off) hj (by omega) h
+  have hpad : DigAt t (B + blkO j l + 32) (pads l) := by
+    have hP := hu.padAt l hl
+    unfold padO at hP
+    rw [Nat.add_assoc]
+    refine DigAt.of_eq hP ?_ ?_
+    · rw [tS _ (by omega) (by omega) (by omega), sU _ (by omega) (fun h => (hf _ h).1 (by unfold padO; rfl))]
+    · rw [show B + (blkO j l + 32) + 8 = B + (blkO j l + 40) by omega, tS _ (by omega) (by omega) (by omega),
+        sU _ (by omega) (fun h => (hf _ h).2.1 (by unfold padO; omega))]
+  have hcs := sibO_cases j l hl
+  have hsib : DigAt t (B + sibO l j) (sibs l) := by
+    have hS := hu.sibAt l hl
+    have hsb : sibO l j = blkO j l ∨ sibO l j = blkO j l + 48 := by omega
+    refine DigAt.of_eq hS ?_ ?_
+    · rw [tS _ (by omega) (by omega) (by omega), sU _ (by omega) (fun h => (hf _ h).2.2.1 rfl)]
+    · rw [Nat.add_assoc, tS _ (by omega) (by omega) (by omega), sU _ (by omega) (fun h => (hf _ h).2.2.2 rfl)]
+  have hnode : DigAt t (B + curO l j) v := by
+    have hcb := curO_cases j l
+    refine DigAt.of_eq hs.node ?_ ?_
+    · rw [tS _ (by omega) (by omega) (by omega)]
+    · rw [Nat.add_assoc, tS _ (by omega) (by omega) (by omega)]
+  have hx15 : s.getReg .x15 = BitVec.ofNat 64 (w0n k index) :=
+    (hkeep .x15 (by decide) (by decide) (by decide) (by decide)).trans hu.w0
+  have hw0 : 0 ≤ w0n k index ∧ w0n k index < 2 ^ 64 := by
+    have := Nat.mod_lt index (show 0 < 2 ^ 31 by norm_num)
+    have := Nat.mod_lt k (show 0 < 16 by norm_num)
+    unfold w0n V3.nodeLow
+    rw [ClaudeWCT.WCT9.ftsLeafLow_zero]
+    unfold SigGolfCandidate.T3.ftsBiasN
+    omega
+  have hhdr : DigAt t (B + blkO j l + 16) (nodeHeader k index (heapOf l j) (hpOf j tws l)) := by
+    by_cases h3 : l ≤ 3
+    · have hpk := heapOf_packed j l hj h3
+      constructor
+      · rw [hmem _ (by omega), if_neg (fun h => by have := h.1; omega), if_pos rfl, if_pos h3, hdr11_lo,
+          if_pos hpk]
+        unfold lowE
+        rw [addC_eval]
+        simp only [E.eval]
+        rw [hx15]
+        exact ofNat_add_neg_wrap _ _ (by omega)
+      · rw [show B + blkO j l + 16 + 8 = B + blkO j l + 24 by omega, hdr11_hi, if_pos hpk]
+        rw [hmem _ (by omega), if_neg (fun h => h.2 h3), if_neg (by omega),
+          show B + blkO j l + 24 = B + (blkO j l + 24) by omega,
+          sU _ (by omega) (fun hm => tw_free hj (by omega) hm rfl)]
+        have hT := (hu.twAt l hl).2
+        rw [show B + blkO j l + 16 + 8 = B + (blkO j l + 24) by omega] at hT
+        rw [hT]
+        unfold hpOf; rw [if_pos (by omega)]
+    · have hlo := heapOf_low j l hj (by omega) (by omega)
+      have hnp : ¬ (8 ≤ heapOf l j ∧ heapOf l j < 128) := by omega
+      constructor
+      · rw [hmem _ (by omega), if_neg (fun h => by have := h.1; omega), if_pos rfl, if_neg h3, hdr11_lo,
+          if_neg hnp, hx15]
+      · rw [show B + blkO j l + 16 + 8 = B + blkO j l + 24 by omega, hmem _ (by omega),
+          if_pos ⟨rfl, h3⟩, hdr11_hi, if_neg hnp]
+        have hs64 : s.getReg .x11 = BitVec.ofNat 64 64 := hs.a1 (by omega)
+        have hr := heapReg_eval (s := s) (l := l) hj (by omega) (by omega) hs64 (fun h h1 h6 => by
+          obtain ⟨n3, n10, n11, n12⟩ := heapReg_ne h h6
+          rw [hkeep _ n3 n10 n11 n12]; exact hu.heaps h h1 h6)
+        exact hr
+  have hin : hashInput t = toQ (pad64 (nodeIn k index j pads (hpOf j tws) sibs v l)) := by
+    unfold nodeIn
+    rcases hcs with ⟨e0, ec, es⟩ | ⟨e1, ec, es⟩
+    · simp only [e0, if_true]
+      rw [ec] at hnode; rw [es, ← Nat.add_assoc] at hsib
+      exact hashInput_blk4 t _ _ _ _ _ h10 h11 (by omega) (by omega) hnode hhdr hpad hsib
+    · simp only [e1, show (1 : Nat) ≠ 0 by decide, if_false]
+      rw [ec, ← Nat.add_assoc] at hnode; rw [es] at hsib
+      exact hashInput_blk4 t _ _ _ _ _ h10 h11 (by omega) (by omega) hsib hhdr hpad hnode
+  refine ⟨t, hst, hec rfl, h5, h10, h11, hreg .x12, hpcT, hother, hreg .x3, hin, ?_⟩
+  intro A hA hn
+  simp only [not_or] at hn
+  rw [hmem A hA, if_neg ?_, if_neg hn.2]
+  rintro ⟨h24, hc⟩
+  apply hn.1
+  unfold tw24
+  rw [if_neg hc]
+  exact h24
+theorem lvl_stepV {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAtV im j)
+    {B k index : Nat} {leaf pads sibs tws : Nat → Digest} {u : MachineState}
+    (hu : ChildPre j B k index leaf pads sibs tws u) (l : Nat) (hl : l < 5) (v : Digest) (s : MachineState)
+    (hs : Mid j B k index u l v s) :
+    ∃ t, Steps im s (lvlSt j l) (lvlSt j l) t ∧ fetch im t = some (.base .ECALL) ∧ t.getReg .x5 = 0 ∧
+      hashArgumentsValid t = true ∧ hashInput t = toQ (pad64 (nodeIn k index j pads (hpOf j tws) sibs v l)) ∧
+      ∀ a : BitVec 256, Mid j B k index u (l + 1) (selD j (l + 1) a) (writeHash t a) := by
+  have h8 := hu.base8
+  have hhi := hu.baseHi
+  unfold MEMORY_BYTES at hhi
+  have hkeep : ∀ r : Reg, r ≠ .x3 → r ≠ .x10 → r ≠ .x11 → r ≠ .x12 → s.getReg r = u.getReg r := hs.keep
+  have hx8 : s.getReg .x8 = BitVec.ofNat 64 B := (hkeep .x8 (by decide) (by decide) (by decide) (by decide)).trans hu.s0
+  obtain ⟨t, hst, hec, h5, h10, h11, h12', hpcT, hother, h3', hin, hP⟩ := lvl_coreV hj hcode hu l (by omega) v s hs
+  have hbl := blk_bounds j hj l (by omega)
+  have hbl1 := blk_bounds j hj (l + 1) (by omega)
+  have hb1 := bitAt_lt j (l + 1)
+  have h12 : t.getReg .x12 = BitVec.ofNat 64 (B + outO (l + 1) j) := by
+    rw [h12', lvlRegs_x12 j l hl]
+    by_cases hsk : skipA2 j l = true
+    · rw [if_pos hsk, skipA2_out hsk]
+      simp only [E.eval]
+      exact (hs.a2)
+    · rw [if_neg hsk, eX8_eval hx8]
+  have hoa := outO_arith j (l + 1) hj (by omega)
+  have hcur : outO (l + 1) j % 8 = 0 ∧ outO (l + 1) j + 32 ≤ 864 := by
+    have := curO_cases j (l + 1); omega
+  have hv : hashArgumentsValid t = true :=
+    hashArgs_of t (B + blkO j l) 64 (B + outO (l + 1) j) h10 h11 h12 (by omega) (by decide)
+      (by omega) (by omega) (by omega)
+  refine ⟨t, hst, hec, h5, hv, hin, fun a => ?_⟩
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
+  · rw [writeHash_pc, hpcT, SigGolfCandidate.T3M.pcOf_add4]
+  · intro r h3 h10' h11' h12'; rw [writeHash_getReg]; exact hother r h3 h10' h11' h12'
+  · intro _; rw [writeHash_getReg]; exact h11
+  · rw [writeHash_getReg]; exact h12
+  · exact DigAt_selD t a hj (by omega) h12 (by omega)
+  · have hW := frame_writeHash4 t a (B + outO (l + 1) j) h12 (by omega)
+    refine ((hs.frame.trans hP).trans hW).mono ?_
+    intro A _ hA
+    rcases hA with (⟨off, hoff, rfl⟩ | (rfl | rfl)) | (rfl | rfl | rfl | rfl)
+    · exact ⟨off, stagesW_mono hoff (by omega), rfl⟩
+    · exact ⟨tw24 j l, mem_stagesW (m := l) (by omega) (by simp [stageW]), rfl⟩
+    · exact ⟨blkO j l + 16, mem_stagesW (m := l) (by omega) (by simp [stageW]), by omega⟩
+    · exact ⟨outO (l + 1) j, mem_stagesW (m := l + 1) (by omega) (by simp [stageW]), rfl⟩
+    · exact ⟨outO (l + 1) j + 8, mem_stagesW (m := l + 1) (by omega) (by simp [stageW]), by omega⟩
+    · exact ⟨outO (l + 1) j + 16, mem_stagesW (m := l + 1) (by omega) (by simp [stageW]), by omega⟩
+    · exact ⟨outO (l + 1) j + 24, mem_stagesW (m := l + 1) (by omega) (by simp [stageW]), by omega⟩
+theorem child_restV {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAtV im j)
+    {B k index : Nat} {leaf pads sibs tws : Nat → Digest} {u : MachineState}
+    (hu : ChildPre j B k index leaf pads sibs tws u) (K : Digest → OracleComp HashSpec Obs) (N C A : Nat) (Q : Prop)
+    (hK : ∀ v t, Mid j B k index u 5 v t → GoodQFor (P := P) im t N C Q A (K v)) :
+    ∀ n l v s, l + n = 5 → Mid j B k index u l v s →
+      GoodQFor (P := P) im s (N + fuelR j l n) (C + cycR j l n) Q (A + cycR j l n)
+        (ccM ((List.range' l n).foldlM (childLevelP k index j pads (hpOf j tws) sibs) v) K) := by
+  intro n
+  induction n with
+  | zero =>
+    intro l v s hln hs
+    have hl5 : l = 5 := by omega
+    subst l
+    simpa only [List.range'_zero, List.foldlM_nil, ccM_pure, fuelR, cycR, Nat.add_zero] using hK v s hs
+  | succ m ih =>
+    intro l v s hln hs
+    obtain ⟨t, hst, hf, h5, hv, hin, hpost⟩ := lvl_stepV hj hcode hu l (by omega) v s hs
+    rw [List.range'_succ, List.foldlM_cons, childLevelP_eq]
+    have H : ∀ a : BitVec 256, GoodQFor (P := P) im (writeHash t a) (N + fuelR j (l + 1) m) (C + cycR j (l + 1) m) Q
+        (A + cycR j (l + 1) m)
+        (ccM ((fun v' => (List.range' (l + 1) m).foldlM (childLevelP k index j pads (hpOf j tws) sibs) v')
+          (selD j (l + 1) a)) K) :=
+      fun a => ih (l + 1) _ _ (by omega) (hpost a)
+    have hg := hashSel_bind (P := P) (hi := hiSel j (l + 1))
+      (f := fun v' => (List.range' (l + 1) m).foldlM (childLevelP k index j pads (hpOf j tws) sibs) v') hf h5 hv hin H
+    rw [nodeIn_blocks] at hg
+    simp only [fuelR, cycR]
+    exact GoodQFor.steps' (P := P) hst hg (by omega) (by omega) (fun q => ⟨q, by omega⟩)
+theorem child_prefix_goodV (im : Image) (j : Nat) (hj : j < 128) (hcode : ChildCodeAtV im j)
+    (B k index : Nat) (leaf pads sibs tws : Nat → Digest) (u : MachineState)
+    (N C A : Nat) (Q : Prop) (K : Digest → OracleComp HashSpec Obs)
+    (hu : ChildPre j B k index leaf pads sibs tws u)
+    (hK : ∀ v t, Mid j B k index u 5 v t → GoodQFor (P := P) im t N C Q A (K v)) :
+    GoodQFor (P := P) im u (N + (28 - childSaveC j)) (C + (78 - childSaveC j)) Q (A + (78 - childSaveC j))
+      (ccM (SharedV3.hashSel (hiSel j 0) (leafBytes leaf) >>= fun v =>
+        (List.range 5).foldlM (childLevelP k index j pads (hpOf j tws) sibs) v) K) := by
+  have h8 := hu.base8
+  have hhi := hu.baseHi
+  unfold MEMORY_BYTES at hhi
+  have hobl : ∀ o ∈ (p0Res j).st.obl, o.holds u := by
+    intro o ho
+    simp only [p0Res, List.not_mem_nil] at ho
+  obtain ⟨hst, hec⟩ := childRunV_sound hcode (childRunV_p0 j hj) u hu.pc hobl rfl
+  have hreg : ∀ x, ((p0Res j).toState u).getReg x =
+      ((RegFile.init.set .x12 (eX8 (outO 0 j))).get x).eval u := fun x => PRes.toState_getReg _ _ _
+  have hmem : ∀ A, A < 2 ^ 64 → ((p0Res j).toState u).getMem (BitVec.ofNat 64 A) = u.getMem (BitVec.ofNat 64 A) := by
+    intro A hA
+    rw [PRes.toState_getMem]
+    simp only [p0Res, memEval_nil]
+  have hpcT : ((p0Res j).toState u).pc = pcOf (childBase j + 2) := PRes.toState_pc (p0Res j) u rfl
+  generalize ht : (p0Res j).toState u = t at hst hec hreg hmem hpcT
+  have hother : ∀ r : Reg, r ≠ .x12 → t.getReg r = u.getReg r := by
+    intro r h12; rw [hreg, RegFile.get_set_ne _ _ h12, RegFile.init_get_eval]
+  have hb0 := blk_bounds j hj 0 (by decide)
+  have hoa0 := outO_arith j 0 hj (by decide)
+  have hc0 : outO 0 j % 8 = 0 ∧ outO 0 j + 32 ≤ 864 := by have := curO_cases j 0; omega
+  have h10 : t.getReg .x10 = BitVec.ofNat 64 (B + leafO) := (hother .x10 (by decide)).trans hu.a0
+  have h11 : t.getReg .x11 = BitVec.ofNat 64 (64 * (1 + 1)) := (hother .x11 (by decide)).trans hu.a1
+  have h12 : t.getReg .x12 = BitVec.ofNat 64 (B + outO 0 j) := by
+    rw [hreg, RegFile.get_set_self _ _ (by decide), eX8_eval hu.s0]
+  have h5 : t.getReg .x5 = 0 := (hother .x5 (by decide)).trans hu.t0
+  have hv : hashArgumentsValid t = true :=
+    hashArgs_of t (B + leafO) 128 (B + outO 0 j) h10 h11 h12 (by unfold leafO; omega) (by decide)
+      (by unfold leafO; omega) (by omega) (by omega)
+  have hslot : ∀ i, i < 8 → DigAt t (B + leafO + 16 * i) (leaf i) := by
+    intro i hi
+    refine DigAt.of_eq (hu.leafAt i hi) ?_ ?_
+    · rw [hmem _ (by unfold leafO; omega)]
+    · rw [hmem _ (by unfold leafO; omega)]
+  have hin : hashInput t = toQ (pad64 (leafBytes leaf)) := by
+    rw [pad64_of_aligned _ (by rw [leafBytes_length])]
+    apply hashInput_toQ t _ 1 (B + leafO) (leafBytes_length leaf) h10 (by unfold leafO; omega)
+      (by unfold leafO; omega) h11 (by norm_num)
+    have hD : DigsAt t (B + leafO) ((List.range 8).map leaf) := by
+      intro i hi
+      simp only [List.length_map, List.length_range] at hi
+      have e : ((List.range 8).map leaf).getD i 0 = leaf i := by
+        simp [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hi]
+      rw [e]
+      exact hslot i hi
+    have hw := hD.words
+    simp only [List.length_map, List.length_range] at hw
+    rw [hw]
+    rfl
+  have H : ∀ a : BitVec 256, GoodQFor (P := P) im (writeHash t a) (N + fuelR j 0 5) (C + cycR j 0 5) Q (A + cycR j 0 5)
+      (ccM ((fun v => (List.range 5).foldlM (childLevelP k index j pads (hpOf j tws) sibs) v) (selD j 0 a)) K) := by
+    intro a
+    have hmid : Mid j B k index u 0 (selD j 0 a) (writeHash t a) := by
+      refine ⟨?_, ?_, fun h => absurd rfl h, ?_, ?_, ?_⟩
+      · rw [writeHash_pc, hpcT, SigGolfCandidate.T3M.pcOf_add4]; rfl
+      · intro r _ _ _ h12'; rw [writeHash_getReg]; exact hother r h12'
+      · rw [writeHash_getReg]; exact h12
+      · exact DigAt_selD t a hj (by decide) h12 (by omega)
+      · have hT : Frame u t (fun _ => False) := by
+          intro A hA _
+          rw [hmem A hA]
+        refine (hT.trans (frame_writeHash4 t a (B + outO 0 j) h12 (by omega))).mono ?_
+        intro A _ hA
+        rcases hA with hF | (rfl | rfl | rfl | rfl)
+        · exact hF.elim
+        · exact ⟨outO 0 j, mem_stagesW (m := 0) (by omega) (by simp [stageW]), rfl⟩
+        · exact ⟨outO 0 j + 8, mem_stagesW (m := 0) (by omega) (by simp [stageW]), by omega⟩
+        · exact ⟨outO 0 j + 16, mem_stagesW (m := 0) (by omega) (by simp [stageW]), by omega⟩
+        · exact ⟨outO 0 j + 24, mem_stagesW (m := 0) (by omega) (by simp [stageW]), by omega⟩
+    show GoodQFor (P := P) im (writeHash t a) (N + fuelR j 0 5) (C + cycR j 0 5) Q (A + cycR j 0 5)
+      (ccM ((List.range 5).foldlM (childLevelP k index j pads (hpOf j tws) sibs) (selD j 0 a)) K)
+    rw [List.range_eq_range']
+    exact child_restV hj hcode hu K N C A Q hK 5 0 _ _ rfl hmid
+  have hg := hashSel_bind (P := P) (hi := hiSel j 0)
+    (f := fun v => (List.range 5).foldlM (childLevelP k index j pads (hpOf j tws) sibs) v) (hec rfl) h5 hv hin H
+  rw [leaf_blocks] at hg
+  have hf5 := fuelR_05 j hj
+  have hc5 := cycR_05 j hj
+  exact GoodQFor.steps' (P := P) hst hg (by simp only [p0Res]; omega) (by simp only [p0Res]; omega)
+    (fun q => ⟨q, by simp only [p0Res]; omega⟩)
+theorem last_setupV {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAtV im j)
+    {B k index : Nat} {leaf pads sibs tws : Nat → Digest} {u : MachineState}
+    (hu : ChildPre j B k index leaf pads sibs tws u) (hlo : 768 ≤ B)
+    (v : Digest) (s : MachineState) (hs : Mid j B k index u 5 v s) :
+    ∃ t, Steps im s 4 4 t ∧ fetch im t = some (.base .ECALL) ∧ t.getReg .x5 = 0 ∧
+      hashArgumentsValid t = true ∧ hashInput t = toQ (pad64 (nodeIn k index j pads (hpOf j tws) sibs v 5)) ∧
+      t.pc = pcOf (childBase j + ecIdx j 6) ∧ t.getReg .x11 = 64 ∧
+      t.getReg .x12 = BitVec.ofNat 64 (B - handO j) ∧
+      (∀ r : Reg, r ≠ .x3 → r ≠ .x10 → r ≠ .x11 → r ≠ .x12 → t.getReg r = u.getReg r) ∧
+      Frame u t (fun A => ∃ off ∈ stagesW j 6, A = B + off) := by
+  have hhi := hu.baseHi
+  unfold MEMORY_BYTES at hhi
+  have hkeep : ∀ r : Reg, r ≠ .x3 → r ≠ .x10 → r ≠ .x11 → r ≠ .x12 → s.getReg r = u.getReg r := hs.keep
+  have h8 := hu.base8
+  have hx8 : s.getReg .x8 = BitVec.ofNat 64 B :=
+    (hkeep .x8 (by decide) (by decide) (by decide) (by decide)).trans hu.s0
+  obtain ⟨t, hst, hec, h5, h10, h11, h12', hpcT, hother, -, hin, hP⟩ := lvl_coreV hj hcode hu 5 (by decide) v s hs
+  have hl5 : lvlSt j 5 = 4 := by
+    have h6 : ecIdx j 6 = ecIdx j 5 + lvlLen j 5 + (if 5 = 0 then 1 else 0) := rfl
+    have hlen : lvlLen j 5 = 5 := by simp [lvlLen, skipA2_five]
+    unfold lvlSt; rw [h6, hlen, if_neg (by decide)]; omega
+  rw [hl5] at hst
+  have hbl := blk_bounds j hj 5 (by decide)
+  have hho := handO_cases j
+  have h12 : t.getReg .x12 = BitVec.ofNat 64 (B - handO j) := by
+    rw [h12', show (lvlRegs j 5).get .x12 = addC (.reg .x8) (BitVec.ofNat 64 (2 ^ 64 - handO j)) by
+      unfold lvlRegs; rw [skipA2_five]; rfl, addC_eval]
+    simp only [E.eval, hx8]
+    exact ofNat_add_neg B (handO j) (by omega) (by omega) (by omega)
+  have hv : hashArgumentsValid t = true :=
+    hashArgs_of t (B + blkO j 5) 64 (B - handO j) h10 h11 h12 (by omega) (by decide)
+      (by omega) (by omega) (by omega)
+  refine ⟨t, hst, hec, h5, hv, hin, hpcT, h11, h12, hother, ?_⟩
+  apply (hs.frame.trans hP).mono
+  intro A hA h
+  rcases h with h | rfl | rfl
+  · exact h
+  · exact ⟨tw24 j 5, mem_stagesW (m := 5) (by omega) (by simp [stageW]), rfl⟩
+  · exact ⟨blkO j 5 + 16, mem_stagesW (m := 5) (by omega) (by simp [stageW]), by omega⟩
+structure HandPostV (B j : Nat) (u : MachineState) (computed : Digest) (t : MachineState) : Prop where
+  pc : t.pc = pcOf (childBase j + ecIdx j 6 + 1)
+  a1 : t.getReg .x11 = 64
+  top : DigAt t (B - valO j) computed
+  a2 : t.getReg .x12 = BitVec.ofNat 64 (B - handO j)
+  keep : ∀ r : Reg, r ≠ .x3 → r ≠ .x10 → r ≠ .x11 → r ≠ .x12 → t.getReg r = u.getReg r
+  frame : Frame u t (fun A => prefixWrites B A ∨ (B - handO j ≤ A ∧ A < B - handO j + 32))
+theorem tail_goodV {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAtV im j)
+    {B k index : Nat} {leaf pads sibs tws : Nat → Digest} {u : MachineState}
+    (hu : ChildPre j B k index leaf pads sibs tws u) (hlo : 768 ≤ B)
+    (v : Digest) (s : MachineState) (hs : Mid j B k index u 5 v s)
+    (N C A : Nat) (Q : Prop) (K : Digest → OracleComp HashSpec Obs)
+    (hK : ∀ computed t, HandPostV B j u computed t → GoodQFor (P := P) im t N C Q A (K computed)) :
+    GoodQFor (P := P) im s (N + 5) (C + 12) Q (A + 12)
+      (ccM (childLevelTop k index j pads (hpOf j tws) sibs v) K) := by
+  have hBhi := hu.baseHi
+  unfold MEMORY_BYTES at hBhi
+  have hho := handO_cases j
+  obtain ⟨t, hst, hf, h5, hv, hin, hpc, h11, h12, hkeep, hframe⟩ :=
+    last_setupV hj hcode hu hlo v s hs
+  have H : ∀ ans : BitVec 256, GoodQFor (P := P) im (writeHash t ans) N C Q A
+      (ccM (pure (if topHi j then ans.extractLsb' 128 128 else ans.extractLsb' 0 128)) K) := by
+    intro ans
+    have hdest : B - handO j + 32 < 2 ^ 64 := by omega
+    have hp : HandPostV B j u (if topHi j then ans.extractLsb' 128 128 else ans.extractLsb' 0 128)
+        (writeHash t ans) := by
+      refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
+      · rw [writeHash_pc, hpc, SigGolfCandidate.T3M.pcOf_add4]
+      · rw [writeHash_getReg, h11]
+      · exact DigAt_top t ans h12 hdest (by omega)
+      · rw [writeHash_getReg]; exact h12
+      · intro r h3 h10 h11' h12'
+        rw [writeHash_getReg]
+        exact hkeep r h3 h10 h11' h12'
+      · have hw := frame_writeHash4 t ans _ h12 hdest
+        apply (hframe.trans hw).mono
+        intro addr _ hh
+        rcases hh with ⟨off, hoff, rfl⟩ | hw
+        · exact Or.inl (stagesW_prefix hj hoff)
+        · right
+          rcases hw with rfl | rfl | rfl | rfl <;> omega
+    simpa only [ccM_pure] using hK _ _ hp
+  have hh := hashSel_bind (P := P) (hi := topHi j) (f := fun d => (pure d : M Digest)) (K := K) hf h5 hv hin H
+  rw [nodeIn_blocks] at hh
+  have e : (SharedV3.hashSel (topHi j) (nodeIn k index j pads (hpOf j tws) sibs v 5) >>=
+      fun d => (pure d : M Digest)) = childLevelTop k index j pads (hpOf j tws) sibs v := bind_pure _
+  rw [e] at hh
+  exact GoodQFor.steps' (P := P) hst hh (by omega) (by omega) (fun q => ⟨q, by omega⟩)
+theorem child_goodV {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAtV im j)
+    {B k index : Nat} {leaf pads sibs tws : Nat → Digest} {u : MachineState}
+    (hu : ChildPre j B k index leaf pads sibs tws u) (hlo : 768 ≤ B)
+    (N C A : Nat) (Q : Prop) (K : Digest → OracleComp HashSpec Obs)
+    (hK : ∀ computed t, HandPostV B j u computed t → GoodQFor (P := P) im t N C Q A (K computed)) :
+    GoodQFor (P := P) im u (N + 33) (C + (90 - childSaveC j)) Q (A + (90 - childSaveC j))
+      (ccM (childProgram k index j leaf pads sibs tws) K) := by
+  have H := child_prefix_goodV im j hj hcode B k index leaf pads sibs tws u
+    (N + 5) (C + 12) (A + 12) Q
+    (fun value => ccM (childLevelTop k index j pads (hpOf j tws) sibs value) K) hu
+    (fun value state hstate => tail_goodV hj hcode hu hlo value state hstate N C A Q K hK)
+  have hs := childSaveC_le j hj
+  have H' := H.mono (A' := A + (90 - childSaveC j)) (Q' := Q) (show N + 5 + (28 - childSaveC j) ≤ N + 33 by omega)
+    (show C + 12 + (78 - childSaveC j) ≤ C + (90 - childSaveC j) by omega)
+    (fun h => ⟨h, by omega⟩)
+  simpa only [childProgram, bind_assoc, ccM_bind] using H'
+theorem childWord_eq8 (k : Fin 9) (raw : Fin 128) (hc : k.val = 8) :
+    (SharedLayout.layout k).childWord raw = childBase (SharedV3.physical k.val raw.val) := by
+  have hf : SharedV3.first k.val = false := by simp [SharedV3.first, hc]
+  have hn : ¬(k.val < 8 ∧ k.val % 2 = 0) := by simpa only [SharedV3.first, decide_eq_false_iff_not] using hf
+  have hraw : 2 * (SharedV3.physical k.val raw.val % 64) + SharedV3.physical k.val raw.val / 64 = raw.val := by
+    have h := SigGolfCandidate.Research.SharedForest.raw_physical_child false raw.val raw.isLt
+    simpa only [SigGolfCandidate.Research.SharedForest.rawChild,
+      SharedV3.physical, hf, Bool.false_eq_true, ↓reduceIte] using h
+  dsimp only [SharedLayout.layout, SharedLayout.childWord]
+  rw [if_neg hn, if_pos hc]
+  unfold childBase
+  rw [hraw]
+theorem dir8 (k : Fin 9) (raw : Fin 128) (hc : k.val = 8) :
+    decide (SharedV3.direction k.val (SharedV3.physical k.val raw.val) = 0) =
+      topHi (SharedV3.physical k.val raw.val) := by
+  have hf : SharedV3.first k.val = false := by simp [SharedV3.first, hc]
+  unfold topHi bitAt SharedV3.direction SharedV3.lastLevel
+  first
+    | (rw [hf]; rfl)
+    | (simp only [hf, Bool.false_eq_true, ↓reduceIte])
+theorem retIdx8_eq (k : Fin 9) (raw : Fin 128) (hc : k.val = 8) :
+    SharedChild.retIdx8 raw.val = ecIdx (SharedV3.physical k.val raw.val) 6 + 1 := by
+  rw [hc]; exact retIdx8_all raw
+theorem post_to_sharedV (k : Fin 9) (raw : Fin 128) (hc : k.val = 8) (u t : MachineState) (computed : Digest)
+    (ht : HandPostV (Chain.base (SharedLayout.layout k) k) (SharedV3.physical k.val raw.val) u computed t) :
+    SharedChild.Post (SharedLayout.layout k) k raw u computed t := by
+  have hd := dir8 k raw hc
+  have hdir : SharedV3.direction k.val (SharedV3.physical k.val raw.val) = 0 ↔
+      bitAt (SharedV3.physical k.val raw.val) 6 = 0 := by
+    unfold topHi at hd
+    simpa only [decide_eq_decide] using hd
+  have hb : 768 ≤ Chain.base (SharedLayout.layout k) k := by
+    unfold Chain.base coordinateBase Layout.shift; have := k.isLt; omega
+  have hh : Chain.base (SharedLayout.layout k) k - valO (SharedV3.physical k.val raw.val) =
+      SharedChild.handAddr (SharedLayout.layout k) k raw := by
+    unfold SharedChild.handAddr valO
+    simp only [hc, ↓reduceIte] at hdir ⊢
+    split_ifs <;> omega
+  have ho : Chain.base (SharedLayout.layout k) k - handO (SharedV3.physical k.val raw.val) =
+      SharedChild.outputAddr (SharedLayout.layout k) k raw := by
+    unfold SharedChild.outputAddr SharedChild.handAddr handO
+    simp only [hc, ↓reduceIte] at hdir ⊢
+    split_ifs <;> omega
+  refine ⟨?_, ht.a1, ?_, ?_, ?_, ?_⟩
+  · rw [ht.pc, childWord_eq8 k raw hc, if_pos hc, retIdx8_eq k raw hc, Nat.add_assoc]
+  · rw [← hh]; exact ht.top
+  · rw [ht.a2, ho]
+  · intro r hr'
+    simp only [Child.clobbers, List.mem_cons, List.not_mem_nil, or_false, not_or] at hr'
+    exact ht.keep r hr'.1 hr'.2.1 hr'.2.2.1 hr'.2.2.2.1
+  · intro addr ha hn
+    have hn' : ¬(prefixWrites (Chain.base (SharedLayout.layout k) k) addr ∨
+        (Chain.base (SharedLayout.layout k) k - handO (SharedV3.physical k.val raw.val) ≤ addr ∧
+         addr < Chain.base (SharedLayout.layout k) k - handO (SharedV3.physical k.val raw.val) + 32)) := by
+      intro h; apply hn; unfold SharedChild.writes; rw [← ho]; unfold prefixWrites at h
+      rcases h with h | h
+      · left; split <;> omega
+      · right; exact h
+    exact ht.frame addr ha hn'
+end W9Drv.SharedCProof
+end
 
 namespace W9Drv.SharedCProof
 variable {P : SigGolfCandidate.Legacy.Hash → Prop}
@@ -4081,8 +4722,27 @@ open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify W9Mach
 open SigGolfCandidate.T3 (Digest)
 
 theorem shared_good (k : Fin 9) (raw : Fin 128) (hc : k.val = 8)
-    (hcode : ChildCodeAt Frozen.image (SharedV3.physical k.val raw.val)) :
+    (hcode : ChildCodeAtV Frozen.image (SharedV3.physical k.val raw.val)) :
     SharedChild.Good (P := P) (SharedLayout.layout k) k raw := by
+  -- VR8: the singleton routine stops before its old `ret` (pieces p0 + 6 levels, no p7 jump); Post pc =
+  -- childWord raw + retIdx8 raw; cost 90 - skips'.  Needs a `child_good` variant over `childWordsV` without the
+  -- final `retE` piece and `post_to_shared` for the new Post (retIdx8 = ecIdx j 6 + 1, decide over 128).
+  have hf : SharedV3.first k.val = false := by simp [SharedV3.first, hc]
+  intro w index ends u N C A Q K hu hK
+  have hpj := SharedV3.physical_lt k.val raw.val raw.isLt
+  have he := childWord_eq8 k raw hc
+  have hp := pre_of_shared w index k raw ends u u hu (fun _ => rfl) (fun _ => rfl)
+    (hu.pc.trans (congrArg (fun n => pcOf (n + 1)) he))
+  have hlo : 768 ≤ Chain.base (SharedLayout.layout k) k := by
+    unfold Chain.base coordinateBase Layout.shift; have := k.isLt; omega
+  have H := child_goodV hpj hcode hp hlo N C A Q K (fun computed t ht =>
+    hK computed t (post_to_sharedV k raw hc u t computed ht))
+  have hcost : SharedChild.cost k raw = 90 - childSaveC (SharedV3.physical k.val raw.val) := by
+    rw [childSaveC_eq _ hpj]
+    simp only [SharedChild.cost, SharedChild.spill, hf, Bool.false_eq_true, ↓reduceIte, Nat.add_zero, if_pos hc]
+  rw [sharedProgram_eq w index k raw ends hc] at ⊢
+  exact H.mono (by omega) (by omega) (fun h => ⟨h, by rw [hcost] <;> omega⟩)
+/- VR8: base proof
   have hf : SharedV3.first k.val = false := by simp [SharedV3.first, hc]
   intro w index ends u N C A Q K hu hK
   have hpj := SharedV3.physical_lt k.val raw.val raw.isLt
@@ -4108,6 +4768,7 @@ theorem shared_good (k : Fin 9) (raw : Fin 128) (hc : k.val = 8)
     simp only [SharedChild.cost, SharedChild.spill, hf, Bool.false_eq_true, ↓reduceIte, Nat.add_zero]
   rw [sharedProgram_eq w index k raw ends hc] at ⊢
   exact H.mono (by omega) (by omega) (fun h => ⟨h, by rw [hcost] <;> omega⟩)
+-/
 end W9Drv.SharedCProof
 
 namespace W9Drv.SharedAProof
@@ -4245,7 +4906,7 @@ set_option maxRecDepth 100000
 set_option maxHeartbeats 0
 
 def sharedLinkedRange (lo n : Nat) : Bool :=
-  (List.range' lo n).all (fun j => sliceChecked (childBase j) (childWords j))
+  (List.range' lo n).all (fun j => sliceChecked (childBase j) (childSlotV j))
 theorem sharedLinked_0 : sharedLinkedRange 0 16 = true := by decide +kernel
 theorem sharedLinked_1 : sharedLinkedRange 16 16 = true := by decide +kernel
 theorem sharedLinked_2 : sharedLinkedRange 32 16 = true := by decide +kernel
@@ -4254,9 +4915,9 @@ theorem sharedLinked_4 : sharedLinkedRange 64 16 = true := by decide +kernel
 theorem sharedLinked_5 : sharedLinkedRange 80 16 = true := by decide +kernel
 theorem sharedLinked_6 : sharedLinkedRange 96 16 = true := by decide +kernel
 theorem sharedLinked_7 : sharedLinkedRange 112 16 = true := by decide +kernel
-theorem shared_linked (j : Nat) (hj : j < 128) : sliceChecked (childBase j) (childWords j) = true := by
+theorem shared_linked (j : Nat) (hj : j < 128) : sliceChecked (childBase j) (childSlotV j) = true := by
   have hall : ∀ lo n, sharedLinkedRange lo n = true → lo ≤ j → j < lo + n →
-      sliceChecked (childBase j) (childWords j) = true :=
+      sliceChecked (childBase j) (childSlotV j) = true :=
     fun lo n h h1 h2 => List.all_eq_true.mp h j (List.mem_range'_1.mpr ⟨h1, h2⟩)
   by_cases h0 : j < 16; · exact hall 0 16 sharedLinked_0 (by omega) (by omega)
   by_cases h1 : j < 32; · exact hall 16 16 sharedLinked_1 (by omega) (by omega)
@@ -4267,7 +4928,7 @@ theorem shared_linked (j : Nat) (hj : j < 128) : sliceChecked (childBase j) (chi
   by_cases h6 : j < 112; · exact hall 96 16 sharedLinked_6 (by omega) (by omega)
   exact hall 112 16 sharedLinked_7 (by omega) (by omega)
 
-theorem shared_code (j : Nat) (hj : j < 128) : ChildCodeAt Frozen.image j := by
+theorem shared_code (j : Nat) (hj : j < 128) : ChildCodeAtV Frozen.image j := by
   have hc := (slice_at _ _ (shared_linked j hj)).2.2.2
   have hb : childBase j < 255000 := by
     unfold childBase
@@ -4276,9 +4937,11 @@ theorem shared_code (j : Nat) (hj : j < 128) : ChildCodeAt Frozen.image j := by
     simp only [pcOf, BitVec.toNat_ofNat]
     exact Nat.mod_eq_of_lt (by omega)
   rw [hp, show (4096 + 4 * childBase j - 4096) / 4 = childBase j by omega] at hc
+  have hpre : childWordsV j <+: Frozen.image.code.drop (childBase j) :=
+    (List.prefix_append (childWordsV j) (vr8Slot.getD (2 * (j % 64) + j / 64) [])).trans hc
   intro i word hi
   obtain ⟨hbound, hval⟩ := List.getElem?_eq_some_iff.mp hi
-  have h := List.prefix_iff_getElem?.mp hc i hbound
+  have h := List.prefix_iff_getElem?.mp hpre i hbound
   simpa only [List.getElem?_drop, hval] using h
 end W9Drv.SharedCProof
 
@@ -5090,43 +5753,6 @@ open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify W9Mach
 open SigGolfCandidate.T3 (Digest)
 set_option maxRecDepth 100000
 set_option maxHeartbeats 1000000
-theorem post_to_shared_at {L : W9Machine.Layout} (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (k : Fin 9)
-    (raw : Fin 128) (ends : List Digest) (u v t : MachineState) (hf : SharedV3.first k.val = false) (hc : k.val = 8)
-    (hu : SharedChild.Pre L w index k raw ends u)
-    (hr : ∀ r, v.getReg r = u.getReg r) (hm : ∀ a, v.getMem a = u.getMem a)
-    (computed : Digest) (ht : HandPost (Chain.base L k) (SharedV3.physical k.val raw.val) v computed t) :
-    SharedChild.Post L k raw u computed t := by
-  have hb : 768 ≤ Chain.base L k := by unfold Chain.base coordinateBase Layout.shift; have := k.isLt; omega
-  -- Cm (stage 2): the value lands at `B - valO` (`WIT + 0` / `WIT + 48`), the hash output at `B - handO`
-  -- (`WIT - 16`, high half, for the left root; `WIT + 48`, low half, for the right root)
-  have hh : Chain.base L k - valO (SharedV3.physical k.val raw.val) = SharedChild.handAddr L k raw := by
-    unfold SharedChild.handAddr SharedV3.direction SharedV3.lastLevel valO bitAt
-    simp only [hf, if_pos hc, Bool.false_eq_true, ↓reduceIte]
-    split_ifs <;> omega
-  have ho : Chain.base L k - handO (SharedV3.physical k.val raw.val) =
-      SharedChild.outputAddr L k raw := by
-    unfold SharedChild.outputAddr SharedChild.handAddr SharedV3.direction SharedV3.lastLevel handO bitAt
-    simp only [hf, if_pos hc, Bool.false_eq_true, ↓reduceIte]
-    split_ifs <;> omega
-  refine ⟨?_, ht.a1, ?_, ?_, ?_, ?_⟩
-  · rw [ht.pc, hr, hu.returnPC]
-    simp only [if_pos hc, ↓reduceIte]
-    change (pcOf (L.returnWord k)+BitVec.ofNat 64 (4*79)) &&& ~~~1#64 = _
-    rw [W9Drv.SharedBank.pcOf_add_words,pcOf_and_not1]
-  · rw [← hh]; exact ht.top
-  · rw [ht.a2, ho]
-  · intro r hr'
-    simp only [Child.clobbers, List.mem_cons, List.not_mem_nil, or_false, not_or] at hr'
-    exact (ht.keep r hr'.1 hr'.2.1 hr'.2.2.1 hr'.2.2.2.1).trans (hr r)
-  · intro addr ha hn
-    have hn' : ¬(prefixWrites (Chain.base L k) addr ∨
-        (Chain.base L k - handO (SharedV3.physical k.val raw.val) ≤ addr ∧
-         addr < Chain.base L k - handO (SharedV3.physical k.val raw.val) + 32)) := by
-      intro h; apply hn; unfold SharedChild.writes; rw [← ho]; unfold prefixWrites at h
-      rcases h with h | h
-      · left; split <;> omega
-      · right; exact h
-    exact (ht.frame addr ha hn').trans (hm _)
 end W9Drv.SharedCProof
 
 namespace W9Drv.SharedBProof
@@ -5161,7 +5787,7 @@ theorem shared_tbsim {L : W9Machine.Layout} {sk : BitVec 256} (k : Fin 9) (raw :
   have H := child_tbsim hpj hcode hp hlo (sk:=sk)
   have hcost : SharedChild.cost k raw = 91 - childSaveC (SharedV3.physical k.val raw.val) := by
     rw [childSaveC_eq _ hpj]
-    simp only [SharedChild.cost, SharedChild.spill, hf, Bool.false_eq_true, ↓reduceIte, Nat.add_zero]
+    simp only [SharedChild.cost, SharedChild.spill, hf, Bool.false_eq_true, ↓reduceIte, Nat.add_zero, if_neg hc]
   rw [sharedProgram_eq w index k raw ends hf hc]
   exact H.mono (by rw [hcost]) (fun computed t ht=>
     post_to_shared_at w index k raw ends u u t hf hc hu (fun _=>rfl) (fun _=>rfl) computed ht)
@@ -5172,37 +5798,6 @@ open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify W9Mach
 open SigGolfCandidate.T3 (Digest)
 set_option maxRecDepth 100000
 set_option maxHeartbeats 1000000
-theorem shared_tbsim {L : W9Machine.Layout} {sk : BitVec 256} (k : Fin 9) (raw : Fin 128) (hc : k.val = 8)
-    (hchild : ∀j,L.childWord j=(SharedLayout.layout k).childWord j)
-    (hcode : ChildCodeAt L.image (SharedV3.physical k.val raw.val))
-    (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (ends : List Digest) (u : MachineState)
-    (hu : SharedChild.Pre L w index k raw ends u) :
-    TBSim L.image sk u (SharedChild.cost k raw) (SharedV3.childProgram w index k raw ends)
-      (SharedChild.Post L k raw u) := by
-  have hf : SharedV3.first k.val = false := by simp [SharedV3.first, hc]
-  have hpj := SharedV3.physical_lt k.val raw.val raw.isLt
-  have hn : ¬(k.val < 8 ∧ k.val % 2 = 0) := by simpa only [SharedV3.first, decide_eq_false_iff_not] using hf
-  have hraw : 2 * (SharedV3.physical k.val raw.val % 64) + SharedV3.physical k.val raw.val / 64 = raw.val := by
-    have h := SigGolfCandidate.Research.SharedForest.raw_physical_child false raw.val raw.isLt
-    simpa only [SigGolfCandidate.Research.SharedForest.rawChild,
-      SharedV3.physical, hf, Bool.false_eq_true, ↓reduceIte] using h
-  have he0 : (SharedLayout.layout k).childWord raw = childBase (SharedV3.physical k.val raw.val) := by
-    dsimp only [SharedLayout.layout, SharedLayout.childWord]
-    rw [if_neg hn]
-    rw [if_pos hc]
-    unfold childBase
-    rw [hraw]
-  have he : L.childWord raw = childBase (SharedV3.physical k.val raw.val) := (hchild raw).trans he0
-  have hp := pre_of_shared w index k raw ends u u hu (fun _ => rfl) (fun _ => rfl)
-    (hu.pc.trans (congrArg (fun n => pcOf (n + 1)) he))
-  have hlo : 768 ≤ Chain.base L k := by unfold Chain.base coordinateBase Layout.shift; have := k.isLt; omega
-  have H := child_tbsim hpj hcode hp hlo (sk:=sk)
-  have hcost : SharedChild.cost k raw = 91 - childSaveC (SharedV3.physical k.val raw.val) := by
-    rw [childSaveC_eq _ hpj]
-    simp only [SharedChild.cost, SharedChild.spill, hf, Bool.false_eq_true, ↓reduceIte, Nat.add_zero]
-  rw [sharedProgram_eq w index k raw ends hc]
-  exact H.mono (by rw [hcost]) (fun computed t ht=>
-    post_to_shared_at w index k raw ends u u t hf hc hu (fun _=>rfl) (fun _=>rfl) computed ht)
 end W9Drv.SharedCProof
 namespace W9Drv.SharedAProof
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
@@ -5247,25 +5842,6 @@ open SigGolfCandidate.T3 (Digest)
 set_option maxRecDepth 100000
 set_option maxHeartbeats 1000000
 
-theorem child_tbsim (L : W9Machine.Layout) (sk : BitVec 256) (k : Fin 9) (raw : Fin 128)
-    (hwindow : (Frozen.image.code.drop 195584).take 59072=(L.image.code.drop 195584).take 59072)
-    (hchild : ∀j,L.childWord j=(SharedLayout.layout k).childWord j)
-    (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (ends : List Digest) (u : MachineState)
-    (hu : SharedChild.Pre L w index k raw ends u) :
-    TBSim L.image sk u (SharedChild.cost k raw) (SharedV3.childProgram w index k raw ends)
-      (SharedChild.Post L k raw u) := by
-  cases hf:SharedV3.first k.val with
-  | true=>
-    exact SharedAProof.shared_tbsim k raw hf hchild
-      (SharedAProof.childCodeAt_transfer raw.val raw.isLt hwindow (SharedAProof.shared_code raw.val raw.isLt))
-      w index ends u hu
-  | false=>
-    have hp:=SharedV3.physical_lt k.val raw.val raw.isLt
-    by_cases hc:k.val=8
-    · exact SharedCProof.shared_tbsim k raw hc hchild
-        (SharedCProof.childCodeAt_transfer _ hp hwindow (SharedCProof.shared_code _ hp)) w index ends u hu
-    · exact SharedBProof.shared_tbsim k raw hf hc hchild
-        (SharedBProof.childCodeAt_transfer _ hp hwindow (SharedBProof.shared_code _ hp)) w index ends u hu
 end W9Drv.SharedBank
 end
 -- ==== merged from W9Machine_WctImageIdentity ====

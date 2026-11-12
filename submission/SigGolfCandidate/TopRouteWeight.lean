@@ -8,7 +8,7 @@ set_option exponentiation.threshold 10000000
 
 def pairSave (leaf : Nat) : Nat := if leaf % 4 = 1 ∨ leaf % 4 = 2 then 1 else 0
 def pathSave (leaf : Nat) : Nat := pairSave leaf + pairSave (leaf / 64)
-def rootPool (leaf : Nat) : Nat := 73 - pathSave leaf
+def rootPool (leaf : Nat) : Nat := 74 - pathSave leaf
 
 theorem sum_root_nat (f : Nat → Nat) :
     (∑ i : Fin (2^31), f (i.val / 2^19)) =

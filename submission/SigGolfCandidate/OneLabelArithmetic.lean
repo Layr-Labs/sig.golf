@@ -1,5 +1,5 @@
 import Mathlib.Data.BitVec
-set_option debug.skipKernelTC true
+set_option debug.skipKernelTC false
 namespace SigGolfCandidate.T3M.OneLabelArithmetic
 /-- Remap root label one without introducing a data-dependent branch. -/
 def arithmetic (x : BitVec 64) : BitVec 64 :=

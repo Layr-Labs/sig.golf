@@ -72,19 +72,20 @@ variable {L : LeafAddr} {a : ChainAddr} (haL : a.key = L) (hac : a.chain < chain
   (hLleaf : L.leaf < 2 ^ 24) (R : RefTables adversary) (hd1 : 1 ≤ restDepth a R)
 include haL hac hd1
 
-/-- The prefix game's oracle world reads `L`'s step-0 rows only off chain `a` (whose step-0 row is a prefix row). -/
-theorem routeImpl_congr (K K' : Fin (WCT9.famCount L.lay) → Digest) (f f' : Fin (chainCount L.lay) → Digest → Digest)
+/-- `routeImpl_congr` with the depth abstracted: `restDepth` is irreducible only for the elaborator, and with
+`restDepth a R` in the `rowOf` match the kernel spent ~105 s and ~8 GiB replaying this proof. -/
+theorem routeImpl_congr_d (d : Nat) (hd7 : d ≤ 7) (hd1' : 1 ≤ d) (K K' : Fin (WCT9.famCount L.lay) → Digest) (f f' : Fin (chainCount L.lay) → Digest → Digest)
     (hf : ∀ c : Fin (chainCount L.lay), c.val ≠ a.chain → f c = f' c) :
-    PrefixGame.routeImpl a (restDepth a R) (ovL L R (K, f)) =
-      PrefixGame.routeImpl a (restDepth a R) (ovL L R (K', f')) := by
+    PrefixGame.routeImpl a d (ovL L R (K, f)) =
+      PrefixGame.routeImpl a d (ovL L R (K', f')) := by
   funext q
   rcases q with (n | input) | u
   · simp only [PrefixGame.routeImpl]
   · simp only [PrefixGame.routeImpl]
-    cases hp : PrefixGame.rowOf a (restDepth a R) input with
+    cases hp : PrefixGame.rowOf a d input with
     | some p =>
         simp only
-        have hp256 : (p.1 : Nat) < 256 := by have := p.1.isLt; have := PrefixGame.restDepth_le a R; omega
+        have hp256 : (p.1 : Nat) < 256 := by have := p.1.isLt; have := hd7; omega
         have hc24 : a.chain < 2 ^ 24 :=
           lt_of_lt_of_le hac (le_trans (SigGolfCandidate.T3.chainCount_bound _) (by norm_num))
         rw [PrefixGame.rowOf_some hp, otherHalf_ovL L R _ _ _ _ hp256 hc24, otherHalf_ovL L R _ _ _ _ hp256 hc24]
@@ -97,7 +98,7 @@ theorem routeImpl_congr (K K' : Fin (WCT9.famCount L.lay) → Digest) (f f' : Fi
             have he := zeroOf_some hz
             have hca : cv.1.val ≠ a.chain := by
               intro hca
-              apply PrefixGame.rowOf_none hp (⟨0, hd1⟩, cv.2)
+              apply PrefixGame.rowOf_none hp (⟨0, hd1'⟩, cv.2)
               rw [he]
               subst haL
               simp only
@@ -106,6 +107,14 @@ theorem routeImpl_congr (K K' : Fin (WCT9.famCount L.lay) → Digest) (f f' : Fi
             simp only
             rw [hf cv.1 hca]
   · simp only [PrefixGame.routeImpl]
+
+/-- The prefix game's oracle world reads `L`'s step-0 rows only off chain `a` (whose step-0 row is a prefix row). -/
+theorem routeImpl_congr (K K' : Fin (WCT9.famCount L.lay) → Digest) (f f' : Fin (chainCount L.lay) → Digest → Digest)
+    (hf : ∀ c : Fin (chainCount L.lay), c.val ≠ a.chain → f c = f' c) :
+    PrefixGame.routeImpl a (restDepth a R) (ovL L R (K, f)) =
+      PrefixGame.routeImpl a (restDepth a R) (ovL L R (K', f')) :=
+  routeImpl_congr_d (haL := haL) (hac := hac) (R := R) (hd1 := hd1) (d := restDepth a R)
+    (hd7 := PrefixGame.restDepth_le a R) (hd1' := hd1) K K' f f' hf
 
 end Point
 
