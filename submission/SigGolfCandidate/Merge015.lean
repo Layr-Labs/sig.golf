@@ -9627,7 +9627,7 @@ theorem producerAdmissible_iff (output : HashOutput) :
   simp [producerAdmissible, capOk_iff]
 theorem admissible_of_producer {output : HashOutput} (h : producerAdmissible output = true) :
     admissible output = true := ((producerAdmissible_iff output).1 h).1
-/-- Coefficient `j < 42` of the FTS seed family of `(index, coord)` (campaign X1, stage A): half `j % 2` of the
+/-- Coefficient `j < 54` of the FTS seed family of `(index, coord)` (campaign X1, stage A): half `j % 2` of the
 private pair `ftsSeedPair index coord (j / 2)`. -/
 def ftsCoef (answers : SigGolfCandidate.T3.Correctness.Answers) (index coord : Nat) (j : Fin 42) : Digest :=
   seedHalf (evalWithAnswerFn answers (ftsSeedPair index coord (j.val / 2))) j.val

@@ -1,7 +1,8 @@
 import SigGolfCandidate.Merge112S
 import SigGolfCandidate.Merge112SA
 import SigGolfCandidate.Merge112SB
-set_option debug.skipKernelTC true
+import SigGolfCandidate.MixedFamilyCharge
+set_option debug.skipKernelTC false
 set_option linter.all false
 
 namespace ClaudeWCT.W9.T3.Security.Wots.Z5
@@ -18,18 +19,11 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 
-theorem seed_error_split {S : FamScheme} {Cmax : Nat} (H : FamTot.FamHyps S Cmax) (hC : Cmax ≤ 301)
+theorem seed_error_split {S : FamScheme} {Cmax : Nat} (H : FamTot.FamHyps S Cmax) (hC : ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamTot.SplitSeedBound S)
     (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP) (q : Nat) (hq : q < 2 ^ 128)
     (hy : (q : ℝ) / 2 ^ 128 ≤ 2163 / 1000000) :
     (FamTot.errTotF S adversary q).toReal ≤ (261 / 200) * ((q : ℝ) / 2 ^ 128) ^ 2 := by
-  refine (FamTot.errTotF_toReal H adversary q hq).trans ?_
-  set y := (q : ℝ) / 2 ^ 128
-  have hy0 : 0 ≤ y := by positivity
-  have hd : 0 < 1 - y := by linarith
-  have hC' : (Cmax : ℝ) ≤ 301 := by exact_mod_cast hC
-  rw [div_le_iff₀ hd]
-  have h1 : 2 * (Cmax : ℝ) * y ≤ 261 / 200 * (1 - y) := by nlinarith
-  nlinarith [mul_le_mul_of_nonneg_right h1 (sq_nonneg y)]
+  exact hC adversary q hq hy
 
 theorem toReal_one_sub (q : Nat) (hq : q < 2 ^ 128) :
     (1 - (q : ENNReal) / 2 ^ 128).toReal = 1 - (q : ℝ) / 2 ^ 128 := by
@@ -40,7 +34,7 @@ theorem toReal_one_sub (q : Nat) (hq : q < 2 ^ 128) :
 
 /-- **The split primitive bound, middle window** (θ = 397071/200000, error quadratic 37/20). No `set` on the
 reference law: abbreviating it made the kernel check of `masses_finite` recurse without bound. -/
-theorem primitive_middle_split (S : FamScheme) {Cmax : Nat} (H : FamTot.FamHyps S Cmax) (hC : Cmax ≤ 301)
+theorem primitive_middle_split (S : FamScheme) {Cmax : Nat} (H : FamTot.FamHyps S Cmax) (hC : ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamTot.SplitSeedBound S)
     (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
     (hy : (q : ℝ) / 2 ^ 128 ≤ 2163 / 1000000)
     (A1 : ∀ a, WotsExtract.SourceChain7 a →
@@ -271,7 +265,7 @@ open ClaudeWCT.W9.T3.Security.Wots.CanonicalWeighted (Combined)
 open ClaudeWCT.W9.T3.Security.Wots.FamRestart (FamScheme)
 
 /-- The split primitive bound of the middle window, with the per-chain kernels (A) and the lazy-cell potentials (B). -/
-theorem primitive_middle_splitFam (S : FamScheme) {Cmax : Nat} (H : FamTot.FamHyps S Cmax) (hC : Cmax ≤ 301)
+theorem primitive_middle_splitFam (S : FamScheme) {Cmax : Nat} (H : FamTot.FamHyps S Cmax) (hC : ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamTot.SplitSeedBound S)
     (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
     (hy : (q : ℝ) / 2 ^ 128 ≤ 2163 / 1000000) :
     (Pr[Combined | PairedReference.referenceExperiment adversary q]).toReal ≤
@@ -304,9 +298,9 @@ attribute [local instance] Classical.propDecidable
 theorem clean_probability_real_ofGq (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
     (hsplit : ∀ z,z∈(PairedSeccLaw.completedExperiment adversary q hq).support →
       QueryRecorded.CleanWin q z.1 → CaseABEv combinedEvent adversary z ∨ FreshForestCase adversary z)
-    (theta rate : ENNReal) (htheta:theta≠⊤) (hratefin:rate≠⊤) (hmin:939/80000≤theta)
+    (theta rate : ENNReal) (htheta:theta≠⊤) (hratefin:rate≠⊤) (hmin:28883/2500000≤theta)
     (hrate : ClaudeWCT.Numerics.Law.lawAvg ClaudeWCT.Bank.Paired.honestLaw (2^32)
-      (fun W=>ClaudeWCT.Bank.Paired.price W-(theta-939/80000))≤rate)
+      (fun W=>ClaudeWCT.Bank.Paired.price W-(theta-28883/2500000))≤rate)
     (errq : ℝ)
     (hprimitive : (Pr[fun s=>combinedEvent.holds s.answers s.trace |
       PairedReference.referenceExperiment adversary q]).toReal ≤
@@ -337,44 +331,41 @@ theorem clean_probability_real_ofGq (adversary : Final.Paired.AdversaryP) (q : N
   have habs : (1:ℝ)/2^139+1/2^142+1/2^138+1/2^137≤1/2^136 := by norm_num
   nlinarith
 
-/-- **The middle window through the split** (`2^-28 ≤ y ≤ 2163/10^6`, θ = 397071/200000, excess ≤ 67/31250). -/
+/-- **The middle window through the split** (`2^-28 ≤ y ≤ 2163/10^6`, θ = 397071/200000, excess ≤ 2143/10^6). -/
 theorem middle_boundSplit (S : FamScheme) {Cmax : Nat} (H : CanonicalRef.Normalized.FamTot.FamHyps S Cmax)
-    (hC : Cmax ≤ 301) (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
+    (hC : ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamTot.SplitSeedBound S) (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
     (hlow:1/(2:ℝ)^28≤(q:ℝ)/2^128) (hhigh:(q:ℝ)/2^128≤2163/1000000) :
     Pr[QueryRecorded.CleanWin q | PairedOuter.PaddedGame.tracedExperiment adversary q hq]+
       q/(2:ENNReal)^146+(2:ENNReal)⁻¹^700+((2:ENNReal)^152)⁻¹+
       q/((2^256:Nat):ENNReal)≤(q:ENNReal)/2^127 := by
   apply clean_outer_ennrealG adversary q hq
-  apply middle_clean_closing_overflow adversary q hq hlow hhigh (67/31250) le_rfl ?_
+  apply middle_clean_closing_overflow adversary q hq hlow hhigh (2143/1000000) le_rfl ?_
     (completed_partial_certifiedG adversary q hq)
   have hp:=Z5.primitive_middle_splitFam S H hC adversary q hq hhigh
   have h:=clean_probability_real_overflow adversary q hq (completed_split_canonical adversary q hq)
-    (397071/200000) (67/31250) (by finiteness) (by finiteness) (by
+    (397071/200000) (2143/1000000) (by finiteness) (by finiteness) (by
       simpa (disch:=positivity) only [ENNReal.ofReal_div_of_pos,ENNReal.ofReal_ofNat,ENNReal.ofReal_one] using
-        ENNReal.ofReal_le_ofReal (by norm_num : (939:ℝ)/80000≤397071/200000))
+        ENNReal.ofReal_le_ofReal (by norm_num : (28883:ℝ)/2500000≤397071/200000))
     excess_middle_actualG (1850/1000)
     (by
       simp only [ENNReal.toReal_div,ENNReal.toReal_ofNat]
       refine hp.trans (le_of_eq ?_)
       ring)
     (completed_incomplete_bound adversary q hq)
-    (((2:ENNReal)^88)⁻¹) (by finiteness)
+    ((2:ENNReal)^88)⁻¹ (by finiteness)
     (QueryChargeResearch.ValidPotential40.cleanWin_noOverflow_lifetime adversary q hq)
-  have hov : ((((2:ENNReal)^88)⁻¹).toReal) = (1:ℝ)/2^88 := by
-    simp only [ENNReal.toReal_inv, ENNReal.toReal_pow, ENNReal.toReal_ofNat, one_div]
-  have habs : (1:ℝ)/2^88 ≤ 1/2^87 - (1/2^139+1/2^142+1/2^138) := by norm_num
-  simp only [ENNReal.toReal_div,ENNReal.toReal_ofNat] at h
-  rw [hov] at h
+  simp only [ENNReal.toReal_div, ENNReal.toReal_ofNat, ENNReal.toReal_inv, ENNReal.toReal_pow] at h
+  have habs : (1:ℝ)/2^139+1/2^142+1/2^138+((2:ℝ)^88)⁻¹ ≤ 1/2^87 := by norm_num
   linarith
 
 theorem small_boundSplit (S : FamScheme) {Cmax : Nat} (H : CanonicalRef.Normalized.FamTot.FamHyps S Cmax)
-    (hC : Cmax ≤ 301) (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
+    (hSmall : ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamTot.SmallSeedBound S) (hC : ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamTot.SplitSeedBound S) (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
     (hpositive:1≤q) (hhigh:(q:ℝ)/2^128≤2163/1000000) :
     Pr[QueryRecorded.CleanWin q | PairedOuter.PaddedGame.tracedExperiment adversary q hq]+
       q/(2:ENNReal)^146+(2:ENNReal)⁻¹^700+((2:ENNReal)^152)⁻¹+
       q/((2^256:Nat):ENNReal)≤(q:ENNReal)/2^127 := by
   by_cases ht:(q:ℝ)/2^128≤1/2^28
-  · exact tiny_boundFam S H hC adversary q hq hpositive ht
+  · exact tiny_boundFam S H hSmall adversary q hq hpositive ht
   · exact middle_boundSplit S H hC adversary q hq (le_of_lt (lt_of_not_ge ht)) hhigh
 
 end ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
@@ -392,17 +383,18 @@ attribute [local instance] Classical.propDecidable
 /-- **The live security theorem through the pre/post-marker split** (Z5): small route up to `y = 2163/10^6`
 (tiny window, then the split's middle window), large route above. -/
 theorem t3_securityP_split (S : FamScheme) (Cmax : Nat)
-    (H : ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamTot.FamHyps S Cmax) (hC : Cmax ≤ 301) :
+    (H : ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamTot.FamHyps S Cmax) (hSmall : ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamTot.SmallSeedBound S) (hC : ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamTot.SplitSeedBound S) :
     ClaudeWCT.W9.T3M.Final.Paired.SecurityP := by
   apply PairedOuter.PaddedGame.securityP_of_clean_bound
   intro adversary q hpositive hq
   by_cases hsmall : (q:ℝ)/2^128 ≤ 2163/1000000
-  · exact Wots.PairedSmallT.small_boundSplit S H hC adversary q hq hpositive hsmall
+  · exact Wots.PairedSmallT.small_boundSplit S H hSmall hC adversary q hq hpositive hsmall
   · exact LargeCoupling.Paired.large_bound adversary q hq (le_of_not_ge hsmall)
 
 /-- **The live security theorem of the v6 scheme** (the `Correctness` layout: lower 7-leaf families, charge 301). -/
 theorem t3_securityP_layout_split : ClaudeWCT.W9.T3M.Final.Paired.SecurityP :=
-  t3_securityP_split layoutScheme 301 ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamTot.layoutHyps
-    (by norm_num)
+  t3_securityP_split layoutScheme 688 ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamTot.layoutHyps
+    (fun adversary q hq hy => ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamLift.layout_seed_error adversary q hq hy)
+    (fun adversary q hq hy => ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamLift.layout_seed_error_split adversary q hq hy)
 
 end ClaudeWCT.W9.T3.Secc.Paired

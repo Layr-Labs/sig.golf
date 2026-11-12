@@ -5738,10 +5738,10 @@ theorem near_bound_of_rows (T : Nat) (rate : ENNReal) (hrate : rate ≤ 1)
       ((16^r*forestNearMoment r : Nat) : ENNReal) /
         ((54*alphabetSize*fieldSize^(9*r) : Nat) : ENNReal))
     (htail : ∀ r, 80<r → g r ≤ 1) :
-    ((54*priceScaleTotal : Nat) : ENNReal)*binomialAverage rate T g ≤ 11447/25 := by
+    ((54*priceScaleTotal : Nat) : ENNReal)*binomialAverage rate T g ≤ 22894/50 := by
   have h := poissonCheckQ_sound_tilt (Qv := fieldSize)
     (f := fun r => 16^r*forestNearMoment r) (dbase := 54*alphabetSize)
-    (sn := 54*priceScaleTotal) (sd := 1) (Mn := 11447) (Md := 25) (R := 80)
+    (sn := 54*priceScaleTotal) (sd := 1) (Mn := 22894) (Md := 50) (R := 80)
     near_moment_checked (by norm_num [fieldSize]) (by norm_num) (by norm_num)
     (by norm_num [alphabetSize]) (by norm_num) (by norm_num)
     hrate κ hκ hlam hu g

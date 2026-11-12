@@ -157,18 +157,16 @@ def StepZeroUnrev (L : LeafAddr) (T : Answers) (input : HashInput) : Prop :=
 noncomputable def NL (L : LeafAddr) (s : RefSample) : ℕ :=
   (s.trace.filter fun e => decide (StepZeroUnrev L s.answers e.1)).length
 
-/-- `isTestQ_iff` with the depth abstracted: `restDepth` is irreducible only for the elaborator, and the kernel's
-unfolding of `restDepth a R` here cost ~110 s and ~8 GiB in kernel replay. -/
-theorem isTestQ_iff_d {L : LeafAddr} {a : ChainAddr} (haL : a.key = L) (hac : a.chain < chainCount L.lay)
+theorem isTestQ_iff {L : LeafAddr} {a : ChainAddr} (haL : a.key = L) (hac : a.chain < chainCount L.lay)
     (R : RefTables adversary) (T : Answers)
-    (hT : ∀ c : Fin (chainCount L.lay), depth T ⟨L, c⟩ = depth (restTable R) ⟨L, c⟩) (d : ℕ) (hd7 : d ≤ 7)
-    (hda : depth (restTable R) a = d) (query : RefWorld.Domain) :
-    isTestQ L a d (revSet L R) query ↔ ∃ x, query = .inl (.inr x) ∧ StepZeroUnrev L T x := by
+    (hT : ∀ c : Fin (chainCount L.lay), depth T ⟨L, c⟩ = depth (restTable R) ⟨L, c⟩) (query : RefWorld.Domain) :
+    isTestQ L a (restDepth a R) (revSet L R) query ↔ ∃ x, query = .inl (.inr x) ∧ StepZeroUnrev L T x := by
+  have hda : depth (restTable R) a = restDepth a R := (restDepth_eq a R).symm
   rcases query with (n | input) | u
   · simp [isTestQ]
   · simp only [isTestQ, Sum.inl.injEq, Sum.inr.injEq, exists_eq_left']
     unfold StepZeroUnrev
-    cases hp : PrefixGame.rowOf a d input with
+    cases hp : PrefixGame.rowOf a (restDepth a R) input with
     | some p =>
         have hin := PrefixGame.rowOf_some hp
         simp only
@@ -185,7 +183,7 @@ theorem isTestQ_iff_d {L : LeafAddr} {a : ChainAddr} (haL : a.key = L) (hac : a.
             rw [show p.1.val = 0 from h0]
         · rintro ⟨c, -, v, he⟩
           rw [hin] at he
-          have h1 : (p.1 : ℕ) < 256 := by have := p.1.isLt; have := hd7; omega
+          have h1 : (p.1 : ℕ) < 256 := by have := p.1.isLt; have := PrefixGame.restDepth_le a R; omega
           obtain ⟨-, -, hs, -⟩ := chainInputW_eq_chainRowW (a := ⟨L, c⟩)
             (by have := chainCount_le L.lay; subst haL; simp only [Nat.reducePow]; omega)
             (by have := chainCount_le L.lay; have := c.isLt; simp only [Nat.reducePow]; omega) h1 (by omega) he
@@ -216,17 +214,6 @@ theorem isTestQ_iff_d {L : LeafAddr} {a : ChainAddr} (haL : a.key = L) (hac : a.
               exact hc
   · simp [isTestQ]
 
-theorem isTestQ_iff {L : LeafAddr} {a : ChainAddr} (haL : a.key = L) (hac : a.chain < chainCount L.lay)
-    (R : RefTables adversary) (T : Answers)
-    (hT : ∀ c : Fin (chainCount L.lay), depth T ⟨L, c⟩ = depth (restTable R) ⟨L, c⟩) (query : RefWorld.Domain) :
-    isTestQ L a (restDepth a R) (revSet L R) query ↔ ∃ x, query = .inl (.inr x) ∧ StepZeroUnrev L T x :=
-  isTestQ_iff_d haL hac R T hT _ (PrefixGame.restDepth_le a R) (restDepth_eq a R).symm query
-
-/-- The nonce answers of `restTable` do not depend on the tables (a free-variable `rfl`: proving it at
-`ov a (restDepth a R) R x` by `rfl` made the kernel unfold `restDepth`, ~120 s and ~8 GiB in kernel replay). -/
-theorem restTable_inl_inl {adv : AdversaryP} (R R' : RefTables adv) (n : ℕ) :
-    restTable R (.inl (.inl n)) = restTable R' (.inl (.inl n)) := rfl
-
 theorem leafAgree_ov {L : LeafAddr} {a : ChainAddr} (haL : a.key = L) (hac : a.chain < chainCount L.lay)
     (R : RefTables adversary) (x : Hidden (restDepth a R)) :
     LeafAgree L (restTable R) (restTable (PrefixGame.ov a (restDepth a R) R x)) := by
@@ -234,7 +221,7 @@ theorem leafAgree_ov {L : LeafAddr} {a : ChainAddr} (haL : a.key = L) (hac : a.c
     fun coord => PrefixGame.restTable_ov_private a R x coord
   refine ⟨fun q hq => ?_, fun o _ _ => ?_⟩
   · rcases q with (n | input) | coord
-    · exact restTable_inl_inl _ _ n
+    · rfl
     · apply PrefixGame.restTable_ov_nonprefix
       rw [PrefixGame.rowOf_none_iff]
       rintro ⟨step, value, hs, rfl⟩

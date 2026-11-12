@@ -1,6 +1,5 @@
 import SigGolfCandidate.Merge060
 import SigGolfCandidate.FtsExpandRun
-import SigGolfCandidate.FtsExpand16
 set_option debug.skipKernelTC true
 set_option linter.all false
 
@@ -84,10 +83,7 @@ theorem copyCodeAt_of {im : Image} {base : Nat} {words : List (BitVec 32)} (hb :
   have h := List.prefix_iff_getElem?.mp hc i hbound
   simpa only [List.getElem?_drop, hval] using h
 
-/-! ### Copy prefixes
-
-S5185 (FTS16, TIER2 E13): `copyPre j` now carries the level-2 site `jal zero, tramp2Of j` at `ecIdx j 3`; on A70 the
-old `copyPre` made all twelve `copyOk*` batches FALSE (`#eval`), the restated ones evaluate to true (3 x 128). -/
+/-! ### Copy prefixes -/
 
 def copyOkA (lo n : Nat) : Bool := (List.range' lo n).all fun j =>
   (Images.expandFtsCopyFirst.drop (32 * j)).take (SharedAProof.copyPre j).length == SharedAProof.copyPre j
@@ -256,152 +252,101 @@ theorem tramp_C (j : Nat) (hj : j < 128) : CodeAt Images.expandImage (pcOf (Shar
   exact tramp_code (by unfold SharedCProof.trampOf; omega)
     (by unfold SharedCProof.trampOf SharedCProof.cSlot TRAMP; omega) (trampWords_length ..) hw
 
-/-! ### S5185 (FTS16, TIER2 E12): the 384 level-2 trampolines
 
-`tramp2Of j` (57216 + 5 (128 f + cSlot j)) is `trampWords (tramp2Of j) (s2Base (hiSel j 3)) (site2C j + 1)`: the
-high-half search 57117 when `hiSel j 3` (bit 3 of `j` clear, even heap 16..30), else 57066 (`#eval`: 3 x 128 true). -/
+/-! ### Y5 #1: `SEARCH16`, `POST16` and the heap-16..31 trampolines (`Images.expandY5Code`, words 84000..) -/
 
-def tramp2OkA (lo n : Nat) : Bool := (List.range' lo n).all fun j =>
-  (Images.expandFts16Code.drop (SharedAProof.tramp2Of j - SigGolfCandidate.FtsGrind.FTS16)).take 5 ==
-    trampWords (SharedAProof.tramp2Of j) (SigGolfCandidate.FtsGrind.s2Base (SharedAProof.hiSel j 3))
-      (SharedAProof.site2C j + 1)
-def tramp2OkB (lo n : Nat) : Bool := (List.range' lo n).all fun j =>
-  (Images.expandFts16Code.drop (SharedBProof.tramp2Of j - SigGolfCandidate.FtsGrind.FTS16)).take 5 ==
-    trampWords (SharedBProof.tramp2Of j) (SigGolfCandidate.FtsGrind.s2Base (SharedBProof.hiSel j 3))
-      (SharedBProof.site2C j + 1)
-def tramp2OkC (lo n : Nat) : Bool := (List.range' lo n).all fun j =>
-  (Images.expandFts16Code.drop (SharedCProof.tramp2Of j - SigGolfCandidate.FtsGrind.FTS16)).take 5 ==
-    trampWords (SharedCProof.tramp2Of j) (SigGolfCandidate.FtsGrind.s2Base (SharedCProof.hiSel j 3))
-      (SharedCProof.site2C j + 1)
+theorem codeAt_y5Win : CodeAt Images.expandImage (pcOf 84000) Images.expandY5Code := by
+  apply codeAt_expand_lastR <;> decide +kernel
 
-theorem tramp2OkA_0 : tramp2OkA 0 32 = true := by decide +kernel
-theorem tramp2OkA_1 : tramp2OkA 32 32 = true := by decide +kernel
-theorem tramp2OkA_2 : tramp2OkA 64 32 = true := by decide +kernel
-theorem tramp2OkA_3 : tramp2OkA 96 32 = true := by decide +kernel
-theorem tramp2OkB_0 : tramp2OkB 0 32 = true := by decide +kernel
-theorem tramp2OkB_1 : tramp2OkB 32 32 = true := by decide +kernel
-theorem tramp2OkB_2 : tramp2OkB 64 32 = true := by decide +kernel
-theorem tramp2OkB_3 : tramp2OkB 96 32 = true := by decide +kernel
-theorem tramp2OkC_0 : tramp2OkC 0 32 = true := by decide +kernel
-theorem tramp2OkC_1 : tramp2OkC 32 32 = true := by decide +kernel
-theorem tramp2OkC_2 : tramp2OkC 64 32 = true := by decide +kernel
-theorem tramp2OkC_3 : tramp2OkC 96 32 = true := by decide +kernel
+theorem codeAt_search16 : CodeAt Images.expandImage (pcOf SigGolfCandidate.FtsGrind.SEARCH16)
+    SigGolfCandidate.FtsGrind.search16Words := by
+  have := codeAt_sub 0 codeAt_y5Win (seg := SigGolfCandidate.FtsGrind.search16Words) (by decide +kernel)
+    (by decide +kernel)
+  simpa [SigGolfCandidate.FtsGrind.SEARCH16] using this
 
-theorem tramp2_code {t : Nat} {ws : List (BitVec 32)} (hlo : SigGolfCandidate.FtsGrind.TRAMP2 ≤ t)
-    (hhi : t + 5 ≤ SigGolfCandidate.FtsGrind.TRAMP2 + 1920) (hlen : ws.length = 5)
-    (h : (Images.expandFts16Code.drop (t - SigGolfCandidate.FtsGrind.FTS16)).take 5 = ws) :
+theorem codeAt_post16 : CodeAt Images.expandImage (pcOf SigGolfCandidate.FtsGrind.POST16)
+    SigGolfCandidate.FtsGrind.post16Words := by
+  have := codeAt_sub 200 codeAt_y5Win (seg := SigGolfCandidate.FtsGrind.post16Words) (by decide +kernel)
+    (by decide +kernel)
+  simpa [SigGolfCandidate.FtsGrind.POST16] using this
+
+theorem codeAt_tramps16 : CodeAt Images.expandImage (pcOf SigGolfCandidate.FtsGrind.TRAMP16)
+    SigGolfCandidate.FtsGrind.expandTramp16Words := by
+  have := codeAt_sub 1000 codeAt_y5Win (seg := SigGolfCandidate.FtsGrind.expandTramp16Words) (by decide +kernel)
+    (by decide +kernel)
+  simpa [SigGolfCandidate.FtsGrind.TRAMP16] using this
+
+def tramp16OkA (lo n : Nat) : Bool := (List.range' lo n).all fun j =>
+  (SigGolfCandidate.FtsGrind.expandTramp16Words.drop (SharedAProof.tramp16Of j - SigGolfCandidate.FtsGrind.TRAMP16)).take 5 ==
+    trampWords (SharedAProof.tramp16Of j) SigGolfCandidate.FtsGrind.SEARCH16 (SharedAProof.site16C j + 1)
+def tramp16OkB (lo n : Nat) : Bool := (List.range' lo n).all fun j =>
+  (SigGolfCandidate.FtsGrind.expandTramp16Words.drop (SharedBProof.tramp16Of j - SigGolfCandidate.FtsGrind.TRAMP16)).take 5 ==
+    trampWords (SharedBProof.tramp16Of j) SigGolfCandidate.FtsGrind.SEARCH16 (SharedBProof.site16C j + 1)
+def tramp16OkC (lo n : Nat) : Bool := (List.range' lo n).all fun j =>
+  (SigGolfCandidate.FtsGrind.expandTramp16Words.drop (SharedCProof.tramp16Of j - SigGolfCandidate.FtsGrind.TRAMP16)).take 5 ==
+    trampWords (SharedCProof.tramp16Of j) SigGolfCandidate.FtsGrind.SEARCH16 (SharedCProof.site16C j + 1)
+
+theorem tramp16OkA_0 : tramp16OkA 0 32 = true := by decide +kernel
+theorem tramp16OkA_1 : tramp16OkA 32 32 = true := by decide +kernel
+theorem tramp16OkA_2 : tramp16OkA 64 32 = true := by decide +kernel
+theorem tramp16OkA_3 : tramp16OkA 96 32 = true := by decide +kernel
+theorem tramp16OkB_0 : tramp16OkB 0 32 = true := by decide +kernel
+theorem tramp16OkB_1 : tramp16OkB 32 32 = true := by decide +kernel
+theorem tramp16OkB_2 : tramp16OkB 64 32 = true := by decide +kernel
+theorem tramp16OkB_3 : tramp16OkB 96 32 = true := by decide +kernel
+theorem tramp16OkC_0 : tramp16OkC 0 32 = true := by decide +kernel
+theorem tramp16OkC_1 : tramp16OkC 32 32 = true := by decide +kernel
+theorem tramp16OkC_2 : tramp16OkC 64 32 = true := by decide +kernel
+theorem tramp16OkC_3 : tramp16OkC 96 32 = true := by decide +kernel
+
+theorem tramp16_code {t : Nat} {ws : List (BitVec 32)} (hlo : SigGolfCandidate.FtsGrind.TRAMP16 ≤ t)
+    (hhi : t + 5 ≤ SigGolfCandidate.FtsGrind.TRAMP16 + 1920) (hlen : ws.length = 5)
+    (h : (SigGolfCandidate.FtsGrind.expandTramp16Words.drop (t - SigGolfCandidate.FtsGrind.TRAMP16)).take 5 = ws) :
     CodeAt Images.expandImage (pcOf t) ws := by
-  have hl := SigGolfCandidate.FtsGrind.fts16_length
-  have hc := codeAt_sub (t - SigGolfCandidate.FtsGrind.FTS16) SigGolfCandidate.FtsGrind.codeAt_fts16
-    (by rw [hlen, hl]; unfold SigGolfCandidate.FtsGrind.TRAMP2 at hhi; unfold SigGolfCandidate.FtsGrind.FTS16; omega)
+  have hl : SigGolfCandidate.FtsGrind.expandTramp16Words.length = 1920 := by decide
+  have hc := codeAt_sub (t - SigGolfCandidate.FtsGrind.TRAMP16) codeAt_tramps16 (by rw [hlen, hl]; omega)
     (by rw [hlen]; exact h)
-  rwa [show SigGolfCandidate.FtsGrind.FTS16 + (t - SigGolfCandidate.FtsGrind.FTS16) = t by
-    unfold SigGolfCandidate.FtsGrind.TRAMP2 at hlo; unfold SigGolfCandidate.FtsGrind.FTS16; omega] at hc
+  rwa [show SigGolfCandidate.FtsGrind.TRAMP16 + (t - SigGolfCandidate.FtsGrind.TRAMP16) = t by omega] at hc
 
-theorem tramp2_A (j : Nat) (hj : j < 128) : CodeAt Images.expandImage (pcOf (SharedAProof.tramp2Of j))
-    (trampWords (SharedAProof.tramp2Of j) (SigGolfCandidate.FtsGrind.s2Base (SharedAProof.hiSel j 3))
-      (SharedAProof.site2C j + 1)) := by
-  have hw := of_batches (f := tramp2OkA) (P := fun j =>
-      (Images.expandFts16Code.drop (SharedAProof.tramp2Of j - SigGolfCandidate.FtsGrind.FTS16)).take 5 =
-        trampWords (SharedAProof.tramp2Of j) (SigGolfCandidate.FtsGrind.s2Base (SharedAProof.hiSel j 3))
-          (SharedAProof.site2C j + 1))
+theorem tramp16_A (j : Nat) (hj : j < 128) : CodeAt Images.expandImage (pcOf (SharedAProof.tramp16Of j))
+    (trampWords (SharedAProof.tramp16Of j) SigGolfCandidate.FtsGrind.SEARCH16 (SharedAProof.site16C j + 1)) := by
+  have hw := of_batches (f := tramp16OkA) (P := fun j =>
+      (SigGolfCandidate.FtsGrind.expandTramp16Words.drop (SharedAProof.tramp16Of j - SigGolfCandidate.FtsGrind.TRAMP16)).take 5 =
+        trampWords (SharedAProof.tramp16Of j) SigGolfCandidate.FtsGrind.SEARCH16 (SharedAProof.site16C j + 1))
     (fun lo n h j h1 h2 => by
       have := List.all_eq_true.mp h j (List.mem_range'_1.mpr ⟨h1, h2⟩)
       simpa only [beq_iff_eq] using this)
-    tramp2OkA_0 tramp2OkA_1 tramp2OkA_2 tramp2OkA_3 j hj
-  exact tramp2_code (by unfold SharedAProof.tramp2Of; omega)
-    (by unfold SharedAProof.tramp2Of SharedAProof.cSlot SigGolfCandidate.FtsGrind.TRAMP2; omega)
-    (trampWords_length ..) hw
+    tramp16OkA_0 tramp16OkA_1 tramp16OkA_2 tramp16OkA_3 j hj
+  exact tramp16_code (by unfold SharedAProof.tramp16Of; omega)
+    (by unfold SharedAProof.tramp16Of SharedAProof.cSlot SigGolfCandidate.FtsGrind.TRAMP16; omega) (trampWords_length ..) hw
 
-theorem tramp2_B (j : Nat) (hj : j < 128) : CodeAt Images.expandImage (pcOf (SharedBProof.tramp2Of j))
-    (trampWords (SharedBProof.tramp2Of j) (SigGolfCandidate.FtsGrind.s2Base (SharedBProof.hiSel j 3))
-      (SharedBProof.site2C j + 1)) := by
-  have hw := of_batches (f := tramp2OkB) (P := fun j =>
-      (Images.expandFts16Code.drop (SharedBProof.tramp2Of j - SigGolfCandidate.FtsGrind.FTS16)).take 5 =
-        trampWords (SharedBProof.tramp2Of j) (SigGolfCandidate.FtsGrind.s2Base (SharedBProof.hiSel j 3))
-          (SharedBProof.site2C j + 1))
+theorem tramp16_B (j : Nat) (hj : j < 128) : CodeAt Images.expandImage (pcOf (SharedBProof.tramp16Of j))
+    (trampWords (SharedBProof.tramp16Of j) SigGolfCandidate.FtsGrind.SEARCH16 (SharedBProof.site16C j + 1)) := by
+  have hw := of_batches (f := tramp16OkB) (P := fun j =>
+      (SigGolfCandidate.FtsGrind.expandTramp16Words.drop (SharedBProof.tramp16Of j - SigGolfCandidate.FtsGrind.TRAMP16)).take 5 =
+        trampWords (SharedBProof.tramp16Of j) SigGolfCandidate.FtsGrind.SEARCH16 (SharedBProof.site16C j + 1))
     (fun lo n h j h1 h2 => by
       have := List.all_eq_true.mp h j (List.mem_range'_1.mpr ⟨h1, h2⟩)
       simpa only [beq_iff_eq] using this)
-    tramp2OkB_0 tramp2OkB_1 tramp2OkB_2 tramp2OkB_3 j hj
-  exact tramp2_code (by unfold SharedBProof.tramp2Of; omega)
-    (by unfold SharedBProof.tramp2Of SharedBProof.cSlot SigGolfCandidate.FtsGrind.TRAMP2; omega)
-    (trampWords_length ..) hw
+    tramp16OkB_0 tramp16OkB_1 tramp16OkB_2 tramp16OkB_3 j hj
+  exact tramp16_code (by unfold SharedBProof.tramp16Of; omega)
+    (by unfold SharedBProof.tramp16Of SharedBProof.cSlot SigGolfCandidate.FtsGrind.TRAMP16; omega) (trampWords_length ..) hw
 
-theorem tramp2_C (j : Nat) (hj : j < 128) : CodeAt Images.expandImage (pcOf (SharedCProof.tramp2Of j))
-    (trampWords (SharedCProof.tramp2Of j) (SigGolfCandidate.FtsGrind.s2Base (SharedCProof.hiSel j 3))
-      (SharedCProof.site2C j + 1)) := by
-  have hw := of_batches (f := tramp2OkC) (P := fun j =>
-      (Images.expandFts16Code.drop (SharedCProof.tramp2Of j - SigGolfCandidate.FtsGrind.FTS16)).take 5 =
-        trampWords (SharedCProof.tramp2Of j) (SigGolfCandidate.FtsGrind.s2Base (SharedCProof.hiSel j 3))
-          (SharedCProof.site2C j + 1))
+theorem tramp16_C (j : Nat) (hj : j < 128) : CodeAt Images.expandImage (pcOf (SharedCProof.tramp16Of j))
+    (trampWords (SharedCProof.tramp16Of j) SigGolfCandidate.FtsGrind.SEARCH16 (SharedCProof.site16C j + 1)) := by
+  have hw := of_batches (f := tramp16OkC) (P := fun j =>
+      (SigGolfCandidate.FtsGrind.expandTramp16Words.drop (SharedCProof.tramp16Of j - SigGolfCandidate.FtsGrind.TRAMP16)).take 5 =
+        trampWords (SharedCProof.tramp16Of j) SigGolfCandidate.FtsGrind.SEARCH16 (SharedCProof.site16C j + 1))
     (fun lo n h j h1 h2 => by
       have := List.all_eq_true.mp h j (List.mem_range'_1.mpr ⟨h1, h2⟩)
       simpa only [beq_iff_eq] using this)
-    tramp2OkC_0 tramp2OkC_1 tramp2OkC_2 tramp2OkC_3 j hj
-  exact tramp2_code (by unfold SharedCProof.tramp2Of; omega)
-    (by unfold SharedCProof.tramp2Of SharedCProof.cSlot SigGolfCandidate.FtsGrind.TRAMP2; omega)
-    (trampWords_length ..) hw
+    tramp16OkC_0 tramp16OkC_1 tramp16OkC_2 tramp16OkC_3 j hj
+  exact tramp16_code (by unfold SharedCProof.tramp16Of; omega)
+    (by unfold SharedCProof.tramp16Of SharedCProof.cSlot SigGolfCandidate.FtsGrind.TRAMP16; omega) (trampWords_length ..) hw
 
-/- E8: the expand image's copy routines, trampolines and `SEARCH`. -/
-/-- VR8: the expand image's node-8 region (235776..243967, bank chunks 921..952), equal to the pre-VR8
-`expandSharedCode_921..952` (Merge060 `expand_node8_window`). -/
-def expandNode8 : List (BitVec 32) :=
-  ([Images.expandSharedCode_921, Images.expandSharedCode_922, Images.expandSharedCode_923,
-    Images.expandSharedCode_924, Images.expandSharedCode_925, Images.expandSharedCode_926,
-    Images.expandSharedCode_927, Images.expandSharedCode_928, Images.expandSharedCode_929,
-    Images.expandSharedCode_930, Images.expandSharedCode_931, Images.expandSharedCode_932,
-    Images.expandSharedCode_933, Images.expandSharedCode_934, Images.expandSharedCode_935,
-    Images.expandSharedCode_936, Images.expandSharedCode_937, Images.expandSharedCode_938,
-    Images.expandSharedCode_939, Images.expandSharedCode_940, Images.expandSharedCode_941,
-    Images.expandSharedCode_942, Images.expandSharedCode_943, Images.expandSharedCode_944,
-    Images.expandSharedCode_945, Images.expandSharedCode_946, Images.expandSharedCode_947,
-    Images.expandSharedCode_948, Images.expandSharedCode_949, Images.expandSharedCode_950,
-    Images.expandSharedCode_951, Images.expandSharedCode_952] : List (List (BitVec 32))).flatten
-theorem expandNode8_length : expandNode8.length = 8192 := by decide +kernel
-theorem codeAt_node8 : CodeAt Images.expandImage (pcOf 235776) expandNode8 := by
-  have hp : (pcOf 235776).toNat = 4096 + 4 * 235776 := by
-    simp [pcOf]
-  have hlen := expandNode8_length
-  refine ⟨by omega, by omega, by omega, ?_⟩
-  rw [hp, show (4096 + 4 * 235776 - 4096) / 4 = 235776 by omega]
-  unfold expandNode8
-  rw [← Images.expand_node8_window]
-  exact List.take_prefix 8192 _
-
-/-- VR8: the expand image keeps the pre-VR8 node-8 routines (`expandSharedCode_921 .. _952`); each
-`SharedCProof.childWords j` sits at `childBase j` (pattern of `copyCode_C`: batches of
-`(expandNode8.drop (64 * cSlot j)).take (childWords j).length = childWords j` plus one window check). -/
-def bankOkC (lo n : Nat) : Bool := (List.range' lo n).all fun j =>
-  (expandNode8.drop (64 * SharedCProof.cSlot j)).take (SharedCProof.childWords j).length ==
-    SharedCProof.childWords j
-
-theorem bankOkC_0 : bankOkC 0 32 = true := by decide +kernel
-theorem bankOkC_1 : bankOkC 32 32 = true := by decide +kernel
-theorem bankOkC_2 : bankOkC 64 32 = true := by decide +kernel
-theorem bankOkC_3 : bankOkC 96 32 = true := by decide +kernel
-
-theorem bankCode_C (j : Nat) (hj : j < 128) : SharedCProof.ChildCodeAt Images.expandImage j := by
-  have hw := of_batches (f := bankOkC) (P := fun j =>
-      (expandNode8.drop (64 * SharedCProof.cSlot j)).take (SharedCProof.childWords j).length =
-        SharedCProof.childWords j)
-    (fun lo n h j h1 h2 => by
-      have := List.all_eq_true.mp h j (List.mem_range'_1.mpr ⟨h1, h2⟩)
-      simpa only [beq_iff_eq] using this)
-    bankOkC_0 bankOkC_1 bankOkC_2 bankOkC_3 j hj
-  have hl : 64 * SharedCProof.cSlot j + (SharedCProof.childWords j).length ≤ expandNode8.length := by
-    have := congrArg List.length hw
-    rw [List.length_take, List.length_drop] at this
-    have hs := cSlotC_lt j hj
-    rw [expandNode8_length] at this ⊢
-    omega
-  have hc := codeAt_sub (64 * SharedCProof.cSlot j) codeAt_node8 hl hw
-  have hs := cSlotC_lt j hj
-  have hb : SharedCProof.childBase j = 235776 + 64 * SharedCProof.cSlot j := rfl
-  rw [← hb] at hc
-  exact copyCodeAt_of (by rw [hb]; omega) hc
+/-- E8 and Y5 #1: the expand image's copy routines, trampolines, `SEARCH` and `SEARCH16`. -/
 theorem installed_copies : CopyCodes Images.expandImage :=
-  ⟨codeAt_search, copyCode_A, copyCode_B, copyCode_C, bankCode_C, tramp_A, tramp_B, tramp_C,
-    SigGolfCandidate.FtsGrind.codeAt_search2, tramp2_A, tramp2_B, tramp2_C⟩
+  ⟨codeAt_search, copyCode_A, copyCode_B, copyCode_C, tramp_A, tramp_B, tramp_C, codeAt_search16, tramp16_A,
+    tramp16_B, tramp16_C⟩
 
 end W9Drv.SharedBank

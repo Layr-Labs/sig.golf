@@ -987,7 +987,7 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 
--- T51: invalid_front (#938's adapter reject path) deleted: DEC rejects a hint >= 8464 itself (PrePass.dec_reject).
+-- T51: invalid_front (#938's adapter reject path) deleted: DEC rejects a hint >= 8192 itself (PrePass.dec_reject).
 end ClaudeWCT.W9.Machine.Expand.SharedCompact
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedFront
@@ -1554,7 +1554,7 @@ open ClaudeWCT.W9.T3M
 set_option maxHeartbeats 1500000
 set_option maxRecDepth 10000
 
-/-- N7g: DEC also rewrites slot 0 (`N / 5852`), so its region starts at `0x7000` (was `0x70b0`). -/
+/-- N7g: DEC also rewrites slot 0 (`N / 360`), so its region starts at `0x7000` (was `0x70b0`). -/
 def Work (A : Nat) : Prop :=
   A=SharedCompact.policyAddress ∨ (0x7000≤A ∧ A<0x84c0) ∨ Writes A
 
@@ -1637,7 +1637,7 @@ structure Searched (s0:MachineState) (b:SharedCodec.CBytes)
   result : match r with
     | none => s.pc=pcOf (SharedDigest.fail true)
     | some (c,a) => s.pc=pcOf (SharedDigest.accepted true) ∧ s.getReg .x19=BitVec.ofNat 64 c.toNat ∧
-      c.toNat < 2^21 ∧ SigGolfCandidate.Research.SharedForest.digestAccepted a=true ∧ OutAt s SigGolfCandidate.T3M.Search.NBUF a
+      c.toNat < (11*2^17) ∧ SigGolfCandidate.Research.SharedForest.digestAccepted a=true ∧ OutAt s SigGolfCandidate.T3M.Search.NBUF a
 
   resultR17 : match r with
     | none => True
@@ -1647,8 +1647,8 @@ theorem search_prepared {im:Image} {sk:BitVec 256} [DigestLabel.Code im true]
     (hl:SigGolfCandidate.T3M.Verify.LookOK im (SharedDigest.look true))
     {s0 s:MachineState} {message:SigGolfCandidate.T3.Message} {b:SharedCodec.CBytes}
     (hp:Prepared s0 message b s) :
-    TBSim im sk s (2^21*200+12)
-      (SigGolfCandidate.Research.SharedForest.sharedDigestSearch (SharedCodec.sigDecC b).rho message 0 (2^21))
+    TBSim im sk s ((11*2^17)*200+12)
+      (SigGolfCandidate.Research.SharedForest.sharedDigestSearch (SharedCodec.sigDecC b).rho message 0 ((11*2^17)))
       (Searched s0 b) := by
   have hpre:SharedDigest.Pre true (SharedCodec.sigDecC b).rho message s:=
     ⟨hp.x5,hp.rho,hp.msg,hp.data.tables⟩
@@ -1815,14 +1815,20 @@ theorem layer_inv {b : SharedCodec.CBytes} {s t : MachineState} {index : Nat} {p
     (hc32 : ∃x<2^32,s.getMem (BitVec.ofNat 64 (ENC+32))=BitVec.ofNat 64 x)
     (hz : SigGolfCandidate.T3M.Expand.BC.LZero s)
     (htab : Search.TableOK s) (hcf : Search.CfTableOK 0 s) (hrew : Search.Reward.RewardTablesOK s)
-    (hhint : (SharedCodec.sigDecC b).policyHints.toNat<8464)
+    (hhint : (SharedCodec.sigDecC b).policyHints.toNat<12288)
     (hhmem : s.getMem 0x66000=BitVec.ofNat 64 (SharedCodec.sigDecC b).policyHints.toNat)
     (hzt : SigGolfCandidate.T3M.Search.ZeroCap.ZtOK 354 s)
     (ht51 : SigGolfCandidate.T3M.Search.T51.T51TableW 0xFF9E00 s) :
     SigGolfCandidate.T3M.Expand.SharedLayers.LInv (SharedForest.mainSignature (SharedCodec.sigDecC b))
       (SharedCodec.sigDecC b).policyHints index 4 (.pair pair.1 pair.2) t := by
   have keep (A : Nat) (ha : A<2^64) (hw : ¬Writes A) := hf.get ha hw
-  refine ⟨⟨hp,by decide,h5,hi,?_,?_,?_,?_,?_,main_readout hin hmove,?_,?_,?_,?_⟩,by omega,?_,?_,?_⟩
+  -- Y5: a decoded hint `< 8192` is canonical, hence `packH (N % 360) ≤ 7934`
+  have h8000 : (SharedCodec.sigDecC b).policyHints.toNat<12288 := by
+    have h1 := (SharedCodec.policyHints_sigDecC_ge_iff b).not.mp (by omega)
+    have h2 := SharedCodec.packH_le_9671 _ (Nat.mod_lt (SharedCodec.nOfB b) (show 0 < 360 by decide))
+    rw [SharedCodec.policyHints_sigDecC_toNat, SharedCodec.hintOfN, if_pos (by omega)]
+    omega
+  refine ⟨⟨hp,by decide,h5,hi,?_,?_,?_,?_,?_,main_readout hin hmove,?_,?_,?_,?_⟩,h8000,?_,?_,?_⟩
   · exact (keep _ (by decide) (by unfold Writes; decide)).trans hidx
   · exact ⟨(hroots 0 (by simp)).trans hL.1,(hroots 8 (by simp)).trans hL.2⟩
   · intro _
@@ -1963,10 +1969,10 @@ theorem counter_of_length {im : Image} (hlen : im.data.length=29936)
   apply zero hlen (dataBase_of_length hlen) m pk b <;> simp only [ENC,DB0] <;> omega
 
 theorem initial_thresholds (m : Message) (pk : PublicKey) (b : ClaudeWCT.W9.T3M.SharedCodec.CBytes) :
-    (∀r,r<57 → (w9init Images.expandImage m pk b).getByte (BitVec.ofNat 64 (16749456+r))=
-      BitVec.ofNat 8 (ClaudeWCT.WCT9.CanonicalPolicy.threshold 1 r)) ∧
+    (∀r,r<58 → (w9init Images.expandImage m pk b).getByte (BitVec.ofNat 64 (16749456+r))=
+      BitVec.ofNat 8 (ClaudeWCT.WCT9.Policy75Safe23.threshold 1 r)) ∧
     (∀r,r<42 → (w9init Images.expandImage m pk b).getByte (BitVec.ofNat 64 (16749520+r))=
-      BitVec.ofNat 8 (ClaudeWCT.WCT9.CanonicalPolicy.threshold 2 r)) := by
+      BitVec.ofNat 8 (ClaudeWCT.WCT9.Policy75Safe23.threshold 2 r)) := by
   have h : SharedValidate.Tables (w9init Images.expandImage m pk b) := initial_data m pk b
   exact ⟨h.first,h.second⟩
 
@@ -2724,7 +2730,7 @@ theorem submission_sign_valid :
   rw [submission_sign, submission_sizes, submission_layout]
   rw [Riscv.Image.Valid]
   rw [Riscv.Image.byteSize,
-    show Images.signImage.code.length = 26163 from Images.signCode_length,
+    show Images.signImage.code.length = 26156 from Images.signCode_length,
     show Images.signImage.data.length = 86144 from Images.signData_length]
   rw [layoutValid_of_data_length _ _ _ 86144 Images.signData_length]
   decide +kernel
@@ -2764,11 +2770,11 @@ namespace SigGolfCandidate.T3M.Paired
 open SigGolfCandidate.Legacy
 
 def submission : Submission where
-  sizes := ⟨5185, 21756, 131072⟩
+  sizes := ⟨5186, 21756, 131072⟩
   layout := ⟨0x65A0, 0x80, 0xa0, 0x80000, 0x7000, 0x10A0⟩
   image := SigGolfCandidate.T3M.submission.image
 
-@[simp] theorem submission_sizes : submission.sizes = ⟨5185, 21756, 131072⟩ := rfl
+@[simp] theorem submission_sizes : submission.sizes = ⟨5186, 21756, 131072⟩ := rfl
 @[simp] theorem submission_layout : submission.layout = ⟨0x65A0, 0x80, 0xa0, 0x80000, 0x7000, 0x10A0⟩ := rfl
 @[simp] theorem submission_image : submission.image = SigGolfCandidate.T3M.submission.image := rfl
 @[simp] theorem submission_keygen : submission.image .keygen = Images.keygenImage := rfl
@@ -2795,7 +2801,7 @@ theorem submission_sign_valid :
   rw [submission_sign, submission_sizes, submission_layout]
   rw [Riscv.Image.Valid]
   rw [Riscv.Image.byteSize,
-    show Images.signImage.code.length = 26163 from Images.signCode_length,
+    show Images.signImage.code.length = 26156 from Images.signCode_length,
     show Images.signImage.data.length = 86144 from Images.signData_length]
   rw [layoutValid_of_data_length _ _ _ 86144 Images.signData_length]
   decide +kernel

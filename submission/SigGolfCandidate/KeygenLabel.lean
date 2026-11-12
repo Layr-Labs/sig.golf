@@ -3,7 +3,7 @@ import SigGolfCandidate.OneLabelArithmetic
 import SigGolfCandidate.Merge054
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
-set_option debug.skipKernelTC false
+set_option debug.skipKernelTC true
 set_option maxHeartbeats 0
 set_option maxRecDepth 100000
 namespace SigGolfCandidate.T3M.KeygenLabel

@@ -854,58 +854,19 @@ theorem rejected_hit_capFail {labels : Labels} {m node : Node} (hpos : m.toPos =
       have hspec := wSelNonce_spec labels mn
       have hS := wSelNonce_lt labels mn
       have hcapmax := wTrialCap_le mn.1.coord.val mn.1.level.val
-      by_cases h3 : mn.1.level.val = 3
-      · have hproj : ∀ y, Extract.Paired.proj (Node.wctNode mn).toPos y = y.extractLsb' 0 128 := by
-          intro y
-          show Extract.Paired.proj (.wctNode mn.1.index.val mn.1.coord.val mn.1.level.val mn.1.idx.val) y = _
-          rw [h3, Extract.Paired.proj_level3]
-        rw [hproj, hproj] at heq
-        have hfail_eq : wTrialFails labels mn (wSelNonce labels mn) ↔ wTrialFails labels mn mn.1.nonce.val := by
+      by_cases h3 : Extract.Paired.ftsNonceLevel mn.1.coord.val mn.1.level.val
+      · have hfail_eq : wTrialFails labels mn (wSelNonce labels mn) ↔ wTrialFails labels mn mn.1.nonce.val := by
           unfold wTrialFails
-          simp only [if_pos h3]
           rw [wWithNonce_self]
-          change _ ↔ WCT9.ftsZeroOk _ _ ((labels (.wctNode mn)).extractLsb' 0 128) = false
-          rw [heq]
-          rfl
+          change WCT9.ftsZeroOk _ _ (Extract.Paired.proj (Node.wctNode mn).toPos
+            (labels (.wctNode (wSelNode labels mn)))) = false ↔ _
+          rw [← heq]
         rcases Nat.lt_or_gt_of_ne hk with hlt | hgt
         · have hfk : wTrialFails labels mn mn.1.nonce.val := hspec.1 _ hlt
           have hfS := hfail_eq.2 hfk
           rcases hspec.2 with hpass | hlast
           · exact absurd hfS hpass
-          · refine Or.inr ⟨wWithNonce mn 0, show wGround _ _ from Or.inl h3, wWithNonce_nonce mn (by omega), fun j hj => ?_⟩
-            change wTrialFails labels mn j
-            rcases Nat.lt_or_ge j (wSelNonce labels mn) with hj' | hj'
-            · exact hspec.1 j hj'
-            · have : j = wSelNonce labels mn := by
-                change j < wTrialCap mn.1.coord.val mn.1.level.val at hj
-                omega
-              rw [this]; exact hfS
-        · have hfS : wTrialFails labels mn (wSelNonce labels mn) := ha.2 _ hgt
-          rcases hspec.2 with hpass | hlast
-          · exact absurd hfS hpass
-          · exfalso
-            have := ha.1
-            omega
-      by_cases h2 : mn.1.level.val = 2 ∧ mn.1.coord.val ≤ 7
-      · have hproj : ∀ y, Extract.Paired.proj (Node.wctNode mn).toPos y =
-            WCT9.ftsHalf (2 ^ (6 - mn.1.level.val) + mn.1.idx.val) y := by
-          intro y
-          show Extract.Paired.proj (.wctNode mn.1.index.val mn.1.coord.val mn.1.level.val mn.1.idx.val) y = _
-          rw [h2.1, Extract.Paired.proj_wctNode_packed mn.1.index.val mn.1.coord.val 2 mn.1.idx.val (by norm_num)
-            (by have hv := mn.2; unfold WctNodeRaw.Valid at hv; rw [h2.1] at hv; norm_num at hv ⊢; omega)]
-        rw [hproj, hproj] at heq
-        have hfail_eq : wTrialFails labels mn (wSelNonce labels mn) ↔ wTrialFails labels mn mn.1.nonce.val := by
-          unfold wTrialFails
-          rw [if_neg h3, if_neg h3, wWithNonce_self]
-          change _ ↔ WCT9.ftsZeroOk _ _ (WCT9.ftsHalf (2 ^ (6 - mn.1.level.val) + mn.1.idx.val) (labels (.wctNode mn))) = false
-          rw [heq]
-          rfl
-        rcases Nat.lt_or_gt_of_ne hk with hlt | hgt
-        · have hfk : wTrialFails labels mn mn.1.nonce.val := hspec.1 _ hlt
-          have hfS := hfail_eq.2 hfk
-          rcases hspec.2 with hpass | hlast
-          · exact absurd hfS hpass
-          · refine Or.inr ⟨wWithNonce mn 0, show wGround _ _ from Or.inr h2, wWithNonce_nonce mn (by omega), fun j hj => ?_⟩
+          · refine Or.inr ⟨wWithNonce mn 0, h3, wWithNonce_nonce mn (by omega), fun j hj => ?_⟩
             change wTrialFails labels mn j
             rcases Nat.lt_or_ge j (wSelNonce labels mn) with hj' | hj'
             · exact hspec.1 j hj'
@@ -920,7 +881,7 @@ theorem rejected_hit_capFail {labels : Labels} {m node : Node} (hpos : m.toPos =
             have := ha.1
             omega
       · exfalso
-        have h1 := wTrialCap_off (coord := mn.1.coord.val) h3 h2
+        have h1 := wTrialCap_off (coord := mn.1.coord.val) h3
         have := ha.1
         omega
   | _ =>
@@ -1039,104 +1000,49 @@ theorem topTrial_cell {T : Answers} {labels : CanonGraph.Labels} (h : CanonGraph
   simp only [CanonGraph.withNonce_lay, CanonGraph.withNonce_tree, CanonGraph.withNonce_level,
     CanonGraph.withNonce_idx]
   rw [hlay, htree, hlv, hidx, hL, hR]
-/-- E8: under agreement, a rejected FTS ground trial (level 3, heap `8+c`) is the cell of an active FTS
-trial node. -/
-theorem ftsTrial_cell_low {T : Answers} {labels : CanonGraph.Labels} (h : CanonGraph.Paired.Agrees T labels)
-    {index coord c k : Nat} (hi : index < 2 ^ 31) (hco : coord < 9) (hc : c < 8)
-    (hk : k < Extract.Paired.honestFtsNonce T index coord (8 + c)) :
-    ∃ m : CanonGraph.Node, pad64 (WCT9.wctTopInput coord index (8 + c)
-        ((Extract.Paired.nodes T index coord).getD (2 * (8 + c)) 0)
-        (BitVec.ofNat 128 (k % 2 ^ 64)) ((Extract.Paired.nodes T index coord).getD (2 * (8 + c) + 1) 0)) =
-      CanonGraph.Paired.cell (CanonGraph.secretsOf T) m labels := by
-  obtain ⟨n, hn, hni, hnc, hnl, hnx⟩ :=
-    CanonGraph.ftsNodeAt_some ⟨index, hi⟩ ⟨coord, hco⟩ 3 c (by decide) (by norm_num; omega)
-  have htl : 3 ≤ CanonGraph.Paired.topLevel ⟨coord, hco⟩ := by
-    unfold CanonGraph.Paired.topLevel; split_ifs <;> omega
-  have hL := CanonGraph.Paired.actual_nodes_label T labels h ⟨index, hi⟩ ⟨coord, hco⟩ 3 (2*c) htl
-    (by norm_num; omega)
-  have hR := CanonGraph.Paired.actual_nodes_label T labels h ⟨index, hi⟩ ⟨coord, hco⟩ 3 (2*c+1) htl
-    (by norm_num; omega)
-  have e1 : 2*(8+c) = 2^(7-3)+2*c := by norm_num; omega
-  have e2 : 2*(8+c)+1 = 2^(7-3)+(2*c+1) := by norm_num; omega
-  have hfs := CanonGraph.Paired.fts_step T labels h ⟨index, hi⟩ ⟨coord, hco⟩ c hc n hn
-  have hsel : Extract.Paired.honestFtsNonce T index coord (8+c) = CanonGraph.wSelNonce labels n := by
-    unfold Extract.Paired.honestFtsNonce
-    rw [e2, e1]
-    erw [hL, hR]
-    exact congrArg Prod.fst hfs
-  rw [hsel] at hk
-  have ha := CanonGraph.wActive_trial_of_le (labels := labels) (n := n) hk.le
-  have hs := CanonGraph.wSelNonce_lt labels n
-  have hcl := CanonGraph.wTrialCap_le n.1.coord.val n.1.level.val
-  refine ⟨.wctNode (CanonGraph.wWithNonce n k), ?_⟩
-  rw [CanonGraph.Paired.cell_wctNode_active ha, CanonGraph.wWithNonce_nonce n (by omega)]
-  simp only [CanonGraph.wWithNonce_index, CanonGraph.wWithNonce_coord, CanonGraph.wWithNonce_level,
-    CanonGraph.wWithNonce_idx, hni, hnc, hnl, hnx, if_neg (show (3:Nat) ≠ 4 by decide), if_pos (rfl : (3:Nat) = 3)]
-  rw [e2, e1]
-  erw [hL, hR]
-  rfl
-
-/-- S5185 (FTS16): under agreement, a rejected FTS ground trial (level 2, heap `16+c`, `coord ≤ 7`) is the cell
-of an active FTS trial node (level-2 analogue of `ftsTrial_cell_low`, via `fts_step16`). -/
-theorem ftsTrial_cell_high {T : Answers} {labels : CanonGraph.Labels} (h : CanonGraph.Paired.Agrees T labels)
-    {index coord c k : Nat} (hi : index < 2 ^ 31) (hco : coord ≤ 7) (hc : c < 16)
-    (hk : k < Extract.Paired.honestFtsNonce T index coord (16 + c)) :
-    ∃ m : CanonGraph.Node, pad64 (WCT9.wctTopInput coord index (16 + c)
-        ((Extract.Paired.nodes T index coord).getD (2 * (16 + c)) 0)
-        (BitVec.ofNat 128 (k % 2 ^ 64)) ((Extract.Paired.nodes T index coord).getD (2 * (16 + c) + 1) 0)) =
-      CanonGraph.Paired.cell (CanonGraph.secretsOf T) m labels := by
-  have hco9 : coord < 9 := by omega
-  obtain ⟨n, hn, hni, hnc, hnl, hnx⟩ :=
-    CanonGraph.ftsNodeAt_some ⟨index, hi⟩ ⟨coord, hco9⟩ 2 c (by decide) (by norm_num; omega)
-  have htl : 2 ≤ CanonGraph.Paired.topLevel ⟨coord, hco9⟩ := by
-    unfold CanonGraph.Paired.topLevel; split_ifs <;> omega
-  have hL := CanonGraph.Paired.actual_nodes_label T labels h ⟨index, hi⟩ ⟨coord, hco9⟩ 2 (2*c) htl
-    (by norm_num; omega)
-  have hR := CanonGraph.Paired.actual_nodes_label T labels h ⟨index, hi⟩ ⟨coord, hco9⟩ 2 (2*c+1) htl
-    (by norm_num; omega)
-  have e1 : 2*(16+c) = 2^(7-2)+2*c := by norm_num; omega
-  have e2 : 2*(16+c)+1 = 2^(7-2)+(2*c+1) := by norm_num; omega
-  have hfs := CanonGraph.Paired.fts_step16 T labels h ⟨index, hi⟩ ⟨coord, hco9⟩ hco c hc n hn
-  have hsel : Extract.Paired.honestFtsNonce T index coord (16+c) = CanonGraph.wSelNonce labels n := by
-    unfold Extract.Paired.honestFtsNonce
-    rw [e2, e1]
-    erw [hL, hR]
-    exact congrArg Prod.fst hfs
-  rw [hsel] at hk
-  have ha := CanonGraph.wActive_trial_of_le (labels := labels) (n := n) hk.le
-  have hs := CanonGraph.wSelNonce_lt labels n
-  have hcl := CanonGraph.wTrialCap_le n.1.coord.val n.1.level.val
-  refine ⟨.wctNode (CanonGraph.wWithNonce n k), ?_⟩
-  rw [CanonGraph.Paired.cell_wctNode_active ha, CanonGraph.wWithNonce_nonce n (by omega)]
-  simp only [CanonGraph.wWithNonce_index, CanonGraph.wWithNonce_coord, CanonGraph.wWithNonce_level,
-    CanonGraph.wWithNonce_idx, hni, hnc, hnl, hnx, if_neg (show (2:Nat) ≠ 4 by decide),
-    if_pos (show (2:Nat) = 3 ∨ (2:Nat) = 2 from Or.inr rfl)]
-  rw [e2, e1]
-  erw [hL, hR]
-  rfl
-
-/-- E8: under agreement, a rejected FTS ground trial is the cell of an active FTS trial node. S5185 (FTS16):
-also covers the level-2 (heap `16+c`, `coord ≤ 7`) rejected trials. -/
+/-- E8: under agreement, a rejected FTS ground trial is the cell of an active FTS trial node (Y7: on both ground
+levels, heap `2^(6-level) + c`). -/
 theorem ftsTrial_cell {T : Answers} {labels : CanonGraph.Labels} (h : CanonGraph.Paired.Agrees T labels)
     {x : HashInput} (ht : FtsTrial T x) :
-    ∃ m : CanonGraph.Node, x = CanonGraph.Paired.cell (CanonGraph.secretsOf T) m labels :=
-  match (ht : FtsTrialLo T x ∨ FtsTrialHi T x) with
-  | Or.inl h1 =>
-      let ⟨zi, zco, zc, zk, zhi, zhco, zhc, zhk, zhx⟩ :=
-        (h1 : ∃ (index coord c k : Nat), index < 2 ^ 31 ∧ coord < 9 ∧ c < 8 ∧
-          k < Extract.Paired.honestFtsNonce T index coord (8 + c) ∧
-          x = pad64 (WCT9.wctTopInput coord index (8 + c) ((Extract.Paired.nodes T index coord).getD (2 * (8 + c)) 0)
-            (BitVec.ofNat 128 (k % 2 ^ 64)) ((Extract.Paired.nodes T index coord).getD (2 * (8 + c) + 1) 0)))
-      let ⟨m, hm⟩ := ftsTrial_cell_low h zhi zhco zhc zhk
-      ⟨m, zhx.trans hm⟩
-  | Or.inr h2 =>
-      let ⟨zi, zco, zc, zk, zhi, zhco, zhc, zhk, zhx⟩ :=
-        (h2 : ∃ (index coord c k : Nat), index < 2 ^ 31 ∧ coord ≤ 7 ∧ c < 16 ∧
-          k < Extract.Paired.honestFtsNonce T index coord (16 + c) ∧
-          x = pad64 (WCT9.wctTopInput coord index (16 + c) ((Extract.Paired.nodes T index coord).getD (2 * (16 + c)) 0)
-            (BitVec.ofNat 128 (k % 2 ^ 64)) ((Extract.Paired.nodes T index coord).getD (2 * (16 + c) + 1) 0)))
-      let ⟨m, hm⟩ := ftsTrial_cell_high h zhi zhco zhc zhk
-      ⟨m, zhx.trans hm⟩
+    ∃ m : CanonGraph.Node, x = CanonGraph.Paired.cell (CanonGraph.secretsOf T) m labels := by
+  obtain ⟨index, coord, heap, k, hi, hco, hg, hk, rfl⟩ := ht
+  obtain ⟨level, c, hc, rfl, hnl⟩ : ∃ level c, c < 2 ^ (6 - level) ∧ heap = 2 ^ (6 - level) + c ∧
+      Extract.Paired.ftsNonceLevel coord level := by
+    have h8 := WCT9.ftsGround_ge8 hg
+    by_cases h16 : heap < 16
+    · exact ⟨3, heap - 8, by norm_num; omega, by norm_num; omega, Or.inl rfl⟩
+    · have h32 : heap < 32 ∧ coord < 4 := by unfold WCT9.ftsGround at hg; omega
+      exact ⟨2, heap - 16, by norm_num; omega, by norm_num; omega, Or.inr ⟨rfl, h32.2⟩⟩
+  have h23 := Extract.Paired.ftsNonceLevel_le hnl
+  obtain ⟨n, hn, hni, hnc, hnl', hnx⟩ :=
+    CanonGraph.ftsNodeAt_some ⟨index, hi⟩ ⟨coord, hco⟩ level c (by omega)
+      (by rwa [show 7 - level - 1 = 6 - level by omega])
+  have htl : level ≤ CanonGraph.Paired.topLevel ⟨coord, hco⟩ := by
+    unfold CanonGraph.Paired.topLevel; split_ifs <;> omega
+  have hpow : 2 ^ (7 - level) = 2 * 2 ^ (6 - level) := by
+    rw [← pow_succ']; congr 1; omega
+  have hL := CanonGraph.Paired.actual_nodes_label T labels h ⟨index, hi⟩ ⟨coord, hco⟩ level (2*c) htl (by omega)
+  have hR := CanonGraph.Paired.actual_nodes_label T labels h ⟨index, hi⟩ ⟨coord, hco⟩ level (2*c+1) htl (by omega)
+  have e1 : 2*(2^(6-level)+c) = 2^(7-level)+2*c := by omega
+  have e2 : 2*(2^(6-level)+c)+1 = 2^(7-level)+(2*c+1) := by omega
+  have hfs := CanonGraph.Paired.fts_step T labels h ⟨index, hi⟩ ⟨coord, hco⟩ level c hnl hc n hn
+  have hsel : Extract.Paired.honestFtsNonce T index coord (2^(6-level)+c) = CanonGraph.wSelNonce labels n := by
+    unfold Extract.Paired.honestFtsNonce
+    rw [e2, e1]
+    erw [hL, hR]
+    exact congrArg Prod.fst hfs
+  rw [hsel] at hk
+  have ha := CanonGraph.wActive_trial_of_le (labels := labels) (n := n) hk.le
+  have hs := CanonGraph.wSelNonce_lt labels n
+  have hcl := CanonGraph.wTrialCap_le n.1.coord.val n.1.level.val
+  refine ⟨.wctNode (CanonGraph.wWithNonce n k), ?_⟩
+  rw [CanonGraph.Paired.cell_wctNode_active ha, CanonGraph.wWithNonce_nonce n (by omega)]
+  simp only [CanonGraph.wWithNonce_index, CanonGraph.wWithNonce_coord, CanonGraph.wWithNonce_level,
+    CanonGraph.wWithNonce_idx, hni, hnc, hnl', hnx, show 7 - level - 1 = 6 - level by omega,
+    if_neg (show level ≠ 4 by omega), if_pos hnl]
+  rw [e2, e1]
+  erw [hL, hR]
+  rfl
 theorem Variant.honest {labels : CanonGraph.Labels} {T T' : Answers} (hv : Variant labels T T') :
     ∀ q, HonestQuery T q → T q = T' q
   | .inl (.inl n), _ => hv.coin n
@@ -1374,8 +1280,7 @@ theorem topHigh_short (coord index heap : Nat) (left pad right : Digest) :
 /-! E8: the FTS ground search respects short agreement. -/
 theorem ftsNodeHashN_short (coord index heap n : Nat) (left right : Digest) :
     ShortRespects (WCT9.ftsNodeHashN coord index heap n left right) := by
-  unfold WCT9.ftsNodeHashN
-  rw [WCT9.ftsNodeInputN_eq_top, WCT9.ftsHash_eq]
+  unfold WCT9.ftsNodeHashN; rw [WCT9.ftsNodeInputN_eq_top, WCT9.ftsHash_eq]
   split
   · exact topHigh_short _ _ _ _ _ _
   · exact topLow_short _ _ _ _ _ _
@@ -8588,7 +8493,7 @@ theorem msgVals_congr (v w : Coord → Digest) (L : EncLeaf) (h : ∀ c ∈ Larg
       subst hm
       unfold msgSlots at hcs
       split_ifs at hcs <;> simp only [List.mem_cons, List.not_mem_nil, or_false, Prod.mk.injEq] at hcs <;>
-        rcases hcs with ⟨h, -⟩ | ⟨h, -⟩ <;> cases h <;> exact ⟨wTrialCap_off (by show (5:Nat) ≠ 3; decide) (fun h => absurd h.1 (by show (5:Nat) ≠ 2; decide)), rfl⟩
+        rcases hcs with ⟨h, -⟩ | ⟨h, -⟩ <;> cases h <;> exact ⟨wTrialCap_off (by show ¬ Extract.Paired.ftsNonceLevel _ 5; unfold Extract.Paired.ftsNonceLevel; omega), rfl⟩
     rw [LargeResidual.selCoordV_congr cs.1 hs (fun n hn h1 => absurd (hmw n hn).1 h1)]
     apply h
     rcases cs with ⟨(_ | _ | m | _ | _ | m | _) | x, b⟩
@@ -9146,23 +9051,15 @@ theorem multi_childSlots_keygen {n : TreeNode} (h1 : trialCap n.1.lay n.1.level.
 /-- E8: the child slots of an FTS ground position are keygen coordinates. -/
 theorem wGround_childSlots_keygen {n : WctNodePos} (h1 : wTrialCap n.1.coord.val n.1.level.val ≠ 1)
     {cs : Coord × Nat} (hc : cs ∈ childSlots (.wctNode n)) : cs.1 ∈ keygenDisclosed := by
-  have hg : n.1.level.val = 3 ∨ (n.1.level.val = 2 ∧ n.1.coord.val ≤ 7) := by
-    by_contra h; push_neg at h; exact h1 (wTrialCap_off h.1 (fun h2 => by have := h.2 h2.1; omega))
-  rcases hg with h3 | h2
-  swap
-  · by_cases hov : wTrialCap n.1.coord.val n.1.level.val ≤ n.1.nonce.val
-    · simp only [childSlots, if_pos hov] at hc; cases hc
-    have hov' : ¬ wTrialCap n.1.coord.val 2 ≤ n.1.nonce.val := h2.1 ▸ hov
-    have heq : childSlots (.wctNode n) = LargeResidual.childSlots (.wctNode n) := by
-      simp [childSlots, LargeResidual.childSlots, h2.1, hov', ftsChild, LargeResidual.ftsChild]
-    rw [heq] at hc
-    exact ClaudeWCT.W9.T3.Security.LargeResidual.wGround_mem_keygen h1
-      (List.mem_append_right _ (List.mem_map.mpr ⟨cs, hc, rfl⟩))
+  have h23 : 2 ≤ n.1.level.val ∧ n.1.level.val ≤ 3 := by
+    by_contra h; exact h1 (wTrialCap_off (fun hl => h (Extract.Paired.ftsNonceLevel_le hl)))
   by_cases hov : wTrialCap n.1.coord.val n.1.level.val ≤ n.1.nonce.val
   · simp only [childSlots, if_pos hov] at hc; cases hc
-  have hov' : ¬ wTrialCap n.1.coord.val 3 ≤ n.1.nonce.val := h3 ▸ hov
+  have h0 : n.1.level.val ≠ 0 := by omega
+  have h4 : n.1.level.val ≠ 4 := by omega
+  have h5 : n.1.level.val ≠ 5 := by omega
   have heq : childSlots (.wctNode n) = LargeResidual.childSlots (.wctNode n) := by
-    simp [childSlots, LargeResidual.childSlots, h3, hov', ftsChild, LargeResidual.ftsChild]
+    simp [childSlots, LargeResidual.childSlots, hov, h0, h4, h5, ftsChild, LargeResidual.ftsChild]
   rw [heq] at hc
   exact ClaudeWCT.W9.T3.Security.LargeResidual.wGround_mem_keygen h1
     (List.mem_append_right _ (List.mem_map.mpr ⟨cs, hc, rfl⟩))
@@ -9422,7 +9319,7 @@ theorem ftsLabel_top (labels : Labels) (index : Fin (2^31)) (coord : Fin 9) (b :
   rw [dif_pos (show 6-1<6 ∧ b.val<2^(7-(6-1)-1) by have:=b.isLt;omega)]
   change Extract.Paired.proj (CanonGraph.Node.wctNode (ftsTopNode index coord b)).toPos
     (labels (.wctNode (wSelNode labels (ftsTopNode index coord b)))) = _
-  rw [wSelNode_of_cap_one (wTrialCap_off (by show (5:Nat) ≠ 3; decide) (fun h => absurd h.1 (by show (5:Nat) ≠ 2; decide))) rfl]
+  rw [wSelNode_of_cap_one (wTrialCap_off (by show ¬ Extract.Paired.ftsNonceLevel _ 5; unfold Extract.Paired.ftsNonceLevel; omega)) rfl]
 
 section Coherent
 variable {U : Finset HashInput} {T : Answers} {vals : Coord→Digest} {nv : Message × Fin 2→Digest}

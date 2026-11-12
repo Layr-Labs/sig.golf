@@ -7,7 +7,7 @@ import SigGolfCandidate.Merge058
 import SigGolfCandidate.Merge105
 import SigGolfCandidate.Merge107
 import SigGolfCandidate.Merge108
-set_option debug.skipKernelTC true
+set_option debug.skipKernelTC false
 set_option linter.all false
 
 -- ==== merged from T3_Secc_LargeCouplingKeygen ====
@@ -969,7 +969,7 @@ theorem leafZeroCap_size (lay : Layer) (f : Nat) :
   split_ifs with h
   · have := min_le_left 4 (2 ^ height lay - 4 * f)
     simp only [SigGolfCandidate.T3.topCoefCount]; omega
-  · exact le_rfl
+  · omega
 
 /-- At most `famSize − 3` revealed seeds per family (v6 lower: `5 r + 3` coefficients for `r` real members). -/
 theorem lowerZeros_card (T : Answers) (L : LowerLeaf) : (lowerZeros T L).card + 3 ≤ WCT9.famSize L.1.1 L.1.2.2.val :=
@@ -1075,7 +1075,7 @@ attribute [local instance] Classical.propDecidable
 attribute [local irreducible] keygen
 noncomputable local instance instDecidableEqCache_w9largeCouplingTable_contact : DecidableEq SigGolfCandidate.T3.Cache :=
   Classical.decEq _
-/-- No index carries more than 39 distinct signed outputs in the log of any game split. -/
+/-- No index carries more than 50 distinct signed outputs in the log of any game split. -/
 def NoOvR (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP) (rec : FirstHit.Recorded Bool) (A : Answers) : Prop :=
   ∀ g i c, Wots.PairedReference.GameSplit adversary rec g i c → LogNoOverflow A i.value.2
 theorem table_contact_le (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) (initLaw : PMF AuxData)
@@ -1663,7 +1663,7 @@ def famOfSec (sec : Secrets) : (f : WFam) → ClaudeWCT.W9.T3.Security.FamResidu
   | .inl L => fun j => sec (.inl ⟨L.1.1, L.1.2.1, L.1.2.2,
       ⟨j.val, by
         have hj : j.val < WCT9.famSize L.1.1 L.1.2.2.val - 1 + 1 := j.isLt
-        have := WCT9.famSize_lt_58 L.1.1 L.1.2.2.val
+        have := WCT9.famSize_lt_128 L.1.1 L.1.2.2.val
         omega⟩⟩)
   | .inr f => fun j => sec (.inr (f.1, f.2, j))
 noncomputable def worldEquiv : Secrets × ((Message × Fin 2 → Digest) × LowLabels) ≃
@@ -1856,7 +1856,7 @@ theorem selectionAt_prefix_congr
     (hfg : ∀ x, rowPrefix f x → f x=g x) (L : EncLeaf) (remaining : Nat)
     (hctx : rowsContext (Function.curry f) L.toWots=some remaining) :
     selectionAt (Function.curry g) L remaining=selectionAt (Function.curry f) L remaining := by
-  apply select_congr_prefix L (WCT9.CanonicalPolicy.threshold L.1.lay.val remaining)
+  apply select_congr_prefix L (WCT9.Policy75Safe23.threshold L.1.lay.val remaining)
   intro c hc hs
   exact hfg (L,c) ⟨remaining,hctx,hc,hs⟩
 
@@ -2043,7 +2043,7 @@ theorem paired_ftsLabel_top (labels : Labels) (index : Fin (2^31)) (coord : Fin 
   rw [dif_pos (show 6-1<6 ∧ b.val<2^(7-(6-1)-1) by have := b.isLt;omega)]
   change Extract.Paired.proj (CanonGraph.Node.wctNode (ftsTopNode index coord b)).toPos
     (labels (.wctNode (wSelNode labels (ftsTopNode index coord b)))) = _
-  rw [wSelNode_of_cap_one (wTrialCap_off (by show (5:Nat) ≠ 3; decide) (fun h => absurd h.1 (by show (5:Nat) ≠ 2; decide))) rfl]
+  rw [wSelNode_of_cap_one (wTrialCap_off (by show ¬ Extract.Paired.ftsNonceLevel _ 5; unfold Extract.Paired.ftsNonceLevel; omega)) rfl]
 
 theorem msgLabel_router (vals : LargeResidual.Coord → Digest) (a : AuxData) (L : EncLeaf) :
     msgLabel (LargeResidual.Paired.routerLabels vals a) L = LargeResidual.msgVals vals L := by
@@ -5802,7 +5802,7 @@ theorem flexible_event_le (θ rate : ENNReal)
     (hwin : ∀ b∈(bankSpec.bankExperiment payAfterDigest rest budget).support,
       weight (b.1,b.2.2)≠0 → 1≤flexiblePotential θ budget b.2) :
     expectedValue (bankSpec.recordedExperiment payAfterDigest rest) weight ≤
-      (θ+939/80000)/2^128*bankSpec.expectedBirths payAfterDigest rest budget+
+      (θ+28883/2500000)/2^128*bankSpec.expectedBirths payAfterDigest rest budget+
       (budget:ENNReal)*rate/2^128 :=
   FlexibleGame.bank_event_le_rate bankSpec θ payAfterDigest payNotDigest payAvoids
     rest budget rate hexc weight hw hwin
@@ -7028,7 +7028,7 @@ theorem bank_cert_le (hUpub : SeccLaw.publicUniverse ⊆ U) (initLaw : PMF AuxDa
     apply ENNReal.div_le_div_right
     apply mul_le_mul' le_rfl
     exact_mod_cast (show q ≤ q - r.2.counters.mass + r.2.counters.mass by omega)
-  have hcoeff_fin : coeffQ θ q ≠ ⊤ := by unfold coeffQ; exact ENNReal.add_ne_top.mpr ⟨htheta,by change (939/80000:ENNReal)≠⊤; finiteness⟩
+  have hcoeff_fin : coeffQ θ q ≠ ⊤ := by unfold coeffQ; exact ENNReal.add_ne_top.mpr ⟨htheta,by change (28883/2500000:ENNReal)≠⊤; finiteness⟩
   have hSfin : S ≠ ⊤ := by
     apply ne_top_of_le_ne_top (b := coeffQ θ q * (q : ENNReal) / 2 ^ 128)
     · exact ENNReal.div_ne_top (ENNReal.mul_ne_top hcoeff_fin (ENNReal.natCast_ne_top q)) (by positivity)
@@ -7075,26 +7075,26 @@ theorem budgetRate_ge_one (q : Nat) (hq : q≤2^127) : 1≤Flexible.budgetRate q
   linarith
 
 theorem coeffQ_budgetRate (q : Nat) (hq:q≤2^127) :
-    coeffQ (ENNReal.ofReal (Flexible.budgetRate q-939/80000)) q = ENNReal.ofReal (Flexible.budgetRate q) := by
+    coeffQ (ENNReal.ofReal (Flexible.budgetRate q-28883/2500000)) q = ENNReal.ofReal (Flexible.budgetRate q) := by
   have h:=budgetRate_ge_one q hq
   unfold coeffQ
-  change ENNReal.ofReal (Flexible.budgetRate q-939/80000)+(939/80000:ENNReal)=_
-  rw [show (939/80000:ENNReal)=ENNReal.ofReal (939/80000:ℝ) by rw [ENNReal.ofReal_div_of_pos (by norm_num)]; norm_num,
-    ←ENNReal.ofReal_add (by linarith : 0≤Flexible.budgetRate q-939/80000) (by positivity)]
+  change ENNReal.ofReal (Flexible.budgetRate q-28883/2500000)+(28883/2500000:ENNReal)=_
+  rw [show (28883/2500000:ENNReal)=ENNReal.ofReal (28883/2500000:ℝ) by rw [ENNReal.ofReal_div_of_pos (by norm_num)]; norm_num,
+    ←ENNReal.ofReal_add (by linarith : 0≤Flexible.budgetRate q-28883/2500000) (by positivity)]
   congr 1
   ring
 
 theorem contact_cert_bound_of_excess (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
     (rate : ENNReal)
     (hexc : ClaudeWCT.Numerics.Law.lawAvg ClaudeWCT.Bank.Paired.honestLaw (2^32)
-      (fun W=>ClaudeWCT.Bank.Paired.price W-ENNReal.ofReal (Flexible.budgetRate q-939/80000))≤rate) :
+      (fun W=>ClaudeWCT.Bank.Paired.price W-ENNReal.ofReal (Flexible.budgetRate q-28883/2500000))≤rate) :
     Pr[ContactNO adversary q | PairedSeccLaw.completedExperiment adversary q hq] +
       Pr[fun z=>CertR adversary q (QueryRecorded.recordedTrace z.1) z.2 ∧
         NoOvR adversary (QueryRecorded.recordedTrace z.1) z.2 |
         PairedSeccLaw.completedExperiment adversary q hq] ≤
       ENNReal.ofReal (2*((q:ℝ)/2^128)-((q:ℝ)/2^128)^2)+(q:ENNReal)*rate/2^128+
         ((2 ^ 142 : ℝ≥0∞)⁻¹+(2 ^ 142 : ℝ≥0∞)⁻¹) := by
-  have hb := bank_cert_le (ENNReal.ofReal (Flexible.budgetRate q-939/80000))
+  have hb := bank_cert_le (ENNReal.ofReal (Flexible.budgetRate q-28883/2500000))
     (Wots.PairedReference.Ref.referenceInputs_universe adversary) initLaw adversary q (by finiteness) rate hexc
   rw [coeffQ_budgetRate q hq] at hb
   have hp := Flexible.residual_potential_rate (Flexible.budgetRate q) (auxLaw initLaw) q hq
@@ -10959,12 +10959,12 @@ attribute [local instance] Classical.propDecidable
 variable {P : Type} [Fintype P] [SampleableType P] (S : FtsBankSpec P)
 def Replays (S : FtsBankSpec P) (rows : Sampling.RCache) (rho : Digest) (m : Message) (found : Option (BitVec 32 × HashOutput)) : Prop :=
   ∀ cache', Extends rows cache' →
-    ∀ r' ∈ support (Sampling.roRun 0 (S.search rho m 0 (2^21)) cache'), r' = (found, cache')
+    ∀ r' ∈ support (Sampling.roRun 0 (S.search rho m 0 ((11*2^17))) cache'), r' = (found, cache')
 theorem Replays.mono {S : FtsBankSpec P} {rows rows' : Sampling.RCache} {rho : Digest} {m : Message} {found}
     (h : (Replays S) rows rho m found) (hext : Extends rows rows') : (Replays S) rows' rho m found :=
   fun cache' hc => h cache' (hext.trans hc)
 theorem replays_of_search (S : FtsBankSpec P) (rho : Digest) (m : Message) (rows : Sampling.RCache) (r)
-    (hr : r ∈ support (Sampling.roRun 0 (S.search rho m 0 (2^21)) rows)) :
+    (hr : r ∈ support (Sampling.roRun 0 (S.search rho m 0 ((11*2^17))) rows)) :
     Extends rows r.2 ∧ (Replays S) r.2 rho m r.1 := by
   unfold ClaudeWCT.Bank.FtsBankSpec.search at hr
   obtain ⟨h1, h2⟩ := search_replays_gen 0 (Sampling.digestTrial rho m) S.decode _ _ 0 rows r hr
@@ -11128,12 +11128,12 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 variable {P : Type} [Fintype P] [SampleableType P] (S : FtsBankSpec P)
 theorem search_support (S : FtsBankSpec P) (slot : Nat) (rho : Digest) (m : Message) (s : GState) (r)
-    (hr : SecretGuessObservation.runWith ((implG S) slot) ((searchL S) rho m 0 (2^21)) s r ≠ 0) :
+    (hr : SecretGuessObservation.runWith ((implG S) slot) ((searchL S) rho m 0 ((11*2^17))) s r ≠ 0) :
     (r.1, r.2.memory.1.rows) ∈
-      support (Sampling.roRun 0 (S.search rho m 0 (2^21)) s.memory.1.rows) := by
+      support (Sampling.roRun 0 (S.search rho m 0 ((11*2^17))) s.memory.1.rows) := by
   have hlaw := (search_law S) slot rho m (fun f rows =>
-    if (f, rows) ∈ support (Sampling.roRun 0 (S.search rho m 0 (2^21)) s.memory.1.rows)
-    then 0 else 1) (2^21) 0 s
+    if (f, rows) ∈ support (Sampling.roRun 0 (S.search rho m 0 ((11*2^17))) s.memory.1.rows)
+    then 0 else 1) ((11*2^17)) 0 s
   simp only [Prod.mk.eta] at hlaw
   rw [pc_ev_offsupport] at hlaw
   have h0 := spmf_ev_zero _ hlaw r hr
@@ -11186,7 +11186,7 @@ noncomputable def searchWithNonce (S : FtsBankSpec P) {β : Type} (m : Message)
     (finish : Digest → Option (BitVec 32 × HashOutput) → OracleComp WPair.WSpecL β) :
     OracleComp WPair.WSpecL β := do
   let rho ← WPair.nonceReq m
-  let found ← (searchL S) rho m 0 (2^21)
+  let found ← (searchL S) rho m 0 ((11*2^17))
   let _ ← WPair.exposeReq (found.map Prod.snd)
   finish rho found
 
@@ -11209,7 +11209,7 @@ theorem searchWithNonce_ΦI (S : FtsBankSpec P) {β : Type} (slot q : Nat) (m : 
       refine ((ev_expose_finish_le S) slot q finish hfinish rho r.1 r.2).trans ?_
       obtain ⟨found0, hrep, hf0⟩ := hI3 m rho hn
       have hsupp := (search_support S) slot rho m _ r hr
-      obtain ⟨-, -, -, -, hg, hnon, hbir, hexp⟩ := (search_frame S) slot rho m (2^21) 0 _ r hr
+      obtain ⟨-, -, -, -, hg, hnon, hbir, hexp⟩ := (search_frame S) slot rho m ((11*2^17)) 0 _ r hr
       have hrr := hrep s.memory.1.rows (Extends.refl _) _ hsupp
       simp only [Prod.mk.injEq] at hrr
       obtain ⟨hfound, hrows⟩ := hrr
@@ -11246,7 +11246,7 @@ theorem searchWithNonce_ΦI (S : FtsBankSpec P) {β : Type} (slot q : Nat) (m : 
       rw [hbir', hrows, hnon']
   | none =>
       rw [(ev_nonce_fresh S) slot m _ s hn, hΦs]
-      refine le_trans ?_ (NearMemory.mem_sign_fresh S q _ _ _ _ _ m hn 0 (2^21) (by decide))
+      refine le_trans ?_ (NearMemory.mem_sign_fresh S q _ _ _ _ _ m hn 0 ((11*2^17)) (by decide))
       apply expectedValue_mono
       intro v
       rw [runWith_bind', expectedValue_bind]
@@ -11258,13 +11258,13 @@ theorem searchWithNonce_ΦI (S : FtsBankSpec P) {β : Type} (slot q : Nat) (m : 
       refine le_of_le_of_eq ?_ ((search_law S) slot v m (fun found rows' =>
         NearMemory.nearMemPotential S q s.memory.1.births (s.memory.2.fresh ++ (found.map Prod.snd).toList)
           (s.memory.2.reused || decide (S.Reuse s.memory.1.rows v m)) rows'
-          (Function.update s.memory.1.nonces m (some v))) (2^21) 0 s1)
+          (Function.update s.memory.1.nonces m (some v))) ((11*2^17)) 0 s1)
       apply spmf_ev_mono
       intro r hr
       refine ((ev_expose_finish_le S) slot q finish hfinish v r.1 r.2).trans (le_of_eq ?_)
       have hsupp := (search_support S) slot v m s1 r hr
       obtain ⟨hext, hrep⟩ := (replays_of_search S) v m _ _ hsupp
-      obtain ⟨-, -, -, -, hg, hnon, hbir, hexp⟩ := (search_frame S) slot v m (2^21) 0 s1 r hr
+      obtain ⟨-, -, -, -, hg, hnon, hbir, hexp⟩ := (search_frame S) slot v m ((11*2^17)) 0 s1 r hr
       have hnon1 : r.2.memory.1.nonces = Function.update s.memory.1.nonces m (some v) := hnon
       have hbir1 : r.2.memory.1.births = s.memory.1.births := hbir
       have hexp1 : r.2.memory.1.exposures = s.memory.1.exposures := hexp
@@ -11473,7 +11473,7 @@ theorem nearLawSpec_producer : nearLawSpec.producer=SigGolfCandidate.Research.Sh
   change producer = _
   exact funext producer_source
 
-theorem nearLawSpec_mean : ClaudeWCT.Numerics.Law.lawAvg nearLawSpec.law (2^32) nearLawSpec.price≤(11447/25) :=
+theorem nearLawSpec_mean : ClaudeWCT.Numerics.Law.lawAvg nearLawSpec.law (2^32) nearLawSpec.price≤(22894/50) :=
   law_nearPrice_mean_bound
 
 theorem forced_near_payoff_le {β : Type} (slot q : Nat)
@@ -11481,8 +11481,8 @@ theorem forced_near_payoff_le {β : Type} (slot q : Nat)
     (hW : CaseC.SuperProg (NearWorld.implG nearLawSpec slot) (NearWorld.ΦI nearLawSpec q) W) :
     expectedValue (SecretGuessObservation.forcedWithRun WPair.envL WPair.samplerL slot W WPair.initL)
       (fun r => NearWorld.nearPayoff nearLawSpec q r.2)≤
-      (q:ENNReal)*((11447/25)+939/80000)/2^128 :=
-  NearWorld.forced_payoff_le nearLawSpec nearCovered_mono (11447/25) nearLawSpec_mean slot q W hW
+      (q:ENNReal)*((22894/50)+28883/2500000)/2^128 :=
+  NearWorld.forced_payoff_le nearLawSpec nearCovered_mono (22894/50) nearLawSpec_mean slot q W hW
 
 end ClaudeWCT.Bank.Paired
 

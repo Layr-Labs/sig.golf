@@ -1,5 +1,4 @@
 import SigGolfCandidate.FtsCopyBPieces
-import SigGolfCandidate.FtsExpand16
 set_option debug.skipKernelTC true
 set_option linter.all false
 
@@ -352,380 +351,6 @@ theorem restC_tbsim {im : Image} {j : Nat} (hj : j<128) (hcode : CopyCodeAt im j
       rw [nodeIn_blocks] at H
       simpa only [cycR,Nat.add_assoc] using TBSim.steps hst H
 
-theorem lvl_coreG {im : Image} {j : Nat} (hj : j < 128) (hcode : CopyCodeAt im j)
-    {B k index : Nat} {leaf pads sibs tws : Nat → Digest} {u : MachineState}
-    (hu : ChildPre j B k index leaf pads sibs tws u) (l : Nat) (hl : l < 4) (v : Digest) (s : MachineState)
-    (hpc0 : s.pc = pcOf (copyBase j + ecIdx j l + 1))
-    (hkeep : ∀ r : Reg, r ≠ .x3 → r ≠ .x10 → r ≠ .x11 → r ≠ .x12 → s.getReg r = u.getReg r)
-    (ha1 : l ≠ 0 → s.getReg .x11 = BitVec.ofNat 64 64)
-    (hnode0 : DigAt s (B + curO l j) v)
-    (hsU : ∀ o, o ≤ 1024 → (o = padO j l ∨ o = padO j l + 8 ∨ o = sibO l j ∨ o = sibO l j + 8 ∨ o = blkO j l + 24) →
-      s.getMem (BitVec.ofNat 64 (B + o)) = u.getMem (BitVec.ofNat 64 (B + o))) :
-    ∃ t, Steps im s (lvlSt j l) (lvlSt j l) t ∧ (l < 2 → fetch im t = some (.base .ECALL)) ∧ t.getReg .x5 = 0 ∧
-      t.getReg .x10 = BitVec.ofNat 64 (B + blkO j l) ∧ t.getReg .x11 = BitVec.ofNat 64 64 ∧
-      t.getReg .x12 = ((lvlRegs j l).get .x12).eval s ∧
-      t.pc = pcOf (copyBase j + ecIdx j (l + 1)) ∧
-      (∀ r : Reg, r ≠ .x3 → r ≠ .x10 → r ≠ .x11 → r ≠ .x12 → t.getReg r = u.getReg r) ∧
-      t.getReg .x3 = ((lvlRegs j l).get .x3).eval s ∧
-      hashInput t = toQ (pad64 (nodeIn k index j pads (hpOf j tws) sibs v l)) ∧
-      Frame s t (fun A => A = B + tw24 j l ∨ A = B + blkO j l + 16) ∧
-      DigAt t (B + blkO j l) (if bitAt j l = 0 then v else sibs l) ∧
-      DigAt t (B + blkO j l + 16) (nodeHeader k index (heapOf l j) (hpOf j tws l)) ∧
-      DigAt t (B + blkO j l + 48) (if bitAt j l = 0 then sibs l else v) ∧
-      DigAt t (B + blkO j l + 32) (pads l) := by
-  have h8 := hu.base8
-  have hhi := hu.baseHi
-  unfold MEMORY_BYTES at hhi
-  have hbl := blk_bounds j hj l (by omega)
-  have hx8 : s.getReg .x8 = BitVec.ofNat 64 B := (hkeep .x8 (by decide) (by decide) (by decide) (by decide)).trans hu.s0
-  have hpc : s.pc = pcOf (copyBase j + (ecIdx j l + 1)) := by rw [hpc0, Nat.add_assoc]
-  obtain ⟨hst, hec⟩ := copyRun_sound hcode (copyRun_lvl j hj l (by omega)) s hpc
-    (lvlObl_holds j hj l (by omega) hx8 h8 (by unfold MEMORY_BYTES; omega)) rfl
-  have hreg : ∀ x, ((clvlRes j l).toState s).getReg x = ((lvlRegs j l).get x).eval s :=
-    fun x => PRes.toState_getReg _ _ _
-  have hmem : ∀ A, A < 2 ^ 64 → ((clvlRes j l).toState s).getMem (BitVec.ofNat 64 A) =
-      if A = B + blkO j l + 24 ∧ ¬ l ≤ 3 then s.getReg (heapReg (heapOf l j))
-      else if A = B + blkO j l + 16 then (if l ≤ 3 then (lowE j l).eval s else s.getReg .x15)
-      else s.getMem (BitVec.ofNat 64 A) :=
-    fun A hA => (PRes.toState_getMem _ _ _).trans (lvlMem_get hx8 (by omega) j hj l A (by omega) hA)
-  have hpcT : ((clvlRes j l).toState s).pc = pcOf (copyBase j + ecIdx j (l + 1)) := by
-    rw [PRes.toState_pc (clvlRes j l) s rfl]; rfl
-  generalize ht : (clvlRes j l).toState s = t at hst hec hreg hmem hpcT
-  have hb := bitAt_lt j l
-  have h10 : t.getReg .x10 = BitVec.ofNat 64 (B + blkO j l) := by rw [hreg, lvlRegs_x10, eX8_eval hx8]
-  have h11 : t.getReg .x11 = BitVec.ofNat 64 64 := by
-    rw [hreg, lvlRegs_x11]
-    split_ifs with h0
-    · rfl
-    · exact ha1 h0
-  have hother : ∀ r : Reg, r ≠ .x3 → r ≠ .x10 → r ≠ .x11 → r ≠ .x12 → t.getReg r = u.getReg r := by
-    intro r h3 h10' h11' h12'
-    rw [hreg, lvlRegs_other j l r h3 h10' h11' h12', RegFile.init_get_eval]
-    exact hkeep r h3 h10' h11' h12'
-  have h5 : t.getReg .x5 = 0 := (hother .x5 (by decide) (by decide) (by decide) (by decide)).trans hu.t0
-  have tS : ∀ o, o ≤ 1024 → o ≠ blkO j l + 16 → o ≠ blkO j l + 24 →
-      t.getMem (BitVec.ofNat 64 (B + o)) = s.getMem (BitVec.ofNat 64 (B + o)) := by
-    intro o ho h16 h24
-    rw [hmem _ (by omega), if_neg (fun h => h24 (by have := h.1; omega)), if_neg (by omega)]
-  have hpad : DigAt t (B + blkO j l + 32) (pads l) := by
-    have hP := hu.padAt l (by omega)
-    unfold padO at hP
-    rw [Nat.add_assoc]
-    refine DigAt.of_eq hP ?_ ?_
-    · rw [tS _ (by omega) (by omega) (by omega), hsU _ (by omega) (Or.inl (by unfold padO; omega))]
-    · rw [show B + (blkO j l + 32) + 8 = B + (blkO j l + 40) by omega, tS _ (by omega) (by omega) (by omega),
-        hsU _ (by omega) (Or.inr (Or.inl (by unfold padO; omega)))]
-  have hcs := sibO_cases j l (by omega)
-  have hsib : DigAt t (B + sibO l j) (sibs l) := by
-    have hS := hu.sibAt l (by omega)
-    have hsb : sibO l j = blkO j l ∨ sibO l j = blkO j l + 48 := by omega
-    refine DigAt.of_eq hS ?_ ?_
-    · rw [tS _ (by omega) (by omega) (by omega), hsU _ (by omega) (Or.inr (Or.inr (Or.inl rfl)))]
-    · rw [Nat.add_assoc, tS _ (by omega) (by omega) (by omega), hsU _ (by omega) (Or.inr (Or.inr (Or.inr (Or.inl rfl))))]
-  have hnode : DigAt t (B + curO l j) v := by
-    have hcb := curO_cases j l
-    refine DigAt.of_eq hnode0 ?_ ?_
-    · rw [tS _ (by omega) (by omega) (by omega)]
-    · rw [Nat.add_assoc, tS _ (by omega) (by omega) (by omega)]
-  have hx15 : s.getReg .x15 = BitVec.ofNat 64 (w0n k index) :=
-    (hkeep .x15 (by decide) (by decide) (by decide) (by decide)).trans hu.w0
-  have hw0 : 0 ≤ w0n k index ∧ w0n k index < 2 ^ 64 := by
-    have := Nat.mod_lt index (show 0 < 2 ^ 31 by norm_num)
-    have := Nat.mod_lt k (show 0 < 16 by norm_num)
-    unfold w0n V3.nodeLow
-    rw [ClaudeWCT.WCT9.ftsLeafLow_zero]
-    unfold SigGolfCandidate.T3.ftsBiasN
-    omega
-  have hhdr : DigAt t (B + blkO j l + 16) (nodeHeader k index (heapOf l j) (hpOf j tws l)) := by
-    by_cases h3 : l ≤ 3
-    · have hpk := heapOf_packed j l hj h3
-      constructor
-      · rw [hmem _ (by omega), if_neg (fun h => by have := h.1; omega), if_pos rfl, if_pos h3, hdr11_lo,
-          if_pos hpk]
-        unfold lowE
-        rw [addC_eval]
-        simp only [E.eval]
-        rw [hx15]
-        exact ofNat_add_neg_wrap _ _ (by omega)
-      · rw [show B + blkO j l + 16 + 8 = B + blkO j l + 24 by omega, hdr11_hi, if_pos hpk]
-        rw [hmem _ (by omega), if_neg (fun h => h.2 h3), if_neg (by omega),
-          show B + blkO j l + 24 = B + (blkO j l + 24) by omega,
-          hsU _ (by omega) (Or.inr (Or.inr (Or.inr (Or.inr rfl))))]
-        have hT := (hu.twAt l (by omega)).2
-        rw [show B + blkO j l + 16 + 8 = B + (blkO j l + 24) by omega] at hT
-        rw [hT]
-        unfold hpOf; rw [if_pos (by omega)]
-    · have hlo := heapOf_low j l hj (by omega) (by omega)
-      have hnp : ¬ (8 ≤ heapOf l j ∧ heapOf l j < 128) := by omega
-      constructor
-      · rw [hmem _ (by omega), if_neg (fun h => by have := h.1; omega), if_pos rfl, if_neg h3, hdr11_lo,
-          if_neg hnp, hx15]
-      · rw [show B + blkO j l + 16 + 8 = B + blkO j l + 24 by omega, hmem _ (by omega),
-          if_pos ⟨rfl, h3⟩, hdr11_hi, if_neg hnp]
-        have hs64 : s.getReg .x11 = BitVec.ofNat 64 64 := ha1 (by omega)
-        have hr := heapReg_eval (s := s) (l := l) hj (by omega) (by omega) hs64 (fun h h1 h6 => by
-          obtain ⟨n3, n10, n11, n12⟩ := heapReg_ne h h6
-          rw [hkeep _ n3 n10 n11 n12]; exact hu.heaps h h1 h6)
-        exact hr
-  have hin : hashInput t = toQ (pad64 (nodeIn k index j pads (hpOf j tws) sibs v l)) := by
-    unfold nodeIn
-    rcases hcs with ⟨e0, ec, es⟩ | ⟨e1, ec, es⟩
-    · simp only [e0, if_true]
-      rw [ec] at hnode; rw [es, ← Nat.add_assoc] at hsib
-      exact hashInput_blk4 t _ _ _ _ _ h10 h11 (by omega) (by omega) hnode hhdr hpad hsib
-    · simp only [e1, show (1 : Nat) ≠ 0 by decide, if_false]
-      rw [ec, ← Nat.add_assoc] at hnode; rw [es] at hsib
-      exact hashInput_blk4 t _ _ _ _ _ h10 h11 (by omega) (by omega) hsib hhdr hpad hnode
-  have hpair : DigAt t (B + blkO j l) (if bitAt j l = 0 then v else sibs l) ∧
-      DigAt t (B + blkO j l + 48) (if bitAt j l = 0 then sibs l else v) := by
-    rcases sibO_cases j l (by omega) with ⟨e0, ec, es⟩ | ⟨e1, ec, es⟩
-    · simp only [e0, if_true]
-      rw [ec] at hnode; rw [es, ← Nat.add_assoc] at hsib
-      exact ⟨hnode, hsib⟩
-    · simp only [e1, show (1 : Nat) ≠ 0 by decide, if_false]
-      rw [ec, ← Nat.add_assoc] at hnode; rw [es] at hsib
-      exact ⟨hsib, hnode⟩
-  refine ⟨t, hst, fun h3 => hec (by simp [clvlRes, h3]), h5, h10, h11, hreg .x12, hpcT, hother, hreg .x3, hin, ?_,
-    hpair.1, hhdr, hpair.2, hpad⟩
-  intro A hA hn
-  simp only [not_or] at hn
-  rw [hmem A hA, if_neg ?_, if_neg hn.2]
-  rintro ⟨h24, hc⟩
-  apply hn.1
-  unfold tw24
-  rw [if_neg hc]
-  exact h24
-
-/-! ## q098 helpers (lvl2C / lvl3C from `Mid2C`) -/
-
-theorem blk4_parts (a b c d : Digest) :
-    (blk4 a b c d).take 32 = bytesLE 16 a ++ bytesLE 16 b ∧
-      ((blk4 a b c d).drop 32).take 16 = bytesLE 16 c ∧ (blk4 a b c d).drop 48 = bytesLE 16 d := by
-  unfold blk4
-  refine ⟨?_, ?_, ?_⟩ <;> simp [List.take_append, List.drop_append, bytesLE_length, List.drop_eq_nil_of_le]
-
-theorem nodeIn_parts (k index j : Nat) (pads : Nat → Digest) (hps : Nat → BitVec 64) (sibs : Nat → Digest)
-    (v : Digest) (l : Nat) :
-    (nodeIn k index j pads hps sibs v l).take 32 =
-        bytesLE 16 (if bitAt j l = 0 then v else sibs l) ++ bytesLE 16 (nodeHeader k index (heapOf l j) (hps l)) ∧
-      ((nodeIn k index j pads hps sibs v l).drop 32).take 16 = bytesLE 16 (pads l) ∧
-      (nodeIn k index j pads hps sibs v l).drop 48 = bytesLE 16 (if bitAt j l = 0 then sibs l else v) := by
-  unfold nodeIn
-  by_cases h : bitAt j l = 0
-  · simp only [h, if_true]; exact blk4_parts _ _ _ _
-  · simp only [h, if_false]; exact blk4_parts _ _ _ _
-
-theorem lowHalf2 (a : BitVec 256) :
-    (a.extractLsb' 0 128).extractLsb' 0 64 = a.extractLsb' 0 64 ∧
-      (a.extractLsb' 0 128).extractLsb' 64 64 = a.extractLsb' 64 64 := by
-  constructor <;> apply BitVec.eq_of_toNat_eq <;>
-    simp only [BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow, Nat.shiftRight_zero] <;> omega
-
-theorem codeAt_oneG {im : Image} {n : Nat} {w : BitVec 32} (h : im.code[n]? = some w) (hn : n < 2 ^ 60) :
-    CodeAt im (pcOf n) [w] := by
-  have hp : (pcOf n).toNat = 0x1000 + 4 * n := by
-    simp only [pcOf, BitVec.toNat_ofNat]; omega
-  refine ⟨by omega, by omega, by simp; omega, ?_⟩
-  rw [hp, show (0x1000 + 4 * n - 0x1000) / 4 = n by omega]
-  obtain ⟨hl, he⟩ := List.getElem?_eq_some_iff.mp h
-  rw [List.drop_eq_getElem_cons hl, he]
-  exact ⟨_, rfl⟩
-
-/-- The kept half of a 32-byte answer already in memory at `B + outO m j`. -/
-theorem DigAt_selD_mem (t : MachineState) (a : BitVec 256) {j m B : Nat} (hj : j < 128) (hm : m < 6)
-    (e0 : t.getMem (BitVec.ofNat 64 (B + outO m j)) = a.extractLsb' 0 64)
-    (e1 : t.getMem (BitVec.ofNat 64 (B + outO m j + 8)) = a.extractLsb' 64 64)
-    (e2 : t.getMem (BitVec.ofNat 64 (B + outO m j + 16)) = a.extractLsb' 128 64)
-    (e3 : t.getMem (BitVec.ofNat 64 (B + outO m j + 24)) = a.extractLsb' 192 64) :
-    DigAt t (B + curO m j) (selD j m a) := by
-  unfold selD
-  rcases Bool.eq_false_or_eq_true (hiSel j m) with h | h
-  · rw [if_pos h, ← outO_hi hj hm h, ← Nat.add_assoc]
-    constructor
-    · rw [e2]; apply BitVec.eq_of_toNat_eq
-      simp only [BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]; omega
-    · rw [show B + outO m j + 16 + 8 = B + outO m j + 24 by omega, e3]; apply BitVec.eq_of_toNat_eq
-      simp only [BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]; omega
-  · rw [if_neg (by rw [h]; decide), ← outO_lo h]
-    exact ⟨e0.trans (lowHalf2 a).1.symm, e1.trans (lowHalf2 a).2.symm⟩
-
-/-! ## S5185 (FTS16, TIER2 E13): level 2 through its trampoline -/
-
-/-- After level 2 through `tramp2Of j` (`TIER2 E13`): `MidC` at level 3 with the record and the frame widened by the
-level-2 pad, the level-2 record and the search scratch. `res = (nonce, level-3 value)`. -/
-structure Mid2C (j B k index : Nat) (u : MachineState) (res : Nat × Digest) (s : MachineState) : Prop where
-  pc : s.pc = pcOf (copyBase j + ecIdx j 3 + 1)
-  keep : ∀ r : Reg, r ≠ .x3 → r ≠ .x10 → r ≠ .x11 → r ≠ .x12 → s.getReg r = u.getReg r
-  a1 : s.getReg .x11 = BitVec.ofNat 64 64
-  a2 : s.getReg .x12 = BitVec.ofNat 64 (B + outO 3 j)
-  node : DigAt s (B + curO 3 j) res.2
-  nle : res.1 ≤ SigGolfCandidate.FtsGrind.FUEL 1
-  rec0 : 3400 ≤ B → s.getMem (BitVec.ofNat 64 (SigGolfCandidate.FtsGrind.slot2 B)) =
-    BitVec.ofNat 64 (B + blkO j 2 + SigGolfCandidate.FtsGrind.WADJ)
-  rec1 : 3400 ≤ B → s.getMem (BitVec.ofNat 64 (SigGolfCandidate.FtsGrind.slot2 B + 8)) = BitVec.ofNat 64 res.1
-  /-- TIER2B D1: coordinate 8 (`B < 3400`): plain level 2, nonce 0, the level-2 record words untouched. -/
-  plain2 : B < 3400 → res.1 = 0 ∧ ∀ o < 16, s.getMem (BitVec.ofNat 64 (SigGolfCandidate.FtsGrind.slot2 B + o)) =
-    u.getMem (BitVec.ofNat 64 (SigGolfCandidate.FtsGrind.slot2 B + o))
-  frame : Frame u s (fun A => (∃ off ∈ stagesW j 4, A = B + off) ∨ A = B + padO j 2 ∨ A = B + padO j 2 + 8 ∨
-    (SigGolfCandidate.FtsGrind.slot2 B ≤ A ∧ A < SigGolfCandidate.FtsGrind.slot2 B + 16) ∨
-    (1104 ≤ A ∧ A < 1144) ∨ (SigGolfCandidate.FtsGrind.SCR ≤ A ∧ A < SigGolfCandidate.FtsGrind.SCR + 32))
-
-/-- **Level 2 through the level-2 trampoline** (`TIER2 E13`, the level-2 twin of `lvl3C_tbsim`'s head): the level-2
-block (`nodeIn .. 2`, split 32 / 16 / 16) goes through `node2 (hiSel j 3) B`, whose kept half is the level-3 value. -/
-theorem lvl2C_tbsim {im : Image} {j : Nat} (hj : j < 128) (hcode : CopyCodeAt im j)
-    (hS2 : CodeAt im (pcOf (SigGolfCandidate.FtsGrind.s2Base (hiSel j 3)))
-      (SigGolfCandidate.FtsGrind.search2Words (hiSel j 3)))
-    (hT2 : CodeAt im (pcOf (tramp2Of j))
-      (SigGolfCandidate.FtsGrind.trampWords (tramp2Of j) (SigGolfCandidate.FtsGrind.s2Base (hiSel j 3)) (site2C j + 1)))
-    {B k index : Nat} {leaf pads sibs tws : Nat → Digest} {u : MachineState}
-    (hu : ChildPre j B k index leaf pads sibs tws u) (hlo : 1848 ≤ B) (hB : B < 2 ^ 14) (v : Digest) (s : MachineState)
-    (hs : MidC j B k index u 2 v s) :
-    TBSim im sk s (lvlSt j 2 + 1 + SigGolfCandidate.FtsGrind.W_SEARCH2)
-      (SigGolfCandidate.FtsGrind.node2 (hiSel j 3) B ((nodeIn k index j pads (hpOf j tws) sibs v 2).take 32)
-          (((nodeIn k index j pads (hpOf j tws) sibs v 2).drop 32).take 16)
-          ((nodeIn k index j pads (hpOf j tws) sibs v 2).drop 48) >>= fun r => pure (r.1, selD j 3 r.2))
-      (Mid2C j B k index u) := by
-  have h8 := hu.base8
-  have hhi := hu.baseHi
-  unfold MEMORY_BYTES at hhi
-  have hsl := site_lt j hj
-  have hkeep : ∀ r : Reg, r ≠ .x3 → r ≠ .x10 → r ≠ .x11 → r ≠ .x12 → s.getReg r = u.getReg r := hs.keep
-  have hx8 : s.getReg .x8 = BitVec.ofNat 64 B := (hkeep .x8 (by decide) (by decide) (by decide) (by decide)).trans hu.s0
-  have hsU : ∀ o, o ≤ 1024 → (o = padO j 2 ∨ o = padO j 2 + 8 ∨ o = sibO 2 j ∨ o = sibO 2 j + 8 ∨ o = blkO j 2 + 24) →
-      s.getMem (BitVec.ofNat 64 (B + o)) = u.getMem (BitVec.ofNat 64 (B + o)) := by
-    intro o ho hd
-    refine hs.frame (B + o) (by omega) ?_
-    rintro ⟨off, hoff, he⟩
-    have e : off = o := by omega
-    subst e
-    have hf := stagesW_free (off := off) hj (by omega) hoff
-    rcases hd with rfl | rfl | rfl | rfl | rfl
-    exacts [hf.1 rfl, hf.2.1 rfl, hf.2.2.1 rfl, hf.2.2.2 rfl, tw_free hj (by omega) hoff rfl]
-  obtain ⟨t, hst, -, h5, h10, h11, h12', hpcT, hother, -, -, hP, hpre1, hhdr, hright, hpadt⟩ :=
-    lvl_coreG hj hcode hu 2 (by decide) v s hs.pc hkeep hs.a1 hs.node hsU
-  have hbl := blk_bounds j hj 2 (by decide)
-  have hbl3 := blk_bounds j hj 3 (by decide)
-  have h12 : t.getReg .x12 = BitVec.ofNat 64 (B + outO (2 + 1) j) := by
-    rw [h12', lvlRegs_x12 j 2 (by decide)]
-    by_cases hsk : skipA2 j 2 = true
-    · have hso : outO (2 + 1) j = outO 2 j := skipA2_out hsk
-      rw [if_pos hsk, hso]
-      simp only [E.eval]
-      exact hs.a2
-    · rw [if_neg hsk, eX8_eval hx8]
-  have hoa := outO_arith j 3 hj (by decide)
-  have hcur : outO 3 j % 8 = 0 ∧ outO 3 j + 32 ≤ 864 := by
-    have := curO_cases j 3; omega
-  have hlt3 : ecIdx j 3 < ecIdx j 4 := by
-    have e : ecIdx j 4 = ecIdx j 3 + lvlLen j 3 + (if (3 : Nat) = 0 then 1 else 0) := rfl
-    have h4 : 4 ≤ lvlLen j 3 := by unfold lvlLen; split <;> omega
-    rw [if_neg (by decide)] at e
-    omega
-  have hjal : CodeAt im (pcOf (site2C j))
-      [SigGolfCandidate.FtsGrind.encJal 0 (SigGolfCandidate.FtsGrind.jOff (site2C j) (tramp2Of j))] := by
-    refine codeAt_oneG ?_ (by unfold site2C copyBase cSlot SigGolfCandidate.FtsGrind.COPY_ODD; omega)
-    have hlen : ((childWords j).take (ecIdx j 4)).length = ecIdx j 4 := by
-      rw [List.length_take]; have := ecIdx4_le j hj; omega
-    have := hcode (ecIdx j 3)
-      (SigGolfCandidate.FtsGrind.encJal 0 (SigGolfCandidate.FtsGrind.jOff (site2C j) (tramp2Of j))) (by
-        unfold copyPre
-        rw [List.getElem?_append_left (by rw [List.length_set, hlen]; omega),
-          List.getElem?_set_self (by rw [hlen]; omega)])
-    simpa [site2C] using this
-  have hjs := SigGolfCandidate.FtsGrind.jal_step (r := .x0) (by decide) rfl hjal
-    (by unfold site2C copyBase cSlot SigGolfCandidate.FtsGrind.COPY_ODD; omega)
-    (by unfold tramp2Of cSlot SigGolfCandidate.FtsGrind.TRAMP2; omega) t (by rw [hpcT]; rfl)
-  set t1 := ((t.setReg .x0 (pcOf (site2C j + 1))).setPC (pcOf (tramp2Of j))) with ht1
-  have r1 : ∀ r, t1.getReg r = t.getReg r := fun r => by cases r <;> rfl
-  have m1 : Frame t t1 (fun _ => False) := fun _ _ _ => rfl
-  have hA : (B + blkO j 2) % 8 = 0 := by omega
-  obtain ⟨hp32, hpmid, hpright⟩ := nodeIn_parts k index j pads (hpOf j tws) sibs v 2
-  have F : SigGolfCandidate.FtsGrind.Search2In (tramp2Of j) (site2C j + 1) (B + blkO j 2) (B + outO 3 j) B
-      ((nodeIn k index j pads (hpOf j tws) sibs v 2).take 32)
-      (((nodeIn k index j pads (hpOf j tws) sibs v 2).drop 32).take 16)
-      ((nodeIn k index j pads (hpOf j tws) sibs v 2).drop 48) t1 :=
-    { pc := rfl
-      x5 := by rw [r1]; exact h5
-      x8 := by rw [r1, hother .x8 (by decide) (by decide) (by decide) (by decide)]; exact hu.s0
-      x10 := by rw [r1]; exact h10
-      x11 := by rw [r1]; exact h11
-      x12 := by rw [r1]; exact h12
-      lpre := by rw [hp32]; simp [bytesLE_length]
-      lmid := by rw [hpmid]; simp [bytesLE_length]
-      lright := by rw [hpright]; simp [bytesLE_length]
-      mpre := by
-        rw [hp32, frame_readWordsG m1 _ 4 (by omega) (fun _ _ h => h), show (4 : Nat) = 2 + 2 from rfl, readWords_add,
-          hpre1.words, show B + blkO j 2 + 8 * 2 = B + blkO j 2 + 16 by ring, hhdr.words,
-          wordsOf_append _ _ (by simp [bytesLE_length])]
-      mmid := by
-        rw [hpmid, frame_readWordsG m1 _ 2 (by omega) (fun _ _ h => h), hpadt.words]
-      mright := by
-        rw [hpright, frame_readWordsG m1 _ 2 (by omega) (fun _ _ h => h), hright.words]
-      hA := hA
-      hA1 := by omega
-      hA2 := by simp only [SigGolfCandidate.FtsGrind.SCR]; omega
-      hD := by omega
-      hD1 := by omega
-      hD2 := by simp only [SigGolfCandidate.FtsGrind.SCR]; omega
-      hS0 := h8
-      hS1 := by omega
-      hS2 := hB
-      hb := by unfold tramp2Of cSlot SigGolfCandidate.FtsGrind.TRAMP2; omega
-      hret := by unfold site2C copyBase cSlot SigGolfCandidate.FtsGrind.COPY_ODD; omega }
-  have HS := SigGolfCandidate.FtsGrind.tramp_search2 (sk := sk) hS2 hT2 F
-  refine (TBSim.steps hst (TBSim.steps hjs (TBSim.bind (W₂ := 0) HS (fun r s6 ho => TBSim.pure ?_)))).mono
-    (by omega) (fun _ _ h => h)
-  have g6 : ∀ x, x ∉ ([] : List Reg) → s6.getReg x = t1.getReg x := ho.regs
-  have hstg : ∀ o ∈ stageW j 3, o ∈ stagesW j 4 := fun o ho' => mem_stagesW (m := 3) (by omega) ho'
-  refine ⟨?_, ?_, ?_, ?_, ?_, ho.nle, ho.rec0, ho.rec1, ?_, ?_⟩
-  · exact ho.pc
-  · intro x h3 h10' h11' h12'
-    rw [g6 x (by simp), r1, hother x h3 h10' h11' h12']
-  · rw [g6 _ (by simp), r1]; exact h11
-  · rw [g6 _ (by simp), r1]; exact h12
-  · have e0 : s6.getMem (BitVec.ofNat 64 (B + outO 3 j)) = r.2.extractLsb' 0 64 := ho.ans 0 (by decide)
-    have e1 : s6.getMem (BitVec.ofNat 64 (B + outO 3 j + 8)) = r.2.extractLsb' 64 64 := ho.ans 1 (by decide)
-    have e2 : s6.getMem (BitVec.ofNat 64 (B + outO 3 j + 16)) = r.2.extractLsb' 128 64 := ho.ans 2 (by decide)
-    have e3 : s6.getMem (BitVec.ofNat 64 (B + outO 3 j + 24)) = r.2.extractLsb' 192 64 := ho.ans 3 (by decide)
-    exact DigAt_selD_mem s6 r.2 hj (by decide) e0 e1 e2 e3
-  · intro hB3
-    refine ⟨(ho.plain hB3).1, fun o ho' => ?_⟩
-    have hn : ¬ (∃ off ∈ stagesW j 3, SigGolfCandidate.FtsGrind.slot2 B + o = B + off) := by
-      rintro ⟨off, hoff, he⟩
-      have := stagesW_bound hj (by decide) hoff
-      simp only [SigGolfCandidate.FtsGrind.slot2, SigGolfCandidate.FtsGrind.slotA, SigGolfCandidate.FtsGrind.SCR] at he
-      omega
-    rw [(ho.plain hB3).2.get (by simp only [SigGolfCandidate.FtsGrind.slot2, SigGolfCandidate.FtsGrind.slotA,
-        SigGolfCandidate.FtsGrind.SCR]; omega) (by simp only [SigGolfCandidate.FtsGrind.slot2,
-        SigGolfCandidate.FtsGrind.slotA, SigGolfCandidate.FtsGrind.SCR]; omega), m1.get (by simp only [SigGolfCandidate.FtsGrind.slot2, SigGolfCandidate.FtsGrind.slotA, SigGolfCandidate.FtsGrind.SCR]; omega) (fun h => h),
-      hP.get (by simp only [SigGolfCandidate.FtsGrind.slot2, SigGolfCandidate.FtsGrind.slotA,
-        SigGolfCandidate.FtsGrind.SCR]; omega) (by
-        simp only [SigGolfCandidate.FtsGrind.slot2, SigGolfCandidate.FtsGrind.slotA, SigGolfCandidate.FtsGrind.SCR]
-        unfold tw24; split_ifs <;> omega)]
-    exact hs.frame.get (by simp only [SigGolfCandidate.FtsGrind.slot2, SigGolfCandidate.FtsGrind.slotA,
-      SigGolfCandidate.FtsGrind.SCR]; omega) hn
-  · intro A hA hn
-    have hn' : ¬ (∃ off ∈ stagesW j 3, A = B + off) := fun ⟨off, hoff, he⟩ =>
-      hn (Or.inl ⟨off, stagesW_mono hoff (by omega), he⟩)
-    have e6 := ho.frame.get hA (by
-      unfold SigGolfCandidate.FtsGrind.SearchW2
-      rintro (h | h | h | h | h | h)
-      · rcases h with h | h | h | h
-        · exact hn (Or.inl ⟨outO 3 j, hstg _ (by simp [stageW]), h⟩)
-        · exact hn (Or.inl ⟨outO 3 j + 8, hstg _ (by simp [stageW]), by omega⟩)
-        · exact hn (Or.inl ⟨outO 3 j + 16, hstg _ (by simp [stageW]), by omega⟩)
-        · exact hn (Or.inl ⟨outO 3 j + 24, hstg _ (by simp [stageW]), by omega⟩)
-      · exact hn (Or.inr (Or.inl (by unfold padO; omega)))
-      · exact hn (Or.inr (Or.inr (Or.inl (by unfold padO; omega))))
-      · exact hn (Or.inr (Or.inr (Or.inr (Or.inl h))))
-      · exact hn (Or.inr (Or.inr (Or.inr (Or.inr (Or.inl h)))))
-      · exact hn (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr h))))))
-    rw [e6, m1.get hA (fun h => h), hP.get hA (by
-      rintro (h | h)
-      · exact hn (Or.inl ⟨tw24 j 2, mem_stagesW (m := 2) (by omega) (by simp [stageW]), h⟩)
-      · exact hn (Or.inl ⟨blkO j 2 + 16, mem_stagesW (m := 2) (by omega) (by simp [stageW]), by omega⟩))]
-    exact hs.frame.get hA hn'
-
 /-! ## Level 3 through the trampoline, then the bank's tail -/
 
 /-- Level-3 ground trial halves: `pre = pair.1 ‖ header`, `right = pair.2`. -/
@@ -733,21 +358,6 @@ def preC (k index j : Nat) (tws sibs : Nat → Digest) (v : Digest) : List UInt8
   bytesLE 16 (if bitAt j 3 = 0 then v else sibs 3) ++ bytesLE 16 (nodeHeader k index (heapOf 3 j) (hpOf j tws 3))
 def rightC (j : Nat) (sibs : Nat → Digest) (v : Digest) : List UInt8 :=
   bytesLE 16 (if bitAt j 3 = 0 then sibs 3 else v)
-
-/-- The copy routine's program: the bank's `childProgram` with the level-3 fold ground for `b` zero bits and (S5185
-FTS16, TIER2B D1) the level-2 node `node2` of frame base `B`; it returns the packed nonce `2^64 n2 + n3` (NONCE2). -/
-def childProgramC (k index j b B : Nat) (leaf pads sibs tws : Nat → Digest) : M (Nat × Digest) := do
-  let initial ← SharedV3.hashSel (hiSel j 0) (leafBytes leaf)
-  let v2 ← (List.range 2).foldlM (childLevelP k index j pads (hpOf j tws) sibs) initial
-  -- S5185 (FTS16, TIER2B D1): level 2 through `tramp2Of j`: `node2` (ground iff `3400 <= B`), kept half `hiSel j 3`.
-  let r2 ← SigGolfCandidate.FtsGrind.node2 (hiSel j 3) B ((nodeIn k index j pads (hpOf j tws) sibs v2 2).take 32)
-    (((nodeIn k index j pads (hpOf j tws) sibs v2 2).drop 32).take 16)
-    ((nodeIn k index j pads (hpOf j tws) sibs v2 2).drop 48)
-  let v3 := selD j 3 r2.2
-  let r ← groundFold b (preC k index j tws sibs v3) (rightC j sibs v3)
-  let v5 ← (List.range' 4 1).foldlM (childLevelP k index j pads (hpOf j tws) sibs) (r.2.extractLsb' 0 128)
-  let computed ← childLevelHi k index j pads (hpOf j tws) sibs v5
-  pure (2 ^ 64 * r2.1 + r.1, computed)
 
 /-- Back at the caller (`ra + 304`, Y6 R-odd) after a copy routine: the bank's `HandPost`, plus the nonce record and the
 re-zeroed search scratch; the frame adds the record, the saves and `SCR`. -/
@@ -759,16 +369,11 @@ structure HandPostC (B j : Nat) (u : MachineState) (res : Nat × Digest) (t : Ma
   keep : ∀ r : Reg, r ≠ .x3 → r ≠ .x10 → r ≠ .x11 → r ≠ .x12 → t.getReg r = u.getReg r
   slot0 : t.getMem (BitVec.ofNat 64 (slotA B)) = BitVec.ofNat 64 (B + blkO j 3 + WADJ)
   slot1 : t.getMem (BitVec.ofNat 64 (slotA B + 8)) = BitVec.ofNat 64 res.1
-  /-- S5185 (FTS16, TIER2B D1): `res.1 = 2^64 n2 + n3` (NONCE2 packing). -/
-  nle : res.1 % 2 ^ 64 ≤ FUEL (widthOf B) ∧ res.1 / 2 ^ 64 ≤ FUEL 1
-  rec2a : 3400 ≤ B → t.getMem (BitVec.ofNat 64 (SigGolfCandidate.FtsGrind.slot2 B)) = BitVec.ofNat 64 (B + blkO j 2 + WADJ)
-  rec2b : 3400 ≤ B → t.getMem (BitVec.ofNat 64 (SigGolfCandidate.FtsGrind.slot2 B + 8)) = BitVec.ofNat 64 (res.1 / 2 ^ 64)
-  plain2 : B < 3400 → res.1 / 2 ^ 64 = 0
+  nle : res.1 ≤ FUEL (widthOf B)
   saves : ∀ i < 5, t.getMem (BitVec.ofNat 64 (1104 + 8 * i)) = 0
   scr : ∀ i < 4, t.getMem (BitVec.ofNat 64 (SCR + 8 * i)) = 0
   frame : Frame u t (fun A => prefixWrites B A ∨ (B - handO j ≤ A ∧ A < B - handO j + 32) ∨
-    (slotA B ≤ A ∧ A < slotA B + 16 ∨ 3400 ≤ B ∧ slotA B + 16 ≤ A ∧ A < slotA B + 32) ∨ (1104 ≤ A ∧ A < 1144) ∨
-    (SCR ≤ A ∧ A < SCR + 32))
+    (slotA B ≤ A ∧ A < slotA B + 16) ∨ (1104 ≤ A ∧ A < 1144) ∨ (SCR ≤ A ∧ A < SCR + 32))
 
 /-- A digest read back from memory. -/
 def rdD (s : MachineState) (A : Nat) : Digest := s.getMem (BitVec.ofNat 64 (A + 8)) ++ s.getMem (BitVec.ofNat 64 A)
@@ -813,18 +418,6 @@ theorem codeAt_one {im : Image} {n : Nat} {w : BitVec 32} (h : im.code[n]? = som
   rw [List.drop_eq_getElem_cons hl, he]
   exact ⟨_, rfl⟩
 
-/-- (S4 layout facts) the level-2 pad words (`padO j 2`) are disjoint from the level-3/4 pad, sibling and tweak words,
-and lie inside the 784-byte prefix.  Kernel check over all 128 `j`. -/
-theorem pad2_far : ∀ j < 128,
-    (padO j 3 + 16 ≤ padO j 2 ∨ padO j 2 + 16 ≤ padO j 3) ∧
-    (sibO 3 j + 16 ≤ padO j 2 ∨ padO j 2 + 16 ≤ sibO 3 j) ∧
-    (padO j 4 + 16 ≤ padO j 2 ∨ padO j 2 + 16 ≤ padO j 4) ∧
-    (sibO 4 j + 16 ≤ padO j 2 ∨ padO j 2 + 16 ≤ sibO 4 j) ∧
-    (blkO j 3 + 24 + 8 ≤ padO j 2 ∨ padO j 2 + 16 ≤ blkO j 3 + 24) ∧ padO j 2 + 16 ≤ 784 ∧
-    (padO j 5 + 16 ≤ padO j 2 ∨ padO j 2 + 16 ≤ padO j 5) ∧
-    (sibO 5 j + 16 ≤ padO j 2 ∨ padO j 2 + 16 ≤ sibO 5 j) := by
-  decide +kernel
-
 section main
 variable {im : Image} {j : Nat} (hj : j < 128) (hcode : CopyCodeAt im j) (hbank : ChildCodeAt im j)
   (hS : CodeAt im (pcOf SEARCH) searchWords)
@@ -833,46 +426,22 @@ variable {im : Image} {j : Nat} (hj : j < 128) (hcode : CopyCodeAt im j) (hbank 
   (hu : ChildPre j B k index leaf pads sibs tws u) (hlo : 1848 ≤ B) (hB : B < 2 ^ 14)
 include hj hcode hbank hS hT hu hlo hB
 
-set_option maxHeartbeats 4000000 in
-/-- Level 3 (the ground fold through the trampoline) and the bank's tail, after level 2 (`Mid2C`, TIER2B D1). -/
-theorem lvl3C_tbsim (r2 : Nat × Digest) (s : MachineState) (hs : Mid2C j B k index u r2 s) :
+/-- Level 3 (the ground fold through the trampoline) and the bank's tail. -/
+theorem lvl3C_tbsim (v : Digest) (s : MachineState) (hs : MidC j B k index u 3 v s) :
     TBSim im sk s (lvlSt j 3 + 1 + W_SEARCH (widthOf B) + (cycR j 4 1 + 13))
-      (groundFold (widthOf B) (preC k index j tws sibs r2.2) (rightC j sibs r2.2) >>= fun r =>
+      (groundFold (widthOf B) (preC k index j tws sibs v) (rightC j sibs v) >>= fun r =>
         (List.range' 4 1).foldlM (childLevelP k index j pads (hpOf j tws) sibs) (r.2.extractLsb' 0 128) >>= fun v5 =>
-        childLevelHi k index j pads (hpOf j tws) sibs v5 >>= fun c => pure (2 ^ 64 * r2.1 + r.1, c))
+        childLevelHi k index j pads (hpOf j tws) sibs v5 >>= fun c => pure (r.1, c))
       (HandPostC B j u) := by
-  -- TIER2B D1: the TIER2 proof from `MidC 3` replays on `Mid2C` (same `pc/keep/a1/a2/node` fields); new: the level-2
-  -- record and pad words lie outside every later write (`slot2 B`, `B + padO j 2` vs `stagesW 4..`, `slotA B` 16
-  -- bytes, `outO 4`), so `rec2a/rec2b` and the frame carry over; `nle` from `Mid2C.nle` and the search's `nle`.
   have h8 := hu.base8
   have hhi := hu.baseHi
   unfold MEMORY_BYTES at hhi
   have hsl := site_lt j hj
-  have hfar2 := pad2_far j hj
-  set v : Digest := r2.2 with hvdef
   have hkeep : ∀ r : Reg, r ≠ .x3 → r ≠ .x10 → r ≠ .x11 → r ≠ .x12 → s.getReg r = u.getReg r := hs.keep
   have hx8 : s.getReg .x8 = BitVec.ofNat 64 B := (hkeep .x8 (by decide) (by decide) (by decide) (by decide)).trans hu.s0
-  have hsU : ∀ o, o ≤ 1024 → (o = padO j 3 ∨ o = padO j 3 + 8 ∨ o = sibO 3 j ∨ o = sibO 3 j + 8 ∨ o = blkO j 3 + 24) →
-      s.getMem (BitVec.ofNat 64 (B + o)) = u.getMem (BitVec.ofNat 64 (B + o)) := by
-    intro o ho hd
-    refine hs.frame (B + o) (by omega) ?_
-    rintro (⟨off, hoff, he⟩ | h | h | h | h | h)
-    · have e : off = o := by omega
-      subst e
-      have hf := stagesW_free (off := off) hj (by omega) hoff
-      rcases hd with rfl | rfl | rfl | rfl | rfl
-      exacts [hf.1 rfl, hf.2.1 rfl, hf.2.2.1 rfl, hf.2.2.2 rfl, tw_free hj (by omega) hoff rfl]
-    · omega
-    · omega
-    · simp only [SigGolfCandidate.FtsGrind.slot2, SigGolfCandidate.FtsGrind.slotA, SigGolfCandidate.FtsGrind.SCR] at h
-      omega
-    · omega
-    · simp only [SigGolfCandidate.FtsGrind.SCR] at h
-      omega
-  obtain ⟨t, hst, -, h5, h10, h11, h12', hpcT, hother, -, -, hP, hpre1, hhdr, hright, -⟩ :=
-    lvl_coreG hj hcode hu 3 (by decide) v s hs.pc hkeep (fun _ => hs.a1) hs.node hsU
+  obtain ⟨t, hst, -, h5, h10, h11, h12', hpcT, hother, -, -, hP, hpre1, hhdr, hright⟩ :=
+    lvl_coreC hj hcode hu 3 (by decide) v s hs
   have hbl := blk_bounds j hj 3 (by decide)
-  have hbl2 := blk_bounds j hj 2 (by decide)
   have hbl4 := blk_bounds j hj 4 (by decide)
   have h12 : t.getReg .x12 = BitVec.ofNat 64 (B + outO 4 j) := by
     rw [h12', lvlRegs_x12 j 3 (by decide)]
@@ -886,13 +455,14 @@ theorem lvl3C_tbsim (r2 : Nat × Digest) (s : MachineState) (hs : Mid2C j B k in
   -- the site `jal`
   have hjal : CodeAt im (pcOf (siteC j))
       [SigGolfCandidate.FtsGrind.encJal 0 (SigGolfCandidate.FtsGrind.jOff (siteC j) (trampOf j))] := by
-    refine codeAt_oneG ?_ (by unfold siteC copyBase cSlot SigGolfCandidate.FtsGrind.COPY_ODD; omega)
-    have hlen : ((childWords j).take (ecIdx j 4)).length = ecIdx j 4 := by
-      rw [List.length_take]; have := ecIdx4_le j hj; omega
+    refine codeAt_one ?_ (by unfold siteC copyBase cSlot SigGolfCandidate.FtsGrind.COPY_ODD; omega)
+    have hlen : (((childWords j).take (ecIdx j 4)).set (ecIdx j 3)
+        (SigGolfCandidate.FtsGrind.encJal 0 (SigGolfCandidate.FtsGrind.jOff (site16C j) (tramp16Of j)))).length =
+        ecIdx j 4 := by
+      rw [List.length_set, List.length_take]; have := ecIdx4_le j hj; omega
     have := hcode (ecIdx j 4)
       (SigGolfCandidate.FtsGrind.encJal 0 (SigGolfCandidate.FtsGrind.jOff (siteC j) (trampOf j))) (by
-      unfold copyPre; rw [List.getElem?_append_right (by simp only [List.length_set]; omega)]
-      simp only [List.length_set, hlen, Nat.sub_self]; simp)
+      unfold copyPre; rw [List.getElem?_append_right (by omega), hlen]; simp)
     simpa [siteC] using this
   have hjs := SigGolfCandidate.FtsGrind.jal_step (r := .x0) (by decide) rfl hjal
     (by unfold siteC copyBase cSlot SigGolfCandidate.FtsGrind.COPY_ODD; omega)
@@ -934,10 +504,10 @@ theorem lvl3C_tbsim (r2 : Nat × Digest) (s : MachineState) (hs : Mid2C j B k in
   have hBl : B + 1024 < 2 ^ 64 := by omega
   set u' := virt j B u s6 with hvd
   have g6 : ∀ x, x ∉ ([] : List Reg) → s6.getReg x = t1.getReg x := ho.regs
-  have hs6s : ∀ X, X < 2 ^ 64 → ¬ (∃ off ∈ stagesW j 5, X = B + off) →
+  have hsw : ∀ X, X < 2 ^ 64 → ¬ (∃ off ∈ stagesW j 5, X = B + off) →
       ¬ (X = B + padO j 3 ∨ X = B + padO j 3 + 8) → ¬ (SCR ≤ X ∧ X < SCR + 32) →
       ¬ (slotA B ≤ X ∧ X < slotA B + 16) → ¬ (1104 ≤ X ∧ X < 1144) →
-      s6.getMem (BitVec.ofNat 64 X) = s.getMem (BitVec.ofNat 64 X) := by
+      s6.getMem (BitVec.ofNat 64 X) = u.getMem (BitVec.ofNat 64 X) := by
     intro X hX h1 h2 h3 h4 h5'
     have e6 := ho.frame.get hX (by
       unfold SigGolfCandidate.FtsGrind.SearchW
@@ -956,55 +526,34 @@ theorem lvl3C_tbsim (r2 : Nat × Digest) (s : MachineState) (hs : Mid2C j B k in
       rintro (h | h)
       · exact h1 ⟨tw24 j 3, mem_stagesW (m := 3) (by omega) (by simp [stageW]), h⟩
       · exact h1 ⟨blkO j 3 + 16, mem_stagesW (m := 3) (by omega) (by simp [stageW]), by omega⟩)]
-  have hsw : ∀ X, X < 2 ^ 64 → ¬ (∃ off ∈ stagesW j 5, X = B + off) →
-      ¬ (X = B + padO j 3 ∨ X = B + padO j 3 + 8) → ¬ (SCR ≤ X ∧ X < SCR + 32) →
-      ¬ (slotA B ≤ X ∧ X < slotA B + 16) → ¬ (1104 ≤ X ∧ X < 1144) →
-      ¬ (X = B + padO j 2 ∨ X = B + padO j 2 + 8) → ¬ (SigGolfCandidate.FtsGrind.slot2 B ≤ X ∧
-        X < SigGolfCandidate.FtsGrind.slot2 B + 16) →
-      s6.getMem (BitVec.ofNat 64 X) = u.getMem (BitVec.ofNat 64 X) := by
-    intro X hX h1 h2 h3 h4 h5' h6 h7
-    rw [hs6s X hX h1 h2 h3 h4 h5']
-    exact hs.frame.get hX (by
-      rintro (⟨off, hoff, he⟩ | h | h | h | h | h)
-      · exact h1 ⟨off, stagesW_mono hoff (by omega), he⟩
-      · exact h6 (Or.inl h)
-      · exact h6 (Or.inr h)
-      · exact h7 h
-      · exact h5' h
-      · exact h3 h)
+    exact hs.frame.get hX (fun ⟨off, hoff, he⟩ => h1 ⟨off, stagesW_mono hoff (by omega), he⟩)
   have hvu : ∀ X, X < 2 ^ 64 → ¬ (X = B + padO j 3 ∨ X = B + padO j 3 + 8) → ¬ (SCR ≤ X ∧ X < SCR + 32) →
       ¬ (slotA B ≤ X ∧ X < slotA B + 16) → ¬ (1104 ≤ X ∧ X < 1144) →
-      ¬ (X = B + padO j 2 ∨ X = B + padO j 2 + 8) → ¬ (SigGolfCandidate.FtsGrind.slot2 B ≤ X ∧
-        X < SigGolfCandidate.FtsGrind.slot2 B + 16) →
       u'.getMem (BitVec.ofNat 64 X) = u.getMem (BitVec.ofNat 64 X) := by
-    intro X hX h2 h3 h4 h5' h6 h7
+    intro X hX h2 h3 h4 h5'
     rw [hvd, virt_getMem j B u s6 hBl hj X hX]
     split_ifs with hw
     · rfl
-    · exact hsw X hX hw h2 h3 h4 h5' h6 h7
+    · exact hsw X hX hw h2 h3 h4 h5'
   have hp3 := pad3_prefix j hj
   have hbl5 := blk_bounds j hj 5 (by decide)
   have hbl0 : padO j 4 % 16 = 0 ∧ sibO 4 j % 16 = 0 ∧ padO j 3 % 16 = 0 ∧ padO j 5 % 16 = 0 ∧
       sibO 5 j % 16 = 0 := by
     have := sibO_cases j 4 (by decide); have := sibO_cases j 5 (by decide); unfold padO; omega
   have far : ∀ X, B ≤ X → X < B + 1024 → ¬ (SCR ≤ X ∧ X < SCR + 32) ∧ ¬ (slotA B ≤ X ∧ X < slotA B + 16) ∧
-      ¬ (1104 ≤ X ∧ X < 1144) ∧ ¬ (SigGolfCandidate.FtsGrind.slot2 B ≤ X ∧
-        X < SigGolfCandidate.FtsGrind.slot2 B + 16) := fun X h1 h2 => by
-    simp only [SCR, slotA, SigGolfCandidate.FtsGrind.slot2]; omega
+      ¬ (1104 ≤ X ∧ X < 1144) := fun X h1 h2 => by simp only [SCR, slotA]; omega
   have hsb4 := sibO_cases j 4 (by decide)
   have hsb5 := sibO_cases j 5 (by decide)
   have dig4 : ∀ (o : Nat) (d : Digest), (o = padO j 4 ∨ o = sibO 4 j ∨ o = padO j 5 ∨ o = sibO 5 j) →
-      o + 16 ≤ 1024 → DigAt u (B + o) d → DigAt u' (B + o) d := by
+      o + 16 ≤ 1024 → DigAt u (B + o) d →
+      DigAt u' (B + o) d := by
     intro o d ho hlt hd
     have h16 : o % 16 = 0 ∧ o ≠ padO j 3 := by rcases ho with rfl | rfl | rfl | rfl <;> omega
-    have h2o : ¬ (B + o = B + padO j 2 ∨ B + o = B + padO j 2 + 8) ∧
-        ¬ (B + o + 8 = B + padO j 2 ∨ B + o + 8 = B + padO j 2 + 8) := by
-      rcases ho with rfl | rfl | rfl | rfl <;> omega
     refine DigAt.of_eq hd ?_ ?_
     · have := far (B + o) (by omega) (by omega)
-      exact hvu _ (by omega) (by omega) this.1 this.2.1 this.2.2.1 h2o.1 this.2.2.2
+      exact hvu _ (by omega) (by omega) this.1 this.2.1 this.2.2
     · have := far (B + o + 8) (by omega) (by omega)
-      exact hvu _ (by omega) (by omega) this.1 this.2.1 this.2.2.1 h2o.2 this.2.2.2
+      exact hvu _ (by omega) (by omega) this.1 this.2.1 this.2.2
   let pads' : Nat → Digest := fun l => if l = 4 ∨ l = 5 then pads l else rdD u' (B + padO j l)
   let sibs' : Nat → Digest := fun l => if l = 4 ∨ l = 5 then sibs l else rdD u' (B + sibO l j)
   let tws' : Nat → Digest := fun l => rdD u' (B + blkO j l + 16)
@@ -1049,7 +598,10 @@ theorem lvl3C_tbsim (r2 : Nat × Digest) (s : MachineState) (hs : Mid2C j B k in
       frame := fun A hA hn => by
         rw [hvd, virt_getMem j B u s6 hBl hj A hA, if_neg hn] }
   have HR := rest_tbsim (sk := sk) hj hbank hu' 1 4 _ s6 rfl hmid
-  have HT := TBSim.bind HR (fun v5 s7 hs7 => tail_tbsim (sk := sk) hj hbank hu' (by omega) v5 s7 hs7)
+  have HT := TBSim.bind HR (fun v5 s7 hs7 => TBSim.bind (W₂ := 0)
+    (tail_tbsim (sk := sk) hj hbank hu' (by omega) v5 s7 hs7)
+    (fun c t7 hp => TBSim.pure (α := Nat × Digest) (sk := sk) (image := im) (a := (r.1, c)) (s := t7)
+      (Q := fun res t => res.1 = r.1 ∧ HandPost B j u' res.2 t) ⟨rfl, hp⟩))
   have e1 : ∀ v, (List.range' 4 1).foldlM (childLevelP k index j pads' (hpOf j tws') sibs') v =
       (List.range' 4 1).foldlM (childLevelP k index j pads (hpOf j tws) sibs) v := fun v => by
     simp only [List.range', List.foldlM, childLevelP, hpOf, pads', sibs', show (4 = 4 ∨ 4 = 5) by decide, true_or, or_true, if_true,
@@ -1059,7 +611,10 @@ theorem lvl3C_tbsim (r2 : Nat × Digest) (s : MachineState) (hs : Mid2C j B k in
       simp only [childLevelHi, nodeIn, hpOf, pads', sibs', show (5 = 4 ∨ 5 = 5) by decide, true_or, or_true, if_true,
         show ¬ (5 < 4) by decide, if_false]
   simp only [e1, e2] at HT
-  refine (TBSim.bind HT (fun c t7 hp => TBSim.pure ?_)).mono (by omega) (fun _ _ h => h)
+  refine HT.mono (by omega) ?_
+  rintro ⟨n0, c⟩ t7 ⟨hn0, hp⟩
+  simp only at hn0
+  subst hn0
   have hhO := handO_cases j
   have t7m : ∀ X, X < 2 ^ 64 → ¬ prefixWrites B X → ¬ (B - handO j ≤ X ∧ X < B - handO j + 32) →
       t7.getMem (BitVec.ofNat 64 X) = u'.getMem (BitVec.ofNat 64 X) := fun X hX h1 h2 =>
@@ -1070,49 +625,16 @@ theorem lvl3C_tbsim (r2 : Nat × Digest) (s : MachineState) (hs : Mid2C j B k in
     rintro ⟨off, hoff, rfl⟩
     have := stagesW_bound hj (by decide) hoff
     omega
-  have hF : SigGolfCandidate.FtsGrind.FUEL (widthOf B) = 511 := rfl
-  have hq1 : (2 ^ 64 * r2.1 + r.1) % 2 ^ 64 = r.1 := by have := ho.nle; omega
-  have hq2 : (2 ^ 64 * r2.1 + r.1) / 2 ^ 64 = r2.1 := by have := ho.nle; omega
-  have hpk : BitVec.ofNat 64 (2 ^ 64 * r2.1 + r.1) = BitVec.ofNat 64 r.1 := by
-    apply BitVec.eq_of_toNat_eq; simp only [BitVec.toNat_ofNat]; omega
-  have hslot2 : SigGolfCandidate.FtsGrind.slot2 B = SCR + 2 * B + 16 := rfl
   refine ⟨by rw [hp.pc, virt_getReg], hp.a1, hp.top, hp.a2, fun x h3 h10' h11' h12' => by
-      rw [hp.keep x h3 h10' h11' h12', virt_getReg], ?_, ?_, ⟨by rw [hq1]; exact ho.nle, by rw [hq2]; exact hs.nle⟩,
-      ?_, ?_, ?_, ?_, ?_, ?_⟩
+      rw [hp.keep x h3 h10' h11' h12', virt_getReg], ?_, ?_, ho.nle, ?_, ?_, ?_⟩
   · rw [t7m _ (by simp only [slotA, SCR]; omega) (by unfold prefixWrites slotA SCR; omega)
       (by simp only [slotA, SCR]; omega), u's _ (by simp only [slotA, SCR]; omega)
       (by simp only [slotA, SCR]; omega)]
     exact ho.slot0
   · rw [t7m _ (by simp only [slotA, SCR]; omega) (by unfold prefixWrites slotA SCR; omega)
       (by simp only [slotA, SCR]; omega), u's _ (by simp only [slotA, SCR]; omega)
-      (by simp only [slotA, SCR]; omega), hpk]
+      (by simp only [slotA, SCR]; omega)]
     exact ho.slot1
-  · intro h3400
-    rw [t7m _ (by rw [hslot2]; simp only [SCR]; omega) (by rw [hslot2]; unfold prefixWrites SCR; omega)
-      (by rw [hslot2]; simp only [SCR]; omega), u's _ (by rw [hslot2]; simp only [SCR]; omega)
-      (by rw [hslot2]; simp only [SCR]; omega),
-      hs6s _ (by rw [hslot2]; simp only [SCR]; omega)
-        (by
-          rintro ⟨off, hoff, he⟩
-          have := stagesW_bound hj (by decide) hoff
-          rw [hslot2] at he; simp only [SCR] at he; omega)
-        (by rw [hslot2]; simp only [SCR]; omega) (by rw [hslot2]; simp only [SCR]; omega)
-        (by rw [hslot2]; simp only [SCR, slotA]; omega) (by rw [hslot2]; simp only [SCR]; omega)]
-    exact hs.rec0 h3400
-  · intro h3400
-    rw [hq2]
-    rw [t7m _ (by rw [hslot2]; simp only [SCR]; omega) (by rw [hslot2]; unfold prefixWrites SCR; omega)
-      (by rw [hslot2]; simp only [SCR]; omega), u's _ (by rw [hslot2]; simp only [SCR]; omega)
-      (by rw [hslot2]; simp only [SCR]; omega),
-      hs6s _ (by rw [hslot2]; simp only [SCR]; omega)
-        (by
-          rintro ⟨off, hoff, he⟩
-          have := stagesW_bound hj (by decide) hoff
-          rw [hslot2] at he; simp only [SCR] at he; omega)
-        (by rw [hslot2]; simp only [SCR]; omega) (by rw [hslot2]; simp only [SCR]; omega)
-        (by rw [hslot2]; simp only [SCR, slotA]; omega) (by rw [hslot2]; simp only [SCR]; omega)]
-    exact hs.rec1 h3400
-  · intro hB3; rw [hq2]; exact (hs.plain2 hB3).1
   · intro i hi
     rw [t7m _ (by omega) (by unfold prefixWrites; omega) (by omega), u's _ (by omega) (by omega)]
     exact ho.saves i hi
@@ -1121,58 +643,451 @@ theorem lvl3C_tbsim (r2 : Nat × Digest) (s : MachineState) (hs : Mid2C j B k in
       u's _ (by simp only [SCR]; omega) (by simp only [SCR]; omega)]
     exact ho.scr i hi
   · intro X hX hn
-    have hn' : ¬ prefixWrites B X ∧ ¬ (B - handO j ≤ X ∧ X < B - handO j + 32) ∧
-        ¬ (slotA B ≤ X ∧ X < slotA B + 16) ∧ ¬ (3400 ≤ B ∧ slotA B + 16 ≤ X ∧ X < slotA B + 32) ∧
-        ¬ (1104 ≤ X ∧ X < 1144) ∧ ¬ (SCR ≤ X ∧ X < SCR + 32) :=
-      ⟨fun h => hn (Or.inl h), fun h => hn (Or.inr (Or.inl h)),
-        fun h => hn (Or.inr (Or.inr (Or.inl (Or.inl h)))), fun h => hn (Or.inr (Or.inr (Or.inl (Or.inr h)))),
-        fun h => hn (Or.inr (Or.inr (Or.inr (Or.inl h)))), fun h => hn (Or.inr (Or.inr (Or.inr (Or.inr h))))⟩
-    rw [t7m _ hX hn'.1 hn'.2.1]
-    by_cases hX2 : SigGolfCandidate.FtsGrind.slot2 B ≤ X ∧ X < SigGolfCandidate.FtsGrind.slot2 B + 16
-    · have hB3 : B < 3400 := by
-        by_contra hc
-        apply hn'.2.2.2.1
-        rw [hslot2] at hX2
-        simp only [slotA]
-        omega
-      have hgt : ¬ ∃ off ∈ stagesW j 5, X = B + off := by
-        rintro ⟨off, hoff, he⟩
-        have := stagesW_bound hj (by decide) hoff
-        rw [hslot2] at hX2; simp only [SCR] at hX2; omega
-      rw [hvd, virt_getMem j B u s6 hBl hj X hX, if_neg hgt,
-        hs6s X hX hgt (by rw [hslot2] at hX2; simp only [SCR] at hX2; omega) (by rw [hslot2] at hX2; simp only [SCR] at hX2; omega)
-          (by rw [hslot2] at hX2; simp only [SCR, slotA] at hX2 ⊢; omega) (by rw [hslot2] at hX2; simp only [SCR] at hX2; omega)]
-      have := (hs.plain2 hB3).2 (X - SigGolfCandidate.FtsGrind.slot2 B) (by omega)
-      rwa [show SigGolfCandidate.FtsGrind.slot2 B + (X - SigGolfCandidate.FtsGrind.slot2 B) = X by omega] at this
-    · rw [hvd, virt_getMem j B u s6 hBl hj X hX]
-      split_ifs with hw
-      · rfl
-      · exact hsw X hX hw (by unfold prefixWrites at hn'; unfold padO at hp3 ⊢; omega) hn'.2.2.2.2.2 hn'.2.2.1
-          hn'.2.2.2.2.1 (by
-            rintro h
-            apply hn'.1
-            unfold prefixWrites; omega) hX2
-
-/-- **A copy routine refines `childProgramC`**: from the copy entry `x` (the bank entry state `u` at the copy pc). -/
-theorem childC_tbsim {x : MachineState} (hxu : u = bankPc j x) (hpx : x.pc = pcOf (copyBase j + 1))
-    (hS2 : CodeAt im (pcOf (SigGolfCandidate.FtsGrind.s2Base (hiSel j 3)))
-      (SigGolfCandidate.FtsGrind.search2Words (hiSel j 3)))
-    (hT2 : CodeAt im (pcOf (tramp2Of j)) (SigGolfCandidate.FtsGrind.trampWords (tramp2Of j)
-      (SigGolfCandidate.FtsGrind.s2Base (hiSel j 3)) (site2C j + 1))) :
-    TBSim im sk x (17 + (cycR j 0 2 + (lvlSt j 2 + 1 + SigGolfCandidate.FtsGrind.W_SEARCH2) + (lvlSt j 3 + 1 + W_SEARCH (widthOf B) + (cycR j 4 1 + 13))))
-      (childProgramC k index j (widthOf B) B leaf pads sibs tws) (HandPostC B j u) := by
-  -- TIER2B D1: `TBSim.bind` of `leafC_tbsim`, `restC_tbsim 2 0`, `lvl2C_tbsim hj hcode hS2 hT2 hu hlo hB` and
-  -- `lvl3C_tbsim` (from `Mid2C`), then `rw [childProgramC, List.range_eq_range']` as in the D1 proof.
-  -- TIER2B D1: `TBSim.bind` of `leafC_tbsim`, `restC_tbsim 2 0`, `lvl2C_tbsim hj hcode hS2 hT2 hu hlo hB` and
-  -- `lvl3C_tbsim` (from `Mid2C`), then `rw [childProgramC, List.range_eq_range']` as in the D1 proof.
-  have H := TBSim.bind (leafC_tbsim (sk := sk) hj hcode hu hxu hpx) (fun v s hs =>
-    TBSim.bind (restC_tbsim (sk := sk) hj hcode hu 2 0 v s rfl hs) (fun v2 s2 hs2 =>
-      TBSim.bind (lvl2C_tbsim (sk := sk) hj hcode hS2 hT2 hu hlo hB v2 s2 hs2) (fun r2 s3 hs3 =>
-        lvl3C_tbsim hj hcode hbank hS hT hu hlo hB r2 s3 hs3)))
-  rw [childProgramC, List.range_eq_range']
-  simp only [bind_assoc, pure_bind] at H ⊢
-  exact H.mono (by omega) (fun _ _ h => h)
+    simp only [not_or] at hn
+    rw [t7m _ hX hn.1 hn.2.1, hvd, virt_getMem j B u s6 hBl hj X hX]
+    split_ifs with hw
+    · rfl
+    · exact hsw X hX hw (by unfold prefixWrites at hn; unfold padO at hp3 ⊢; omega) hn.2.2.2.2 hn.2.2.1
+        hn.2.2.2.1
 
 end main
+
+/-! ## Y5 #1: level 2 (heap 16..31) through its trampoline -/
+
+open SigGolfCandidate.FtsGrind (SEARCH16 search16Words Search16In Search16Out Plain16Out tramp_search16
+  tramp_plain16 W_SEARCH16 W_PLAIN16 W16 groundFoldH slot16 SCR16 SEL16 Search16W)
+
+/-- Level-2 ground trial halves: `pre = pair.1 ‖ header`, `right = pair.2`. -/
+def pre2C (k index j : Nat) (tws sibs : Nat → Digest) (v : Digest) : List UInt8 :=
+  bytesLE 16 (if bitAt j 2 = 0 then v else sibs 2) ++ bytesLE 16 (nodeHeader k index (heapOf 2 j) (hpOf j tws 2))
+def right2C (j : Nat) (sibs : Nat → Digest) (v : Digest) : List UInt8 :=
+  bytesLE 16 (if bitAt j 2 = 0 then sibs 2 else v)
+
+/-- The level-2 fold of a copy routine: on a selected coordinate (`sel`) ground for one zero bit of the kept half,
+else the plain hash (nonce 0). -/
+def level2C (k index j : Nat) (sel : Bool) (pads tws sibs : Nat → Digest) (v : Digest) : M (Nat × HashOutput) :=
+  if sel then groundFoldH (hiSel j 3) 1 (pre2C k index j tws sibs v) (right2C j sibs v)
+  else (fun a => (0, a)) <$> SigGolfCandidate.T3.publicHash (nodeIn k index j pads (hpOf j tws) sibs v 2)
+
+/-- The copy routine's program: the bank's `childProgram` with the level-2 fold `level2C` and the level-3 fold
+ground for `b` zero bits; it also returns both nonces (level 3, level 2). -/
+def childProgramC (k index j b : Nat) (sel : Bool) (leaf pads sibs tws : Nat → Digest) :
+    M (Nat × Nat × Digest) := do
+  let initial ← SharedV3.hashSel (hiSel j 0) (leafBytes leaf)
+  let v2 ← (List.range 2).foldlM (childLevelP k index j pads (hpOf j tws) sibs) initial
+  let r2 ← level2C k index j sel pads tws sibs v2
+  let r ← groundFold b (preC k index j tws sibs (selD j 3 r2.2)) (rightC j sibs (selD j 3 r2.2))
+  let v5 ← (List.range' 4 1).foldlM (childLevelP k index j pads (hpOf j tws) sibs) (r.2.extractLsb' 0 128)
+  let computed ← childLevelHi k index j pads (hpOf j tws) sibs v5
+  pure (r.1, r2.1, computed)
+
+/-- Words the level-2 trampoline writes outside the routine's block area: its record, the saves, `SCR16`. -/
+abbrev far16 (B A : Nat) : Prop :=
+  (slot16 B ≤ A ∧ A < slot16 B + 16) ∨ (1104 ≤ A ∧ A < 1144) ∨ (SCR16 ≤ A ∧ A < SCR16 + 32)
+
+/-- The virtual entry after level 2: `u` with the level-2 pad and the `far16` words of `s`. -/
+def virt2 (j B : Nat) (u s : MachineState) : MachineState :=
+  { u with mem := fun A => if A = BitVec.ofNat 64 (B + padO j 2) ∨ A = BitVec.ofNat 64 (B + padO j 2 + 8) ∨
+      far16 B A.toNat then s.mem A else u.mem A }
+
+theorem virt2_getMem (j B : Nat) (u s : MachineState) (A : Nat) (hA : A < 2 ^ 64) (hB : B + padO j 2 + 8 < 2 ^ 64) :
+    (virt2 j B u s).getMem (BitVec.ofNat 64 A) =
+      if A = B + padO j 2 ∨ A = B + padO j 2 + 8 ∨ far16 B A then s.getMem (BitVec.ofNat 64 A)
+      else u.getMem (BitVec.ofNat 64 A) := by
+  show (if _ then _ else _) = _
+  have e1 : (BitVec.ofNat 64 A = BitVec.ofNat 64 (B + padO j 2)) ↔ A = B + padO j 2 := ofNat_inj hA (by omega)
+  have e2 : (BitVec.ofNat 64 A = BitVec.ofNat 64 (B + padO j 2 + 8)) ↔ A = B + padO j 2 + 8 := ofNat_inj hA hB
+  have e3 : (BitVec.ofNat 64 A).toNat = A := by rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt hA
+  simp only [e1, e2, e3]
+  split_ifs <;> rfl
+
+theorem highHalf (a : BitVec 256) :
+    (a.extractLsb' 128 128).extractLsb' 0 64 = a.extractLsb' 128 64 ∧
+      (a.extractLsb' 128 128).extractLsb' 64 64 = a.extractLsb' 192 64 := by
+  constructor <;> apply BitVec.eq_of_toNat_eq <;>
+    simp only [BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow, Nat.shiftRight_zero, Nat.pow_zero,
+      Nat.div_one] <;> omega
+
+theorem digAt_sel3 {j : Nat} (hj : j < 128) {s : MachineState} {a : HashOutput} {B : Nat}
+    (h : ∀ k < 4, s.getMem (BitVec.ofNat 64 (B + outO 3 j + 8 * k)) = a.extractLsb' (64 * k) 64) :
+    DigAt s (B + curO 3 j) (selD j 3 a) := by
+  unfold selD
+  rcases Bool.eq_false_or_eq_true (hiSel j 3) with hh | hh
+  · rw [if_pos hh, ← outO_hi hj (by decide) hh]
+    have e2 := h 2 (by decide); have e3 := h 3 (by decide)
+    rw [show B + outO 3 j + 8 * 2 = B + (outO 3 j + 16) by ring] at e2
+    rw [show B + outO 3 j + 8 * 3 = B + (outO 3 j + 16) + 8 by ring] at e3
+    exact ⟨e2.trans (highHalf a).1.symm, e3.trans (highHalf a).2.symm⟩
+  · rw [if_neg (by rw [hh]; decide), ← outO_lo hh]
+    have e0 := h 0 (by decide); have e1 := h 1 (by decide)
+    simp only [Nat.mul_zero, Nat.add_zero, Nat.mul_one] at e0 e1
+    exact ⟨e0.trans (lowHalf a).1.symm, e1.trans (lowHalf a).2.symm⟩
+
+theorem and_one_zero (X : Nat) : (BitVec.ofNat 64 X &&& 1#64 = 0#64) ↔ X % 2 = 0 := by
+  have key : (BitVec.ofNat 64 X &&& 1#64).toNat = X % 2 := by
+    rw [BitVec.toNat_and, BitVec.toNat_ofNat, show (1#64 : BitVec 64).toNat = 1 from rfl, Nat.and_one_is_mod]
+    omega
+  constructor
+  · intro h
+    have := congrArg BitVec.toNat h
+    rw [key] at this
+    simpa using this
+  · intro h
+    apply BitVec.eq_of_toNat_eq
+    rw [key]
+    simpa using h
+
+theorem w0n_even (k index : Nat) : w0n k index % 2 = 0 := by
+  unfold w0n V3.nodeLow
+  rw [ClaudeWCT.WCT9.ftsLeafLow_zero]
+  unfold SigGolfCandidate.T3.ftsBiasN
+  omega
+
+/-- After the level-2 trampoline: the routine at level 3 from the virtual entry `virt2`, the record. -/
+structure L2Post (j B k index : Nat) (u : MachineState) (sel : Bool) (r : Nat × HashOutput) (s : MachineState) :
+    Prop where
+  mid : MidC j B k index (virt2 j B u s) 3 (selD j 3 r.2) s
+  rec0 : sel = true → s.getMem (BitVec.ofNat 64 (slot16 B)) = BitVec.ofNat 64 (B + blkO j 2 + WADJ)
+  rec1 : sel = true → s.getMem (BitVec.ofNat 64 (slot16 B + 8)) = BitVec.ofNat 64 r.1
+  nle : r.1 ≤ 255
+  n0 : sel = false → r.1 = 0
+  scr : sel = true → ∀ i < 4, s.getMem (BitVec.ofNat 64 (SCR16 + 8 * i)) = 0
+
+theorem virt2_frame {j B : Nat} (hj : j < 128) (hB : B < 2 ^ 14) {u s : MachineState}
+    (hF : Frame u s (fun A => (∃ off ∈ stagesW j 4, A = B + off) ∨ A = B + padO j 2 ∨ A = B + padO j 2 + 8 ∨
+      far16 B A)) :
+    Frame (virt2 j B u s) s (fun A => ∃ off ∈ stagesW j 4, A = B + off) := by
+  have hbl := blk_bounds j hj 2 (by decide)
+  intro A hA hn
+  rw [virt2_getMem j B u s A hA (by unfold padO; omega)]
+  split_ifs with h
+  · rfl
+  · exact hF A hA (by rintro (h1 | h1); exact hn h1; exact h h1)
+
+section level2
+variable {im : Image} {j : Nat} (hj : j < 128) (hcode : CopyCodeAt im j)
+  (hS16 : CodeAt im (pcOf SEARCH16) search16Words)
+  (hT16 : CodeAt im (pcOf (tramp16Of j)) (trampWords (tramp16Of j) SEARCH16 (site16C j + 1)))
+  {B k index : Nat} {leaf pads sibs tws : Nat → Digest} {u : MachineState}
+  (hu : ChildPre j B k index leaf pads sibs tws u) (hlo : 1848 ≤ B) (hB : B < 2 ^ 14)
+include hj hcode hS16 hT16 hu hlo hB
+
+/-- **Level 2 through the heap-16..31 trampoline**: ground on a selected coordinate, plain otherwise. -/
+theorem lvl2C_tbsim (v : Digest) (s : MachineState) (hs : MidC j B k index u 2 v s) :
+    TBSim im sk s (lvlSt j 2 + 1 + W16 (decide (SEL16 ≤ B)))
+      (level2C k index j (decide (SEL16 ≤ B)) pads tws sibs v) (L2Post j B k index u (decide (SEL16 ≤ B))) := by
+  have h8 := hu.base8
+  have hhi := hu.baseHi
+  unfold MEMORY_BYTES at hhi
+  have h16 := site16_lt j hj
+  have hsl := site_lt j hj
+  have hkeep : ∀ r : Reg, r ≠ .x3 → r ≠ .x10 → r ≠ .x11 → r ≠ .x12 → s.getReg r = u.getReg r := hs.keep
+  have hx8 : s.getReg .x8 = BitVec.ofNat 64 B := (hkeep .x8 (by decide) (by decide) (by decide) (by decide)).trans hu.s0
+  obtain ⟨t, hst, -, h5, h10, h11, h12', hpcT, hother, -, hin, hP, hpre1, hhdr, hright⟩ :=
+    lvl_coreC hj hcode hu 2 (by decide) v s hs
+  have hbl := blk_bounds j hj 2 (by decide)
+  have hbl3 := blk_bounds j hj 3 (by decide)
+  have h12 : t.getReg .x12 = BitVec.ofNat 64 (B + outO 3 j) := by
+    rw [h12', lvlRegs_x12 j 2 (by decide)]
+    by_cases hsk : skipA2 j 2 = true
+    · rw [if_pos hsk, skipA2_out hsk]
+      simp only [E.eval]
+      exact hs.a2
+    · rw [if_neg hsk, eX8_eval hx8]
+  have hoa := outO_arith j 3 hj (by decide)
+  have hcur : outO 3 j % 8 = 0 ∧ outO 3 j + 32 ≤ 864 := by have := curO_cases j 3; omega
+  -- the level-2 site `jal`
+  have hjal : CodeAt im (pcOf (site16C j))
+      [SigGolfCandidate.FtsGrind.encJal 0 (SigGolfCandidate.FtsGrind.jOff (site16C j) (tramp16Of j))] := by
+    refine codeAt_one ?_ (by unfold site16C copyBase cSlot SigGolfCandidate.FtsGrind.COPY_ODD; omega)
+    have hlt : ecIdx j 3 < ((childWords j).take (ecIdx j 4)).length := by
+      rw [List.length_take]; have := ecIdx4_le j hj; omega
+    have := hcode (ecIdx j 3)
+      (SigGolfCandidate.FtsGrind.encJal 0 (SigGolfCandidate.FtsGrind.jOff (site16C j) (tramp16Of j))) (by
+      unfold copyPre
+      rw [List.getElem?_append_left (by rw [List.length_set]; exact hlt), List.getElem?_set_self hlt])
+    simpa [site16C] using this
+  have hjs := SigGolfCandidate.FtsGrind.jal_step (r := .x0) (by decide) rfl hjal
+    (by unfold site16C copyBase cSlot SigGolfCandidate.FtsGrind.COPY_ODD; omega)
+    (by unfold tramp16Of cSlot SigGolfCandidate.FtsGrind.TRAMP16; omega) t (by rw [hpcT]; rfl)
+  set t1 := ((t.setReg .x0 (pcOf (site16C j + 1))).setPC (pcOf (tramp16Of j))) with ht1
+  have r1 : ∀ r, t1.getReg r = t.getReg r := fun r => by cases r <;> rfl
+  have m1 : Frame t t1 (fun _ => False) := fun _ _ _ => rfl
+  have hA : (B + blkO j 2) % 8 = 0 := by omega
+  have hb16 : tramp16Of j + 5 < 2 ^ 18 := by unfold tramp16Of cSlot SigGolfCandidate.FtsGrind.TRAMP16; omega
+  have hret16 : site16C j + 1 < 2 ^ 18 := by unfold site16C copyBase cSlot SigGolfCandidate.FtsGrind.COPY_ODD; omega
+  -- the frame from the entry to `t1`
+  have fu1 : Frame u t1 (fun A => (∃ off ∈ stagesW j 4, A = B + off)) := ((hs.frame.trans hP).trans m1).mono
+    (fun A _ h => by
+      rcases h with (⟨off, hoff, rfl⟩ | (rfl | rfl)) | h
+      · exact ⟨off, stagesW_mono hoff (by omega), rfl⟩
+      · exact ⟨tw24 j 2, mem_stagesW (m := 2) (by omega) (by simp [stageW]), rfl⟩
+      · exact ⟨blkO j 2 + 16, mem_stagesW (m := 2) (by omega) (by simp [stageW]), by omega⟩
+      · exact h.elim)
+  have Dw : ∀ X, (X = B + outO 3 j ∨ X = B + outO 3 j + 8 ∨ X = B + outO 3 j + 16 ∨ X = B + outO 3 j + 24) →
+      ∃ off ∈ stagesW j 4, X = B + off := by
+    rintro X (rfl | rfl | rfl | rfl)
+    · exact ⟨outO 3 j, mem_stagesW (m := 3) (by omega) (by simp [stageW]), rfl⟩
+    · exact ⟨outO 3 j + 8, mem_stagesW (m := 3) (by omega) (by simp [stageW]), by omega⟩
+    · exact ⟨outO 3 j + 16, mem_stagesW (m := 3) (by omega) (by simp [stageW]), by omega⟩
+    · exact ⟨outO 3 j + 24, mem_stagesW (m := 3) (by omega) (by simp [stageW]), by omega⟩
+  have midOf : ∀ (a : HashOutput) (s6 : MachineState), s6.pc = pcOf (site16C j + 1) → RegsExcept t1 s6 [] →
+      (∀ k < 4, s6.getMem (BitVec.ofNat 64 (B + outO 3 j + 8 * k)) = a.extractLsb' (64 * k) 64) →
+      Frame u s6 (fun A => (∃ off ∈ stagesW j 4, A = B + off) ∨ A = B + padO j 2 ∨ A = B + padO j 2 + 8 ∨
+        far16 B A) →
+      MidC j B k index (virt2 j B u s6) 3 (selD j 3 a) s6 := by
+    intro a s6 p6 r6 ans6 f6
+    exact { pc := by rw [p6]; unfold site16C; rw [Nat.add_assoc]
+            keep := fun x h3 h10' h11' h12' => by
+              rw [r6.get (by simp), r1, hother x h3 h10' h11' h12']; rfl
+            a1 := fun _ => by rw [r6.get (by simp), r1]; exact h11
+            a2 := by rw [r6.get (by simp), r1, h12]
+            node := digAt_sel3 hj ans6
+            frame := virt2_frame hj hB f6 }
+  by_cases hsel : SEL16 ≤ B
+  · rw [show decide (SEL16 ≤ B) = true from decide_eq_true hsel]
+    change TBSim im sk s _ (groundFoldH (hiSel j 3) 1 (pre2C k index j tws sibs v) (right2C j sibs v)) _
+    have hpk := heapOf_packed j 2 hj (by decide)
+    have F : Search16In (tramp16Of j) (site16C j + 1) (B + blkO j 2) (B + outO 3 j) B (hiSel j 3)
+        (pre2C k index j tws sibs v) (right2C j sibs v) t1 :=
+      { pc := rfl
+        x5 := by rw [r1]; exact h5
+        x8 := by rw [r1, hother .x8 (by decide) (by decide) (by decide) (by decide)]; exact hu.s0
+        x10 := by rw [r1]; exact h10
+        x11 := by rw [r1]; exact h11
+        x12 := by rw [r1]; exact h12
+        lpre := by simp [pre2C, bytesLE_length]
+        lright := by simp [right2C, bytesLE_length]
+        mpre := by
+          rw [frame_readWordsG m1 _ 4 (by omega) (fun _ _ h => h), show (4 : Nat) = 2 + 2 from rfl, readWords_add,
+            hpre1.words, show B + blkO j 2 + 8 * 2 = B + blkO j 2 + 16 by ring, hhdr.words, pre2C,
+            wordsOf_append _ _ (by simp [bytesLE_length])]
+        mright := by
+          rw [frame_readWordsG m1 _ 2 (by omega) (fun _ _ h => h), hright.words, right2C]
+        label := by
+          rw [m1.get (by omega) (fun h => h), hhdr.1, hdr11_lo, if_pos hpk, and_one_zero]
+          have := w0n_even k index
+          rcases Bool.eq_false_or_eq_true (hiSel j 3) with hh | hh
+          · rw [hh, if_pos rfl] at h16; simp only [hh, iff_true]; omega
+          · rw [hh] at h16; simp only [hh, Bool.false_eq_true, if_false, iff_false] at h16 ⊢; omega
+        hA := hA
+        hA1 := by omega
+        hA2 := by simp only [SigGolfCandidate.FtsGrind.SCR]; omega
+        hD := by omega
+        hD1 := by omega
+        hD2 := by simp only [SigGolfCandidate.FtsGrind.SCR]; omega
+        hS0 := h8
+        hS1 := by omega
+        hS2 := hB
+        hb := hb16
+        hret := hret16 }
+    have HS := tramp_search16 (sk := sk) hS16 hT16 F hsel
+    refine (TBSim.steps hst (TBSim.steps hjs (HS.mono le_rfl (fun r s6 ho => ?_)))).mono
+      (by simp only [W16, if_true]; omega) (fun _ _ h => h)
+    have f6 : Frame u s6 (fun A => (∃ off ∈ stagesW j 4, A = B + off) ∨ A = B + padO j 2 ∨ A = B + padO j 2 + 8 ∨
+        far16 B A) := (fu1.trans ho.frame).mono (fun A _ h => by
+      unfold Search16W at h
+      rcases h with h | (h | h | h | h | h | h)
+      · exact Or.inl h
+      · exact Or.inl (Dw A h)
+      · exact Or.inr (Or.inl (by unfold padO; omega))
+      · exact Or.inr (Or.inr (Or.inl (by unfold padO; omega)))
+      · exact Or.inr (Or.inr (Or.inr (Or.inl h)))
+      · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inl h))))
+      · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr h)))))
+    exact { mid := midOf r.2 s6 ho.pc ho.regs (fun k hk => ho.ans k hk) f6
+            rec0 := fun _ => by rw [ho.slot0, Nat.add_assoc]
+            rec1 := fun _ => ho.slot1
+            nle := ho.nle
+            n0 := fun h => absurd h (by decide)
+            scr := fun _ => ho.scr }
+  · rw [show decide (SEL16 ≤ B) = false from decide_eq_false hsel]
+    change TBSim im sk s _ ((fun a => (0, a)) <$>
+      SigGolfCandidate.T3.publicHash (nodeIn k index j pads (hpOf j tws) sibs v 2)) _
+    rw [map_eq_bind_pure_comp]
+    have hl : (nodeIn k index j pads (hpOf j tws) sibs v 2).length = 64 := by
+      unfold nodeIn; exact blk4_length _ _ _ _
+    have HP := tramp_plain16 (sk := sk) (s := t1) (inp := nodeIn k index j pads (hpOf j tws) sibs v 2) hS16 hT16 rfl
+      (by rw [r1]; exact h5) (by rw [r1, hother .x8 (by decide) (by decide) (by decide) (by decide)]; exact hu.s0)
+      (by omega) (by rw [r1]; exact h10) (by rw [r1]; exact h11) (by rw [r1]; exact h12) hl hin hA (by omega)
+      (by omega) (by omega) (by omega) (by omega) hb16 hret16
+    refine (TBSim.steps hst (TBSim.steps hjs (TBSim.bind (W₂ := 0) HP (fun a s6 ho => TBSim.pure ?_)))).mono
+      (by simp only [W16, Bool.false_eq_true, if_false]; omega) (fun _ _ h => h)
+    have f6 : Frame u s6 (fun A => (∃ off ∈ stagesW j 4, A = B + off) ∨ A = B + padO j 2 ∨ A = B + padO j 2 + 8 ∨
+        far16 B A) := (fu1.trans ho.frame).mono (fun A _ h => by
+      rcases h with h | h | h
+      · exact Or.inl h
+      · exact Or.inl (Dw A h)
+      · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inl h)))))
+    exact { mid := midOf a s6 ho.pc ho.regs (fun k hk => ho.ans k hk) f6
+            rec0 := fun h => absurd h (by decide)
+            rec1 := fun h => absurd h (by decide)
+            nle := Nat.zero_le _
+            n0 := fun _ => rfl
+            scr := fun h => absurd h (by decide) }
+
+end level2
+
+/-- Back at the caller after a copy routine: `HandPostC` with the level-2 record and the widened frame. -/
+structure HandPostC16 (B j : Nat) (u : MachineState) (sel : Bool) (res : Nat × Nat × Digest) (t : MachineState) :
+    Prop where
+  pc : t.pc = (u.getReg .x1 + 304) &&& ~~~1#64
+  a1 : t.getReg .x11 = 64
+  top : DigAt t (B - handO j + 16) res.2.2
+  a2 : t.getReg .x12 = BitVec.ofNat 64 (B - handO j)
+  keep : ∀ r : Reg, r ≠ .x3 → r ≠ .x10 → r ≠ .x11 → r ≠ .x12 → t.getReg r = u.getReg r
+  slot0 : t.getMem (BitVec.ofNat 64 (slotA B)) = BitVec.ofNat 64 (B + blkO j 3 + WADJ)
+  slot1 : t.getMem (BitVec.ofNat 64 (slotA B + 8)) = BitVec.ofNat 64 res.1
+  nle : res.1 ≤ FUEL (widthOf B)
+  rec0 : sel = true → t.getMem (BitVec.ofNat 64 (slot16 B)) = BitVec.ofNat 64 (B + blkO j 2 + WADJ)
+  rec1 : sel = true → t.getMem (BitVec.ofNat 64 (slot16 B + 8)) = BitVec.ofNat 64 res.2.1
+  nle16 : res.2.1 ≤ 255
+  n0 : sel = false → res.2.1 = 0
+  saves : ∀ i < 5, t.getMem (BitVec.ofNat 64 (1104 + 8 * i)) = 0
+  scr : ∀ i < 4, t.getMem (BitVec.ofNat 64 (SCR + 8 * i)) = 0
+  scr16 : sel = true → ∀ i < 4, t.getMem (BitVec.ofNat 64 (SCR16 + 8 * i)) = 0
+  frame : Frame u t (fun A => prefixWrites B A ∨ (B - handO j ≤ A ∧ A < B - handO j + 32) ∨
+    (slotA B ≤ A ∧ A < slotA B + 16) ∨ (1104 ≤ A ∧ A < 1144) ∨ (SCR ≤ A ∧ A < SCR + 32) ∨ far16 B A)
+
+/-- **A copy routine refines `childProgramC`**: from the copy entry `x` (the bank entry state `u` at the copy pc). -/
+theorem childC_tbsim {im : Image} {j : Nat} (hj : j < 128) (hcode : CopyCodeAt im j) (hbank : ChildCodeAt im j)
+    (hS : CodeAt im (pcOf SEARCH) searchWords)
+    (hT : CodeAt im (pcOf (trampOf j)) (trampWords (trampOf j) SEARCH (siteB j + 1)))
+    (hS16 : CodeAt im (pcOf SEARCH16) search16Words)
+    (hT16 : CodeAt im (pcOf (tramp16Of j)) (trampWords (tramp16Of j) SEARCH16 (site16C j + 1)))
+    {B k index : Nat} {leaf pads sibs tws : Nat → Digest} {u : MachineState}
+    (hu : ChildPre j B k index leaf pads sibs tws u) (hlo : 1848 ≤ B) (hB : B < 2 ^ 14)
+    {x : MachineState} (hxu : u = bankPc j x) (hpx : x.pc = pcOf (copyBase j + 1)) :
+    TBSim im sk x (17 + (cycR j 0 2 + (lvlSt j 2 + 1 + W16 (decide (SEL16 ≤ B)) +
+      (lvlSt j 3 + 1 + W_SEARCH (widthOf B) + (cycR j 4 1 + 13)))))
+      (childProgramC k index j (widthOf B) (decide (SEL16 ≤ B)) leaf pads sibs tws)
+      (HandPostC16 B j u (decide (SEL16 ≤ B))) := by
+  have h8 := hu.base8
+  have hhi := hu.baseHi
+  unfold MEMORY_BYTES at hhi
+  have hbl2 := blk_bounds j hj 2 (by decide)
+  have hp2 := (site16_lt j hj).2.1
+  have hfresh := pad2_fresh j hj
+  have hfar : ∀ X, B ≤ X → X < B + 1024 → ¬ far16 B X := fun X h1 h2 => by
+    simp only [far16, slot16, SCR16]; omega
+  have L3 : ∀ (r2 : Nat × HashOutput) (s6 : MachineState), L2Post j B k index u (decide (SEL16 ≤ B)) r2 s6 →
+      TBSim im sk s6 (lvlSt j 3 + 1 + W_SEARCH (widthOf B) + (cycR j 4 1 + 13) + 0)
+        ((groundFold (widthOf B) (preC k index j tws sibs (selD j 3 r2.2)) (rightC j sibs (selD j 3 r2.2)) >>=
+          fun r => (List.range' 4 1).foldlM (childLevelP k index j pads (hpOf j tws) sibs) (r.2.extractLsb' 0 128) >>=
+            fun v5 => childLevelHi k index j pads (hpOf j tws) sibs v5 >>= fun c =>
+            pure (r.1, c)) >>= fun p => pure (p.1, r2.1, p.2))
+        (HandPostC16 B j u (decide (SEL16 ≤ B))) := by
+    intro r2 s6 h6
+    set u2 := virt2 j B u s6 with hu2d
+    have vu : ∀ o, o + 8 ≤ 1024 → away j o = true →
+        u2.getMem (BitVec.ofNat 64 (B + o)) = u.getMem (BitVec.ofNat 64 (B + o)) := by
+      intro o ho ha
+      have := away_spec ha
+      rw [hu2d, virt2_getMem j B u s6 _ (by omega) (by unfold padO; omega), if_neg]
+      rintro (h | h | h)
+      · omega
+      · omega
+      · exact hfar _ (by omega) (by omega) h
+    have dv : ∀ o (d : Digest), o + 16 ≤ 1024 → away j o = true → away j (o + 8) = true → DigAt u (B + o) d →
+        DigAt u2 (B + o) d := fun o d ho h1 h2 hd =>
+      DigAt.of_eq hd (vu o (by omega) h1) (by rw [Nat.add_assoc]; exact vu (o + 8) (by omega) h2)
+    let pads2 : Nat → Digest := fun l => if l = 2 then rdD u2 (B + padO j 2) else pads l
+    have hu2 : ChildPre j B k index leaf pads2 sibs tws u2 :=
+      { pc := hu.pc
+        base8 := h8
+        baseHi := hu.baseHi
+        t0 := hu.t0
+        s0 := hu.s0
+        a0 := hu.a0
+        a1 := hu.a1
+        w0 := hu.w0
+        heaps := hu.heaps
+        leafAt := fun i hi => by
+          have a1 := hfresh.2 (2 * i) (by omega)
+          have a2 := hfresh.2 (2 * i + 1) (by omega)
+          rw [show leafO + 8 * (2 * i) = leafO + 16 * i by ring] at a1
+          rw [show leafO + 8 * (2 * i + 1) = leafO + 16 * i + 8 by ring] at a2
+          have := dv (leafO + 16 * i) (leaf i) (by unfold leafO; omega) a1 a2
+            (by rw [← Nat.add_assoc]; exact hu.leafAt i hi)
+          rwa [← Nat.add_assoc] at this
+        padAt := fun l hl => by
+          by_cases e : l = 2
+          · subst e; simp only [pads2, if_true]; exact digAt_rdD _ _
+          · simp only [pads2, e, if_false]
+            have hb := blk_bounds j hj l hl
+            exact dv _ _ (by unfold padO; omega) ((hfresh.1 l hl).1 e).1 ((hfresh.1 l hl).1 e).2 (hu.padAt l hl)
+        sibAt := fun l hl => by
+          have hb := blk_bounds j hj l hl
+          have := sibO_cases j l hl
+          exact dv _ _ (by omega) (hfresh.1 l hl).2.1 (hfresh.1 l hl).2.2.1 (hu.sibAt l hl)
+        twAt := fun l hl => by
+          have hb := blk_bounds j hj l hl
+          have := dv (blkO j l + 16) (tws l) (by omega) (hfresh.1 l hl).2.2.2.1
+            (by rw [Nat.add_assoc]; exact (hfresh.1 l hl).2.2.2.2) (by rw [← Nat.add_assoc]; exact hu.twAt l hl)
+          rwa [← Nat.add_assoc] at this }
+    have HT := lvl3C_tbsim (sk := sk) hj hcode hbank hS hT hu2 hlo hB (selD j 3 r2.2) s6 h6.mid
+    have e : ∀ c : Digest, childLevelHi k index j pads2 (hpOf j tws) sibs c =
+        childLevelHi k index j pads (hpOf j tws) sibs c := fun c => by
+      simp only [childLevelHi, nodeIn, pads2]
+      rfl
+    have e1 : ∀ v, (List.range' 4 1).foldlM (childLevelP k index j pads2 (hpOf j tws) sibs) v =
+        (List.range' 4 1).foldlM (childLevelP k index j pads (hpOf j tws) sibs) v := fun v => by
+      simp only [List.range', List.foldlM, childLevelP, pads2]
+      rfl
+    simp only [e, e1] at HT
+    refine TBSim.bind HT (fun p t hp => TBSim.pure ?_)
+    -- `t` against `u`: through `u2`
+    have tu2 : ∀ X, X < 2 ^ 64 → ¬ (prefixWrites B X ∨ (B - handO j ≤ X ∧ X < B - handO j + 32) ∨
+        (slotA B ≤ X ∧ X < slotA B + 16) ∨ (1104 ≤ X ∧ X < 1144) ∨ (SCR ≤ X ∧ X < SCR + 32)) →
+        t.getMem (BitVec.ofNat 64 X) = u2.getMem (BitVec.ofNat 64 X) := fun X hX h => hp.frame.get hX h
+    have u2s : ∀ X, X < 2 ^ 64 → far16 B X → u2.getMem (BitVec.ofNat 64 X) = s6.getMem (BitVec.ofNat 64 X) :=
+      fun X hX h => by rw [hu2d, virt2_getMem j B u s6 _ hX (by unfold padO; omega), if_pos (Or.inr (Or.inr h))]
+    have nfar : ∀ X, far16 B X → (slot16 B ≤ X ∧ X < slot16 B + 16 ∨ SCR16 ≤ X ∧ X < SCR16 + 32) →
+        ¬ (prefixWrites B X ∨ (B - handO j ≤ X ∧ X < B - handO j + 32) ∨
+          (slotA B ≤ X ∧ X < slotA B + 16) ∨ (1104 ≤ X ∧ X < 1144) ∨ (SCR ≤ X ∧ X < SCR + 32)) := by
+      intro X _ h
+      have := handO_cases j
+      unfold prefixWrites
+      simp only [slotA, slot16, SCR, SCR16] at h ⊢
+      omega
+    have rd : ∀ X, X < 2 ^ 64 → (slot16 B ≤ X ∧ X < slot16 B + 16 ∨ SCR16 ≤ X ∧ X < SCR16 + 32) →
+        t.getMem (BitVec.ofNat 64 X) = s6.getMem (BitVec.ofNat 64 X) := fun X hX h => by
+      have hf : far16 B X := by rcases h with h | h; exact Or.inl h; exact Or.inr (Or.inr h)
+      rw [tu2 X hX (nfar X hf h), u2s X hX hf]
+    exact { pc := hp.pc
+            a1 := hp.a1
+            top := hp.top
+            a2 := hp.a2
+            keep := hp.keep
+            slot0 := hp.slot0
+            slot1 := hp.slot1
+            nle := hp.nle
+            rec0 := fun h => by
+              rw [rd _ (by simp only [slot16, SCR16]; omega) (Or.inl (by omega))]; exact h6.rec0 h
+            rec1 := fun h => by
+              rw [rd _ (by simp only [slot16, SCR16]; omega) (Or.inl (by omega))]; exact h6.rec1 h
+            nle16 := h6.nle
+            n0 := h6.n0
+            saves := hp.saves
+            scr := hp.scr
+            scr16 := fun h i hi => by
+              rw [rd _ (by simp only [SCR16]; omega) (Or.inr (by omega))]; exact h6.scr h i hi
+            frame := fun X hX hn => by
+              have hn1 : ¬ prefixWrites B X := fun h => hn (Or.inl h)
+              have hn6 : ¬ far16 B X := fun h => hn (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr h)))))
+              rw [hp.frame.get hX (fun h => hn (by
+                  rcases h with h | h | h | h | h
+                  exacts [Or.inl h, Or.inr (Or.inl h), Or.inr (Or.inr (Or.inl h)),
+                    Or.inr (Or.inr (Or.inr (Or.inl h))), Or.inr (Or.inr (Or.inr (Or.inr (Or.inl h))))])),
+                hu2d, virt2_getMem j B u s6 _ hX (by unfold padO; omega), if_neg]
+              rintro (h | h | h)
+              · exact hn1 (by unfold prefixWrites; omega)
+              · exact hn1 (by unfold prefixWrites; omega)
+              · exact hn6 h }
+  have H := TBSim.bind (leafC_tbsim (sk := sk) hj hcode hu hxu hpx) (fun v s hs =>
+    TBSim.bind (restC_tbsim (sk := sk) hj hcode hu 2 0 v s rfl hs) (fun v2 s2 hs2 =>
+      TBSim.bind (lvl2C_tbsim (sk := sk) hj hcode hS16 hT16 hu hlo hB v2 s2 hs2) (fun r2 s6 h6 => L3 r2 s6 h6)))
+  rw [childProgramC, List.range_eq_range']
+  simpa only [bind_assoc, pure_bind, Nat.add_zero] using H
 
 end W9Drv.SharedBProof

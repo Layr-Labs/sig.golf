@@ -1889,7 +1889,7 @@ theorem lifetimeBound_le_real : lifetimeBound ≤ 2 ^ 31 * ((2 + (2 ^ 26)⁻¹) 
       rw [pIdx, Nat.cast_pow, Nat.cast_ofNat, show (2 : ℝ≥0∞) ^ 32 = 2 * 2 ^ 31 by ring, mul_assoc,
         ENNReal.mul_inv_cancel (by positivity) (by finiteness), mul_one]
     have hc : (2 ^ 256 + SigGolfCandidate.T3.R - 1) / SigGolfCandidate.T3.R =
-        15557284462666655376466157833521152917877 := by
+        15312706511442230855851857334429569516916 := by
       norm_num [SigGolfCandidate.T3.R]
     have h2 : ((2 ^ 127 : ℕ) : ℝ≥0∞) * pQuery ≤ (2 ^ 26)⁻¹ := by
       rw [pQuery, pIdx, pNonce, hc, ← ENNReal.toReal_le_toReal (by finiteness) (by finiteness)]

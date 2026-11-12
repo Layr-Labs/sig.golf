@@ -1,12 +1,11 @@
-import SigGolfCandidate.AllRouteMean
+import SigGolfCandidate.TopRouteWeight
 import SigGolfCandidate.Merge043
 import SigGolfCandidate.Merge053
 open scoped BigOperators
 namespace ClaudeWCT.Bank.Paired
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal Finset
 open SigGolfCandidate.T3
-open ClaudeWCT.Numerics.AllRouteMean
-open SigGolfCandidate.Research.SharedForest
+open ClaudeWCT.Numerics.TopRoute
 set_option maxHeartbeats 3000000
 set_option maxRecDepth 100000
 set_option exponentiation.threshold 10000000
@@ -32,14 +31,14 @@ theorem honest_index_average (g : Fin (2^31) → ENNReal) :
       rw [Finset.mul_sum]
 
 noncomputable def routeInitial (i : Fin (2^31)) : ENNReal :=
-  (ClaudeWCT.W9.T3.CanonicalSearch.AllRoute.initialValue (saveClass i.val) (poolClass i.val) : ENNReal) / ClaudeWCT.Numerics.CanonicalCompression.scale
+  (initialFor (rootPool (i.val / 2^19)) : ENNReal) / ClaudeWCT.Numerics.CanonicalCompression.scale
 
 theorem routeInitial_sum :
     (∑ i : Fin (2^31), routeInitial i) ≤
       ((2^31 : Nat) : ENNReal) * (meanInitial : ENNReal) / ClaudeWCT.Numerics.CanonicalCompression.scale := by
   simp only [routeInitial, div_eq_mul_inv]
   rw [← Finset.sum_mul]
-  have h : (∑ i : Fin (2^31), (ClaudeWCT.W9.T3.CanonicalSearch.AllRoute.initialValue (saveClass i.val) (poolClass i.val) : ENNReal)) ≤
+  have h : (∑ i : Fin (2^31), (initialFor (rootPool (i.val / 2^19)) : ENNReal)) ≤
       ((2^31 : Nat) : ENNReal) * (meanInitial : ENNReal) := by
     exact_mod_cast index_initial_sum
   exact mul_le_mul' h le_rfl

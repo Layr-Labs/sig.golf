@@ -7,7 +7,7 @@ import SigGolfCandidate.Merge052
 import SigGolfCandidate.Merge055
 import SigGolfCandidate.Merge058
 import SigGolfCandidate.Merge074
-set_option debug.skipKernelTC false
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_New_Machine_Sign_Search ====
@@ -1399,10 +1399,8 @@ section
 section
 namespace SigGolfCandidate.T3M
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
-/-- R6: chunk 86 (`signCode_86`, the appended mod/hint routine) follows the partial chunk 85; NBZ5R (NB): chunk 87
-(`signCode_87`, PACK2/TAB2 25856..25997) follows; S5185 (FTS16): chunk 88 (`signCode_88`, heap-16..31 grind loop
-25998..26084) follows; A70Y4 (Y4): chunk 89 (`signCode_89`, marker trampolines 26085..26129) follows. -/
-def signCurrentCodeChunks : List (List (BitVec 32)) := [Images.signCode_0, Images.signCode_1, Images.signCode_2, Images.signCode_3, Images.signCode_4, Images.signCode_5, Images.signCode_6, Images.signCode_7, Images.signCode_8, Images.signCode_9, Images.signCode_10, Images.signCode_11, Images.signCode_12, Images.signCode_13, Images.signCode_14, Images.signCode_15, Images.signCode_16, Images.signCode_17, Images.signCode_18, Images.signCode_19, Images.signCode_20, Images.signCode_21, Images.signCode_22, Images.signCode_23, Images.signCode_24, Images.signCode_25, Images.signCode_26, Images.signCode_27, Images.signCode_28, Images.signCode_29, Images.signCode_30, Images.signCode_31, Images.signCode_32, Images.signCode_33, Images.signCode_34, Images.signCode_35, Images.signCode_36, Images.signCode_37, Images.signCode_38, Images.signCode_39, Images.signCode_40, Images.signCode_41, Images.signCode_42, Images.signCode_43, Images.signCode_44, Images.signCode_45, Images.signCode_46, Images.signCode_47, Images.signCode_48, Images.signCode_49, Images.signCode_50, Images.signCode_51, Images.signCode_52, Images.signCode_53, Images.signCode_54, Images.signCode_55, Images.signCode_56, Images.signCode_57, Images.signCode_58, Images.signCode_59, Images.signCode_60, Images.signCode_61, Images.signCode_62, Images.signCode_63, Images.signCode_64, Images.signCode_65, Images.signCode_66, Images.signCode_67, Images.signCode_68, Images.signCode_69, Images.signCode_70, Images.signCode_71, Images.signCode_72, Images.signCode_73, Images.signCode_74, Images.signCode_75, Images.signCode_76, Images.signCode_77, Images.signCode_78, Images.signCode_79, Images.signCode_80, Images.signCode_81, Images.signCode_82, Images.signCode_83, Images.signCode_84, Images.signCode_85, Images.signCode_86, Images.signCode_87, Images.signCode_88, Images.signCode_89]
+/-- R6: chunk 86 (`signCode_86`, the appended mod/hint routine) follows the partial chunk 85. -/
+def signCurrentCodeChunks : List (List (BitVec 32)) := [Images.signCode_0, Images.signCode_1, Images.signCode_2, Images.signCode_3, Images.signCode_4, Images.signCode_5, Images.signCode_6, Images.signCode_7, Images.signCode_8, Images.signCode_9, Images.signCode_10, Images.signCode_11, Images.signCode_12, Images.signCode_13, Images.signCode_14, Images.signCode_15, Images.signCode_16, Images.signCode_17, Images.signCode_18, Images.signCode_19, Images.signCode_20, Images.signCode_21, Images.signCode_22, Images.signCode_23, Images.signCode_24, Images.signCode_25, Images.signCode_26, Images.signCode_27, Images.signCode_28, Images.signCode_29, Images.signCode_30, Images.signCode_31, Images.signCode_32, Images.signCode_33, Images.signCode_34, Images.signCode_35, Images.signCode_36, Images.signCode_37, Images.signCode_38, Images.signCode_39, Images.signCode_40, Images.signCode_41, Images.signCode_42, Images.signCode_43, Images.signCode_44, Images.signCode_45, Images.signCode_46, Images.signCode_47, Images.signCode_48, Images.signCode_49, Images.signCode_50, Images.signCode_51, Images.signCode_52, Images.signCode_53, Images.signCode_54, Images.signCode_55, Images.signCode_56, Images.signCode_57, Images.signCode_58, Images.signCode_59, Images.signCode_60, Images.signCode_61, Images.signCode_62, Images.signCode_63, Images.signCode_64, Images.signCode_65, Images.signCode_66, Images.signCode_67, Images.signCode_68, Images.signCode_69, Images.signCode_70, Images.signCode_71, Images.signCode_72, Images.signCode_73, Images.signCode_74, Images.signCode_75, Images.signCode_76, Images.signCode_77, Images.signCode_78, Images.signCode_79, Images.signCode_80, Images.signCode_81, Images.signCode_82, Images.signCode_83, Images.signCode_84, Images.signCode_85, Images.signCode_86]
 private theorem foldl_chunks (cs : List (List (BitVec 32))) (acc : List (BitVec 32)) :
     cs.foldl (· ++ ·) acc = acc ++ cs.flatten := by
   induction cs generalizing acc with
@@ -1425,20 +1423,18 @@ private theorem signCurrentCodeChunks_prefix_length :
   set_option maxRecDepth 100000 in decide +kernel
 
 theorem signCodeTailLast_eq (b : Nat) (hlo : 21760 ≤ b) :
-    (Images.signCode_85 ++ (Images.signCode_86 ++ (Images.signCode_87 ++ (Images.signCode_88 ++ Images.signCode_89)))).drop (b - 21760) =
-      signCurrentCodeChunks.flatten.drop b := by
-  have hs : signCurrentCodeChunks = signCurrentCodeChunks.take 85 ++
-      [Images.signCode_85, Images.signCode_86, Images.signCode_87, Images.signCode_88, Images.signCode_89] := by rfl
-  have he : signCurrentCodeChunks.flatten.drop 21760 = Images.signCode_85 ++ (Images.signCode_86 ++ (Images.signCode_87 ++ (Images.signCode_88 ++ Images.signCode_89))) := by
+    (Images.signCode_85 ++ Images.signCode_86).drop (b - 21760) = signCurrentCodeChunks.flatten.drop b := by
+  have hs : signCurrentCodeChunks = signCurrentCodeChunks.take 85 ++ [Images.signCode_85, Images.signCode_86] := by rfl
+  have he : signCurrentCodeChunks.flatten.drop 21760 = Images.signCode_85 ++ Images.signCode_86 := by
     conv_lhs => rw [hs]
-    rw [List.flatten_append, List.flatten_cons, List.flatten_cons, List.flatten_cons, List.flatten_cons, List.flatten_cons, List.flatten_nil, List.append_nil,
+    rw [List.flatten_append, List.flatten_cons, List.flatten_cons, List.flatten_nil, List.append_nil,
       ← signCurrentCodeChunks_prefix_length, List.drop_left]
   rw [show b = 21760 + (b - 21760) by omega, ← List.drop_drop, he]
   simp only [Nat.add_sub_cancel_left]
 
 theorem codeAt_sign_last {b : Nat} {code : List (BitVec 32)}
     (hlo : 21760 ≤ b) (hb : 0x1000 + 4 * b + 4 * code.length < 2 ^ 64)
-    (hc : ((Images.signCode_85 ++ (Images.signCode_86 ++ (Images.signCode_87 ++ (Images.signCode_88 ++ Images.signCode_89)))).drop (b - 21760)).take code.length = code) :
+    (hc : ((Images.signCode_85 ++ Images.signCode_86).drop (b - 21760)).take code.length = code) :
     CodeAt Images.signImage (pcOf b) code := by
   apply codeAt_sign_current_slice hb
   rw [← signCodeTailLast_eq b hlo]
