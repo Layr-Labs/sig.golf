@@ -33,7 +33,7 @@ def Post (coord index j : Nat) (u : MachineState) (res : Nat×Nat×Nat×Digest) 
     OuterCopyFlatB.Post coord j (virt2 j (coordRegion coord) u s6) (res.1,res.2.2) t
 
 def W (coord j : Nat) : Nat := 17+(cycR j 0 2+(lvlSt j 2+1+W16 (decide (SEL16≤coordRegion coord))+
-  (lvlSt j 3+1+W_SEARCH (widthOf (coordRegion coord))+(cycR j 4 1+30740))))
+  (lvlSt j 3+1+W_SEARCH (widthOf (coordRegion coord))+(cycR j 4 1+61460))))
 
 theorem run {im : Image} {sk : BitVec 256} (j : Fin 128) (coord : Fin 9) (index : Nat)
     (hc1 : 1≤coord.val) (hc8 : coord.val≠8) (hi : index<2^31) (hcode : CopyCodeAt im j.val)
@@ -49,7 +49,7 @@ theorem run {im : Image} {sk : BitVec 256} (j : Fin 128) (coord : Fin 9) (index 
   have hb:=OuterCopyFlatB.base_bounds coord
   have L3 : ∀ (r2 : Nat×HashOutput) (s6 : MachineState),
       L2Post j.val (coordRegion coord.val) coord.val index u (decide (SEL16≤coordRegion coord.val)) r2 s6→
-      TBSim im sk s6 (lvlSt j.val 3+1+W_SEARCH (widthOf (coordRegion coord.val))+(cycR j.val 4 1+30740))
+      TBSim im sk s6 (lvlSt j.val 3+1+W_SEARCH (widthOf (coordRegion coord.val))+(cycR j.val 4 1+61460))
         (OuterCopyTailB.program coord.val index j.val pads sibs tws (selD j.val 3 r2.2) >>=fun out=>pure (out.1,r2.1,out.2))
         (Post coord.val index j.val u) := by
     intro r2 s6 h6

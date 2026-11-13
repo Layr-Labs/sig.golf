@@ -11,9 +11,9 @@ set_option exponentiation.threshold 10000000
 set_option Elab.async false
 def poolWord (n : Nat) : Word :=
   let d := (BitVec.ofNat 64 n >>> 1) ^^^ BitVec.ofNat 64 n
-  74#64 - ((d &&& 1#64) + ((d >>> 6) &&& 1#64))
+  73#64 - ((d &&& 1#64) + ((d >>> 6) &&& 1#64))
 theorem pool_checked : ∀ n : Fin 4096, poolWord n.val = BitVec.ofNat 64 (OuterSigning.rootPool n.val) := by decide +kernel
-def signCode : List (BitVec 32) := [0x195313,0x1234333,0x137e13,0x635313,0x137313,0x1c30333,0x40600333,0x4a30313,0x66e37,0x6e3423,0x4691306f]
+def signCode : List (BitVec 32) := [0x195313,0x1234333,0x137e13,0x635313,0x137313,0x1c30333,0x40600333,0x4930313,0x66e37,0x6e3423,0x4691306f]
 sym_block sign := symRun {noAlias:=true} signCode (pcOf 1970) 12
 theorem sign_steps {im : Image} (hc : CodeAt im (pcOf 1970) signCode)
     (s : MachineState) (hp : s.pc=pcOf 1970) (leaf : Nat) (hl : leaf<4096)
@@ -32,7 +32,7 @@ theorem sign_steps {im : Image} (hc : CodeAt im (pcOf 1970) signCode)
     change A ≠ 417800 at hn
     norm_num at ha
     rw [Nat.mod_eq_of_lt ha, if_neg hn]
-def expandIndexCode : List (BitVec 32) := [0x20e37,0x550e3a83,0x13ada93,0x1ada13,0x15a4ab3,0x1afa13,0x6ada93,0x1afa93,0x14a8ab3,0x41500ab3,0x4aa8a93,0x66e37,0xe3a03,0xc51f806f]
+def expandIndexCode : List (BitVec 32) := [0x20e37,0x550e3a83,0x13ada93,0x1ada13,0x15a4ab3,0x1afa13,0x6ada93,0x1afa93,0x14a8ab3,0x41500ab3,0x49a8a93,0x66e37,0xe3a03,0xc51f806f]
 sym_block expandIndex := symRun {noAlias:=true} expandIndexCode (pcOf 54324) 20
 theorem root_word (index : Nat) (hi : index<2^31) :
     BitVec.ofNat 64 index >>> 19 = BitVec.ofNat 64 (index/2^19) := by

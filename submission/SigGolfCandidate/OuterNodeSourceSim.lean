@@ -24,13 +24,13 @@ theorem runB {im : Image} {sk : BitVec 256} {b A D coord index heap : Nat} {left
     {s : MachineState} (hc8 : coord≠8)
     (F : Input A D (OuterNodeRawModel.pre coord index heap left) (OuterNodeRawModel.rightBytes right) s)
     (hc : CodeAt im (pcOf b) OuterNodeHelper.bCode) (hp : s.pc=pcOf b) :
-    TBSim im sk s 30734 (nodeAt coord index heap left right)
+    TBSim im sk s 61454 (nodeAt coord index heap left right)
       (SourceOut coord heap s A D (pcOf b-4#64)) := by
   rw [nodeAt,OuterNodeRawModel.source_eq]
   apply map_sim
   have hr:=OuterNodeHelper.runB (sk:=sk) F hc hp
   have hraw : OuterNodeRawModel.raw coord index heap left right (cap coord-1) 0=
-      searchH true 3 (OuterNodeRawModel.pre coord index heap left) (OuterNodeRawModel.rightBytes right) 2047 0 := by
+      searchH true 5 (OuterNodeRawModel.pre coord index heap left) (OuterNodeRawModel.rightBytes right) 4095 0 := by
     simp [OuterNodeRawModel.raw,OuterNodeRawModel.high,cap,OuterGroundCore.width,hc8]
   rw [hraw]
   exact hr.mono (by omega) (fun a t ht=>⟨a,rfl,ht⟩)

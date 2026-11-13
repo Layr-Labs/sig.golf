@@ -36,8 +36,8 @@ theorem low_word (a : HashOutput) : (a.extractLsb' 0 128).extractLsb' 64 64=a.ex
   BitVec.extractLsb'_extractLsb'_of_le (by decide)
 
 theorem b_zero (a : HashOutput) (coord heap : Nat) (hc : coord≠8) :
-    zeroOk coord (value coord heap a)=true ↔ (a.extractLsb' 192 64 >>> 61)=0 := by
-  have h:=upper_word_iff (a.extractLsb' 128 128) 3 (by decide)
+    zeroOk coord (value coord heap a)=true ↔ (a.extractLsb' 192 64 >>> 59)=0 := by
+  have h:=upper_word_iff (a.extractLsb' 128 128) 5 (by decide)
   simpa [zeroOk,value,offset,OuterGroundCore.width,hc,high_word] using h.symm
 
 theorem c_two_zero (a : HashOutput) :

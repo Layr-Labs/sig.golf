@@ -14,9 +14,9 @@ theorem fixed_ratio_bound : ((zNum:ℝ)/zDen)^OuterGroundNumerics.fixedCost≤(O
   have hp:=powerUp_ratio_ge (ceilDiv (zNum*scale) zDen) OuterGroundNumerics.fixedCost
   exact (pow_le_pow_left₀ (by positivity) hc _).trans hp
 
-theorem outer_ratio_bound : ((groundM 3:ℝ)/scale)^8*((groundM 4:ℝ)/scale)^2≤
+theorem outer_ratio_bound : ((groundM 5:ℝ)/scale)^8*((groundM 4:ℝ)/scale)^2≤
     (OuterGroundNumerics.outerBound:ℝ)/scale := by
-  have h3:=powerUp_ratio_ge (groundM 3) 8
+  have h3:=powerUp_ratio_ge (groundM 5) 8
   have h4:=powerUp_ratio_ge (groundM 4) 2
   have nn (n : Nat) : (0:ℝ)≤(n:ℝ)/scale := div_nonneg (Nat.cast_nonneg _) (Nat.cast_nonneg _)
   exact (mul_le_mul h3 h4 (by positivity) (nn _)).trans (mulUp_ratio_ge _ _)

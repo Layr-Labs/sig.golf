@@ -37,8 +37,8 @@ theorem run_raw {im : Image} {sk : BitVec 256} {A D coord index heap : Nat} {lef
     obtain ⟨w,hw,hwv⟩:=OuterSignEntry.start_run F bs hv
     have hwv' : Stage s A D (pcOf 26177) 0 w := by
       simpa only [show pcOf 26175+8#64=pcOf 26177 from by decide] using hwv
-    have he:=OuterSignSearchB.loop (sk:=sk) F bq bc bf bj cp cd 2047 0 w hwv' (by decide)
-    have he' : TBSim im sk w 30730 (OuterNodeRawModel.raw coord index heap left right (cap coord-1) 0)
+    have he:=OuterSignSearchB.loop (sk:=sk) F bq bc bf bj cp cd 4095 0 w hwv' (by decide)
+    have he' : TBSim im sk w 61450 (OuterNodeRawModel.raw coord index heap left right (cap coord-1) 0)
         (OuterSignExit.Out s A D) := by
       simpa [OuterNodeRawModel.raw,OuterNodeRawModel.high,cap,OuterGroundCore.width,h8] using he
     exact (TBSim.steps (hs.trans (hr.trans hw)) he').mono (by omega) (by intros;assumption)

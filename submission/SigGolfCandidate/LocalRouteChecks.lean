@@ -33,14 +33,14 @@ theorem check3_at (mask r : Nat) (hm : mask<1) (hr : r<24) :
   exact (List.all_eq_true.mp h) r (List.mem_range.mpr hr)
 #print axioms check3_at
 theorem root_checks : (List.range 3).all (fun p => (List.range 8).all (fun mask =>
-    ClaudeWCT.Numerics.CanonicalCompression.recurrenceCheck ClaudeWCT.Numerics.CanonicalCompression.topDen ClaudeWCT.Numerics.TopZero.topAcceptedHistogram (max 18 ((73+p)-57)) (73+p)
-      (row1 mask) (Tables.initialAt (73+p) mask))) = true := by decide +kernel
+    ClaudeWCT.Numerics.CanonicalCompression.recurrenceCheck ClaudeWCT.Numerics.CanonicalCompression.topDen ClaudeWCT.Numerics.TopZero.topAcceptedHistogram (max 16 ((71+p)-57)) (71+p)
+      (row1 mask) (Tables.initialAt (71+p) mask))) = true := by decide +kernel
 
-theorem root_check_at (pool mask : Nat) (hlo : 73≤pool) (hhi : pool≤75) (hm : mask<8) :
-    ClaudeWCT.Numerics.CanonicalCompression.recurrenceCheck ClaudeWCT.Numerics.CanonicalCompression.topDen ClaudeWCT.Numerics.TopZero.topAcceptedHistogram (max 18 (pool-57)) pool
+theorem root_check_at (pool mask : Nat) (hlo : 71≤pool) (hhi : pool≤73) (hm : mask<8) :
+    ClaudeWCT.Numerics.CanonicalCompression.recurrenceCheck ClaudeWCT.Numerics.CanonicalCompression.topDen ClaudeWCT.Numerics.TopZero.topAcceptedHistogram (max 16 (pool-57)) pool
       (row1 mask) (Tables.initialAt pool mask) = true := by
-  have h := (List.all_eq_true.mp root_checks) (pool-73) (List.mem_range.mpr (by omega))
-  have he : 73+(pool-73)=pool := by omega
+  have h := (List.all_eq_true.mp root_checks) (pool-71) (List.mem_range.mpr (by omega))
+  have he : 71+(pool-71)=pool := by omega
   simpa only [he] using (List.all_eq_true.mp h) mask (List.mem_range.mpr hm)
 #print axioms root_check_at
 end ClaudeWCT.Numerics.LocalRoute.Checks

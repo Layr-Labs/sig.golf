@@ -5,7 +5,7 @@ set_option maxHeartbeats 0
 namespace OuterGroundFactors
 open ENNReal
 open ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh
-theorem facFH_ok_four (b : Nat) (hb1 : 1 ≤ b) (hb3 : b ≤ 4) :
+theorem facFH_ok_four (b : Nat) (hb1 : 1 ≤ b) (hb3 : b ≤ 5) :
     ClaudeWCT.W9.T3.Freshness.Paired.FtsFresh.FacFH SigGolfCandidate.T3.Budgets.signingZ b (mG b) := by
   unfold ClaudeWCT.W9.T3.Freshness.Paired.FtsFresh.FacFH
   set zr := SigGolfCandidate.T3.Budgets.signingZ.toReal with hzr

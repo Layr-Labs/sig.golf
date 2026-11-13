@@ -19,7 +19,7 @@ theorem sizes : bCode.length=22 ∧ cCode.length=26 := by decide +kernel
 
 theorem runB {im : Image} {sk : BitVec 256} {b A D : Nat} {pre right : List UInt8} {s : MachineState}
     (F : Input A D pre right s) (hc : CodeAt im (pcOf b) bCode) (hp : s.pc=pcOf b) :
-    TBSim im sk s 30734 (searchH true 3 pre right 2047 0)
+    TBSim im sk s 61454 (searchH true 5 pre right 4095 0)
       (OuterNodeSearchExit.Out s A D (pcOf b-4#64)) := by
   have c0:=codeAt_sub (seg:=b_saveCode) 0 hc (by decide) (by rfl)
   have c4:=codeAt_sub (seg:=b_preHashCode) 4 hc (by decide) (by rfl)
@@ -38,8 +38,8 @@ theorem runB {im : Image} {sk : BitVec 256} {b A D : Nat} {pre right : List UInt
     simpa [pc_offset,BitVec.add_assoc] using c12
   have h13 : CodeAt im (pcOf (b+4)+36#64) b_postCode := by
     simpa [pc_offset,BitVec.add_assoc] using c13
-  have he:=OuterNodeSearchB.loop (sk:=sk) F c4 h6 h9 h12 h13 2047 0 t ht' (by decide)
-  have he' : TBSim im sk t 30730 (searchH true 3 pre right 2047 0)
+  have he:=OuterNodeSearchB.loop (sk:=sk) F c4 h6 h9 h12 h13 4095 0 t ht' (by decide)
+  have he' : TBSim im sk t 61450 (searchH true 5 pre right 4095 0)
       (OuterNodeSearchExit.Out s A D (pcOf b-4#64)) := by
     simpa [pc_offset,BitVec.sub_eq_add_neg,BitVec.add_assoc] using he
   exact TBSim.steps hs he'

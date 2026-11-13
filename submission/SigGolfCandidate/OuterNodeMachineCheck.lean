@@ -13,16 +13,16 @@ theorem b_check_obligs (s : MachineState) (output : Nat) (ha : s.getReg .x12=Bit
   omega
 
 theorem b_check_values (s : MachineState) :
-    (b_check.res.toState s).getReg .x7=(s.getMem (s.getReg .x12+24#64) >>> 61) ∧
-    (b_check.res.toState s).pc=(if s.getMem (s.getReg .x12+24#64) >>> 61=0 then pcOf 246512 else pcOf 246508) := by
+    (b_check.res.toState s).getReg .x7=(s.getMem (s.getReg .x12+24#64) >>> 59) ∧
+    (b_check.res.toState s).pc=(if s.getMem (s.getReg .x12+24#64) >>> 59=0 then pcOf 246512 else pcOf 246508) := by
   simp [Result.toState_getReg,Result.toState_pc,b_check.res,RegFile.get,E.eval,Addr.eval,BinOp.eval,CmpOp.eval]
 
 theorem b_check_run {im : Image} (hc : CodeAt im (pcOf 246505) b_checkCode) (s : MachineState)
     (hp : s.pc=pcOf 246505) (output : Nat) (ha : s.getReg .x12=BitVec.ofNat 64 output)
     (hi : output < 2^20) (hl : 2048 ≤ output) (hm : output % 8 = 0) :
     ∃ t,Steps im s 3 3 t ∧ RegsExcept s t [.x7] ∧
-      t.getReg .x7=(s.getMem (s.getReg .x12+24#64) >>> 61) ∧
-      t.pc=(if s.getMem (s.getReg .x12+24#64) >>> 61=0 then pcOf 246512 else pcOf 246508) ∧
+      t.getReg .x7=(s.getMem (s.getReg .x12+24#64) >>> 59) ∧
+      t.pc=(if s.getMem (s.getReg .x12+24#64) >>> 59=0 then pcOf 246512 else pcOf 246508) ∧
       (∀ a,t.getMem a=s.getMem a) := by
   refine ⟨b_check.res.toState s,symRun_sound b_check hc s hp (b_check_obligs s output ha hi hl hm),?_,
     (b_check_values s).1,(b_check_values s).2,?_⟩

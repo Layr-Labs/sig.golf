@@ -67,7 +67,7 @@ theorem singleton_bound (index : Nat) (selected : Child) (word : Rank) (opened :
     (fun i=>opened.path ⟨i%7,Nat.mod_lt _ (by decide)⟩) prev
 
 theorem forest_bound (index : Nat) (selected : ForestSelection) (words : ForestWords) (opened : ForestOpening) :
-    CBound (fun _=>True) 17674 (OuterForestCorrectness.recoverForest index selected words opened) := by
+    CBound (fun _=>True) 25866 (OuterForestCorrectness.recoverForest index selected words opened) := by
   unfold OuterForestCorrectness.recoverForest
   refine (Bound.foldlM_list (P:=GoodQuery) (List.finRange 4) _ (fun _ _=>True)
     pairCost (ftsStart,[],[],[]) trivial (fun i hi acc _=>?_)).bind' (l:=singletonCost) (fun prev _=>?_) ?_
@@ -82,10 +82,10 @@ theorem forest_bound (index : Nat) (selected : ForestSelection) (words : ForestW
 
 theorem forest_cost (answers : Answers) (index : Nat) (selected : ForestSelection) (words : ForestWords)
     (opened : ForestOpening) : SigGolfCandidate.T3.SearchCost.cost answers
-      (OuterForestCorrectness.recoverForest index selected words opened)≤17674 :=
+      (OuterForestCorrectness.recoverForest index selected words opened)≤25866 :=
   SigGolfCandidate.T3.SearchCost.cost_bound answers (forest_bound index selected words opened)
 
-theorem extra : 17674=SigGolfCandidate.Research.SharedForest.ftsRecoverWorst+12283 := by decide +kernel
+theorem extra : 25866=SigGolfCandidate.Research.SharedForest.ftsRecoverWorst+20475 := by decide +kernel
 
 #print axioms forest_bound
 #print axioms forest_cost

@@ -14,7 +14,7 @@ def jump (site target : Nat) : BitVec 32 := encJal 0 (jOff site target)
 def logicalChild (block : Nat) : Nat := block/2+64*(block%2)
 
 def signPatch (i : Nat) (w : BitVec 32) : BitVec 32 :=
-  if i=1977 then w-BitVec.ofNat 32 (2^20)
+  if i=1977 then w
   else if i=25338 then jump i 26156
   else if i=25963 then jump i 26207
   else w
@@ -23,7 +23,7 @@ def signCode : List (BitVec 32) := Images.signCode.mapIdx signPatch++OuterSignIm
 
 def expandPatch (i : Nat) (w : BitVec 32) : BitVec 32 :=
   if i=0 then jump 0 88300
-  else if i=54334 then w-BitVec.ofNat 32 (2^20)
+  else if i=54334 then w
   else if i=84218 then jump i 88260
   else if 88260 ≤ i  ∧  i < 88280 then OuterNoncePostMachine.postCode.getD (i-88260) 0
   else if i=88280 then 0x73

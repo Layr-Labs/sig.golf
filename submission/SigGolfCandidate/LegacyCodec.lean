@@ -75,7 +75,7 @@ theorem selected_top_histogram_card (c : Nat) (hc : 18 ≤ c) :
     (univ.filter fun answer : HashOutput => ∃ dl, CanonicalPolicy.producerDecodeOut 0 18 answer = some dl ∧
         CanonicalPolicy.credit 0 dl.2 dl.1 = c).card =
       histogramWeight TopZero.topAcceptedHistogram c := by
-  rw [selected_top_path_card 18 c le_rfl hc, TopZero.topAcceptedHistogram, histogramWeight_split,
+  rw [selected_top_path_card 18 c (by omega) hc, TopZero.topAcceptedHistogram, histogramWeight_split,
     if_pos (by omega : 2 ≤ c), topWordCount_eq_hist (c - 2) (by omega), topWordCount_eq_hist c (by omega),
     topHighWeight_eq]
   ring
@@ -89,6 +89,26 @@ theorem selected_top_histogram_probability (c : Nat) (hc : 18 ≤ c) :
   rw [show (univ.filter fun answer : HashOutput => ∃ dl, CanonicalPolicy.producerDecodeOut 0 18 answer = some dl ∧
         CanonicalPolicy.credit 0 dl.2 dl.1 = c) = _ from rfl, selected_top_histogram_card c hc]
   simp only [Fintype.card_bitVec, topDen, Nat.cast_pow, Nat.cast_ofNat]
+
+theorem selected_top_histogram_card_floor (floor c : Nat) (hf : 16 ≤ floor) (hc : floor ≤ c) :
+    (univ.filter fun answer : HashOutput => ∃ dl, CanonicalPolicy.producerDecodeOut 0 floor answer = some dl ∧
+        CanonicalPolicy.credit 0 dl.2 dl.1 = c).card =
+      histogramWeight TopZero.topAcceptedHistogram c := by
+  rw [selected_top_path_card floor c hf hc, TopZero.topAcceptedHistogram, histogramWeight_split,
+    if_pos (by omega : 2 ≤ c), topWordCount_eq_hist (c - 2) (by omega), topWordCount_eq_hist c (by omega),
+    topHighWeight_eq]
+  ring
+
+theorem selected_top_histogram_probability_floor (floor c : Nat) (hf : 16 ≤ floor) (hc : floor ≤ c) :
+    Pr[fun answer => ∃ dl, CanonicalPolicy.producerDecodeOut 0 floor answer = some dl ∧
+        CanonicalPolicy.credit 0 dl.2 dl.1 = c | ($ᵗ HashOutput : ProbComp HashOutput)] =
+      (histogramWeight TopZero.topAcceptedHistogram c : ENNReal) / topDen := by
+  classical
+  rw [probEvent_uniformSample]
+  rw [show (univ.filter fun answer : HashOutput => ∃ dl, CanonicalPolicy.producerDecodeOut 0 floor answer = some dl ∧
+        CanonicalPolicy.credit 0 dl.2 dl.1 = c) = _ from rfl, selected_top_histogram_card_floor floor c hf hc]
+  simp only [Fintype.card_bitVec, topDen, Nat.cast_pow, Nat.cast_ofNat]
+
 
 local notation "lowerCountN" credit:arg =>
   (univ.filter fun w : SigGolfResearch.LowerEffectiveCounting.«Word» =>

@@ -15,7 +15,7 @@ open OuterGroundCore OuterHybridComplete OuterHybridNodeComplete OuterHybridHeap
 
 def coordOK (first : Bool) (coord : Nat) (nodes : Array Digest) : Prop :=
   ftsTreeOK coord nodes=true ∧ (first=false→ outerOK coord nodes)
-noncomputable def coordFailure (first : Bool) : ENNReal := 24*cF+(if first then 0 else 2*((2:ENNReal)^210)⁻¹)
+noncomputable def coordFailure (first : Bool) : ENNReal := 24*cF+(if first then 0 else 2*((2:ENNReal)^186)⁻¹)
 
 theorem E_buildCoord {β : Type} (secret : BitVec 256) (first : Bool) (coord index : Nat)
     (hc : coord<9) (hi : index<2^31) (selected : Child) (word : Rank) (pads : Nat → PairRoot)

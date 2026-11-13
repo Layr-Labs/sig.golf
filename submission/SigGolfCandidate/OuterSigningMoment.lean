@@ -13,7 +13,7 @@ open SigGolfCandidate.Research.SharedForest
 open ClaudeWCT.WCT9 ClaudeWCT.W9.T3.CanonicalSearch
 open SigGolfCandidate.Research.SharedSigningBudget
 open ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh
-noncomputable def outerE : ENNReal := mG 3^8*mG 4^2
+noncomputable def outerE : ENNReal := mG 5^8*mG 4^2
 theorem V_signFromOutput_fixed (secret : BitVec 256) (z L P : ENNReal) {F : ENNReal}
     (cache : SigGolfCandidate.T3.Cache) (rho : Digest) (counter : BitVec 32)
     (output : HashOutput) (rcache : RCache)

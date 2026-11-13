@@ -6,7 +6,7 @@ namespace OuterCodecFrame
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 open SigGolfCandidate.T3M OuterCodecMachine
 
-def carrierWords : List Word := [29080,29480,29880,30280,30488]
+def carrierWords : List Word := [29080,29480,29880,30280,30488,33848]
 
 theorem pack_frame (s : MachineState) (a : Word) (ha : a∉carrierWords) :
     (packBlock.res.toState s).getMem a=s.getMem a := by
@@ -14,7 +14,7 @@ theorem pack_frame (s : MachineState) (a : Word) (ha : a∉carrierWords) :
   apply memEval_frame
   intro p hp
   simp only [packBlock.res,List.mem_cons,List.not_mem_nil,or_false] at hp
-  rcases hp with rfl|rfl|rfl|rfl|rfl
+  rcases hp with rfl|rfl|rfl|rfl|rfl|rfl
   all_goals
     intro he
     apply ha
@@ -28,7 +28,7 @@ theorem unpack_frame (s : MachineState) (a : Word) (ha : a∉(carrierWords++[338
   apply memEval_frame
   intro p hp
   simp only [unpackBlock.res,List.mem_cons,List.not_mem_nil,or_false] at hp
-  rcases hp with rfl|rfl|rfl|rfl|rfl|rfl
+  rcases hp with rfl|rfl|rfl|rfl|rfl|rfl|rfl
   all_goals
     intro he
     apply ha

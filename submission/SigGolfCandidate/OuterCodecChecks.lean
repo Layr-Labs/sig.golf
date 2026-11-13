@@ -77,7 +77,7 @@ theorem lower_marginal (secret : BitVec 256) (cache : RCache) :
 theorem checks_failure (secret : BitVec 256) (cache : RCache) (hg : AllGFresh cache)
     (hf : ClaudeWCT.W9.T3.Freshness.Paired.FtsFresh.AllFFresh cache) (hn : OuterGlobalFresh.AllFFresh cache) :
     Ev secret checks cache (fun r=>if r.1.1 && r.1.2 then 0 else 1)≤
-      ENNReal.ofReal (1/(2:ℝ)^170)+ENNReal.ofReal (1/(2:ℝ)^150) := by
+      ENNReal.ofReal (1/(2:ℝ)^146)+ENNReal.ofReal (1/(2:ℝ)^150) := by
   calc
     _ ≤ Ev secret checks cache (fun r=>if r.1.1 then 0 else 1)+
         Ev secret checks cache (fun r=>if r.1.2 then 0 else 1) := by
@@ -86,7 +86,7 @@ theorem checks_failure (secret : BitVec 256) (cache : RCache) (hg : AllGFresh ca
       apply expectedValue_mono
       rintro ⟨⟨f,l⟩,c⟩
       cases f <;> cases l <;> norm_num
-    _ ≤ ENNReal.ofReal (1/(2:ℝ)^170)+ENNReal.ofReal (1/(2:ℝ)^150) :=
+    _ ≤ ENNReal.ofReal (1/(2:ℝ)^146)+ENNReal.ofReal (1/(2:ℝ)^150) :=
       add_le_add ((le_of_eq (fts_marginal secret cache)).trans (OuterHybridGlobalComplete.Ev_check_false secret cache hn))
         ((lower_marginal secret cache).trans (Ev_lowerCheck_false secret cache hg hf))
 

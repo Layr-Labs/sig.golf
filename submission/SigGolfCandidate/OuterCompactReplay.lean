@@ -58,7 +58,7 @@ theorem good_excess (answers : Answers) (message : Message) (b : OuterSignatureC
     (htree : TopTreeOK answers) (hlower : LowerTreesOK answers) (hforest : OuterHybridGlobalCorrectness.ForestsOK answers)
     (hs : evalWithAnswerFn answers (OuterExpand.signCompact (evalWithAnswerFn answers SigGolfCandidate.T3.keygen).2 message)=some b) :
     cost answers (OuterExpand.expandCompact message (evalWithAnswerFn answers SigGolfCandidate.T3.keygen).1 b)≤
-      cost answers (OuterExpand.signCompact (evalWithAnswerFn answers SigGolfCandidate.T3.keygen).2 message)+137288+
+      cost answers (OuterExpand.signCompact (evalWithAnswerFn answers SigGolfCandidate.T3.keygen).2 message)+145480+
         max (topField (treeValue (builtTree answers 0 0) 11 0)) (topField (treeValue (builtTree answers 0 0) 11 1)) := by
   obtain ⟨sig,hsg,hb⟩:=compact_some answers _ message b hs
   have hk:=SigGolfCandidate.T3.Correctness.keygen_correct answers

@@ -25,7 +25,7 @@ theorem expand_cost_le_payload_field (answers : Answers) (cache : SigGolfCandida
     (hreg : cache.region = cacheRegion (maskedTop answers)) (message : Message) (sig : SigGolfCandidate.Research.SharedForest.Signature)
     (hs' : evalWithAnswerFn answers (OuterSigning.signPayload cache message) = some sig) (pk : Digest)
     (hpk : pk = treeValue (builtTree answers 0 0) 12 0) :
-    cost answers (OuterExpand.expandN message pk sig) ≤ cost answers (OuterSigning.signPayload cache message) + 137288 +
+    cost answers (OuterExpand.expandN message pk sig) ≤ cost answers (OuterSigning.signPayload cache message) + 145480 +
         max (topField (treeValue (builtTree answers 0 0) 11 0)) (topField (treeValue (builtTree answers 0 0) 11 1)) := by
   unfold OuterSigning.signPayload at hs'
   simp only [evalWithAnswerFn_bind] at hs'
@@ -76,7 +76,7 @@ theorem expand_cost_le_sign_field (answers : Answers) (message : Message)
     (sig : SigGolfCandidate.Research.SharedForest.Signature)
     (hs : evalWithAnswerFn answers (OuterSigning.sign (evalWithAnswerFn answers SigGolfCandidate.T3.keygen).2 message)=some sig) :
     cost answers (OuterExpand.expandN message (evalWithAnswerFn answers SigGolfCandidate.T3.keygen).1 sig)≤
-      cost answers (OuterSigning.sign (evalWithAnswerFn answers SigGolfCandidate.T3.keygen).2 message)+137288+
+      cost answers (OuterSigning.sign (evalWithAnswerFn answers SigGolfCandidate.T3.keygen).2 message)+145480+
         max (topField (treeValue (builtTree answers 0 0) 11 0)) (topField (treeValue (builtTree answers 0 0) 11 1)) := by
   have hv:=keygen_cache_tag answers
   have hk:=SigGolfCandidate.T3.Correctness.keygen_correct answers

@@ -24,7 +24,7 @@ theorem signingMoment_le_two : signingMoment≤2 := by
   have hFt : ftsE≠⊤ := by unfold ftsE;exact ENNReal.mul_ne_top (ENNReal.pow_ne_top (hmt 1)) (ENNReal.pow_ne_top (hmt 2))
   have hOt : OuterSigningMoment.outerE≠⊤ := by
     unfold OuterSigningMoment.outerE
-    exact ENNReal.mul_ne_top (ENNReal.pow_ne_top (hmt 3)) (ENNReal.pow_ne_top (hmt 4))
+    exact ENNReal.mul_ne_top (ENNReal.pow_ne_top (hmt 5)) (ENNReal.pow_ne_top (hmt 4))
   have hzt : signingZ^111997≠⊤ := ENNReal.pow_ne_top (by unfold signingZ SigGolfCandidate.Budget.zOf;finiteness)
   have hst : ∀ n : Nat,(n:ENNReal)/(scale:ENNReal)≠⊤ := fun n =>
     ENNReal.div_ne_top (ENNReal.natCast_ne_top n) (by unfold scale;simp)

@@ -32,7 +32,7 @@ theorem cost_eq {answers : Answers} {cache : SigGolfCandidate.T3.Cache} {index :
     hf1, hf2, hf3, if_false, cost_pure, Nat.add_zero]
   simp only [recoverySearchCost, recoverySearch, hh, h.hints_spec.2.1,
     h.hints_spec.2.2.1, h.hints_spec.2.2.2, hm0, hm1, hm2,
-    show hintFloor index result.policyHints 0 = 18 from by simpa only [hintFloor,if_pos rfl,↓reduceIte] using OuterPreparedFacts.old_root_floor index,
+    show hintFloor index result.policyHints 0 = 16 from by simpa only [hintFloor,if_pos rfl,↓reduceIte] using OuterPreparedFacts.old_root_floor index,
     show (0 : Layer) ≠ 3 by decide, show (1 : Layer) ≠ 3 by decide,
     show (2 : Layer) ≠ 3 by decide, if_false, if_true,
     show (Fin.ofNat 4 ((0 : Layer).val + 1) : Layer) = 1 from rfl,
@@ -66,7 +66,7 @@ theorem recovery_cost_le {answers : Answers} {cache : SigGolfCandidate.T3.Cache}
     intro lay
     rcases layer_four_cases lay with rfl | rfl | rfl | rfl <;>
       simp only [recoverySearch, hh, h.hints_spec.2.1, h.hints_spec.2.2.1, h.hints_spec.2.2.2,
-        show hintFloor index result.policyHints 0 = 18 from by simpa only [hintFloor,if_pos rfl,↓reduceIte] using OuterPreparedFacts.old_root_floor index,
+        show hintFloor index result.policyHints 0 = 16 from by simpa only [hintFloor,if_pos rfl,↓reduceIte] using OuterPreparedFacts.old_root_floor index,
         show (0 : Layer) ≠ 3 by decide, show (1 : Layer) ≠ 3 by decide,
         show (2 : Layer) ≠ 3 by decide, if_false, if_true,
         show (Fin.ofNat 4 ((0 : Layer).val + 1) : Layer) = 1 from rfl,

@@ -15,7 +15,7 @@ theorem searchPreparedLayers_complete (answers : Answers) (hgood : ContextGood a
     ∃ result, evalWithAnswerFn answers (OuterSigning.searchPreparedLayers cache index prepared forest)=some result := by
   let f0 := Policy75Safe23.threshold 0 (OuterSigning.requiredCredit index)
   have hb := OuterSigning.requiredCredit_bounds index
-  have hf0 : 18≤f0 ∧ f0≤20 := by
+  have hf0 : 16≤f0 ∧ f0≤20 := by
     dsimp only [f0]
     rw [Policy75Safe23.threshold_top]
     omega

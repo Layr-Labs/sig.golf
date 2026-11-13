@@ -25,7 +25,7 @@ theorem run {im : Image} {sk : BitVec 256} (j : Fin 128) (coord : Fin 9) (index 
     {leaf pads sibs tws : Nat→Digest} {u s : MachineState}
     (hu : ChildPre j.val (coordRegion coord.val) coord.val index leaf pads sibs tws u)
     (v : Digest) (hs : Mid j.val (coordRegion coord.val) coord.val index u 5 v s) :
-    TBSim im sk s 30739
+    TBSim im sk s 61459
       (OuterGroundCore.nodeAt coord.val index (heapOf 5 j.val)
         (if bitAt j.val 5=0 then v else sibs 5) (if bitAt j.val 5=0 then sibs 5 else v))
       (Post coord.val index j.val u) := by

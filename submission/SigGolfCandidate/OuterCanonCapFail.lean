@@ -41,7 +41,6 @@ theorem prob_wAllFail_le (m : WctNodePos) (h3 : OuterExtractGround.ftsNonceLevel
       intro labels j;unfold wTrialFails;rw [if_pos h5,pairedProj_wHalfPos])]
     apply prob_outerFail_le (wHalfPos m) m.1.coord.val 0
     rw [wTrialSet_card,wTrialCap,if_pos ⟨h5,hf⟩]
-    rfl
   · have hi : Extract.Paired.ftsNonceLevel m.1.coord.val m.1.level.val := by
       rcases h3 with hi|ho;exact hi;exact (h5 ho.1).elim
     rw [allFail_trials m (WCT9.ftsZeroOk m.1.coord.val (2^(6-m.1.level.val))) (by

@@ -15,7 +15,7 @@ open ClaudeWCT.W9.T3M.SharedCodec
 def FinalPost : Option SharedSignature→MachineState→Prop
   | none,t=>SearchError OuterImages.signImage t
   | some sig,t=>t.pc=pcOf 26240 ∧ t.getReg .x5=1 ∧ t.getReg .x10=0 ∧
-      readBuffer t SIG 5184=OuterLooseCodec.compress (sigBC sig) ∧ fetch OuterImages.signImage t=some (.base .ECALL)
+      readBuffer t SIG 5183=OuterLooseCodec.compress (sigBC sig) ∧ fetch OuterImages.signImage t=some (.base .ECALL)
 
 theorem completed_serialize {sk : SecretKey}
     {rho : Digest} {forest : ForestOpening} {index : Nat} {p : PreparedRoots}

@@ -26,9 +26,9 @@ noncomputable def signingMoment : ENNReal := signingZ^2*payloadMoment
 theorem postMoment_ge_one : 1≤postMoment := by
   apply one_le_mul (one_le_pow₀ (SigGolfCandidate.Budget.one_le_zOf _))
   refine one_le_mul groundE_ge_one (one_le_mul ftsE_ge_one (one_le_mul ?_ ?_))
-  · exact one_le_mul (one_le_pow₀ (mG_ge_one 3 (by decide) (by decide))) (one_le_pow₀ (mG_ge_one 4 (by decide) (by decide)))
+  · exact one_le_mul (one_le_pow₀ (mG_ge_one 5 (by decide) (by decide))) (one_le_pow₀ (mG_ge_one 4 (by decide) (by decide)))
   · apply (ENNReal.toReal_le_toReal (by simp) (by unfold scale;finiteness)).mp
-    norm_num [ENNReal.toReal_div,OuterIndexMean.meanInitial,OuterGroundNumerics.mean74,scale]
+    norm_num [ENNReal.toReal_div,OuterIndexMean.meanInitial,OuterGroundNumerics.mean74,ClaudeWCT.Numerics.LocalRoute.Tables.meanInitial,scale]
 
 theorem payloadMoment_ge_one : 1≤payloadMoment :=
   one_le_mul (one_le_pow₀ (SigGolfCandidate.Budget.one_le_zOf _)) (one_le_mul digestMoment_ge_one postMoment_ge_one)

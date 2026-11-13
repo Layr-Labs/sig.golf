@@ -7,7 +7,7 @@ namespace OuterPreparedFacts
 open OracleComp OracleSpec SigGolfCandidate.T3 SigGolfCandidate.T3.Correctness
 open ClaudeWCT.WCT9 SigGolfCandidate.Research.SharedForest
 
-theorem old_root_floor (index : Nat) : Policy75Safe23.threshold 0 (SigGolfCandidate.Research.SharedForest.requiredCredit index)=18 := by
+theorem old_root_floor (index : Nat) : Policy75Safe23.threshold 0 (SigGolfCandidate.Research.SharedForest.requiredCredit index)=16 := by
   rw [Policy75Safe23.threshold_top]
   have h:=SigGolfCandidate.Research.SharedForest.requiredCredit_bounds index
   omega

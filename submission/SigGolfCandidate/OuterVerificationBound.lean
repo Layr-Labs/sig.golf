@@ -27,7 +27,7 @@ theorem run_agree (f g : Hash) (m : Message) (pk : PublicKey) (w : Bytes 21756)
 
 #print axioms run_agree
 theorem expand_witness (hash : Hash) (m : Message) (pk : PublicKey)
-    (s : Bytes 5184) (w : Bytes 21756) (he : (sub.runWith hash .expand (m,pk,s)).value=some w) :
+    (s : Bytes 5183) (w : Bytes 21756) (he : (sub.runWith hash .expand (m,pk,s)).value=some w) :
     ∃sig output wt ns,evalWithAnswerFn (machineAnswers hash 0) (OuterExpand.expandN m pk sig)=some (output,wt,ns) ∧
       w=OuterExpand.witEncOuter output wt ns := by
   have h:=congrArg (evalWithAnswerFn hash) (OuterRunValues.expand m pk s)
@@ -44,7 +44,7 @@ theorem expand_witness (hash : Hash) (m : Message) (pk : PublicKey)
     exact ⟨_,p.1,p.2.1,p.2.2,hx,(Option.some.inj he).symm⟩
 
 #print axioms expand_witness
-theorem bound : sub.VerificationBound 6958 := by
+theorem bound : sub.VerificationBound 6959 := by
   intro hash sk m
   dsimp only
   intro h

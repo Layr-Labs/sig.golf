@@ -6,24 +6,24 @@ set_option maxRecDepth 100000
 namespace OuterExpandSlack
 open scoped ENNReal
 
-theorem factor_real : (2:ℝ)^(3/224:ℝ)≤65/64 := by
+theorem factor_real : (2:ℝ)^(5/224:ℝ)≤65/64 := by
   apply (Real.rpow_le_rpow_iff (Real.rpow_nonneg (by norm_num) _) (by norm_num) (by norm_num : (0:ℝ)<224)).mp
-  rw [←Real.rpow_mul (by norm_num),show (3/224:ℝ)*224=3 from by norm_num]
+  rw [←Real.rpow_mul (by norm_num),show (5/224:ℝ)*224=5 from by norm_num]
   norm_num [←Real.rpow_natCast]
 
 open ClaudeWCT.W9.T3.TopMoment SigGolfCandidate.Research.SharedExpansionV6
 
 noncomputable def extraWeight (c : Nat) : ℝ≥0∞ :=
-  (2:ℝ≥0∞)^((8/7:ℝ)*((SigGolfCandidate.Research.SharedForest.expandReplayExtra+12288+c:Nat):ℝ)/1048576)
+  (2:ℝ≥0∞)^((8/7:ℝ)*((SigGolfCandidate.Research.SharedForest.expandReplayExtra+20480+c:Nat):ℝ)/1048576)
 
-theorem extraWeight_eq (c : Nat) : extraWeight c=(2:ℝ≥0∞)^(3/224:ℝ)*excessWeight c := by
+theorem extraWeight_eq (c : Nat) : extraWeight c=(2:ℝ≥0∞)^(5/224:ℝ)*excessWeight c := by
   unfold extraWeight excessWeight
   rw [←ENNReal.rpow_add _ _ (by norm_num) (by norm_num)]
   congr 1
   push_cast
   ring
 
-theorem factor_le : (2:ℝ≥0∞)^(3/224:ℝ)≤ENNReal.ofReal (65/64) := by
+theorem factor_le : (2:ℝ≥0∞)^(5/224:ℝ)≤ENNReal.ofReal (65/64) := by
   rw [show (2:ℝ≥0∞)=ENNReal.ofReal (2:ℝ) from by norm_num,ENNReal.ofReal_rpow_of_pos (by norm_num)]
   exact ENNReal.ofReal_le_ofReal factor_real
 

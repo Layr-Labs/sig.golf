@@ -111,7 +111,7 @@ theorem sign_eq (P : Pending I) (sk : SecretKey) (cache : Bytes 131072) (m : Mes
   have h := calls_of_counts (F := Option.map sigBC) (P.sign_refines sk cache m)
   rw [mrealize_eq_relabel] at h
   exact h
-theorem expand_eq (P : Pending I) (m : Message) (pk : PublicKey) (s : Bytes 5184) :
+theorem expand_eq (P : Pending I) (m : Message) (pk : PublicKey) (s : Bytes 5183) :
     (fun r=>(r.value,r.hashCalls)) <$> (submission I).run .expand (m,pk,s)=
       SigGolfCandidate.Bridge.countCalls (relabel toQ (hrealize 0 (expandB m pk (sigDecC s)))) := by
   have h:=calls_of_counts (F:=id) (OuterCompactCounts.expand m pk s)

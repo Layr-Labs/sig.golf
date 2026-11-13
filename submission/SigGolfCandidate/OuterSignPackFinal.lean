@@ -17,7 +17,7 @@ theorem run (sig : OldSig) (s : MachineState) (hp : s.pc=pcOf 25963)
     (ht : (s.getMem 33856).extractLsb' 0 16=sig.extractLsb' (8*5184) 16) :
     ∃t,Steps OuterImages.signImage s 34 34 t ∧ t.pc=pcOf 26240 ∧
       t.getReg .x5=1 ∧ t.getReg .x10=0 ∧
-      readBuffer t 28672 5184=OuterLooseCodec.compress sig ∧
+      readBuffer t 28672 5183=OuterLooseCodec.compress sig ∧
       fetch OuterImages.signImage t=some (.base .ECALL) := by
   obtain ⟨u,su,up,ur,um⟩:=OuterControlRun.jump 25963 26207 (by decide) (by decide)
     OuterImageSignWindows.pack_jump s hp
@@ -36,7 +36,7 @@ theorem run (sig : OldSig) (s : MachineState) (hp : s.pc=pcOf 25963)
     rw [ur,h5]
   · change u.getReg .x10=0
     rw [ur,h10]
-  · exact ClaudeWCT.W9.Machine.Expand.SharedWitnessOutput.readBuffer_words t 28672 5184 648
+  · exact ClaudeWCT.W9.Machine.Expand.SharedWitnessOutput.readBuffer_words t 28672 5183 648
       (OuterLooseCodec.compress sig) (by decide) (by decide) (by decide) tw
 #print axioms run
 end OuterSignPackFinal

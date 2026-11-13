@@ -11,10 +11,10 @@ theorem b_save_counts : b_save.res.steps=4 ∧ b_save.res.cycles=4 := by decide 
 def b_preHashCode : List (BitVec 32) := [0x2653023,0x73]
 sym_block b_preHash := symRun {noAlias:=true} b_preHashCode (pcOf 246503) 40
 theorem b_preHash_counts : b_preHash.res.steps=1 ∧ b_preHash.res.cycles=1 := by decide +kernel
-def b_checkCode : List (BitVec 32) := [0x1863383,0x3d3d393,0x38a63]
+def b_checkCode : List (BitVec 32) := [0x1863383,0x3b3d393,0x38a63]
 sym_block b_check := symRun {noAlias:=true} b_checkCode (pcOf 246505) 40
 theorem b_check_counts : b_check.res.steps=3 ∧ b_check.res.cycles=3 := by decide +kernel
-def b_failureCode : List (BitVec 32) := [0x130313,0xb35393,0xfe0382e3]
+def b_failureCode : List (BitVec 32) := [0x130313,0xc35393,0xfe0382e3]
 sym_block b_failure := symRun {noAlias:=true} b_failureCode (pcOf 246508) 40
 theorem b_failure_counts : b_failure.res.steps=3 ∧ b_failure.res.cycles=3 := by decide +kernel
 def b_lastCode : List (BitVec 32) := [0xfff30313]

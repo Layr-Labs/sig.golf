@@ -15,10 +15,15 @@ theorem clear_idem (v : Five) : clear (clear v)=clear v := by
   cases v
   apply Five.ext <;> simp [clear,BitVec.and_assoc]
 
+theorem unpack_clear (v : Four) : clear (unpack v).1=(unpack v).1 := by
+  have h:=congrArg Prod.fst (unpack_pack (unpack v).1 (unpack v).2)
+  rw [pack_unpack] at h
+  exact h.symm
+
 theorem expand_clear (s : NewSig) :
     clear (read (splitOld (OuterSignatureCodec.expand s)).1)=read (splitOld (OuterSignatureCodec.expand s)).1 := by
-  simp only [OuterSignatureCodec.expand,split_join,OuterTailBytes.expand,read_write,unpack]
-  exact clear_idem _
+  simp only [OuterSignatureCodec.expand,split_join,OuterTailBytes.expand,read_writeOld]
+  exact unpack_clear _
 
 theorem wire_decode (s : NewSig) : OuterSecurityGame.wire (decode s)=s := by
   unfold OuterSecurityGame.wire decode

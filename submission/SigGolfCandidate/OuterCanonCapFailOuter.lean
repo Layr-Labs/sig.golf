@@ -13,11 +13,14 @@ open SigGolfCandidate SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open ClaudeWCT.W9.T3M SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
 attribute [local instance low] Classical.propDecidable
 attribute [local instance] OuterCanonBase.Paired.instSampleableTypeLabels_capFail
-theorem outerFail_le (b : Nat) : (1-(1/2:ℝ)^b)^(256*2^b)≤(36788/100000:ℝ)^128 := by
-  have h0 : 0≤1-(1/2:ℝ)^b := by have := pow_le_one₀ (by norm_num : (0:ℝ)≤1/2) (by norm_num : (1/2:ℝ)≤1) (n:=b);linarith
-  have h1 : 1-(1/2:ℝ)^b≤1 := by have := pow_nonneg (by norm_num : (0:ℝ)≤1/2) b;linarith
-  exact (pow_le_pow_of_le_one h0 h1 (show 128*2^b≤256*2^b by omega)).trans (lowFail_le b)
-theorem outer_width_le (coord heap : Nat) : OuterGroundCore.width coord ≤ 4 := by
+theorem outerFail_le (coord : Nat) : (1-(1/2:ℝ)^OuterGroundCore.width coord)^OuterGroundCore.cap coord≤(36788/100000:ℝ)^128 := by
+  have h0 : 0≤1-(1/2:ℝ)^OuterGroundCore.width coord := by have := pow_le_one₀ (by norm_num : (0:ℝ)≤1/2) (by norm_num : (1/2:ℝ)≤1) (n:=OuterGroundCore.width coord);linarith
+  have h1 : 1-(1/2:ℝ)^OuterGroundCore.width coord≤1 := by have := pow_nonneg (by norm_num : (0:ℝ)≤1/2) (OuterGroundCore.width coord);linarith
+  have hc : 128*2^OuterGroundCore.width coord≤OuterGroundCore.cap coord := by
+    unfold OuterGroundCore.cap OuterGroundCore.width
+    split_ifs <;> norm_num
+  exact (pow_le_pow_of_le_one h0 h1 hc).trans (lowFail_le (OuterGroundCore.width coord))
+theorem outer_width_le (coord heap : Nat) : OuterGroundCore.width coord ≤ 5 := by
   unfold OuterGroundCore.width; split_ifs <;> omega
 
 theorem card_pass_digest_outer (coord heap : Nat) :
@@ -55,7 +58,7 @@ theorem card_fail_hash_outer (p : Extract.Pos) (coord heap : Nat) :
   omega
 
 theorem prob_outerFail_le (p : Extract.Pos) (coord heap : Nat) (S : Finset Node)
-    (hS : S.card = 256 * 2 ^ OuterGroundCore.width coord) :
+    (hS : S.card = OuterGroundCore.cap coord) :
     Pr[fun labels : Labels => ∀ a ∈ S,
         (fun v => OuterGroundCore.zeroOk coord (p.proj v) = false) (labels a) |
       ($ᵗ Labels : ProbComp Labels)] ≤ ENNReal.ofReal ((36788 / 100000 : ℝ) ^ 128) := by
@@ -64,7 +67,7 @@ theorem prob_outerFail_le (p : Extract.Pos) (coord heap : Nat) (S : Finset Node)
     S (fun v => OuterGroundCore.zeroOk coord (p.proj v) = false))).trans ?_
   rw [hS, Fintype.card_bitVec]
   have hb := outer_width_le coord heap
-  refine le_trans ?_ (ENNReal.ofReal_le_ofReal (outerFail_le (OuterGroundCore.width coord)))
+  refine le_trans ?_ (ENNReal.ofReal_le_ofReal (outerFail_le coord))
   rw [ENNReal.ofReal_pow (by
     have : (1 / 2 : ℝ) ^ OuterGroundCore.width coord ≤ 1 := pow_le_one₀ (by norm_num) (by norm_num)
     linarith)]

@@ -38,7 +38,7 @@ theorem checked_moment (secret : BitVec 256) (message : Message) :
       Ev secret (OuterCodecChecks.checks >>= fun b=>
         (fun a=>(a,b)) <$> ((fun c=>(c,r.1)) <$> (keygenRest r.1 >>= OuterLooseMoment.afterKeys message))) r.2
         (fun x=>excess x.1.1.2 x.1.2)≤base r.1+
-          (ENNReal.ofReal (1/(2:ℝ)^170)+ENNReal.ofReal (1/(2:ℝ)^150))*rareWeight := by
+          (ENNReal.ofReal (1/(2:ℝ)^146)+ENNReal.ofReal (1/(2:ℝ)^150))*rareWeight := by
     intro r hr
     rw [Ev_bind]
     have hc : ∀ (b : Bool×Bool) (σ : RCache),
@@ -64,19 +64,19 @@ theorem checked_moment (secret : BitVec 256) (message : Message) :
       (mul_le_mul' (OuterCodecChecks.checks_failure secret r.2 hg hf hn) le_rfl)
   refine le_trans (expectedValue_mono_of_support hinner) ?_
   change Ev secret buildTopTree ∅ (fun r=>base r.1+
-    (ENNReal.ofReal (1/(2:ℝ)^170)+ENNReal.ofReal (1/(2:ℝ)^150))*rareWeight)≤2
+    (ENNReal.ofReal (1/(2:ℝ)^146)+ENNReal.ofReal (1/(2:ℝ)^150))*rareWeight)≤2
   have hadd : Ev secret buildTopTree ∅ (fun r=>base r.1+
-      (ENNReal.ofReal (1/(2:ℝ)^170)+ENNReal.ofReal (1/(2:ℝ)^150))*rareWeight)=
+      (ENNReal.ofReal (1/(2:ℝ)^146)+ENNReal.ofReal (1/(2:ℝ)^150))*rareWeight)=
       Ev secret buildTopTree ∅ (fun r=>base r.1)+Ev secret buildTopTree ∅
-        (fun _=>(ENNReal.ofReal (1/(2:ℝ)^170)+ENNReal.ofReal (1/(2:ℝ)^150))*rareWeight) := by
+        (fun _=>(ENNReal.ofReal (1/(2:ℝ)^146)+ENNReal.ofReal (1/(2:ℝ)^150))*rareWeight) := by
     unfold Ev
     rw [expectedValue_add]
   rw [hadd]
   calc
     _ ≤ (ENNReal.ofReal (194/100)+ENNReal.ofReal (1/(2:ℝ)^135)*rareWeight)+
-        (ENNReal.ofReal (1/(2:ℝ)^170)+ENNReal.ofReal (1/(2:ℝ)^150))*rareWeight :=
+        (ENNReal.ofReal (1/(2:ℝ)^146)+ENNReal.ofReal (1/(2:ℝ)^150))*rareWeight :=
       add_le_add (base_moment secret) (Ev_const_le secret _ _ _)
-    _ = ENNReal.ofReal (194/100+1/(2:ℝ)^135*2^19+(1/(2:ℝ)^170+1/(2:ℝ)^150)*2^19) := by
+    _ = ENNReal.ofReal (194/100+1/(2:ℝ)^135*2^19+(1/(2:ℝ)^146+1/(2:ℝ)^150)*2^19) := by
       unfold rareWeight
       rw [←ENNReal.ofReal_add (by positivity) (by positivity),←ENNReal.ofReal_mul (by positivity),
         ←ENNReal.ofReal_mul (by positivity),←ENNReal.ofReal_add (by positivity) (by positivity),

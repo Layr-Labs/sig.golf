@@ -13,8 +13,8 @@ open RiscvZkvm.Rv64 OracleComp OracleSpec SigGolfCandidate.T3
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv SigGolfCandidate.T3M
 open SigGolfCandidate.FtsGrind OuterNodeSearchInvariant OuterNodeMachineBlocks
 
-theorem ok (a : HashOutput) : zeroOkH true 3 a=true ↔ (a.extractLsb' 192 64 >>> 61)=0 := by
-  have h:=OuterNodeHashZero.upper_word_iff (a.extractLsb' 128 128) 3 (by decide)
+theorem ok (a : HashOutput) : zeroOkH true 5 a=true ↔ (a.extractLsb' 192 64 >>> 59)=0 := by
+  have h:=OuterNodeHashZero.upper_word_iff (a.extractLsb' 128 128) 5 (by decide)
   rw [OuterNodeHashZero.high_word] at h
   simpa [zeroOkH,halfOf,Nat.div_eq_zero_iff] using h.symm
 
@@ -23,14 +23,14 @@ theorem check {im : Image} {A D n : Nat} {pre right : List UInt8}
     (hc : CodeAt im (pc+8#64) b_checkCode) (hu : Stage s A D (pc+8#64) n u)
     (hh : Answer A D n a u) :
     ∃ t,Steps im u 3 3 t ∧
-      Stage s A D (if zeroOkH true 3 a then pc+36#64 else pc+20#64) n t ∧ Answer A D n a t := by
+      Stage s A D (if zeroOkH true 5 a then pc+36#64 else pc+20#64) n t ∧ Answer A D n a t := by
   have gx : u.getReg .x12=BitVec.ofNat 64 D := by rw [hu.regs.get (by decide)];exact F.x12
   obtain ⟨t,hs,hr,hp,hm⟩:=OuterNodeCheckRun.runB (pc+8#64) hc u hu.at_pc D gx F.dhi F.dlo F.da
   have ho : u.getMem (u.getReg .x12+24#64)=a.extractLsb' 192 64 := by
     rw [gx,ofNat_add_ofNat];exact hh.output 3 (by decide)
   rw [ho] at hp
   simp only [←ok] at hp
-  have hp' : t.pc=(if zeroOkH true 3 a then pc+36#64 else pc+20#64) := by
+  have hp' : t.pc=(if zeroOkH true 5 a then pc+36#64 else pc+20#64) := by
     simpa only [BitVec.add_assoc,BitVec.reduceAdd] using hp
   refine ⟨t,hs,hu.readOnly hp' (hr.mono (by simp)) ?_ hm,hh.readOnly hm⟩
   rw [hr.get (by decide)];exact hu.nonce
@@ -39,7 +39,7 @@ theorem retry {im : Image} {A D n : Nat} {pre right : List UInt8}
     {s u : MachineState} {pc : Word} {a : HashOutput} (F : Input A D pre right s)
     (hc : CodeAt im (pc+8#64) b_checkCode) (hf : CodeAt im (pc+20#64) b_failureCode)
     (hu : Stage s A D (pc+8#64) n u) (hh : Answer A D n a u)
-    (hz : ¬zeroOkH true 3 a=true) (hn : n+1<2048) :
+    (hz : ¬zeroOkH true 5 a=true) (hn : n+1<4096) :
     ∃ t,Steps im u 6 6 t ∧ Stage s A D pc (n+1) t := by
   obtain ⟨v,hs,hv,hav⟩:=check F hc hu hh
   simp only [if_neg hz] at hv
@@ -52,7 +52,7 @@ theorem finish {im : Image} {sk : BitVec 256} {A D n : Nat} {pre right : List UI
     {s u : MachineState} {pc : Word} {a : HashOutput} (F : Input A D pre right s)
     (hc : CodeAt im (pc+8#64) b_checkCode) (hp : CodeAt im (pc+36#64) b_postCode)
     (hu : Stage s A D (pc+8#64) n u) (hh : Answer A D n a u)
-    (hz : zeroOkH true 3 a=true) :
+    (hz : zeroOkH true 5 a=true) :
     TBSim im sk u 12 (pure (n,a)) (OuterNodeSearchExit.Out s A D (pc-20#64)) := by
   obtain ⟨v,hs,hv,hav⟩:=check F hc hu hh
   simp only [if_pos hz] at hv
@@ -66,13 +66,13 @@ theorem exhaust {im : Image} {sk : BitVec 256} {A D n : Nat} {pre right : List U
     (hc : CodeAt im (pc+8#64) b_checkCode) (hf : CodeAt im (pc+20#64) b_failureCode)
     (hl : CodeAt im (pc+32#64) b_lastCode) (hp : CodeAt im (pc+36#64) b_postCode)
     (hu : Stage s A D (pc+8#64) n u) (hh : Answer A D n a u)
-    (hz : ¬zeroOkH true 3 a=true) (hn : n+1=2048) :
+    (hz : ¬zeroOkH true 5 a=true) (hn : n+1=4096) :
     TBSim im sk u 16 (pure (n,a)) (OuterNodeSearchExit.Out s A D (pc-20#64)) := by
   obtain ⟨v,hs,hv,hav⟩:=check F hc hu hh
   simp only [if_neg hz] at hv
   obtain ⟨t,ht,hr,h6,hpt,hm⟩:=OuterNodeCounterRun.runB (pc+20#64) hf v hv.at_pc n (by omega) hv.nonce
   have hpt' : t.pc=pc+32#64 := by
-    simpa only [show ¬n+1<2048 by omega,if_false,BitVec.add_assoc,BitVec.reduceAdd] using hpt
+    simpa only [show ¬n+1<4096 by omega,if_false,BitVec.add_assoc,BitVec.reduceAdd] using hpt
   have htv:=hv.readOnly hpt' hr h6 hm
   have hat:=hav.readOnly hm
   obtain ⟨w,hw,hwpc,hwr,hw6,hwm⟩:=OuterNodeLastRun.run (pc+32#64) hl t hpt' n (by omega) h6
@@ -89,10 +89,10 @@ theorem loop {im : Image} {sk : BitVec 256} {A D : Nat} {pre right : List UInt8}
     (hq : CodeAt im pc b_preHashCode) (hc : CodeAt im (pc+8#64) b_checkCode)
     (hf : CodeAt im (pc+20#64) b_failureCode) (hl : CodeAt im (pc+32#64) b_lastCode)
     (hp : CodeAt im (pc+36#64) b_postCode) :
-    ∀ fuel n u,Stage s A D pc n u → n+fuel+1=2048 →
-      TBSim im sk u (15*fuel+25) (searchH true 3 pre right fuel n)
+    ∀ fuel n u,Stage s A D pc n u → n+fuel+1=4096 →
+      TBSim im sk u (15*fuel+25) (searchH true 5 pre right fuel n)
         (OuterNodeSearchExit.Out s A D (pc-20#64)) := by
-  refine OuterNodeLoopControl.loop_sim true 3 2048 3 pre right (Stage s A D pc)
+  refine OuterNodeLoopControl.loop_sim true 5 4096 3 pre right (Stage s A D pc)
     (fun n a u=>Stage s A D (pc+8#64) n u ∧ Answer A D n a u)
     (OuterNodeSearchExit.Out s A D (pc-20#64)) ?_ ?_ ?_ ?_
   · intro β n u hu hn W f Q hk

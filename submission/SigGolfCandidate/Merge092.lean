@@ -1060,7 +1060,7 @@ theorem stage_good {sig : WCT9.Signature} {hints : BitVec 16} {index n : Nat} {v
       floorLt := hintFloor_lt (route index lay).1 hints lay,
       floorTop := fun he => by
         change lay=0 at he
-        change hintFloor leaf hints lay = max 18 (LocalRouteMachineHelpers.poolForLeaf leaf-57)
+        change hintFloor leaf hints lay = max 16 (LocalRouteMachineHelpers.poolForLeaf leaf-57)
         rw [he]
         exact SigGolfCandidate.T3M.Search.CanonicalExpandHooks.hintFloor_top leaf hints,
       hintsLt := hI.hintsLt, floorEq := rfl,

@@ -12,7 +12,7 @@ theorem runB {im : Image} (pc : Word) (hc : CodeAt im pc b_checkCode) (s : Machi
     (hp : s.pc=pc) (output : Nat) (ha : s.getReg .x12=BitVec.ofNat 64 output)
     (hi : output<2^20) (hl : 2048≤output) (hm : output%8=0) :
     ∃ t,Steps im s 3 3 t ∧ RegsExcept s t [.x7] ∧
-      t.pc=(if s.getMem (s.getReg .x12+24#64) >>> 61=0 then pc+28#64 else pc+12#64) ∧
+      t.pc=(if s.getMem (s.getReg .x12+24#64) >>> 59=0 then pc+28#64 else pc+12#64) ∧
       (∀ a,t.getMem a=s.getMem a) := by
   refine ⟨(bCheckAt pc).toState s,symRun_sound (b_check_at pc) hc s hp
     (OuterNodeMachineCheck.b_check_obligs s output ha hi hl hm),?_,?_,?_⟩

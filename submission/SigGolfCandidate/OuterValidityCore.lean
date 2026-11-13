@@ -7,7 +7,7 @@ set_option Elab.async false
 namespace OuterValidityCore
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv
 
-def sizes : Sizes:=⟨5184,21756,131072⟩
+def sizes : Sizes:=⟨5183,21756,131072⟩
 def layout : Layout:=⟨0x65A0,0x80,0xa0,0x80000,0x7000,0x10A0⟩
 theorem layout_valid (im : Image) (hb : 655360≤dataBase im) : layoutValid layout sizes im := by
   norm_num [layoutValid,layoutBuffers,layout,sizes,buffersDisjoint,disjointBuffers]

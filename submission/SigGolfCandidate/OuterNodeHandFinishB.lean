@@ -32,12 +32,12 @@ theorem run {im : Image} {sk : BitVec 256} (j : Fin 128) (coord : Fin 9) (index 
     {leaf pads sibs tws : Nat→Digest} {u s : MachineState}
     (hu : ChildPre j.val (coordRegion coord.val) coord.val index leaf pads sibs tws u)
     (v : Digest) (hs : Mid j.val (coordRegion coord.val) coord.val index u 5 v s) :
-    TBSim im sk s 30740
+    TBSim im sk s 61460
       (OuterGroundCore.nodeAt coord.val index (heapOf 5 j.val)
         (if bitAt j.val 5=0 then v else sibs 5) (if bitAt j.val 5=0 then sibs 5 else v))
       (Post coord.val j.val u) := by
   have h:=OuterNodeHandRunB.run (sk:=sk) j coord index hc1 hc8 hi hc hu v hs
-  have ht : TBSim im sk s (30739+1)
+  have ht : TBSim im sk s (61459+1)
       (OuterGroundCore.nodeAt coord.val index (heapOf 5 j.val)
         (if bitAt j.val 5=0 then v else sibs 5) (if bitAt j.val 5=0 then sibs 5 else v) >>= fun res=>pure res)
       (Post coord.val j.val u) := by

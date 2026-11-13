@@ -37,7 +37,7 @@ theorem compressionBounds : sub.CompressionBounds := by
   · exact OuterPhaseBudget.expand_bound sk m
 
 /-- All remaining obligations are discharged; security is an explicit, unproved premise. -/
-theorem of_security (security : sub.Secure) : Certificate sub 6958 where
+theorem of_security (security : sub.Secure) : Certificate sub 6959 where
   admissible:=OuterAdmissible.admissible
   termination:=terminates
   completeness:=OuterRuntimeComplete.complete

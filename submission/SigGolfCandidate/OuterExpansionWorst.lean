@@ -17,7 +17,7 @@ theorem bound_expandN (message : Message) (pk : Digest) (sig : SigGolfCandidate.
   unfold OuterExpand.expandN
   split
   · exact .pure _ _ trivial
-  · refine (bound_sharedDigestSearch _ _ _ _).bind' (l := 17674 + recoverWorst 4 + searchFuel)
+  · refine (bound_sharedDigestSearch _ _ _ _).bind' (l := 25866 + recoverWorst 4 + searchFuel)
       (fun found _ => ?_) (by rw [recoverWorst_four]; unfold expandWorstCost searchFuel digestAttemptLimit; omega)
     rcases found with _ | ⟨counter, output⟩
     · exact .pure _ _ trivial

@@ -13,11 +13,11 @@ open ClaudeWCT.W9.T3.Freshness.Paired.FtsFresh (expectedValue_uniform_ite_F)
 open SphincsSecurity (bytesLE bytesLE_length)
 set_option backward.isDefEq.respectTransparency false
 
-def width (coord : Nat) : Nat := if coord=8 then 4 else 3
+def width (coord : Nat) : Nat := if coord=8 then 4 else 5
 def offset (coord heap : Nat) : Nat := if coord=8 ∧ heap=3 then 0 else 128
 def value (coord heap : Nat) (a : HashOutput) : Digest := a.extractLsb' (offset coord heap) 128
 def zeroOk (coord : Nat) (v : Digest) : Bool := v.toNat / 2^(128-width coord)==0
-def cap (coord : Nat) : Nat := 256*2^width coord
+def cap (_coord : Nat) : Nat := 4096
 abbrev trial := ClaudeWCT.W9.T3.Freshness.Paired.FtsFresh.fTrial
 abbrev trial_length := ClaudeWCT.W9.T3.Freshness.Paired.FtsFresh.fTrial_length
 abbrev trial_injective := ClaudeWCT.W9.T3.Freshness.Paired.FtsFresh.fTrial_injective
@@ -36,7 +36,7 @@ def search (coord index heap : Nat) (left right : Digest) : Nat → Nat → M (N
 def nodeAt (coord index heap : Nat) (left right : Digest) : M (Nat × Digest) :=
   search coord index heap left right (cap coord-1) 0
 
-theorem width_bounds (coord : Nat) : 3≤width coord ∧ width coord≤4 := by unfold width;split_ifs <;> omega
+theorem width_bounds (coord : Nat) : 3≤width coord ∧ width coord≤5 := by unfold width;split_ifs <;> omega
 theorem offset_bounds (coord heap : Nat) : offset coord heap+128≤256 := by unfold offset;split_ifs <;> omega
 
 theorem search_zero_bind {β : Type} (coord index heap : Nat) (left right : Digest) (n : Nat)
@@ -133,7 +133,7 @@ theorem V_nodeAt_bind {β : Type} (secret : BitVec 256) (z f B : ENNReal)
     V secret z (nodeAt coord index heap left right >>= next) cache≤f*B := by
   have hc : cap coord-1<2^64 := by
     have hb := width_bounds coord
-    have hp : 2^width coord≤2^4 := Nat.pow_le_pow_right (by decide) hb.2
+    have hp : 2^width coord≤2^5 := Nat.pow_le_pow_right (by decide) hb.2
     unfold cap
     omega
   unfold nodeAt
@@ -151,6 +151,7 @@ theorem V_nodeAt_bind {β : Type} (secret : BitVec 256) (z f B : ENNReal)
 
 theorem cap_failure3 : 7^2048*2^210≤8^2048 := by decide +kernel
 theorem cap_failure4 : 15^4096*2^210≤16^4096 := by decide +kernel
+theorem cap_failure5 : 31^4096*2^186≤32^4096 := by decide +kernel
 theorem union_nodes_indices : 10*2^31≤2^40 := by decide
 #print axioms V_search_bind
 #print axioms prob_accept

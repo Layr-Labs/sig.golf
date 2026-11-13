@@ -65,7 +65,7 @@ theorem runB {im : Image} {sk : BitVec 256} {A D coord index heap : Nat} {left r
     (F : Input A D (OuterNodeRawModel.pre coord index heap left) (OuterNodeRawModel.rightBytes right) s)
     (hc : CodeAt im (pcOf (W9Drv.SharedBProof.childBase j.val)) (OuterNodeBankLayout.bWords j.val))
     (hp : s.pc=pcOf (W9Drv.SharedBProof.childBase j.val+OuterNodeBankLayout.bSite j.val)) :
-    TBSim im sk s 30735 (OuterGroundCore.nodeAt coord index heap left right)
+    TBSim im sk s 61455 (OuterGroundCore.nodeAt coord index heap left right)
       (SourceOut coord heap s A D (pcOf (W9Drv.SharedBProof.childBase j.val+OuterNodeBankLayout.bSite j.val+2)-4#64)) := by
   have hlen:=(OuterNodeBankLayout.b_slices j).1
   have hspace:=OuterNodeBankLayout.b_space j

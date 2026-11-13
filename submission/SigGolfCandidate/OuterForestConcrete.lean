@@ -17,7 +17,7 @@ theorem V_forest (secret : BitVec 256) (index : Nat) (hi : index<2^31)
     (selected : ForestSelection) (words : ForestWords) (cache : RCache)
     (hs : FreshF index (OuterForestBudget.AllAbove 0) cache) :
     V secret Budgets.signingZ (OuterForestMoment.forest index selected words) cache≤
-      Budgets.signingZ^31121*(mG 1^80*mG 2^56)*(mG 3^8*mG 4^2) := by
+      Budgets.signingZ^31121*(mG 1^80*mG 2^56)*(mG 5^8*mG 4^2) := by
   have h:=OuterForestMoment.V_forest secret Budgets.signingZ (SigGolfCandidate.Budget.one_le_zOf _)
     index hi selected words fc gc oc (fun c _ => facF_ok c) (fun c _ => facG_ok c)
     (fun c _ => OuterGroundFactors.outer_fac c) cache hs

@@ -28,7 +28,7 @@ theorem wTrialCap_pos (coord level : Nat) : 0<wTrialCap coord level := by
 theorem wTrialCap_le (coord level : Nat) : wTrialCap coord level≤4096 := by
   unfold wTrialCap
   split
-  · unfold OuterGroundCore.cap OuterGroundCore.width; split <;> norm_num
+  · norm_num [OuterGroundCore.cap]
   · exact (OuterCanonBase.wTrialCap_le coord level).trans (by decide)
 def wWithNonce (n : WctNodePos) (j : Nat) : WctNodePos :=
   ⟨{ n.1 with nonce := ⟨j % 4096, Nat.mod_lt _ (by decide)⟩ }, n.2⟩

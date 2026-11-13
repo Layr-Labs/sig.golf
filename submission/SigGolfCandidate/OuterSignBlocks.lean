@@ -13,9 +13,9 @@ def b_startCode : List (BitVec 32) := [0x313,0x2053423]
 sym_block b_start := symRun {noAlias:=true} b_startCode (pcOf 26175) 40
 def b_preCode : List (BitVec 32) := [0x2653023,0x73]
 sym_block b_pre := symRun {noAlias:=true} b_preCode (pcOf 26177) 40
-def b_checkCode : List (BitVec 32) := [0x1863383,0x3d3d393,0x4038863]
+def b_checkCode : List (BitVec 32) := [0x1863383,0x3b3d393,0x4038863]
 sym_block b_check := symRun {noAlias:=true} b_checkCode (pcOf 26179) 40
-def b_retryCode : List (BitVec 32) := [0x130313,0xb35393,0xfe0382e3]
+def b_retryCode : List (BitVec 32) := [0x130313,0xc35393,0xfe0382e3]
 sym_block b_retry := symRun {noAlias:=true} b_retryCode (pcOf 26182) 40
 def b_exhaustCode : List (BitVec 32) := [0x4000063]
 sym_block b_exhaust := symRun {noAlias:=true} b_exhaustCode (pcOf 26185) 40

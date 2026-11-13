@@ -11,13 +11,13 @@ def lowerThreeFloor (r : Nat) : Nat :=
   if r ≤ 6 then 6 else if r ≤ 9 then 9 else if r = 10 then 11 else r
 def lowerFloorMax : Nat := 23
 def threshold (stage residual : Nat) : Nat :=
-  if stage = 0 then max 18 (residual - 57)
+  if stage = 0 then max 16 (residual - 57)
   else if stage = 1 then lowerOneThresholds.getD residual 301
   else if stage = 2 then lowerTwoThresholds.getD residual 301
   else if stage = 3 ∧ residual ≤ 23 then lowerThreeFloor residual
   else 301
 
-theorem threshold_top (residual : Nat) : threshold 0 residual = max 18 (residual - 57) := by
+theorem threshold_top (residual : Nat) : threshold 0 residual = max 16 (residual - 57) := by
   simp [threshold]
 theorem threshold_zero : threshold 1 0 = 6 ∧ threshold 2 0 = 6 ∧ threshold 3 0 = 6 := by decide
 
@@ -37,10 +37,10 @@ theorem lowerThreeFloor_le (r : Nat) (hr : r < 24) : lowerThreeFloor r ≤ 23 :=
   split_ifs <;> omega
 
 theorem accepted_top_residual_pool (pool : Nat) {low : Bool} {answer : Digest} {digits : List Nat}
-    (h : producerDecodeAt 0 (max 18 (pool - 57)) low answer = some digits) :
+    (h : producerDecodeAt 0 (max 16 (pool - 57)) low answer = some digits) :
     nextResidual pool 0 low digits < 58 := by
   have hc := producerDecodeAt_credit h
-  have hm := Nat.le_max_right 18 (pool - 57)
+  have hm := Nat.le_max_right 16 (pool - 57)
   unfold nextResidual
   omega
 

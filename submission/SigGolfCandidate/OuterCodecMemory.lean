@@ -20,10 +20,10 @@ theorem byte_extract {n : Nat} (v : BitVec n) (i b : Nat) (hb : b<8) :
 
 theorem carriers (sig : NewSig) (s : MachineState)
     (hw : ∀ i,i<648→s.getMem (BitVec.ofNat 64 (28672+8*i))=sig.extractLsb' (64*i) 64) :
-    OuterCodecPacket.readCarriers s=OuterTailBytes.read (bytes 5184 sig) := by
-  apply OuterTailPacket.Five.ext
+    OuterCodecPacket.readCarriers s=OuterTailBytes.readNew (bytes 5183 sig) := by
+  apply OuterTailPacket.Four.ext
   all_goals
-    simp only [OuterCodecPacket.readCarriers,OuterTailBytes.read,OuterSignatureCodec.bytes]
+    simp only [OuterCodecPacket.readCarriers,OuterTailBytes.readNew,OuterSignatureCodec.bytes]
   · rw [show (29080 : Word)=BitVec.ofNat 64 (28672+8*51) from rfl,hw 51 (by decide),byte_extract _ _ _ (by decide)]
     rfl
   · rw [show (29480 : Word)=BitVec.ofNat 64 (28672+8*101) from rfl,hw 101 (by decide),byte_extract _ _ _ (by decide)]
@@ -32,8 +32,6 @@ theorem carriers (sig : NewSig) (s : MachineState)
     rfl
   · rw [show (30280 : Word)=BitVec.ofNat 64 (28672+8*201) from rfl,hw 201 (by decide),byte_extract _ _ _ (by decide)]
     rfl
-  · rw [show (30488 : Word)=BitVec.ofNat 64 (28672+8*227) from rfl,hw 227 (by decide),byte_extract _ _ _ (by decide)]
-    rfl
 
 theorem unpack_tail_zero (s : MachineState) (hz : s.getMem 33856=0) :
     (unpackBlock.res.toState s).getMem 33856=(OuterTailPacket.unpack (OuterCodecPacket.readCarriers s)).2.setWidth 64 := by
@@ -41,7 +39,7 @@ theorem unpack_tail_zero (s : MachineState) (hz : s.getMem 33856=0) :
   try simp only [BitVec.zero_and,BitVec.zero_or]
   apply BitVec.eq_of_getLsbD_eq
   intro j hj
-  interval_cases j <;> simp [unpackedTail,OuterTailPacket.unpack,OuterCodecPacket.readCarriers,extractByte]
+  interval_cases j <;> simp [replaceHalfword,unpackedTail,joinedWord,OuterTailPacket.unpack,OuterCodecPacket.readCarriers,extractByte]
 
 #print axioms byte_extract
 #print axioms carriers

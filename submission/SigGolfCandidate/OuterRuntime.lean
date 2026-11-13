@@ -9,7 +9,7 @@ open OracleComp RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.R
 open SigGolfCandidate.Research.SharedForest ClaudeWCT.W9.T3M.SharedCodec
 
 def runtimeSub (imgs : Phase→Image) : Submission :=
-  ⟨⟨5184,21756,131072⟩,⟨0x65A0,0x80,0xa0,0x80000,0x7000,0x10A0⟩,imgs⟩
+  ⟨⟨5183,21756,131072⟩,⟨0x65A0,0x80,0xa0,0x80000,0x7000,0x10A0⟩,imgs⟩
 
 theorem halt {o : Option SharedSignature} {t : MachineState}
     (h : OuterSignCompleted.FinalPost o t) : fetch OuterImages.signImage t=some (.base .ECALL) ∧ t.getReg .x5=1 := by

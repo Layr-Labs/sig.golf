@@ -21,11 +21,11 @@ theorem E_heap {β : Type} (secret : BitVec 256) (coord index : Nat) (hc : coord
       FreshF index (fun c x=>S c x ∧ c≠coord) cache → Ev secret (next a) cache F≤B)
     (cache : RCache) (hfresh : FreshF index S cache) :
     Ev secret (OuterHeapMoment.heap coord index pads leaves >>= next) cache F≤
-      B+24*cF+2*((2:ENNReal)^210)⁻¹ := by
+      B+24*cF+2*((2:ENNReal)^186)⁻¹ := by
   unfold OuterHeapMoment.heap
   rw [bind_assoc]
   refine le_trans (E_inner secret false index coord hc hi pads leaves F hF S hS hin _
-    (B+2*((2:ENNReal)^210)⁻¹) (fun nodes c1 hsz hok h1=>?_) cache hfresh) (le_of_eq (by ring))
+    (B+2*((2:ENNReal)^186)⁻¹) (fun nodes c1 hsz hok h1=>?_) cache hfresh) (le_of_eq (by ring))
   refine E_finish secret coord index hc hi nodes (by omega) F hF
     (fun c x=>S c x ∧ ¬(c=coord ∧ 4≤x)) (fun c x hx=>hS c x hx.1)
     ⟨hin2,by omega⟩ ⟨hin3,by omega⟩ next B (fun a c2 he ho h2=>?_) c1 h1

@@ -40,7 +40,7 @@ theorem ofBytes_bytes (n : Nat) (v : BitVec (8*n)) : ofBytes n (bytes n v)=v := 
   simp [hm,he]
 
 abbrev OldSig := BitVec (8*5186)
-abbrev NewSig := BitVec (8*5184)
+abbrev NewSig := BitVec (8*5183)
 def splitOld (v : OldSig) : OuterTailBytes.Old :=
   (bytes 5184 (v.extractLsb' 0 (8*5184)),v.extractLsb' (8*5184) 16)
 def joinOld (b : OuterTailBytes.Old) : OldSig := b.2 ++ ofBytes 5184 b.1
@@ -52,8 +52,8 @@ theorem join_split (v : OldSig) : joinOld (splitOld v)=v := by
   simp only [joinOld,splitOld,ofBytes_bytes]
   exact BitVec.extractLsb'_append_extractLsb'
 
-def compress (v : OldSig) : NewSig := ofBytes 5184 (OuterTailBytes.compress (splitOld v))
-def expand (v : NewSig) : OldSig := joinOld (OuterTailBytes.expand (bytes 5184 v))
+def compress (v : OldSig) : NewSig := ofBytes 5183 (OuterTailBytes.compress (splitOld v))
+def expand (v : NewSig) : OldSig := joinOld (OuterTailBytes.expand (bytes 5183 v))
 
 theorem compress_expand (v : NewSig) : compress (expand v)=v := by
   simp only [compress,expand,split_join,OuterTailBytes.compress_expand,ofBytes_bytes]

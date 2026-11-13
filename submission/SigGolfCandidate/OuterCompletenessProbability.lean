@@ -94,13 +94,13 @@ theorem checked_failure_small (P : M Bool) (hPh : HashOnly P)
 
 theorem fullCheck_bad_moment (secret : BitVec 256) :
     Ev secret fullCheck ∅ (fun r=>if r.1 then 0 else 1)≤
-      ENNReal.ofReal (1/(2:ℝ)^135)+(ENNReal.ofReal (1/(2:ℝ)^170)+ENNReal.ofReal (1/(2:ℝ)^150)) := by
+      ENNReal.ofReal (1/(2:ℝ)^135)+(ENNReal.ofReal (1/(2:ℝ)^146)+ENNReal.ofReal (1/(2:ℝ)^150)) := by
   unfold fullCheck
   rw [Ev_bind]
   have hinner : ∀ r∈support (Sampling.roRun secret buildTopTree ∅),
       Ev secret (OuterCodecChecks.checks >>= fun b=>pure (decide (TopLevelsOK r.1) && b.1 && b.2)) r.2
         (fun x=>if x.1 then 0 else 1)≤(if TopLevelsOK r.1 then 0 else 1)+
-          (ENNReal.ofReal (1/(2:ℝ)^170)+ENNReal.ofReal (1/(2:ℝ)^150)) := by
+          (ENNReal.ofReal (1/(2:ℝ)^146)+ENNReal.ofReal (1/(2:ℝ)^150)) := by
     intro r hr
     rw [Ev_bind]
     have hpt : ∀ x : (Bool×Bool)×Sampling.RCache,
@@ -126,14 +126,14 @@ theorem fullCheck_bad_moment (secret : BitVec 256) :
         (OuterCodecChecks.buildTopTree_fresh secret r hr))
   refine le_trans (expectedValue_mono_of_support hinner) ?_
   change Ev secret buildTopTree ∅ (fun r=>(if TopLevelsOK r.1 then 0 else 1)+
-    (ENNReal.ofReal (1/(2:ℝ)^170)+ENNReal.ofReal (1/(2:ℝ)^150)))≤_
+    (ENNReal.ofReal (1/(2:ℝ)^146)+ENNReal.ofReal (1/(2:ℝ)^150)))≤_
   unfold Ev
   rw [expectedValue_add]
   exact add_le_add (Ev_buildTopTree_bad secret) (Ev_const_le secret _ _ _)
 
 theorem fullCheck_failure_small (secret : BitVec 256) :
     Pr[fun value=>value=false | (simulateQ SphincsSecurity.romImpl (realize secret fullCheck)).run' ∅]≤
-      ENNReal.ofReal (1/(2:ℝ)^135)+(ENNReal.ofReal (1/(2:ℝ)^170)+ENNReal.ofReal (1/(2:ℝ)^150)) := by
+      ENNReal.ofReal (1/(2:ℝ)^135)+(ENNReal.ofReal (1/(2:ℝ)^146)+ENNReal.ofReal (1/(2:ℝ)^150)) := by
   refine le_trans (le_of_eq ?_) (fullCheck_bad_moment secret)
   rw [StateT.run'_eq]
   change Pr[fun value=>value=false | Prod.fst <$> Sampling.roRun secret fullCheck ∅]=_

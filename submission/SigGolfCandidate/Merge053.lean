@@ -6353,7 +6353,7 @@ abbrev Credit := Layer → Bool → List Nat → Nat
 /-- Remaining credit after the canonical search at a leaf. The recursion goes
     from a leaf to its ancestors and never depends on a descendant or an FTS
     digest. Failure of an ancestor propagates to the descendant. -/
-def rootPool (leaf : Nat) : Nat := 75-WCT9.CanonicalPolicy.topPathSave leaf
+def rootPool (leaf : Nat) : Nat := 73-WCT9.CanonicalPolicy.topPathSave leaf
 
 def after (search : Search) (credit : Credit) (L : LeafAddr) : Option Nat :=
   ((if L.lay.val = 0 then some (rootPool L.leaf) else after search credit (parent L)).map
@@ -11706,36 +11706,15 @@ open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open ClaudeWCT.Numerics.CanonicalCompression
 open ClaudeWCT.Numerics.CanonicalHistogram
 
-theorem selected_top_probability_floor (floor : Nat) (hf : 18 ≤ floor) (c : Fin 220) :
+theorem selected_top_probability_floor (floor : Nat) (hf : 16 ≤ floor) (c : Fin 220) :
     Pr[fun answer => ∃ dl, decoder 0 floor answer = some dl ∧ dcredit 0 dl = c.val |
       ($ᵗ HashOutput : ProbComp HashOutput)] =
       if floor ≤ c.val then (histogramWeight ClaudeWCT.Numerics.TopZero.topAcceptedHistogram c.val : ENNReal) / topDen else 0 := by
   by_cases hc : floor ≤ c.val
   · rw [if_pos hc]
-    have he : (fun answer => ∃ dl, decoder 0 floor answer = some dl ∧ dcredit 0 dl = c.val) =
-        (fun answer => ∃ dl, decoder 0 18 answer = some dl ∧ dcredit 0 dl = c.val) := by
-      funext answer
-      apply propext
-      constructor
-      · rintro ⟨dl, hd, hcredit⟩
-        exact ⟨dl, ((decoder_floor_iff 0 18 floor (by omega) hf answer dl).mp hd).1, hcredit⟩
-      · rintro ⟨dl, hd, hcredit⟩
-        refine ⟨dl, (decoder_floor_iff 0 18 floor (by omega) hf answer dl).mpr ⟨hd, ?_⟩, hcredit⟩
-        rw [hcredit]
-        exact hc
-    rw [he, selected_top_probability c, if_pos (hf.trans hc)]
+    exact selected_top_histogram_probability_floor floor c.val hf hc
   · rw [if_neg hc]
-    have he : (fun answer => ∃ dl, decoder 0 floor answer = some dl ∧ dcredit 0 dl = c.val) =
-        (fun _ : HashOutput => False) := by
-      funext answer
-      apply propext
-      constructor
-      · rintro ⟨dl, hd, hcredit⟩
-        have h := decoder_credit hd
-        omega
-      · exact False.elim
-    rw [he]
-    simp
+    exact selected_probability_below 0 floor c.val (by omega)
 
 namespace LocalRoute
 open OracleComp OracleSpec ENNReal
@@ -11744,7 +11723,6 @@ open SphincsSecurity.Completeness ClaudeWCT.WCT9
 open ClaudeWCT.Numerics.CanonicalCompression
 open SigGolfCandidate.Research.SharedForest
 open ClaudeWCT.Numerics.LocalRoute
-
 
 theorem shift1 (mask r : Nat) (hm : mask<8) (hr : r<58) :
     (Checks.row1 mask)[r]?.getD 0 = (Checks.row1 (mask%4))[r-mask/4]?.getD 0 := by
@@ -11851,24 +11829,25 @@ theorem step3 (r : Nat) (hr : r<24) :
 noncomputable def initialValue (pool s1 s2 s3 : Nat) : ENNReal :=
   (Tables.initialAt pool (4*s1+2*s2+s3) : ENNReal)/ClaudeWCT.Numerics.CanonicalCompression.scale
 
-theorem root_step (pool s1 s2 s3 : Nat) (hlo : 73 ≤ pool) (hhi : pool ≤ 75)
+set_option maxHeartbeats 0 in
+theorem root_step (pool s1 s2 s3 : Nat) (hlo : 71 ≤ pool) (hhi : pool ≤ 73)
     (hs1 : s1 ≤ 1) (hs2 : s2 ≤ 1) (hs3 : s3 ≤ 1) :
     1 ≤ initialValue pool s1 s2 s3 ∧
     ((ClaudeWCT.Numerics.CanonicalCompression.zNum : ENNReal)/ClaudeWCT.Numerics.CanonicalCompression.zDen) *
-      (acceptedWeight (decoder 0 (max 18 (pool-57)))
+      (acceptedWeight (decoder 0 (max 16 (pool-57)))
         (fun dl => oneValue s2 s3 (CanonicalPolicy.nextResidual pool 0 dl.2 dl.1-s1)) +
-       failMass (decoder 0 (max 18 (pool-57))) * initialValue pool s1 s2 s3)  ≤  initialValue pool s1 s2 s3 := by
-  have hf : 18 ≤ max 18 (pool-57) := Nat.le_max_left _ _
-  have h := decoder_recurrence 220 (decoder 0 (max 18 (pool-57))) (dcredit 0)
-    ClaudeWCT.Numerics.TopZero.topAcceptedHistogram (max 18 (pool-57)) pool
+       failMass (decoder 0 (max 16 (pool-57))) * initialValue pool s1 s2 s3)  ≤  initialValue pool s1 s2 s3 := by
+  have hf : 16 ≤ max 16 (pool-57) := Nat.le_max_left _ _
+  have h := decoder_recurrence 220 (decoder 0 (max 16 (pool-57))) (dcredit 0)
+    ClaudeWCT.Numerics.TopZero.topAcceptedHistogram (max 16 (pool-57)) pool
     ClaudeWCT.Numerics.CanonicalCompression.topDen (Checks.row1 (4*s1+2*s2+s3))
     (Tables.initialAt pool (4*s1+2*s2+s3)) (by decide)
     (fun a dl hd => top_decoder_credit_lt (by omega) hd)
-    (by decide +kernel) (selected_top_probability_floor _ hf)
+    (by decide +kernel) (selected_top_probability_floor _ (by omega))
     (Checks.root_check_at pool _ hlo hhi (by omega))
-  have he : acceptedWeight (decoder 0 (max 18 (pool-57)))
+  have he : acceptedWeight (decoder 0 (max 16 (pool-57)))
       (fun dl => ((Checks.row1 (4*s1+2*s2+s3))[pool-dcredit 0 dl]?.getD 0 : ENNReal)/ClaudeWCT.Numerics.CanonicalCompression.scale) =
-      acceptedWeight (decoder 0 (max 18 (pool-57)))
+      acceptedWeight (decoder 0 (max 16 (pool-57)))
       (fun dl => oneValue s2 s3 (CanonicalPolicy.nextResidual pool 0 dl.2 dl.1-s1)) := by
     apply acceptedWeight_congr_on
     intro answer dl hd
@@ -11913,7 +11892,7 @@ theorem top_pool_recurrence (pool : Nat) (hlo : 71 ≤ pool) (hhi : pool ≤ 73)
     (by decide)
     (fun a dl hd => top_decoder_credit_lt (by omega) hd)
     (by decide +kernel)
-    (selected_top_probability_floor _ hf)
+    (selected_top_probability_floor _ (by omega))
     (ClaudeWCT.Numerics.TopRoute.initial_checked pool hlo hhi)
   refine ⟨h.1, (mul_le_mul' signing_z_ratio le_rfl).trans ?_⟩
   exact h.2
@@ -11981,7 +11960,7 @@ theorem top_acceptance :
     (fun a dl hd => top_decoder_credit_lt (by norm_num) hd) (by decide +kernel)
     selected_top_probability
 
-theorem top_acceptance_floor (floor : Nat) (hf : 18 ≤ floor) :
+theorem top_acceptance_floor (floor : Nat) (hf : 16 ≤ floor) :
     Pr[fun a => (decoder 0 floor a).isSome | ($ᵗ HashOutput : ProbComp HashOutput)] =
       (acceptedMass ClaudeWCT.Numerics.TopZero.topAcceptedHistogram floor : ENNReal)/topDen := by
   rw [← acceptedWeight_one_probability]
@@ -12028,7 +12007,7 @@ theorem lower_three_failure_rate_440_checked : 0≤lowerThreeFailureRate ∧ low
 
 /-- Top search window `topSearchLimit` (= 2^21). Pool 72 (top floor 18): more than 849 bits; the context union charges the top
 contexts 2^-433. -/
-theorem top_failure_power_440 (floor : Nat) (hlo : 18 ≤ floor) (hhi : floor ≤ 20) : failMass (decoder 0 floor)^topSearchLimit≤1/(2:ENNReal)^433 := by
+theorem top_failure_power_440 (floor : Nat) (hlo : 16 ≤ floor) (hhi : floor ≤ 20) : failMass (decoder 0 floor)^topSearchLimit≤1/(2:ENNReal)^433 := by
   apply ClaudeWCT.W9.T3.Budgets.V5.failure_power_of_rate _ topFailureRate
     topSearchLimit 433 top_failure_rate_440_checked.1 top_failure_rate_440_checked.2.1 _ top_failure_rate_440_checked.2.2
   rw [top_acceptance_floor floor hlo, topFailureRate, ofReal_nat_ratio _ _ (by decide)]
@@ -12075,7 +12054,7 @@ floors are below 19 (clipped at 18), L3 floors below 22). -/
 abbrev EncodingContext := EncodingFamilyBC × Fin 24
 
 def contextFloor (context : EncodingContext) : Nat :=
-  if context.1.1=0 then max 18 (min context.2.val 20) else if context.1.1=3 then context.2.val else min context.2.val 18
+  if context.1.1=0 then max 16 (min context.2.val 20) else if context.1.1=3 then context.2.val else min context.2.val 18
 
 def ContextFailed (context : EncodingContext) (answers : Correctness.Answers) : Prop :=
   evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt context.1.1 (contextFloor context)
@@ -12132,9 +12111,9 @@ theorem context_table_failure (context : EncodingContext) :
   unfold ContextFailed
   rw [Presampling.Canonical.search_table_failure _ (Presampling.searchLimit_le_rows _) ]
   by_cases hl : context.1.1=0
-  · have hb : 18 ≤ max 18 (min context.2.val 20) ∧ max 18 (min context.2.val 20) ≤ 20 := by omega
+  · have hb : 16 ≤ max 16 (min context.2.val 20) ∧ max 16 (min context.2.val 20) ≤ 20 := by omega
     simpa only [ctxBound,contextFloor,hl,if_pos,searchLimit_top] using
-      top_failure_power_440 (max 18 (min context.2.val 20)) hb.1 hb.2
+      top_failure_power_440 (max 16 (min context.2.val 20)) hb.1 hb.2
   · rw [ctxBound, if_neg hl]
     by_cases h3 : context.1.1=3
     · have hf : context.2.val≤23 := by omega
@@ -12193,7 +12172,7 @@ def ContextGood (answers : Answers) : Prop := ∀ context, ¬ContextFailed conte
 
 theorem context_good_at_route (answers : Answers) (hgood : ContextGood answers)
     (index : Nat) (hi : index<2^31) (lay : Layer) (floor : Nat)
-    (hf : if lay=0 then 18≤floor ∧ floor≤20 else if lay=3 then floor<24 else floor<19) (left right : Digest) :
+    (hf : if lay=0 then 16≤floor ∧ floor≤20 else if lay=3 then floor<24 else floor<19) (left right : Digest) :
     ∃ found, evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt lay floor
       (route index lay).2 (route index lay).1 (.pair left right) 0 (searchLimit lay))=some found := by
   let routed : Fin (2^32) := ⟨(route index lay).2*2^height lay+(route index lay).1,
@@ -12207,7 +12186,7 @@ theorem context_good_at_route (answers : Answers) (hgood : ContextGood answers)
   have hh := hgood context
   have hfloor : contextFloor context=floor := by
     by_cases hl : lay=0
-    · have hf' : 18≤floor ∧ floor≤20 := by simpa only [hl,if_true] using hf
+    · have hf' : 16≤floor ∧ floor≤20 := by simpa only [hl,if_true] using hf
       simp only [contextFloor,context,hl,if_true, min_eq_left hf'.2, max_eq_right hf'.1]
     · by_cases h3 : lay=3
       · dsimp only [contextFloor,context]; rw [if_neg hl, if_pos h3]
@@ -12235,7 +12214,7 @@ theorem searchPreparedLayers_complete (answers : Answers) (hgood : ContextGood a
     ∃ result, evalWithAnswerFn answers (searchPreparedLayers cache index prepared forest)=some result := by
   let f0 := Policy75Safe23.threshold 0 (requiredCredit index)
   have hb := requiredCredit_bounds index
-  have hf0 : 18≤f0 ∧ f0≤20 := by
+  have hf0 : 16≤f0 ∧ f0≤20 := by
     dsimp only [f0]
     rw [Policy75Safe23.threshold_top]
     omega

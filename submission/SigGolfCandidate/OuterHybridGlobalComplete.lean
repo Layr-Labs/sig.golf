@@ -60,7 +60,7 @@ theorem E_checkFold (secret : BitVec 256) :
 
 
 theorem Ev_check_false (secret : BitVec 256) (cache : RCache) (hc : OuterGlobalFresh.AllFFresh cache) :
-    Ev secret check cache (fun r=>if r.1 then 0 else 1)≤ENNReal.ofReal (1/(2:ℝ)^170) := by
+    Ev secret check cache (fun r=>if r.1 then 0 else 1)≤ENNReal.ofReal (1/(2:ℝ)^146) := by
   unfold check
   refine (E_checkFold secret _ true cache ftsIndices_nodup (fun index hi=>?_)).trans ?_
   · have hidx:=mem_ftsIndices.mp hi

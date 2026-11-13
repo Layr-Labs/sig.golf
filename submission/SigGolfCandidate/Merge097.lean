@@ -5088,7 +5088,7 @@ theorem recovered_credit_floors (answers : SigGolfCandidate.T3.Correctness.Answe
     (msg : LayerMsg) (result : RecoveredLayers)
     (he : evalWithAnswerFn answers (recoverHintedLayers sig index other 4 msg) = some result)
     (hh : policyHintsValid index sig.policyHints result.digits result.lows = true) :
-    CreditFloors (fun lay => min 75
+    CreditFloors (fun lay => min 73
       (CanonicalPolicy.credit lay (result.lows.getD lay.val true) (result.digits.getD lay.val []) +
         if lay=0 then CanonicalPolicy.topPathSave (route index 0).1 else LocalRoute.ownSave index lay.val)) := by
   let credits : Layer → Nat := fun lay =>
@@ -5098,11 +5098,11 @@ theorem recovered_credit_floors (answers : SigGolfCandidate.T3.Correctness.Answe
     (recoverHintedLayers_credit answers sig index other 4 le_rfl msg result he).2.2 lay lay.isLt)
   change requiredCredit index ≤ ((List.finRange 4).map credits).sum+
     LocalRoute.ownSave index 1+LocalRoute.ownSave index 2+LocalRoute.ownSave index 3 at ht
-  have hp : 75≤requiredCredit index+saved := by
+  have hp : 73≤requiredCredit index+saved := by
     unfold requiredCredit saved LocalRoute.pool
     omega
   apply creditFloors_clip
-  change 75≤(credits 0+saved)+((credits 1+LocalRoute.ownSave index 1)+
+  change 73≤(credits 0+saved)+((credits 1+LocalRoute.ownSave index 1)+
     ((credits 2+LocalRoute.ownSave index 2)+((credits 3+LocalRoute.ownSave index 3)+0)))
   change requiredCredit index ≤ credits 0+(credits 1+(credits 2+(credits 3+0)))+
     LocalRoute.ownSave index 1+LocalRoute.ownSave index 2+LocalRoute.ownSave index 3 at ht
@@ -5129,7 +5129,7 @@ theorem agree_verify (hash : Hash) (message : SigGolfCandidate.T3.Message) (pk :
       Agree hash (okHashBy floors w.topHigh hash)
         (mrealize 0 (SigGolfCandidate.Research.SharedForest.verify message pk w)) := by
   let floors : Layer → Nat := fun lay =>
-    min 75 (CanonicalPolicy.credit lay (result.lows.getD lay.val true) (result.digits.getD lay.val []) +
+    min 73 (CanonicalPolicy.credit lay (result.lows.getD lay.val true) (result.digits.getD lay.val []) +
       if lay=0 then CanonicalPolicy.topPathSave (route (digestIndex output) 0).1 else LocalRoute.ownSave (digestIndex output) lay.val)
   refine ⟨floors, recovered_credit_floors _ _ _ _ _ result hr hh, ?_⟩
   unfold SigGolfCandidate.Research.SharedForest.verify

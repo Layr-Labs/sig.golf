@@ -90,20 +90,20 @@ theorem excess_moment (secret : BitVec 256) (message : Message) :
     obtain ⟨hash,_,heval⟩:=support_replay secret _ (jointL_hashOnly message) ∅ r hr
     let answers:=fixedAnswers secret hash
     have hle : (evalWithAnswerFn answers (joint message)).2≤
-        (evalWithAnswerFn answers (joint message)).1+137288+fields (builtTree answers 0 0) := by
+        (evalWithAnswerFn answers (joint message)).1+145480+fields (builtTree answers 0 0) := by
       have h:=eval_joint_cost_le_add answers keygen (fun keys=>OuterSigning.sign keys.2 message)
-        (fun keys sig=>OuterExpand.expandN message keys.1 sig) (137288+fields (builtTree answers 0 0))
+        (fun keys sig=>OuterExpand.expandN message keys.1 sig) (145480+fields (builtTree answers 0 0))
         (fun sig hs=>by
           have hc:=OuterPayloadCost.expand_cost_le_sign_field answers message sig hs
           simpa only [fields,treeValue,Nat.add_assoc] using hc)
       simpa only [joint,Nat.add_assoc] using h
     have hsub : (evalWithAnswerFn answers (joint message)).2-(evalWithAnswerFn answers (joint message)).1≤
-        137288+fields (builtTree answers 0 0) := by omega
+        145480+fields (builtTree answers 0 0) := by omega
     rw [heval,joint_eval]
     simp only [OuterExpandSlack.extraWeight,SigGolfCandidate.Research.SharedForest.expandReplayExtra,Nat.reduceAdd]
     apply ENNReal.rpow_le_rpow_of_exponent_le (by norm_num)
     have hc : (((evalWithAnswerFn answers (joint message)).2-(evalWithAnswerFn answers (joint message)).1:Nat):ℝ)≤
-        ((137288+fields (builtTree answers 0 0):Nat):ℝ) := Nat.cast_le.mpr hsub
+        ((145480+fields (builtTree answers 0 0):Nat):ℝ) := Nat.cast_le.mpr hsub
     exact div_le_div_of_nonneg_right (mul_le_mul_of_nonneg_left hc (by norm_num)) (by norm_num)
   exact (expectedValue_mono_of_support hpt).trans (field_moment secret message)
 

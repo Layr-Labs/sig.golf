@@ -203,9 +203,9 @@ open ClaudeWCT WCT9.CanonicalPolicy
 def creditAddr (lay : Layer) : Nat := 0x66040+8*lay.val
 def CreditW (lay : Layer) (A : Nat) : Prop := A=creditAddr lay ∧ 0x66040≤A ∧ A<0x66060
 /-- Floors read from the policy hints (Y5 mixed radix `529·f1 + 23·f2 + f3`); the top floor is 18. Agrees with
-`Research.V7Composed198Gate.hintFloor` (`CanonicalPolicy.topFloor = 18`). -/
+`Research.V7Composed198Gate.hintFloor` (`CanonicalPolicy.topFloor = 16`). -/
 def hintFloor (leaf : Nat) (hints : BitVec 16) (lay : Layer) : Nat :=
-  if lay=0 then max 18 (LocalRouteMachineHelpers.poolForLeaf leaf-57) else hints.toNat/24^(3-lay.val)%24
+  if lay=0 then max 16 (LocalRouteMachineHelpers.poolForLeaf leaf-57) else hints.toNat/24^(3-lay.val)%24
 theorem creditAddr_lt (lay : Layer) : creditAddr lay<2^64 := by
   have := lay.isLt;unfold creditAddr;omega
 theorem creditAddr_mem (lay : Layer) : CreditW lay (creditAddr lay) := by
@@ -221,7 +221,7 @@ theorem hintFloor_lt (leaf : Nat) (hints : BitVec 16) (lay : Layer) : hintFloor 
     omega
   · exact Nat.mod_lt _ (by decide)
 theorem hintFloor_top (leaf : Nat) (hints : BitVec 16) :
-    hintFloor leaf hints 0=max 18 (LocalRouteMachineHelpers.poolForLeaf leaf-57) := by
+    hintFloor leaf hints 0=max 16 (LocalRouteMachineHelpers.poolForLeaf leaf-57) := by
   simp only [hintFloor, if_pos rfl, if_true]
 theorem hintFloor_source (index : Nat) (hints : BitVec 16) (lay : Layer) :
     hintFloor (T3.route index lay).1 hints lay = SigGolfCandidate.Research.SharedForest.hintFloor index hints lay := by
@@ -545,10 +545,10 @@ theorem producerDecode_lower {lay : Layer} (hlz : lay≠0) (v : Digest) (floor c
     rewardOK,Rank.rankOK,Rank.rankFloor,WCT9.producerRankFloor,hlz,hds,filter_zero_count]
 /-! Producer output on a full 256-bit answer, split by the machine's trial order. -/
 theorem producerDecodeOut_top_low (a : BitVec 256) {ds : List Nat}
-    (h : WCT9.CanonicalPolicy.producerDecodeAt 0 18 true (a.extractLsb' 0 128) = some ds) :
-    WCT9.CanonicalPolicy.producerDecodeOut 0 18 a = some (ds, true) := by
+    (h : WCT9.CanonicalPolicy.producerDecodeAt 0 16 true (a.extractLsb' 0 128) = some ds) :
+    WCT9.CanonicalPolicy.producerDecodeOut 0 16 a = some (ds, true) := by
   have hg : WCT9.topGood (a.extractLsb' 0 128) := by
-    unfold WCT9.topGood; rw [show WCT9.CanonicalPolicy.topFloor = 18 from rfl, h]; rfl
+    unfold WCT9.topGood; rw [show WCT9.CanonicalPolicy.topFloor = 16 from rfl, h]; rfl
   have hl : WCT9.lowSelected 0 a = true := by
     simp [WCT9.lowSelected, WCT9.topChooseLow, hg]
   have he : WCT9.encodingAnswer 0 a = a.extractLsb' 0 128 := by
@@ -556,9 +556,9 @@ theorem producerDecodeOut_top_low (a : BitVec 256) {ds : List Nat}
   unfold WCT9.CanonicalPolicy.producerDecodeOut
   rw [he, hl, h]; rfl
 theorem producerDecodeOut_top_blocked (a : BitVec 256)
-    (h : WCT9.CanonicalPolicy.producerDecodeAt 0 18 true (a.extractLsb' 0 128) = none)
+    (h : WCT9.CanonicalPolicy.producerDecodeAt 0 16 true (a.extractLsb' 0 128) = none)
     (hb : T3.TopChoice.blocked (a.extractLsb' 0 128)) :
-    WCT9.CanonicalPolicy.producerDecodeOut 0 18 a = none := by
+    WCT9.CanonicalPolicy.producerDecodeOut 0 16 a = none := by
   have hl : WCT9.lowSelected 0 a = true := by
     simp [WCT9.lowSelected, WCT9.topChooseLow, hb]
   have he : WCT9.encodingAnswer 0 a = a.extractLsb' 0 128 := by
@@ -566,12 +566,12 @@ theorem producerDecodeOut_top_blocked (a : BitVec 256)
   unfold WCT9.CanonicalPolicy.producerDecodeOut
   rw [he, hl, h]; rfl
 theorem producerDecodeOut_top_high (a : BitVec 256)
-    (h : WCT9.CanonicalPolicy.producerDecodeAt 0 18 true (a.extractLsb' 0 128) = none)
+    (h : WCT9.CanonicalPolicy.producerDecodeAt 0 16 true (a.extractLsb' 0 128) = none)
     (hb : ¬ T3.TopChoice.blocked (a.extractLsb' 0 128)) :
-    WCT9.CanonicalPolicy.producerDecodeOut 0 18 a =
-      (WCT9.CanonicalPolicy.producerDecodeAt 0 18 false (a.extractLsb' 128 128)).map (·, false) := by
+    WCT9.CanonicalPolicy.producerDecodeOut 0 16 a =
+      (WCT9.CanonicalPolicy.producerDecodeAt 0 16 false (a.extractLsb' 128 128)).map (·, false) := by
   have hg : ¬ WCT9.topGood (a.extractLsb' 0 128) := by
-    unfold WCT9.topGood; rw [show WCT9.CanonicalPolicy.topFloor = 18 from rfl, h]; simp
+    unfold WCT9.topGood; rw [show WCT9.CanonicalPolicy.topFloor = 16 from rfl, h]; simp
   have hl : WCT9.lowSelected 0 a = false := by
     simp [WCT9.lowSelected, WCT9.topChooseLow, hg, hb]
   have he : WCT9.encodingAnswer 0 a = a.extractLsb' 128 128 := by
@@ -950,7 +950,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 354 (Canonic
     by_cases hlz : A.lay=0
     · rw [if_pos (hl0.2 hlz)] at p4
       have hfl : A.floor = LocalRouteMachineHelpers.rootFloor A.leaf := hpre.floorTop hlz
-      have hf0 : 18 ≤ A.floor := by rw [hfl];unfold LocalRouteMachineHelpers.rootFloor;omega
+      have hf0 : 16 ≤ A.floor := by rw [hfl];unfold LocalRouteMachineHelpers.rootFloor;omega
       have hleaf : A.leaf < 4096 := by
         have hr := hpre.hroute
         rw [hlz] at hr
@@ -976,7 +976,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 354 (Canonic
         (by intro k hk; unfold CsW CanonicalExpandHooks.CreditW CanonicalExpandHooks.creditAddr DigW ENC EOUT DIGITS FLAG; omega)
       obtain ⟨hAcc,hRej⟩ := T51.trial hKT tg (by rw [pg]; rfl) a h6g h7g h12g
         (mH0 tg (fgE _ (by unfold EOUT;omega))) (mH8 tg (fgE _ (by unfold EOUT;omega))) h17g htg
-      cases hD : WCT9.CanonicalPolicy.producerDecodeOut 0 18 a with
+      cases hD : WCT9.CanonicalPolicy.producerDecodeOut 0 16 a with
       | some found =>
         obtain ⟨ds,low⟩ := found
         obtain ⟨k,t,st,kle,pt,t6,t7,hdec,t28,tcr,tfl,rt,ft⟩ := hAcc ds low hD
@@ -987,7 +987,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 354 (Canonic
           · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr hX))))))
           (fun X hX => by rcases hX with rfl | rfl <;> decide)
         have hcredit : WCT9.CanonicalPolicy.credit 0 low ds < 2^64 := by
-          have hb := ClaudeWCT.W9.T3.CanonicalSearch.top_decoder_credit_lt (by decide : 3≤18) hD
+          have hb := ClaudeWCT.W9.T3.CanonicalSearch.top_decoder_credit_lt (by decide : 3≤16) hD
           change WCT9.CanonicalPolicy.credit 0 low ds < 220 at hb
           omega
         have h18t : t.getReg .x18 = BitVec.ofNat 64 A.leaf := by

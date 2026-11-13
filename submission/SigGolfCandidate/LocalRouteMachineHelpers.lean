@@ -1,3 +1,4 @@
+import SigGolfCandidate.Route16Machine
 import SigGolfCandidate.Merge055
 import SigGolfCandidate.LocalRouteAddress
 set_option debug.skipKernelTC false
@@ -9,46 +10,27 @@ set_option maxHeartbeats 0
 set_option maxRecDepth 1000000
 set_option exponentiation.threshold 10000000
 set_option Elab.async false
-def poolForLeaf (leaf : Nat) : Nat  := 75-ClaudeWCT.WCT9.CanonicalPolicy.topPathSave leaf
-def rootFloor (leaf : Nat) : Nat := max 18 (poolForLeaf leaf-57)
-theorem rootFloor_eq (leaf : Nat) : rootFloor leaf=18 := by
-  unfold rootFloor poolForLeaf
-  omega
-def guardCode : List (BitVec 32) := [0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x1200e93,0x66f37,0x18f3f03,0x815e806f]
-sym_block rootGuardBlock := symRun {noAlias:=true} guardCode (pcOf 26008) 20
-def guardWord (_ : Nat) : Word := 18#64
-theorem guard_checked : ∀ n : Fin 4096, guardWord n.val =
-    BitVec.ofNat 64 (18) := by decide +kernel
+def poolForLeaf (leaf : Nat) : Nat  := 73-ClaudeWCT.WCT9.CanonicalPolicy.topPathSave leaf
+def rootFloor (leaf : Nat) : Nat := max 16 (poolForLeaf leaf-57)
+theorem rootFloor_eq (leaf : Nat) : rootFloor leaf = SigGolfCandidate.Route16Guard.floor leaf := by
+  rw [SigGolfCandidate.Route16Guard.floor_eq_threshold]
+  rfl
+abbrev guardCode := SigGolfCandidate.Route16Machine.guardCode
+abbrev expandRootCode := SigGolfCandidate.Route16Machine.expandCode
 theorem guard_steps {im : Image} (hc : CodeAt im (pcOf 26008) guardCode)
     (s : MachineState) (hp : s.pc=pcOf 26008) (leaf credit : Nat) (hl : leaf<4096)
     (h18 : s.getReg .x18=BitVec.ofNat 64 leaf) (hm : s.getMem 0x66018=BitVec.ofNat 64 credit) :
     ∃ t, Steps im s 11 11 t ∧ t.pc=pcOf 1959 ∧
-      t.getReg .x29=BitVec.ofNat 64 (18) ∧
+      t.getReg .x29=BitVec.ofNat 64 (rootFloor leaf) ∧
       t.getReg .x30=BitVec.ofNat 64 credit ∧ RegsExcept s t [.x29,.x30] ∧ Frame s t (fun _=>False) := by
-  let t := rootGuardBlock.res.toState s
-  refine ⟨t,symRun_sound rootGuardBlock hc s hp (by simp [rootGuardBlock.res,rv_simp]),rfl,?_,?_,?_,?_⟩
-  · simpa [t,rootGuardBlock.res,rv_simp,guardWord,h18,BitVec.sub_eq_add_neg,BitVec.neg_add,
-      BitVec.add_assoc,BitVec.add_comm] using guard_checked ⟨leaf,hl⟩
-  · simpa [t,rootGuardBlock.res,rv_simp] using hm
-  · intro r hr;cases r <;> simp at hr <;> rfl
-  · intro A ha hn;rfl
-#print axioms guard_steps
-def expandRootCode : List (BitVec 32) := [0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x1200e93,0x66f37,0x40f3f03,0x810df06f]
-sym_block expandRoot := symRun {noAlias:=true} expandRootCode (pcOf 88095) 20
+  simpa only [rootFloor_eq] using SigGolfCandidate.Route16Machine.guard_steps hc s hp leaf credit hl h18 hm
 theorem expandRoot_steps {im : Image} (hc : CodeAt im (pcOf 88095) expandRootCode)
     (s : MachineState) (hp : s.pc=pcOf 88095) (leaf credit : Nat) (hl : leaf<4096)
     (h18 : s.getReg .x18=BitVec.ofNat 64 leaf) (hm : s.getMem 0x66040=BitVec.ofNat 64 credit) :
     ∃ t, Steps im s 11 11 t ∧ t.pc=pcOf 54317 ∧
-      t.getReg .x29=BitVec.ofNat 64 (18) ∧
+      t.getReg .x29=BitVec.ofNat 64 (rootFloor leaf) ∧
       t.getReg .x30=BitVec.ofNat 64 credit ∧ RegsExcept s t [.x29,.x30] ∧ Frame s t (fun _=>False) := by
-  let t := expandRoot.res.toState s
-  refine ⟨t,symRun_sound expandRoot hc s hp (by simp [expandRoot.res,rv_simp]),rfl,?_,?_,?_,?_⟩
-  · simpa [t,expandRoot.res,rv_simp,guardWord,h18,BitVec.sub_eq_add_neg,BitVec.neg_add,
-      BitVec.add_assoc,BitVec.add_comm] using guard_checked ⟨leaf,hl⟩
-  · simpa [t,expandRoot.res,rv_simp] using hm
-  · intro r hr;cases r <;> simp at hr <;> rfl
-  · intro A ha hn;rfl
-#print axioms expandRoot_steps
+  simpa only [rootFloor_eq] using SigGolfCandidate.Route16Machine.expand_steps hc s hp leaf credit hl h18 hm
 def expand1Code : List (BitVec 32) := [0x40e3303,0x20e37,0x550e3383,0xc3d393,0x73f393,0x2e00e13,0x7e53b3,0x13f393,0x1533e33,0x1c3f3b3,0x730333,0xd45d706f]
 sym_block expand1 := symRun {noAlias:=true} expand1Code (pcOf 88060) 30
 theorem expand1_counts : expand1.res.steps=12 ∧ expand1.res.cycles=12 := by decide +kernel

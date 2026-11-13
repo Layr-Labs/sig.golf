@@ -101,16 +101,16 @@ theorem pointwise (answers : Answers) (message : Message) :
         have := hboth.2
         simpa only [b,OuterCodecChecks.checks_eval] using this
       have hle := eval_joint_cost_le_add answers keygen (fun keys=>OuterLooseSource.signCompact keys.2 message)
-        (fun keys sig=>OuterExpand.expandCompact message keys.1 sig) (137288+fields levels)
+        (fun keys sig=>OuterExpand.expandCompact message keys.1 sig) (145480+fields levels)
         (fun sig hs=>by
           have hc:=OuterLooseReplay.good_excess answers message sig htree
             (ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.eval_lowerCheck_true answers hl)
             (OuterHybridGlobalCorrectness.eval_check_true answers hf) hs
           simpa only [fields,SigGolfCandidate.T3.Correctness.treeValue,Nat.add_assoc,levels] using hc)
       change (evalWithAnswerFn answers (joint message)).2≤
-        (evalWithAnswerFn answers (joint message)).1+(137288+fields levels) at hle
+        (evalWithAnswerFn answers (joint message)).1+(145480+fields levels) at hle
       have hsub : (evalWithAnswerFn answers (joint message)).2-
-          (evalWithAnswerFn answers (joint message)).1≤137288+fields levels := by omega
+          (evalWithAnswerFn answers (joint message)).1≤145480+fields levels := by omega
       change _≤excess levels b
       simp only [excess,if_pos ht,if_pos hb,zero_mul,add_zero]
       unfold OuterExpandSlack.extraWeight

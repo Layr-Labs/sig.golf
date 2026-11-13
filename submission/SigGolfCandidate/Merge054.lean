@@ -2972,7 +2972,7 @@ theorem facS_ok (lay : Nat) : FacOK SigGolfCandidate.T3.Budgets.signingZ lay (fa
   set zr := SigGolfCandidate.T3.Budgets.signingZ.toReal with hzr
   have hz0 : 0 ≤ zr := ENNReal.toReal_nonneg
   have hzE : SigGolfCandidate.T3.Budgets.signingZ = ENNReal.ofReal zr := (ENNReal.ofReal_toReal signingZ_ne_top).symm
-  have hk := ClaudeWCT.Numerics.TopZero.groundM_step b (by omega) hb3 zr signingZ_toReal_le
+  have hk := ClaudeWCT.Numerics.TopZero.groundM_step b (by omega) (by omega) zr signingZ_toReal_le
   have hq0 : (0 : ℝ) ≤ 1 / 2 ^ b := by positivity
   have hq1 : (1 : ℝ) / 2 ^ b ≤ 1 := by
     rw [div_le_one (by positivity)]; exact one_le_pow₀ (by norm_num)
@@ -4787,7 +4787,7 @@ theorem digestMoment_ge_one : 1 ≤ digestMoment := by
   apply (ENNReal.toReal_le_toReal (by simp) (by unfold digestMoment scale; finiteness)).mp
   norm_num [digestMoment,ENNReal.toReal_div,ftsBound,scale]
 
-theorem mG_ge_one (b : Nat) (h1 : 1 ≤ b) (h3 : b ≤ 4) : 1 ≤ ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.mG b := by
+theorem mG_ge_one (b : Nat) (h1 : 1 ≤ b) (h3 : b ≤ 5) : 1 ≤ ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.mG b := by
   unfold ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.mG
   rw [← ENNReal.ofReal_one]
   apply ENNReal.ofReal_le_ofReal
@@ -5248,8 +5248,8 @@ abbrev witEncN := ClaudeWCT.W9.T3M.Paired.witEncN
 /-- U16b: and the 9 ground lower fold nonces (`Paired.witEncG`). -/
 abbrev witEncG := ClaudeWCT.W9.T3M.Paired.witEncG
 
-def verifyCycleBound : Nat := 6872
-def claimedC : Nat := 6957
+def verifyCycleBound : Nat := 6874
+def claimedC : Nat := 6959
  def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 21756) : Prop :=
   SigGolfCandidate.Research.SharedForest.jointAccountingCost
     (hash (SigGolfCandidate.T3M.toQ (SigGolfCandidate.T3.pad64

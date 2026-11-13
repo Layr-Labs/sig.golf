@@ -29,7 +29,7 @@ def forestCheck (index : Nat) : M Bool := do
   let c ← buildCoord false index 8 child0 rank0 (fun _=>s4.2)
   pure (s4.1 && coordOKb false 8 c.1)
 
-noncomputable def eps : ENNReal := ((2:ENNReal)^210)⁻¹
+noncomputable def eps : ENNReal := ((2:ENNReal)^186)⁻¹
 noncomputable def pairFailure : ENNReal := 48*cF+2*eps
 noncomputable def lastFailure : ENNReal := 24*cF+2*eps
 noncomputable def forestFailure : ENNReal := 216*cF+10*eps

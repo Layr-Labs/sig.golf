@@ -8,15 +8,15 @@ open ClaudeWCT.WCT9 SigGolfCandidate.Research.SharedForest
 abbrev Signature := SigGolfCandidate.Research.SharedForest.Signature
 abbrev Witness := SigGolfCandidate.Research.SharedForest.Witness
 
-def rootPool (leaf : Nat) : Nat := 74-CanonicalPolicy.topPathSave leaf
+def rootPool (leaf : Nat) : Nat := 73-CanonicalPolicy.topPathSave leaf
 def requiredCredit (index : Nat) : Nat := rootPool (route index 0).1
 
-theorem rootPool_bounds (leaf : Nat) : 72≤rootPool leaf ∧ rootPool leaf≤74 := by
+theorem rootPool_bounds (leaf : Nat) : 71≤rootPool leaf ∧ rootPool leaf≤73 := by
   unfold rootPool CanonicalPolicy.topPathSave CanonicalPolicy.topPairSave
   split_ifs <;> omega
 
-theorem requiredCredit_bounds (index : Nat) : 72≤requiredCredit index ∧ requiredCredit index≤74 := rootPool_bounds _
-theorem root_floor (index : Nat) : Policy75Safe23.threshold 0 (requiredCredit index)=18 := by
+theorem requiredCredit_bounds (index : Nat) : 71≤requiredCredit index ∧ requiredCredit index≤73 := rootPool_bounds _
+theorem root_floor (index : Nat) : Policy75Safe23.threshold 0 (requiredCredit index)=16 := by
   rw [Policy75Safe23.threshold_top]
   have h:=requiredCredit_bounds index
   omega

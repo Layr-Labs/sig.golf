@@ -41,10 +41,10 @@ theorem run {im : Image} {sk : BitVec 256} (j : Fin 128) (coord : Fin 9) (index 
     (hu : ChildPre j.val (coordRegion coord.val) coord.val index leaf pads sibs tws u)
     (hlo : 1848≤coordRegion coord.val) (hB : coordRegion coord.val<2^14)
     (v : Digest) (hs : MidC j.val (coordRegion coord.val) coord.val index u 3 v s) :
-    TBSim im sk s (lvlSt j.val 3+1+W_SEARCH (widthOf (coordRegion coord.val))+(cycR j.val 4 1+30740))
+    TBSim im sk s (lvlSt j.val 3+1+W_SEARCH (widthOf (coordRegion coord.val))+(cycR j.val 4 1+61460))
       (program coord.val index j.val pads sibs tws v) (Post coord.val index j.val pads sibs u) := by
   have hG:=OuterCopyGroundB.run (sk:=sk) j.isLt hcode hS hT hu hlo hB v s hs
-  have h : TBSim im sk s (lvlSt j.val 3+1+W_SEARCH (widthOf (coordRegion coord.val))+(cycR j.val 4 1+30740))
+  have h : TBSim im sk s (lvlSt j.val 3+1+W_SEARCH (widthOf (coordRegion coord.val))+(cycR j.val 4 1+61460))
       ((groundFold (widthOf (coordRegion coord.val)) (preC coord.val index j.val tws sibs v) (rightC j.val sibs v) >>=
         fun r=>pure (r.1,r.2.extractLsb' 0 128)) >>= fun r=>
           OuterNodeBankTailB.program coord.val index j.val 4 1 pads sibs tws r.2 >>= fun out=>pure (r.1,out))

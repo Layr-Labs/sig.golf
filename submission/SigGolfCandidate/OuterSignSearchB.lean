@@ -13,7 +13,7 @@ theorem check {im : Image} {A D n : Nat} {pre right : List UInt8}
     (hc : CodeAt im (pcOf 26179) b_checkCode) (hu : Stage s A D (pcOf 26179) n u)
     (hh : Answer A D n a u) :
     ∃ t,Steps im u 3 3 t ∧
-      Stage s A D (if zeroOkH true 3 a then pcOf 26201 else pcOf 26182) n t ∧ Answer A D n a t := by
+      Stage s A D (if zeroOkH true 5 a then pcOf 26201 else pcOf 26182) n t ∧ Answer A D n a t := by
   have gx : u.getReg .x12=BitVec.ofNat 64 D := by rw [hu.regs.get (by decide)];exact F.x12
   have hob : b_check.res.obligs u := OuterNodeMachineCheck.b_check_obligs u D gx F.dhi F.dlo F.da
   let t:=b_check.res.toState u
@@ -22,15 +22,15 @@ theorem check {im : Image} {A D n : Nat} {pre right : List UInt8}
   have hm : ∀ x,t.getMem x=u.getMem x := fun _=>rfl
   have ho : u.getMem (u.getReg .x12+24#64)=a.extractLsb' 192 64 := by
     rw [gx,ofNat_add_ofNat];exact hh.output 3 (by decide)
-  have hp : t.pc=(if zeroOkH true 3 a then pcOf 26201 else pcOf 26182) := by
+  have hp : t.pc=(if zeroOkH true 5 a then pcOf 26201 else pcOf 26182) := by
     change (b_check.res.toState u).pc=_
     simp only [Result.toState_pc,b_check.res,E.eval,RegFile.get,Addr.eval,BinOp.eval,CmpOp.eval,ho]
     norm_num only [BitVec.toNat_ofNat]
     simp only [beq_iff_eq]
-    by_cases hz : zeroOkH true 3 a=true
-    · have hb : (a.extractLsb' 192 64 >>> 61)=0#64 := (OuterNodeSearchB.ok a).mp hz
+    by_cases hz : zeroOkH true 5 a=true
+    · have hb : (a.extractLsb' 192 64 >>> 59)=0#64 := (OuterNodeSearchB.ok a).mp hz
       simp only [if_pos hz,if_pos hb]
-    · have hb : ¬(a.extractLsb' 192 64 >>> 61)=0#64 := fun h=>hz ((OuterNodeSearchB.ok a).mpr h)
+    · have hb : ¬(a.extractLsb' 192 64 >>> 59)=0#64 := fun h=>hz ((OuterNodeSearchB.ok a).mpr h)
       simp only [if_neg hz,if_neg hb]
   refine ⟨t,hs,hu.readOnly hp (hr.mono (by simp)) ?_ hm,hh.readOnly hm⟩
   rw [hr.get (by decide)];exact hu.nonce
@@ -46,7 +46,7 @@ theorem retry {im : Image} {A D n : Nat} {pre right : List UInt8}
     {s u : MachineState} {a : HashOutput} (F : Input A D pre right s)
     (hc : CodeAt im (pcOf 26179) b_checkCode) (hf : CodeAt im (pcOf 26182) b_retryCode)
     (hu : Stage s A D (pcOf 26179) n u) (hh : Answer A D n a u)
-    (hz : ¬zeroOkH true 3 a=true) (hn : n+1<2048) :
+    (hz : ¬zeroOkH true 5 a=true) (hn : n+1<4096) :
     ∃ t,Steps im u 6 6 t ∧ Stage s A D (pcOf 26177) (n+1) t := by
   obtain ⟨v,hs,hv,hav⟩:=check F hc hu hh
   simp only [if_neg hz] at hv
@@ -59,7 +59,7 @@ theorem finish {im : Image} {sk : BitVec 256} {A D n : Nat} {pre right : List UI
     (hc : CodeAt im (pcOf 26179) b_checkCode)
     (hp : CodeAt im (pcOf 26201) cleanupCode) (hd : CodeAt im (pcOf 26204) doneCode)
     (hu : Stage s A D (pcOf 26179) n u) (hh : Answer A D n a u)
-    (hz : zeroOkH true 3 a=true) :
+    (hz : zeroOkH true 5 a=true) :
     TBSim im sk u 12 (pure (n,a)) (OuterSignExit.Out s A D) := by
   obtain ⟨v,hs,hv,hav⟩:=check F hc hu hh
   simp only [if_pos hz] at hv
@@ -71,12 +71,12 @@ theorem exhaust {im : Image} {sk : BitVec 256} {A D n : Nat} {pre right : List U
     (hj : CodeAt im (pcOf 26185) b_exhaustCode)
     (hp : CodeAt im (pcOf 26201) cleanupCode) (hd : CodeAt im (pcOf 26204) doneCode)
     (hu : Stage s A D (pcOf 26179) n u) (hh : Answer A D n a u)
-    (hz : ¬zeroOkH true 3 a=true) (hn : n+1=2048) :
+    (hz : ¬zeroOkH true 5 a=true) (hn : n+1=4096) :
     TBSim im sk u 16 (pure (n,a)) (OuterSignExit.Out s A D) := by
   obtain ⟨v,hs,hv,hav⟩:=check F hc hu hh
   simp only [if_neg hz] at hv
   obtain ⟨t,ht,hr,h6,hpt,hm⟩:=OuterNodeCounterRun.runB (pcOf 26182) hf v hv.at_pc n (by omega) hv.nonce
-  have hpt' : t.pc=pcOf 26185 := by simpa only [show ¬n+1<2048 by omega,if_false,show pcOf 26182+12#64=pcOf 26185 from by decide] using hpt
+  have hpt' : t.pc=pcOf 26185 := by simpa only [show ¬n+1<4096 by omega,if_false,show pcOf 26182+12#64=pcOf 26185 from by decide] using hpt
   have htv:=hv.readOnly hpt' hr h6 hm
   have hat:=hav.readOnly hm
   obtain ⟨w,hw,hwp,hwr,hwm⟩:=jump_exhaust hj t hpt'
@@ -89,9 +89,9 @@ theorem loop {im : Image} {sk : BitVec 256} {A D : Nat} {pre right : List UInt8}
     (hq : CodeAt im (pcOf 26177) b_preCode) (hc : CodeAt im (pcOf 26179) b_checkCode)
     (hf : CodeAt im (pcOf 26182) b_retryCode) (hj : CodeAt im (pcOf 26185) b_exhaustCode)
     (hp : CodeAt im (pcOf 26201) cleanupCode) (hd : CodeAt im (pcOf 26204) doneCode) :
-    ∀ fuel n u,Stage s A D (pcOf 26177) n u → n+fuel+1=2048 →
-      TBSim im sk u (15*fuel+25) (searchH true 3 pre right fuel n) (OuterSignExit.Out s A D) := by
-  refine OuterNodeLoopControl.loop_sim true 3 2048 3 pre right (Stage s A D (pcOf 26177))
+    ∀ fuel n u,Stage s A D (pcOf 26177) n u → n+fuel+1=4096 →
+      TBSim im sk u (15*fuel+25) (searchH true 5 pre right fuel n) (OuterSignExit.Out s A D) := by
+  refine OuterNodeLoopControl.loop_sim true 5 4096 3 pre right (Stage s A D (pcOf 26177))
     (fun n a u=>Stage s A D (pcOf 26179) n u ∧ Answer A D n a u)
     (OuterSignExit.Out s A D) ?_ ?_ ?_ ?_
   · intro β n u hu hn W f Q hk

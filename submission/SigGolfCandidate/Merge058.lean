@@ -23424,7 +23424,7 @@ structure KInst where
   wCr : BitVec 32
   wU : BitVec 32
   wN : BitVec 32
-def kE2 : List (BitVec 32) := [0xa13,0x1000a93]
+def kE2 : List (BitVec 32) := [0xa13,0xe00a93]
 def kG0a : List (BitVec 32) := [0x231e13,0x3fce7e13,0xae0e33,0xf60e6c83]
 def kG0b : List (BitVec 32) := [0xccde93,0x4efe93,0x1dc8cb3]
 def kLk1 : List (BitVec 32) := [0x635e13,0x3fce7e13,0xae0e33,0xe6e83,0x1dc8cb3]
@@ -23459,7 +23459,7 @@ def kSdF : List (BitVec 32) := [0x7f4f3c23]
 def kBrF0 : List (BitVec 32) := [0x20a1063]
 def kF1a : List (BitVec 32) := [0x3e3de93]
 def kBr122 : List (BitVec 32) := [0xe8c63]
-def kF2a : List (BitVec 32) := [0x8000a13,0x1200a93,0x1063303,0x1863383]
+def kF2a : List (BitVec 32) := [0x8000a13,0x1000a93,0x1063303,0x1863383]
 def kJ127 : List (BitVec 32) := [0xe15ff06f]
 /-- Fine layout of the 129-word kernel (every lookup, every branch and every parameter word its own segment). -/
 def kLF (P : KInst) : Rv.Layout := [(0, [P.w0, P.w1]), (2, kE2), (4, kG0a), (8, kG0b), (11, kLk1), (16, kLk2),
@@ -23590,7 +23590,7 @@ sym_block e2Run := symRun { noAlias := true } kE2 0 10
 theorem run_e2 (pc : Word) : symRun { noAlias := true } kE2 pc 10 =
     some ⟨e2Run.res.st, .c (pc + 4 + 4), .endOfCode, 2, 2⟩ := by rfl
 theorem e2_spec {image : Image} {pc : Word} (hc : CodeAt image pc kE2) (s : MachineState) (hpc : s.pc = pc) :
-    ∃ t, Steps image s 2 2 t ∧ t.pc = pc + 4 + 4 ∧ t.getReg .x20 = 0 ∧ t.getReg .x21 = BitVec.ofNat 64 16 ∧
+    ∃ t, Steps image s 2 2 t ∧ t.pc = pc + 4 + 4 ∧ t.getReg .x20 = 0 ∧ t.getReg .x21 = BitVec.ofNat 64 14 ∧
       RegsExcept s t [.x20, .x21] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound (run_e2 pc) hc s hpc (by simp [e2Run.res, rv_simp]), ?_, ?_, ?_, ?_, ?_⟩
   · simp [rv_simp]
@@ -23803,7 +23803,7 @@ theorem f2a_spec {image : Image} {pc : Word} (hc : CodeAt image pc kF2a) (s : Ma
     (h12 : s.getReg .x12 = BitVec.ofNat 64 EOUT) :
     ∃ t, Steps image s 4 4 t ∧ t.pc = pc + 4 + 4 + 4 + 4 ∧
       t.getReg .x6 = s.getMem (BitVec.ofNat 64 (EOUT + 16)) ∧ t.getReg .x7 = s.getMem (BitVec.ofNat 64 (EOUT + 24)) ∧
-      t.getReg .x20 = BitVec.ofNat 64 128 ∧ t.getReg .x21 = BitVec.ofNat 64 18 ∧
+      t.getReg .x20 = BitVec.ofNat 64 128 ∧ t.getReg .x21 = BitVec.ofNat 64 16 ∧
       RegsExcept s t [.x6, .x7, .x20, .x21] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound (run_f2a pc) hc s hpc
     (by simp only [rv_simp, f2aRun.res, h12, EOUT, accessValid_iff, MEMORY_BYTES]; decide), ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
@@ -24388,7 +24388,7 @@ theorem reject_low {image : Image} {P : KInst} (hK : T51KAt image P) (w : Machin
       Frame w t (fun _ => False)) ∧
     (¬ v.toNat < 2 ^ 126 → ∃ t, Steps image w 8 8 t ∧ t.pc = pcOf (P.kb + 4) ∧
       t.getReg .x6 = w.getMem (BitVec.ofNat 64 (EOUT + 16)) ∧ t.getReg .x7 = w.getMem (BitVec.ofNat 64 (EOUT + 24)) ∧
-      t.getReg .x20 = BitVec.ofNat 64 128 ∧ t.getReg .x21 = BitVec.ofNat 64 18 ∧
+      t.getReg .x20 = BitVec.ofNat 64 128 ∧ t.getReg .x21 = BitVec.ofNat 64 16 ∧
       RegsExcept w t [.x6, .x7, .x20, .x21, .x29] ∧ Frame w t (fun _ => False)) := by
   have hkb := hK.kbLt
   obtain ⟨u1, s1, p1, r1, f1⟩ := br_spec (run_brF0 _) (codeAt_kf hK 35 rfl) w hpc
@@ -24439,30 +24439,30 @@ set_option linter.unusedSimpArgs false
 set_option linter.unusedVariables false
 abbrev kRegs : List Reg := [.x6, .x7, .x10, .x11, .x20, .x21, .x25, .x28, .x29, .x30]
 theorem producerDecodeAt_kAcc (v : Digest) (low : Bool) :
-    (WCT9.CanonicalPolicy.producerDecodeAt 0 18 low v).isSome = true ↔ kAcc v (if low then 16 else 18) := by
+    (WCT9.CanonicalPolicy.producerDecodeAt 0 16 low v).isSome = true ↔ kAcc v (if low then 14 else 16) := by
   constructor
   · intro h
     obtain ⟨ds, hds⟩ := Option.isSome_iff_exists.1 h
-    have := ((producer_some v 18 low (by norm_num) ds).1 hds).1
+    have := ((producer_some v 16 low (by norm_num) ds).1 hds).1
     cases low <;> simpa using this
   · intro h
-    have hk : kAcc v (18 - if low then 2 else 0) := by cases low <;> simpa using h
-    rw [(producer_some v 18 low (by norm_num) _).2 ⟨hk, kAcc_decode hk⟩]
+    have hk : kAcc v (16 - if low then 2 else 0) := by cases low <;> simpa using h
+    rw [(producer_some v 16 low (by norm_num) _).2 ⟨hk, kAcc_decode hk⟩]
     rfl
-theorem producerDecodeAt_some {v : Digest} {low : Bool} (h : kAcc v (if low then 16 else 18)) :
-    WCT9.CanonicalPolicy.producerDecodeAt 0 18 low v = some (T3.dataDigits 0 v ++ [152 - LW v]) := by
-  have hk : kAcc v (18 - if low then 2 else 0) := by cases low <;> simpa using h
-  exact (producer_some v 18 low (by norm_num) _).2 ⟨hk, kAcc_decode hk⟩
-theorem producerDecodeAt_none {v : Digest} {low : Bool} (h : ¬ kAcc v (if low then 16 else 18)) :
-    WCT9.CanonicalPolicy.producerDecodeAt 0 18 low v = none := by
-  cases hp : WCT9.CanonicalPolicy.producerDecodeAt 0 18 low v with
+theorem producerDecodeAt_some {v : Digest} {low : Bool} (h : kAcc v (if low then 14 else 16)) :
+    WCT9.CanonicalPolicy.producerDecodeAt 0 16 low v = some (T3.dataDigits 0 v ++ [152 - LW v]) := by
+  have hk : kAcc v (16 - if low then 2 else 0) := by cases low <;> simpa using h
+  exact (producer_some v 16 low (by norm_num) _).2 ⟨hk, kAcc_decode hk⟩
+theorem producerDecodeAt_none {v : Digest} {low : Bool} (h : ¬ kAcc v (if low then 14 else 16)) :
+    WCT9.CanonicalPolicy.producerDecodeAt 0 16 low v = none := by
+  cases hp : WCT9.CanonicalPolicy.producerDecodeAt 0 16 low v with
   | none => rfl
   | some ds => exact absurd ((producerDecodeAt_kAcc v low).1 (by rw [hp]; rfl)) h
-theorem topGood_iff (w : Digest) : WCT9.topGood w ↔ kAcc w 16 := by
+theorem topGood_iff (w : Digest) : WCT9.topGood w ↔ kAcc w 14 := by
   unfold WCT9.topGood
   exact producerDecodeAt_kAcc w true
 /-- One T51 top trial from `K_ENTRY` on the 256-bit answer `a` (LOW half in `x6`, `x7`; `x12` = EOUT holds `a`):
-accept exactly the canonical producer answer (`producerDecodeOut 0 18`, floor = `topFloor` = 14), storing the credit
+accept exactly the canonical producer answer (`producerDecodeOut 0 16`, floor = `topFloor` = 14), storing the credit
 and the choice flag and entering `U_ENTRY` with the selected word and its checksum digit, or reject into `NEXT`
 without a store. Generic in the instance `P` (sign and expand). -/
 theorem trial {image : Image} {P : KInst} (hK : T51KAt image P) (u : MachineState) (hpc : u.pc = pcOf P.kb)
@@ -24471,7 +24471,7 @@ theorem trial {image : Image} {P : KInst} (hK : T51KAt image P) (u : MachineStat
     (hH0 : u.getMem (BitVec.ofNat 64 (EOUT + 16)) = (a.extractLsb' 128 128).extractLsb' 0 64)
     (hH8 : u.getMem (BitVec.ofNat 64 (EOUT + 24)) = (a.extractLsb' 128 128).extractLsb' 64 64)
     (h17 : u.getReg .x17 = BitVec.ofNat 64 (T3.target 0)) (ht : T51TableW P.blk u) :
-    (∀ ds low, WCT9.CanonicalPolicy.producerDecodeOut 0 18 a = some (ds, low) →
+    (∀ ds low, WCT9.CanonicalPolicy.producerDecodeOut 0 16 a = some (ds, low) →
       ∃ k t, Steps image u k k t ∧ k ≤ 240 ∧ t.pc = pcOf P.ub ∧
         t.getReg .x6 = (WCT9.encodingAnswer 0 a).extractLsb' 0 64 ∧
         t.getReg .x7 = (WCT9.encodingAnswer 0 a).extractLsb' 64 64 ∧
@@ -24480,7 +24480,7 @@ theorem trial {image : Image} {P : KInst} (hK : T51KAt image P) (u : MachineStat
         t.getMem (BitVec.ofNat 64 P.credit) = BitVec.ofNat 64 (WCT9.CanonicalPolicy.credit 0 low ds) ∧
         t.getMem (BitVec.ofNat 64 FLAGA) = BitVec.ofNat 64 (if low then 0 else 128) ∧
         RegsExcept u t kRegs ∧ Frame u t (fun A => A = P.credit ∨ A = FLAGA)) ∧
-    (WCT9.CanonicalPolicy.producerDecodeOut 0 18 a = none →
+    (WCT9.CanonicalPolicy.producerDecodeOut 0 16 a = none →
       ∃ k t, Steps image u k k t ∧ k ≤ 240 ∧ t.pc = pcOf P.rej ∧ RegsExcept u t kRegs ∧
         Frame u t (fun _ => False)) := by
   have hkb := hK.kbLt
@@ -24490,8 +24490,8 @@ theorem trial {image : Image} {P : KInst} (hK : T51KAt image P) (u : MachineStat
       Frame x z (fun _ => False) := fun h1 h2 => (h1.trans h2).mono (fun _ _ h => by simpa using h)
   have hEA : WCT9.encodingAnswer 0 a =
       if WCT9.topChooseLow a then a.extractLsb' 0 128 else a.extractLsb' 128 128 := WCT9.encodingAnswer_top_eq a
-  have hPDO : WCT9.CanonicalPolicy.producerDecodeOut 0 18 a =
-      (WCT9.CanonicalPolicy.producerDecodeAt 0 18 (WCT9.topChooseLow a) (WCT9.encodingAnswer 0 a)).map
+  have hPDO : WCT9.CanonicalPolicy.producerDecodeOut 0 16 a =
+      (WCT9.CanonicalPolicy.producerDecodeAt 0 16 (WCT9.topChooseLow a) (WCT9.encodingAnswer 0 a)).map
         (fun d => (d, WCT9.topChooseLow a)) := rfl
   obtain ⟨w0, s0, p0, e10, r0, f0⟩ := hK.hE u hpc
   obtain ⟨w1, s1', p1, e20, e21, r1', f1'⟩ := e2_spec (codeAt_kf hK 1 rfl) w0 p0
@@ -24505,13 +24505,13 @@ theorem trial {image : Image} {P : KInst} (hK : T51KAt image P) (u : MachineStat
   have w7 : w1.getReg .x7 = (a.extractLsb' 0 128).extractLsb' 64 64 := (r1 .x7 (by decide)).trans h7
   have w17 : w1.getReg .x17 = BitVec.ofNat 64 152 := (r1 .x17 (by decide)).trans h17
   obtain ⟨k2, w2, s2, hk2, r2, f2, hres⟩ :=
-    half_run hK w1 p1' (a.extractLsb' 0 128) w6 w7 e10' w17 (thr := 16) (by norm_num) e21 ht1
+    half_run hK w1 p1' (a.extractLsb' 0 128) w6 w7 e10' w17 (thr := 14) (by norm_num) e21 ht1
   rcases hres with ⟨hacc, _, p2, x29, x28⟩ | ⟨hrej, p2⟩
   · -- LOW accepted
     have hTC : WCT9.topChooseLow a = true :=
       decide_eq_true (Or.inl ((topGood_iff _).2 hacc))
     have hdec := kAcc_decode hacc
-    have hpdo : WCT9.CanonicalPolicy.producerDecodeOut 0 18 a =
+    have hpdo : WCT9.CanonicalPolicy.producerDecodeOut 0 16 a =
         some (T3.dataDigits 0 (a.extractLsb' 0 128) ++ [152 - LW (a.extractLsb' 0 128)], true) := by
       rw [hPDO, hTC, hEA, hTC, if_pos rfl, producerDecodeAt_some (low := true) hacc]; rfl
     have hea : WCT9.encodingAnswer 0 a = a.extractLsb' 0 128 := by rw [hEA, hTC, if_pos rfl]
@@ -24543,7 +24543,7 @@ theorem trial {image : Image} {P : KInst} (hK : T51KAt image P) (u : MachineStat
     by_cases hbl : (a.extractLsb' 0 128).toNat < 2 ^ 126
     · obtain ⟨w3, s3, p3, r3, f3⟩ := hblk' hbl
       have hTC : WCT9.topChooseLow a = true := decide_eq_true (Or.inr hbl)
-      have hpdo : WCT9.CanonicalPolicy.producerDecodeOut 0 18 a = none := by
+      have hpdo : WCT9.CanonicalPolicy.producerDecodeOut 0 16 a = none := by
         rw [hPDO, hTC, hEA, hTC, if_pos rfl, producerDecodeAt_none (low := true) hrej]; rfl
       refine ⟨fun ds low h => (by rw [hpdo] at h; cases h), fun _ => ⟨4 + k2 + 4, w3, (s1.trans s2).trans s3,
         by omega, p3, ((r1.trans r2).trans r3).mono (by decide), hFm (hFm f1 f2) f3⟩⟩
@@ -24563,11 +24563,11 @@ theorem trial {image : Image} {P : KInst} (hK : T51KAt image P) (u : MachineStat
       have v17 : w3.getReg .x17 = BitVec.ofNat 64 152 := by rw [r3 .x17 (by decide), r2 .x17 (by decide), w17]
       have ht3 : T51TableW P.blk w3 := ht.frame hF3 hblk (by omega) (fun _ _ h => h)
       obtain ⟨k4, w4, s4, hk4, r4, f4, hres2⟩ :=
-        half_run hK w3 p3 (a.extractLsb' 128 128) v6 v7 v10 v17 (thr := 18) (by norm_num) y21 ht3
+        half_run hK w3 p3 (a.extractLsb' 128 128) v6 v7 v10 v17 (thr := 16) (by norm_num) y21 ht3
       have w20' : w4.getReg .x20 = BitVec.ofNat 64 128 := by rw [r4 .x20 (by decide), y20]
       rcases hres2 with ⟨hacc2, _, p4, x29, x28⟩ | ⟨hrej2, p4⟩
       · have hdec := kAcc_decode hacc2
-        have hpdo : WCT9.CanonicalPolicy.producerDecodeOut 0 18 a =
+        have hpdo : WCT9.CanonicalPolicy.producerDecodeOut 0 16 a =
             some (T3.dataDigits 0 (a.extractLsb' 128 128) ++ [152 - LW (a.extractLsb' 128 128)], false) := by
           rw [hPDO, hTC, hea, producerDecodeAt_some (low := false) hacc2]; rfl
         obtain ⟨k5, w5, s5, hk5, p5, m1, m2, r5, f5⟩ := accept_tail hK w4 p4 false (by rw [w20']; rfl)
@@ -24589,7 +24589,7 @@ theorem trial {image : Image} {P : KInst} (hK : T51KAt image P) (u : MachineStat
         · rw [m2, w20']; rfl
         · exact ((((r1.trans r2).trans r3).trans r4).trans r5).mono (by decide)
         · exact ((hFm hF3 f4).trans f5).mono (fun _ _ h => by simpa using h)
-      · have hpdo : WCT9.CanonicalPolicy.producerDecodeOut 0 18 a = none := by
+      · have hpdo : WCT9.CanonicalPolicy.producerDecodeOut 0 16 a = none := by
           rw [hPDO, hTC, hea, producerDecodeAt_none (low := false) hrej2]; rfl
         obtain ⟨w5, s5, p5, r5, f5⟩ := reject_high hK w4 p4 w20'
         refine ⟨fun ds low h => (by rw [hpdo] at h; cases h), fun _ => ⟨4 + k2 + 8 + k4 + 2, w5,
@@ -29006,9 +29006,9 @@ set_option exponentiation.threshold 10000000
 set_option Elab.async false
 def poolWord (n : Nat) : Word :=
   let d := (BitVec.ofNat 64 n >>> 1) ^^^ BitVec.ofNat 64 n
-  75#64 - ((d &&& 1#64) + ((d >>> 6) &&& 1#64))
+  73#64 - ((d &&& 1#64) + ((d >>> 6) &&& 1#64))
 theorem pool_checked : ∀ n : Fin 4096, poolWord n.val = BitVec.ofNat 64 (LocalRouteMachineHelpers.poolForLeaf n.val) := by decide +kernel
-def signCode : List (BitVec 32) := [0x195313,0x1234333,0x137e13,0x635313,0x137313,0x1c30333,0x40600333,0x4b30313,0x66e37,0x6e3423,0x4691306f]
+def signCode : List (BitVec 32) := [0x195313,0x1234333,0x137e13,0x635313,0x137313,0x1c30333,0x40600333,0x4930313,0x66e37,0x6e3423,0x4691306f]
 sym_block sign := symRun {noAlias:=true} signCode (pcOf 1970) 12
 theorem sign_steps {im : Image} (hc : CodeAt im (pcOf 1970) signCode)
     (s : MachineState) (hp : s.pc=pcOf 1970) (leaf : Nat) (hl : leaf<4096)
@@ -29027,7 +29027,7 @@ theorem sign_steps {im : Image} (hc : CodeAt im (pcOf 1970) signCode)
     change A ≠ 417800 at hn
     norm_num at ha
     rw [Nat.mod_eq_of_lt ha, if_neg hn]
-def expandIndexCode : List (BitVec 32) := [0x20e37,0x550e3a83,0x13ada93,0x1ada13,0x15a4ab3,0x1afa13,0x6ada93,0x1afa93,0x14a8ab3,0x41500ab3,0x4ba8a93,0x66e37,0xe3a03,0xc51f806f]
+def expandIndexCode : List (BitVec 32) := [0x20e37,0x550e3a83,0x13ada93,0x1ada13,0x15a4ab3,0x1afa13,0x6ada93,0x1afa93,0x14a8ab3,0x41500ab3,0x49a8a93,0x66e37,0xe3a03,0xc51f806f]
 sym_block expandIndex := symRun {noAlias:=true} expandIndexCode (pcOf 54324) 20
 theorem root_word (index : Nat) (hi : index<2^31) :
     BitVec.ofNat 64 index >>> 19 = BitVec.ofNat 64 (index/2^19) := by
@@ -29196,14 +29196,14 @@ namespace ClaudeWCT.WCT9.CanonicalPolicy
 open SigGolfCandidate.T3 ClaudeWCT.W9.T3.CanonicalSearch
 set_option maxHeartbeats 2000000
 set_option maxRecDepth 100000
-theorem top_out_filter (floor : Nat) (hf : 18 ≤ floor) (a : HashOutput) :
-    producerDecodeOut 0 floor a = (producerDecodeOut 0 18 a).filter
+theorem top_out_filter (floor : Nat) (hf : 16 ≤ floor) (a : HashOutput) :
+    producerDecodeOut 0 floor a = (producerDecodeOut 0 16 a).filter
       (fun dl => decide (floor ≤ credit 0 dl.2 dl.1)) := by
   apply Option.ext
   intro dl
   rw [Option.filter_eq_some_iff]
   simpa only [decide_eq_true_eq, dcredit, decoder] using
-    decoder_floor_iff 0 18 floor (by omega) hf a dl
+    decoder_floor_iff 0 16 floor (by omega) hf a dl
 end ClaudeWCT.WCT9.CanonicalPolicy
 end
 -- ==== merged from T3M_Search_ZeroBlocks ====
@@ -31459,10 +31459,10 @@ theorem producerDecode_lower {lay : Layer} (hlz : lay≠0) (v : Digest) (floor c
     rewardOK,Rank.rankOK,Rank.rankFloor,WCT9.producerRankFloor,hlz,hds,filter_zero_count]
 /-! Producer output on a full 256-bit answer, split by the machine's trial order. -/
 theorem producerDecodeOut_top_low (a : BitVec 256) {ds : List Nat}
-    (h : WCT9.CanonicalPolicy.producerDecodeAt 0 18 true (a.extractLsb' 0 128) = some ds) :
-    WCT9.CanonicalPolicy.producerDecodeOut 0 18 a = some (ds, true) := by
+    (h : WCT9.CanonicalPolicy.producerDecodeAt 0 16 true (a.extractLsb' 0 128) = some ds) :
+    WCT9.CanonicalPolicy.producerDecodeOut 0 16 a = some (ds, true) := by
   have hg : WCT9.topGood (a.extractLsb' 0 128) := by
-    unfold WCT9.topGood; rw [show WCT9.CanonicalPolicy.topFloor = 18 from rfl, h]; rfl
+    unfold WCT9.topGood; rw [show WCT9.CanonicalPolicy.topFloor = 16 from rfl, h]; rfl
   have hl : WCT9.lowSelected 0 a = true := by
     simp [WCT9.lowSelected, WCT9.topChooseLow, hg]
   have he : WCT9.encodingAnswer 0 a = a.extractLsb' 0 128 := by
@@ -31470,9 +31470,9 @@ theorem producerDecodeOut_top_low (a : BitVec 256) {ds : List Nat}
   unfold WCT9.CanonicalPolicy.producerDecodeOut
   rw [he, hl, h]; rfl
 theorem producerDecodeOut_top_blocked (a : BitVec 256)
-    (h : WCT9.CanonicalPolicy.producerDecodeAt 0 18 true (a.extractLsb' 0 128) = none)
+    (h : WCT9.CanonicalPolicy.producerDecodeAt 0 16 true (a.extractLsb' 0 128) = none)
     (hb : T3.TopChoice.blocked (a.extractLsb' 0 128)) :
-    WCT9.CanonicalPolicy.producerDecodeOut 0 18 a = none := by
+    WCT9.CanonicalPolicy.producerDecodeOut 0 16 a = none := by
   have hl : WCT9.lowSelected 0 a = true := by
     simp [WCT9.lowSelected, WCT9.topChooseLow, hb]
   have he : WCT9.encodingAnswer 0 a = a.extractLsb' 0 128 := by
@@ -31480,12 +31480,12 @@ theorem producerDecodeOut_top_blocked (a : BitVec 256)
   unfold WCT9.CanonicalPolicy.producerDecodeOut
   rw [he, hl, h]; rfl
 theorem producerDecodeOut_top_high (a : BitVec 256)
-    (h : WCT9.CanonicalPolicy.producerDecodeAt 0 18 true (a.extractLsb' 0 128) = none)
+    (h : WCT9.CanonicalPolicy.producerDecodeAt 0 16 true (a.extractLsb' 0 128) = none)
     (hb : ¬ T3.TopChoice.blocked (a.extractLsb' 0 128)) :
-    WCT9.CanonicalPolicy.producerDecodeOut 0 18 a =
-      (WCT9.CanonicalPolicy.producerDecodeAt 0 18 false (a.extractLsb' 128 128)).map (·, false) := by
+    WCT9.CanonicalPolicy.producerDecodeOut 0 16 a =
+      (WCT9.CanonicalPolicy.producerDecodeAt 0 16 false (a.extractLsb' 128 128)).map (·, false) := by
   have hg : ¬ WCT9.topGood (a.extractLsb' 0 128) := by
-    unfold WCT9.topGood; rw [show WCT9.CanonicalPolicy.topFloor = 18 from rfl, h]; simp
+    unfold WCT9.topGood; rw [show WCT9.CanonicalPolicy.topFloor = 16 from rfl, h]; simp
   have hl : WCT9.lowSelected 0 a = false := by
     simp [WCT9.lowSelected, WCT9.topChooseLow, hg, hb]
   have he : WCT9.encodingAnswer 0 a = a.extractLsb' 128 128 := by
@@ -31860,7 +31860,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 543 (Canonic
     by_cases hlz : A.lay=0
     · rw [if_pos (hl0.2 hlz)] at p4
       have hfl : A.floor = LocalRouteMachineHelpers.rootFloor A.leaf := hpre.floorTop hlz
-      have hf0 : 18 ≤ A.floor := by rw [hfl];unfold LocalRouteMachineHelpers.rootFloor;omega
+      have hf0 : 16 ≤ A.floor := by rw [hfl];unfold LocalRouteMachineHelpers.rootFloor;omega
       have hleaf : A.leaf < 4096 := by
         have hr := hpre.hroute
         rw [hlz] at hr
@@ -31886,7 +31886,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 543 (Canonic
         (by intro k hk; unfold CsW CanonicalHooks.CreditW DigW ENC EOUT DIGITS FLAG; omega)
       obtain ⟨hAcc,hRej⟩ := T51.trial hKT tg (by rw [pg]; rfl) a h6g h7g h12g
         (mH0 tg (fgE _ (by unfold EOUT;omega))) (mH8 tg (fgE _ (by unfold EOUT;omega))) h17g htg
-      cases hD : WCT9.CanonicalPolicy.producerDecodeOut 0 18 a with
+      cases hD : WCT9.CanonicalPolicy.producerDecodeOut 0 16 a with
       | some found =>
         obtain ⟨ds,low⟩ := found
         obtain ⟨k,t,st,kle,pt,t6,t7,hdec,t28,tcr,tfl,rt,ft⟩ := hAcc ds low hD
@@ -31896,7 +31896,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 543 (Canonic
           · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr hX))))))
           (fun X hX => by rcases hX with rfl | rfl <;> decide)
         have hcredit : WCT9.CanonicalPolicy.credit 0 low ds < 2^64 := by
-          have hb := ClaudeWCT.W9.T3.CanonicalSearch.top_decoder_credit_lt (by decide : 3≤18) hD
+          have hb := ClaudeWCT.W9.T3.CanonicalSearch.top_decoder_credit_lt (by decide : 3≤16) hD
           change WCT9.CanonicalPolicy.credit 0 low ds < 220 at hb
           omega
         have h18t : t.getReg .x18 = BitVec.ofNat 64 A.leaf := by

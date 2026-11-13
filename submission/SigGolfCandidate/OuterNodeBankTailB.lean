@@ -23,7 +23,7 @@ theorem run {im : Image} {sk : BitVec 256} (j : Fin 128) (coord : Fin 9) (index 
     (hu : ChildPre j.val (coordRegion coord.val) coord.val index leaf pads sibs tws u)
     (n l : Nat) (v : Digest) (hln : l+n=5)
     (hs : Mid j.val (coordRegion coord.val) coord.val index u l v s) :
-    TBSim im sk s (cycR j.val l n+30740) (program coord.val index j.val l n pads sibs tws v)
+    TBSim im sk s (cycR j.val l n+61460) (program coord.val index j.val l n pads sibs tws v)
       (OuterNodeHandFinishB.Post coord.val j.val u) := by
   unfold program
   exact TBSim.bind (OuterNodeBankStepsB.rest_tbsim (sk:=sk) j.isLt hc hu n l v s hln hs)

@@ -2,86 +2,99 @@ import SigGolfCandidate.OuterLooseBits
 import SigGolfCandidate.OuterCodecInput
 set_option debug.skipKernelTC false
 set_option autoImplicit false
-set_option maxHeartbeats 2000000
+set_option maxHeartbeats 0
 set_option maxRecDepth 100000
-set_option Elab.async false
 namespace OuterLooseInput
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 open SigGolfCandidate.T3M OuterCodecMachine OuterSignatureCodec OuterCodecValues
-theorem tail0 (w : BitVec 64) : w &&& 7=(w.extractLsb' 0 16).setWidth 64 &&& 7 := by
-  apply BitVec.eq_of_getLsbD_eq
-  intro j hj
-  interval_cases j <;> simp [BitVec.getLsbD_extractLsb']
-theorem tail1 (w : BitVec 64) : (w >>> (3 : Nat)) &&& 7=((w.extractLsb' 0 16) >>> (3 : Nat)).setWidth 64 &&& 7 := by
-  apply BitVec.eq_of_getLsbD_eq
-  intro j hj
-  interval_cases j <;> simp [BitVec.getLsbD_extractLsb']
-theorem tail2 (w : BitVec 64) : (w >>> (6 : Nat)) &&& 7=((w.extractLsb' 0 16) >>> (6 : Nat)).setWidth 64 &&& 7 := by
-  apply BitVec.eq_of_getLsbD_eq
-  intro j hj
-  interval_cases j <;> simp [BitVec.getLsbD_extractLsb']
-theorem tail3 (w : BitVec 64) : (w >>> (9 : Nat)) &&& 7=((w.extractLsb' 0 16) >>> (9 : Nat)).setWidth 64 &&& 7 := by
-  apply BitVec.eq_of_getLsbD_eq
-  intro j hj
-  interval_cases j <;> simp [BitVec.getLsbD_extractLsb']
-theorem tail4 (w : BitVec 64) : (w >>> (12 : Nat)) &&& 15=((w.extractLsb' 0 16) >>> (12 : Nat)).setWidth 64 &&& 15 := by
-  apply BitVec.eq_of_getLsbD_eq
-  intro j hj
-  interval_cases j <;> simp [BitVec.getLsbD_extractLsb']
+
 theorem words (sig : OldSig) (s : MachineState)
     (hw : ∀i,i<648→s.getMem (BitVec.ofNat 64 (28672+8*i))=sig.extractLsb' (64*i) 64)
     (ht : (s.getMem 33856).extractLsb' 0 16=(splitOld sig).2) :
     ∀i,i<648→(packBlock.res.toState s).getMem (BitVec.ofNat 64 (28672+8*i))=
       (OuterLooseCodec.compress sig).extractLsb' (64*i) 64 := by
+  have w0 : s.getMem 29080=sig.extractLsb' (64*51) 64 := hw 51 (by decide)
+  have w1 : s.getMem 29480=sig.extractLsb' (64*101) 64 := hw 101 (by decide)
+  have w2 : s.getMem 29880=sig.extractLsb' (64*151) 64 := hw 151 (by decide)
+  have w3 : s.getMem 30280=sig.extractLsb' (64*201) 64 := hw 201 (by decide)
+  have w4 : s.getMem 30488=sig.extractLsb' (64*227) 64 := hw 227 (by decide)
+  have w5 : s.getMem 33848=sig.extractLsb' (64*647) 64 := hw 647 (by decide)
+  have tail : s.getMem 33856 &&& 65535=((splitOld sig).2).setWidth 64 := by
+    rw [←ht]
+    apply BitVec.eq_of_getLsbD_eq
+    intro j hj
+    interval_cases j <;> simp [BitVec.getLsbD_extractLsb']
   intro i hi
   by_cases h0 : i=51
   · subst i
+    change (packBlock.res.toState s).getMem 29080=_
     have hc:=OuterLooseBits.carrier_word sig ⟨0,by decide⟩
-    norm_num only [OuterCodecBits.carrierWord,OuterLooseBits.carrierShift,OuterLooseBits.carrierWidth,List.getD,List.getElem?_cons_zero,List.getElem?_cons_succ,Option.getD_some,Fin.val_mk,Nat.reduceLT,if_pos,if_neg,Nat.reduceMul,Nat.reducePow,Nat.reduceSub] at hc
-    rw [show BitVec.ofNat 64 (28672+8*51)=(29080 : Word) from rfl,pack_first_word]
-    rw [tail0,ht]
-    rw [show (29080 : Word)=BitVec.ofNat 64 (28672+8*51) from rfl,hw 51 (by decide)]
-    exact hc.symm
+    change (OuterLooseCodec.compress sig).extractLsb' (64*51) 64=replaceByte (sig.extractLsb' (64*51) 64) 7 (OuterLooseBits.encodedByte sig ⟨0,by decide⟩) at hc
+    conv_rhs => rw [hc]
+    rw [pack_first_word,w0]
+    apply congrArg (replaceByte (sig.extractLsb' (64*51) 64) 7)
+    simp only [packedWord,w0,w1,w2,w3,w4,tail]
+    apply BitVec.eq_of_getLsbD_eq
+    intro j hj
+    interval_cases j <;> simp [OuterLooseBits.encodedByte,OuterLooseCodec.pack,OuterLooseCodec.packedWord,OuterTailBytes.read,splitOld,OuterSignatureCodec.bytes,extractByte,BitVec.truncate,BitVec.getLsbD_extractLsb']
   by_cases h1 : i=101
   · subst i
+    change (packBlock.res.toState s).getMem 29480=_
     have hc:=OuterLooseBits.carrier_word sig ⟨1,by decide⟩
-    norm_num only [OuterCodecBits.carrierWord,OuterLooseBits.carrierShift,OuterLooseBits.carrierWidth,List.getD,List.getElem?_cons_zero,List.getElem?_cons_succ,Option.getD_some,Fin.val_mk,Nat.reduceLT,if_pos,if_neg,Nat.reduceMul,Nat.reducePow,Nat.reduceSub] at hc
-    rw [show BitVec.ofNat 64 (28672+8*101)=(29480 : Word) from rfl,pack_second_word]
-    rw [tail1,ht]
-    rw [show (29480 : Word)=BitVec.ofNat 64 (28672+8*101) from rfl,hw 101 (by decide)]
-    exact hc.symm
+    change (OuterLooseCodec.compress sig).extractLsb' (64*101) 64=replaceByte (sig.extractLsb' (64*101) 64) 7 (OuterLooseBits.encodedByte sig ⟨1,by decide⟩) at hc
+    conv_rhs => rw [hc]
+    rw [pack_second_word,w1]
+    apply congrArg (replaceByte (sig.extractLsb' (64*101) 64) 7)
+    simp only [packedWord,w0,w1,w2,w3,w4,tail]
+    apply BitVec.eq_of_getLsbD_eq
+    intro j hj
+    interval_cases j <;> simp [OuterLooseBits.encodedByte,OuterLooseCodec.pack,OuterLooseCodec.packedWord,OuterTailBytes.read,splitOld,OuterSignatureCodec.bytes,extractByte,BitVec.truncate,BitVec.getLsbD_extractLsb']
   by_cases h2 : i=151
   · subst i
+    change (packBlock.res.toState s).getMem 29880=_
     have hc:=OuterLooseBits.carrier_word sig ⟨2,by decide⟩
-    norm_num only [OuterCodecBits.carrierWord,OuterLooseBits.carrierShift,OuterLooseBits.carrierWidth,List.getD,List.getElem?_cons_zero,List.getElem?_cons_succ,Option.getD_some,Fin.val_mk,Nat.reduceLT,if_pos,if_neg,Nat.reduceMul,Nat.reducePow,Nat.reduceSub] at hc
-    rw [show BitVec.ofNat 64 (28672+8*151)=(29880 : Word) from rfl,pack_third_word]
-    rw [tail2,ht]
-    rw [show (29880 : Word)=BitVec.ofNat 64 (28672+8*151) from rfl,hw 151 (by decide)]
-    exact hc.symm
+    change (OuterLooseCodec.compress sig).extractLsb' (64*151) 64=replaceByte (sig.extractLsb' (64*151) 64) 7 (OuterLooseBits.encodedByte sig ⟨2,by decide⟩) at hc
+    conv_rhs => rw [hc]
+    rw [pack_third_word,w2]
+    apply congrArg (replaceByte (sig.extractLsb' (64*151) 64) 7)
+    simp only [packedWord,w0,w1,w2,w3,w4,tail]
+    apply BitVec.eq_of_getLsbD_eq
+    intro j hj
+    interval_cases j <;> simp [OuterLooseBits.encodedByte,OuterLooseCodec.pack,OuterLooseCodec.packedWord,OuterTailBytes.read,splitOld,OuterSignatureCodec.bytes,extractByte,BitVec.truncate,BitVec.getLsbD_extractLsb']
   by_cases h3 : i=201
   · subst i
+    change (packBlock.res.toState s).getMem 30280=_
     have hc:=OuterLooseBits.carrier_word sig ⟨3,by decide⟩
-    norm_num only [OuterCodecBits.carrierWord,OuterLooseBits.carrierShift,OuterLooseBits.carrierWidth,List.getD,List.getElem?_cons_zero,List.getElem?_cons_succ,Option.getD_some,Fin.val_mk,Nat.reduceLT,if_pos,if_neg,Nat.reduceMul,Nat.reducePow,Nat.reduceSub] at hc
-    rw [show BitVec.ofNat 64 (28672+8*201)=(30280 : Word) from rfl,pack_fourth_word]
-    rw [tail3,ht]
-    rw [show (30280 : Word)=BitVec.ofNat 64 (28672+8*201) from rfl,hw 201 (by decide)]
-    exact hc.symm
+    change (OuterLooseCodec.compress sig).extractLsb' (64*201) 64=replaceByte (sig.extractLsb' (64*201) 64) 7 (OuterLooseBits.encodedByte sig ⟨3,by decide⟩) at hc
+    conv_rhs => rw [hc]
+    rw [pack_fourth_word,w3]
+    apply congrArg (replaceByte (sig.extractLsb' (64*201) 64) 7)
+    simp only [packedWord,w0,w1,w2,w3,w4,tail]
+    apply BitVec.eq_of_getLsbD_eq
+    intro j hj
+    interval_cases j <;> simp [OuterLooseBits.encodedByte,OuterLooseCodec.pack,OuterLooseCodec.packedWord,OuterTailBytes.read,splitOld,OuterSignatureCodec.bytes,extractByte,BitVec.truncate,BitVec.getLsbD_extractLsb']
   by_cases h4 : i=227
   · subst i
+    change (packBlock.res.toState s).getMem 30488=_
     have hc:=OuterLooseBits.carrier_word sig ⟨4,by decide⟩
-    norm_num only [OuterCodecBits.carrierWord,OuterLooseBits.carrierShift,OuterLooseBits.carrierWidth,List.getD,List.getElem?_cons_zero,List.getElem?_cons_succ,Option.getD_some,Fin.val_mk,Nat.reduceLT,if_pos,if_neg,Nat.reduceMul,Nat.reducePow,Nat.reduceSub] at hc
-    rw [show BitVec.ofNat 64 (28672+8*227)=(30488 : Word) from rfl,pack_fifth_word]
-    rw [tail4,ht]
-    rw [show (30488 : Word)=BitVec.ofNat 64 (28672+8*227) from rfl,hw 227 (by decide)]
-    exact hc.symm
+    change (OuterLooseCodec.compress sig).extractLsb' (64*227) 64=replaceByte (sig.extractLsb' (64*227) 64) 7 (OuterLooseBits.encodedByte sig ⟨4,by decide⟩) at hc
+    conv_rhs => rw [hc]
+    rw [pack_fifth_word,w4,w5,OuterCodecMemory.byte_extract _ _ _ (by decide)]
+    rfl
+  by_cases h5 : i=647
+  · subst i
+    change (packBlock.res.toState s).getMem 33848=_
+    conv_rhs => rw [OuterLooseBits.last_word sig]
+    rw [pack_last_word,w5]
+  conv_rhs => rw [OuterLooseBits.regular_word sig i hi h0 h1 h2 h3 h4 h5]
   rw [OuterCodecFrame.pack_frame]
-  · rw [hw i hi,OuterLooseBits.regular_word sig i hi h0 h1 h2 h3 h4]
+  · exact hw i hi
   · simp only [OuterCodecFrame.carrierWords,List.mem_cons,List.not_mem_nil,or_false]
     intro he
-    rcases he with he|he|he|he|he
+    rcases he with he|he|he|he|he|he
     all_goals
-      have he':=congrArg BitVec.toNat he
-      have ha : (BitVec.ofNat 64 (28672+8*i)).toNat=28672+8*i:=Nat.mod_eq_of_lt (by omega)
+      have he' := congrArg BitVec.toNat he
+      have ha : (BitVec.ofNat 64 (28672+8*i)).toNat=28672+8*i := Nat.mod_eq_of_lt (by omega)
       rw [ha] at he'
       first
       | change 28672+8*i=29080 at he'
@@ -89,6 +102,7 @@ theorem words (sig : OldSig) (s : MachineState)
       | change 28672+8*i=29880 at he'
       | change 28672+8*i=30280 at he'
       | change 28672+8*i=30488 at he'
+      | change 28672+8*i=33848 at he'
       omega
 #print axioms words
 end OuterLooseInput

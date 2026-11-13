@@ -20,7 +20,7 @@ set_option maxRecDepth 100000
 set_option maxHeartbeats 1000000
 variable {I : Images}
 theorem submission_verificationBound_tight (E : EncodingFacts) (F : SourceQueries) (P : Pending I) :
-    (submission I).VerificationBound 6957 := by
+    (submission I).VerificationBound 6959 := by
   intro hash sk m
   dsimp only
   intro h
@@ -71,13 +71,13 @@ theorem paired_machineFacts : MachineFacts I0 where
   verify_accept_cycles := paired_verify_inputs.2.2
 
 theorem certificate_ready :
-    SigGolf.Certificate (SigGolfCandidate.Transfer.currentOf SigGolfCandidate.T3M.Paired.submission) 6957 := by
-  change SigGolf.Certificate (submissionNew I0) 6957
+    SigGolf.Certificate (SigGolfCandidate.Transfer.currentOf SigGolfCandidate.T3M.Paired.submission) 6959 := by
+  change SigGolf.Certificate (submissionNew I0) 6959
   have previous := certificate_of_security (SigGolfCandidate.Research.SharedExpansionClosure.expandV6_facts
       SigGolfCandidate.Research.SharedExpansionV6.expandExcessNumeric19_holds)
     ClaudeWCT.W9.T3.Secc.Paired.t3_securityP_layout_split (fun secret => ClaudeWCT.W9.T3.TopMoment.keygen_moment_v6 secret)
     paired_machineFacts
-  have hL : (SigGolfCandidate.Transfer.legacyOf (submissionNew I0)).VerificationBound 6957 := by
+  have hL : (SigGolfCandidate.Transfer.legacyOf (submissionNew I0)).VerificationBound 6959 := by
     rw [legacyOf_submissionNew]
     exact submission_verificationBound_tight encodingFacts sourceQueries_holds (pending_of_machine paired_machineFacts)
   have hrun : SigGolfCandidate.Transfer.RunAgrees (submissionNew I0) :=

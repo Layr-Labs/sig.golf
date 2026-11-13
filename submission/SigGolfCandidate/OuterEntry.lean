@@ -58,7 +58,7 @@ theorem decode_entry (sig : NewSig) (s0 : MachineState) (hpc : s0.pc=pcOf 0)
     apply vf
     simp only [OuterCodecFrame.carrierWords,List.mem_append,List.mem_cons,List.not_mem_nil,or_false]
     intro he
-    rcases he with (he|he|he|he|he)|he
+    rcases he with (he|he|he|he|he|he)|he
     all_goals
       have hh:=congrArg BitVec.toNat he
       rw [BitVec.toNat_ofNat,Nat.mod_eq_of_lt hA] at hh
@@ -68,6 +68,7 @@ theorem decode_entry (sig : NewSig) (s0 : MachineState) (hpc : s0.pc=pcOf 0)
       | change A=29880 at hh
       | change A=30280 at hh
       | change A=30488 at hh
+      | change A=33848 at hh
       | change A=33856 at hh
       subst A
       exact hn (Or.inr ⟨by decide,by decide⟩)

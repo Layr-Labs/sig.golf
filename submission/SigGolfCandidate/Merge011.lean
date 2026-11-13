@@ -927,7 +927,7 @@ def routePool (leaf : Nat) : Nat := 73 - topPathSave leaf
 /-- The credit pool every canonical path must reach. -/
 def totalCredit : Nat := 72
 /-- The (fixed) top credit floor (on the path-aware credit). -/
-def topFloor : Nat := 18
+def topFloor : Nat := 16
 /-- All three lower layers use digit sum 201. Layer 1's existing broad decoder
 has the same lower digit layout and this exact target. -/
 def normalLayer (lay : Layer) : Layer := if lay = 0 then 0 else 1
@@ -1580,7 +1580,7 @@ theorem producerDecodeOut_credit {lay : Layer} {floor : Nat} {answer : HashOutpu
     {low : Bool} (h : producerDecodeOut lay floor answer = some (digits, low)) : floor ≤ credit lay low digits :=
   producerDecodeAt_credit (producerDecodeOut_spec h).2
 
-theorem threshold_top (residual : Nat) : threshold 0 residual = max 18 (residual - 54) := by
+theorem threshold_top (residual : Nat) : threshold 0 residual = max 16 (residual - 54) := by
   simp [threshold, topFloor]
 
 theorem nextResidual_le (residual : Nat) (lay : Layer) (low : Bool) (digits : List Nat) :

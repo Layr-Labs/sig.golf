@@ -107,24 +107,24 @@ theorem V_layers (secret : BitVec 256) (z : ENNReal) (hz : 1 ≤ z)
 noncomputable def initialValue (pool s1 s2 s3 : Nat) : ENNReal :=
   (OuterRootNumerics.initialAt pool (4*s1+2*s2+s3) : ENNReal)/ClaudeWCT.Numerics.CanonicalCompression.scale
 
-theorem root_step (pool s1 s2 s3 : Nat) (hlo : 72 ≤ pool) (hhi : pool ≤ 74)
+theorem root_step (pool s1 s2 s3 : Nat) (hlo : 71 ≤ pool) (hhi : pool ≤ 73)
     (hs1 : s1 ≤ 1) (hs2 : s2 ≤ 1) (hs3 : s3 ≤ 1) :
     1 ≤ initialValue pool s1 s2 s3 ∧
     ((ClaudeWCT.Numerics.CanonicalCompression.zNum : ENNReal)/ClaudeWCT.Numerics.CanonicalCompression.zDen) *
-      (acceptedWeight (decoder 0 (max 18 (pool-57)))
+      (acceptedWeight (decoder 0 (max 16 (pool-57)))
         (fun dl => oneValue s2 s3 (CanonicalPolicy.nextResidual pool 0 dl.2 dl.1-s1)) +
-       failMass (decoder 0 (max 18 (pool-57))) * initialValue pool s1 s2 s3)  ≤  initialValue pool s1 s2 s3 := by
-  have hf : 18 ≤ max 18 (pool-57) := Nat.le_max_left _ _
-  have h := decoder_recurrence 220 (decoder 0 (max 18 (pool-57))) (dcredit 0)
-    ClaudeWCT.Numerics.TopZero.topAcceptedHistogram (max 18 (pool-57)) pool
+       failMass (decoder 0 (max 16 (pool-57))) * initialValue pool s1 s2 s3)  ≤  initialValue pool s1 s2 s3 := by
+  have hf : 16 ≤ max 16 (pool-57) := Nat.le_max_left _ _
+  have h := decoder_recurrence 220 (decoder 0 (max 16 (pool-57))) (dcredit 0)
+    ClaudeWCT.Numerics.TopZero.topAcceptedHistogram (max 16 (pool-57)) pool
     ClaudeWCT.Numerics.CanonicalCompression.topDen (Checks.row1 (4*s1+2*s2+s3))
     (OuterRootNumerics.initialAt pool (4*s1+2*s2+s3)) (by decide)
     (fun a dl hd => top_decoder_credit_lt (by omega) hd)
     (by decide +kernel) (selected_top_probability_floor _ hf)
     (OuterRootNumerics.root_check_at pool _ hlo hhi (by omega))
-  have he : acceptedWeight (decoder 0 (max 18 (pool-57)))
+  have he : acceptedWeight (decoder 0 (max 16 (pool-57)))
       (fun dl => ((Checks.row1 (4*s1+2*s2+s3))[pool-dcredit 0 dl]?.getD 0 : ENNReal)/ClaudeWCT.Numerics.CanonicalCompression.scale) =
-      acceptedWeight (decoder 0 (max 18 (pool-57)))
+      acceptedWeight (decoder 0 (max 16 (pool-57)))
       (fun dl => oneValue s2 s3 (CanonicalPolicy.nextResidual pool 0 dl.2 dl.1-s1)) := by
     apply acceptedWeight_congr_on
     intro answer dl hd

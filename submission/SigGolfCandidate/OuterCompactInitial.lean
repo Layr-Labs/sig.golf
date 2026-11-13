@@ -14,14 +14,14 @@ open ClaudeWCT.W9.Machine.Expand.PrePass
 theorem input_words (im : Image) (m : Message) (pk : PublicKey) (sig : NewSig) :
     ∀ i,i<648→(w9init im m pk sig).getMem (BitVec.ofNat 64 (28672+8*i))=sig.extractLsb' (64*i) 64 := by
   intro i hi
-  rw [w9_getMem im m pk (by decide : 5184≤5248) sig _ (by omega),if_pos (by omega),
+  rw [w9_getMem im m pk (by decide : 5183≤5248) sig _ (by omega),if_pos (by omega),
     show 28672+8*i-28672=8*i by omega]
-  exact SigGolfCandidate.T3M.Expand.bytesToWordLE_bytes_e sig i (by omega)
+  exact SigGolfCandidate.T3M.Expand.bytesToWordLE_bytes_p sig i (by omega)
 
 theorem tail_zero (im : Image) (hlen : im.data.length=29936) (m : Message) (pk : PublicKey) (sig : NewSig) :
     (w9init im m pk sig).getMem 33856=0 := by
   rw [show (33856 : Word)=BitVec.ofNat 64 33856 from rfl,
-    w9_getMem im m pk (by decide : 5184≤5248) sig _ (by decide),if_neg (by decide)]
+    w9_getMem im m pk (by decide : 5183≤5248) sig _ (by decide),if_neg (by decide)]
   unfold preSig
   rw [getMem_writeBytesAsWords _ _ 0xA0 33856 (by simp [SigGolfCandidate.T3M.Expand.bytes_length_e]) (by decide),if_neg (by simp [SigGolfCandidate.T3M.Expand.bytes_length_e]),
     getMem_writeBytesAsWords _ _ 0x65A0 33856 (by simp [SigGolfCandidate.T3M.Expand.bytes_length_e]) (by decide),if_neg (by simp [SigGolfCandidate.T3M.Expand.bytes_length_e]),

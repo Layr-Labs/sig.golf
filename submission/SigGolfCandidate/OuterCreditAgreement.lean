@@ -38,7 +38,7 @@ theorem agree (hash : Hash) (message : SigGolfCandidate.T3.Message) (pk : Digest
       Agree hash (okHashBy floors w.topHigh hash)
         (mrealize 0 (OuterVerifySource.verify message pk w ns5)) := by
   let floors : Layer → Nat := fun lay =>
-    min 74 (CanonicalPolicy.credit lay (result.lows.getD lay.val true) (result.digits.getD lay.val []) +
+    min 73 (CanonicalPolicy.credit lay (result.lows.getD lay.val true) (result.digits.getD lay.val []) +
       if lay=0 then CanonicalPolicy.topPathSave (route (digestIndex output) 0).1 else LocalRoute.ownSave (digestIndex output) lay.val)
   refine ⟨floors, OuterCredit74.recovered _ _ _ _ _ result hr hh, ?_⟩
   unfold OuterVerifySource.verify

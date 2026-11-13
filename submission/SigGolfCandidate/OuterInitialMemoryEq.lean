@@ -25,12 +25,12 @@ theorem memory (im : Image) (m : Message) (pk : PublicKey) (sig : NewSig) (t : M
       if_pos (by omega),show 28672+8*i-28672=8*i by omega]
     exact (SigGolfCandidate.T3M.Expand.bytesToWordLE_bytes_p (OuterSignatureCodec.expand sig) i (by omega)).symm
   · rw [hf]
-    · rw [w9_getMem im m pk (by decide : 5184≤5248) sig A hA,
+    · rw [w9_getMem im m pk (by decide : 5183≤5248) sig A hA,
         w9_getMem im m pk (by decide : 5186≤5248) (OuterSignatureCodec.expand sig) A hA,
         if_neg hin,if_neg (by omega)]
     · simp only [OuterCodecFrame.carrierWords,List.mem_append,List.mem_cons,List.not_mem_nil,or_false]
       intro he
-      rcases he with (he|he|he|he|he)|he
+      rcases he with (he|he|he|he|he|he)|he
       all_goals
         have hh:=congrArg BitVec.toNat he
         rw [BitVec.toNat_ofNat,Nat.mod_eq_of_lt hA] at hh
@@ -40,6 +40,7 @@ theorem memory (im : Image) (m : Message) (pk : PublicKey) (sig : NewSig) (t : M
         | change A=29880 at hh
         | change A=30280 at hh
         | change A=30488 at hh
+        | change A=33848 at hh
         | change A=33856 at hh
         apply hin
         rw [hh]

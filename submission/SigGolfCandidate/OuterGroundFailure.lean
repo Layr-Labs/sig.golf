@@ -68,7 +68,7 @@ theorem Ev_search_failure (secret : BitVec 256) (coord index heap : Nat) (l r : 
     simp
 
 theorem cap_bound (coord : Nat) :
-    (1-((2:ENNReal)^width coord)⁻¹)^cap coord≤((2:ENNReal)^210)⁻¹ := by
+    (1-((2:ENNReal)^width coord)⁻¹)^cap coord≤((2:ENNReal)^186)⁻¹ := by
   have key : (1-((2:ENNReal)^width coord)⁻¹)^cap coord=
       ENNReal.ofReal ((1-1/2^width coord:ℝ)^cap coord) := by
     have hx : (0:ℝ)≤1/2^width coord := by positivity
@@ -77,7 +77,7 @@ theorem cap_bound (coord : Nat) :
     rw [ENNReal.ofReal_pow (show (0:ℝ)≤1-1/2^width coord by linarith),ENNReal.ofReal_sub _ hx,
       ENNReal.ofReal_one,ENNReal.ofReal_div_of_pos (show (0:ℝ)<2^width coord by positivity),ENNReal.ofReal_one,
       ENNReal.ofReal_pow (show (0:ℝ)≤2 by norm_num),ENNReal.ofReal_ofNat,one_div]
-  have hi : ((2:ENNReal)^210)⁻¹=ENNReal.ofReal (1/(2:ℝ)^210) := by
+  have hi : ((2:ENNReal)^186)⁻¹=ENNReal.ofReal (1/(2:ℝ)^186) := by
     rw [ENNReal.ofReal_div_of_pos (by positivity),ENNReal.ofReal_one,ENNReal.ofReal_pow (by norm_num),
       ENNReal.ofReal_ofNat,one_div]
   rw [key,hi]
@@ -88,11 +88,11 @@ theorem cap_bound (coord : Nat) :
 theorem Ev_node_failure (secret : BitVec 256) (coord index heap : Nat) (l r : Digest) (cache : RCache)
     (hfresh : ∀ k,cache (trial coord index heap k l r)=none) :
     Ev secret (nodeAt coord index heap l r) cache (fun out => if zeroOk coord out.1.2 then 0 else 1)≤
-      ((2:ENNReal)^210)⁻¹ := by
+      ((2:ENNReal)^186)⁻¹ := by
   have hc : 0<cap coord := by unfold cap;positivity
   have hn : cap coord-1<2^64 := by
     have hw:=width_bounds coord
-    have hp : 2^width coord≤2^4 := Nat.pow_le_pow_right (by decide) hw.2
+    have hp : 2^width coord≤2^5 := Nat.pow_le_pow_right (by decide) hw.2
     unfold cap;omega
   have h:=Ev_search_failure secret coord index heap l r (cap coord-1) 0 (by simpa using hn) cache
     (fun k _ _ => hfresh k)

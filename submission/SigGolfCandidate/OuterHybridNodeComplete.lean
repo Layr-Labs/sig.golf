@@ -19,7 +19,7 @@ theorem E_node {β : Type} (secret : BitVec 256) (coord index heap : Nat) (hp : 
     (hnext : ∀ v cache,zeroOk coord v.2=true →
       FreshF index (fun c x=>S c x ∧ ¬(c=coord ∧ x=heap)) cache → Ev secret (next v) cache F≤B)
     (cache : RCache) (hfresh : FreshF index S cache) (hin : S coord heap) :
-    Ev secret (nodeAt coord index heap left right >>= next) cache F≤B+((2:ENNReal)^210)⁻¹ := by
+    Ev secret (nodeAt coord index heap left right >>= next) cache F≤B+((2:ENNReal)^186)⁻¹ := by
   have hpres : ∀ (c : RCache) k (ans : HashOutput),FreshF index (fun c x=>S c x ∧ ¬(c=coord ∧ x=heap)) c →
       FreshF index (fun c x=>S c x ∧ ¬(c=coord ∧ x=heap))
         (c.cacheQuery (fTrial coord index heap k left right) ans) := by
@@ -29,7 +29,7 @@ theorem E_node {β : Type} (secret : BitVec 256) (coord index heap : Nat) (hp : 
         ⟨(hS x y hxy.1).1,(hS x y hxy.1).2.1,(hS x y hxy.1).heap.2⟩ hxy.2 k n left right l r)).trans (hc x y hxy n l r)
   have hcap : cap coord-1<2^64 := by
     have hw:=width_bounds coord
-    have hpow : 2^width coord≤2^4 := Nat.pow_le_pow_right (by decide) hw.2
+    have hpow : 2^width coord≤2^5 := Nat.pow_le_pow_right (by decide) hw.2
     unfold cap;omega
   have hcap1 : cap coord-1+1=cap coord := by
     apply Nat.sub_add_cancel
@@ -76,11 +76,11 @@ theorem E_finish {β : Type} (secret : BitVec 256) (coord index : Nat) (hc : coo
     (hnext : ∀ a cache,ftsTreeOK coord a=ftsTreeOK coord nodes → outerOK coord a →
       FreshF index (fun c x=>S c x ∧ ¬(c=coord ∧ (x=2 ∨ x=3))) cache → Ev secret (next a) cache F≤B)
     (cache : RCache) (hfresh : FreshF index S cache) :
-    Ev secret (OuterHeapMoment.finish coord index nodes >>= next) cache F≤B+2*((2:ENNReal)^210)⁻¹ := by
+    Ev secret (OuterHeapMoment.finish coord index nodes >>= next) cache F≤B+2*((2:ENNReal)^186)⁻¹ := by
   unfold OuterHeapMoment.finish
   simp only [bind_assoc,pure_bind]
   refine le_trans (E_node secret coord index 3 ⟨hc,hi,Or.inr (Or.inr rfl)⟩ _ _ _ F hF S hS
-    (B+((2:ENNReal)^210)⁻¹) (fun a c1 ha h1=>?_) cache hfresh hin3) (le_of_eq (by ring))
+    (B+((2:ENNReal)^186)⁻¹) (fun a c1 ha h1=>?_) cache hfresh hin3) (le_of_eq (by ring))
   refine E_node secret coord index 2 ⟨hc,hi,Or.inr (Or.inl rfl)⟩ _ _ _ F hF
     (fun c x=>S c x ∧ ¬(c=coord ∧ x=3)) (fun c x hx=>hS c x hx.1) B
     (fun b c2 hb h2=>?_) c1 h1 ⟨hin2,by omega⟩

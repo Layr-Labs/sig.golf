@@ -201,8 +201,8 @@ theorem histCheck_free : histCheck topFreeCountsT51 true = true := by decide +ke
 
 /-- `|C_L∖B|`: canonical top words that are LOW-good (credit ≥ 12, i.e. floor 14 with the LOW bonus 2) and whose LOW
 half is not forced. -/
-def freeCountT51 : Nat := 48331618305674191902401536030000308
-theorem freeCountT51_hist : ((List.range' 16 122).map (histW topFreeCountsT51)).sum = freeCountT51 := by
+def freeCountT51 : Nat := 49581760676516704729673370684969060
+theorem freeCountT51_hist : ((List.range' 14 124).map (histW topFreeCountsT51)).sum = freeCountT51 := by
   decide +kernel
 theorem topCountsT51_lt : ∀ e ∈ topCountsT51, e.1 < 138 := by decide
 theorem histW_eq_zero (h : List (Nat × Nat)) (c : Nat) (hc : ∀ e ∈ h, e.1 ≠ c) : histW h c = 0 := by
@@ -554,9 +554,9 @@ theorem topWordCount_eq (c : Nat) (hc : 12 ≤ c) :
       (fun e he => by have := SigGolfResearch.T51Top.topCountsT51_lt e he; omega)]
 
 /-- Campaign T51 (top floor 14, LOW bonus 2): the LOW-good predicate is acceptance at 12 without the bonus. -/
-theorem topGood_iff (v : Digest) : topGood v ↔ accepted 0 16 (fun _ => True) v := by
+theorem topGood_iff (v : Digest) : topGood v ↔ accepted 0 14 (fun _ => True) v := by
   unfold topGood
-  rw [show CanonicalPolicy.topFloor = 18 from rfl, producerDecodeAt_top_true 18 (by decide), accepted_iff]
+  rw [show CanonicalPolicy.topFloor = 16 from rfl, producerDecodeAt_top_true 16 (by decide), accepted_iff]
   simp only [and_true]
   exact Option.isSome_iff_exists
 
@@ -571,19 +571,19 @@ theorem creditOf_of_acc {c : Nat} {v : Digest} (h : SigGolfResearch.T51Top.acc c
   unfold creditOf; rw [hd]; exact hc
 
 theorem accepted12_iff (v : Digest) :
-    accepted 0 16 (fun _ => True) v ↔ ∃ c, 16 ≤ c ∧ SigGolfResearch.T51Top.acc c v := by
+    accepted 0 14 (fun _ => True) v ↔ ∃ c, 14 ≤ c ∧ SigGolfResearch.T51Top.acc c v := by
   rw [accepted_iff]
   constructor
   · rintro ⟨ds, hd, -⟩
     have hc := CanonicalPolicy.producerDecodeAt_credit hd
     exact ⟨_, hc, (SigGolfResearch.T51Top.acc_iff _ v).mpr ⟨ds, pda_zero_of hd, rfl⟩⟩
   · rintro ⟨c, hc, ha⟩
-    have h := (accepted_credit_floor_iff 16 c hc v).mpr ((accepted_credit_acc c v).mpr ha)
+    have h := (accepted_credit_floor_iff 14 c hc v).mpr ((accepted_credit_acc c v).mpr ha)
     obtain ⟨ds, hd, -⟩ := (accepted_iff _ _ _ v).mp h
     exact ⟨ds, hd, trivial⟩
 
-theorem fiber_free (c : Nat) (hc : 16 ≤ c) (v : Digest) :
-    ((accepted 0 16 (fun _ => True) v ∧ ¬ TopChoice.blocked v) ∧ creditOf v = c) ↔
+theorem fiber_free (c : Nat) (hc : 14 ≤ c) (v : Digest) :
+    ((accepted 0 14 (fun _ => True) v ∧ ¬ TopChoice.blocked v) ∧ creditOf v = c) ↔
       (SigGolfResearch.T51Top.acc c v ∧ ¬ TopChoice.blocked v) := by
   constructor
   · rintro ⟨⟨ha, hb⟩, he⟩
@@ -597,10 +597,10 @@ theorem fiber_free (c : Nat) (hc : 16 ≤ c) (v : Digest) :
 /-- Campaign T51: the exact number of LOW-good top words whose LOW is not forced. -/
 theorem topFreeCount_eq : topFreeCount = SigGolfResearch.T51Top.freeCountT51 := by
   unfold topFreeCount
-  rw [card_filter_congr' _ (fun v => accepted 0 16 (fun _ => True) v ∧ ¬ TopChoice.blocked v)
+  rw [card_filter_congr' _ (fun v => accepted 0 14 (fun _ => True) v ∧ ¬ TopChoice.blocked v)
     (fun v => and_congr_left' (topGood_iff v))]
-  rw [SigGolfResearch.T51Top.fiber_card_filter (fun v => accepted 0 16 (fun _ => True) v ∧ ¬ TopChoice.blocked v)
-    creditOf (List.range' 16 122).toFinset (fun v hv => by
+  rw [SigGolfResearch.T51Top.fiber_card_filter (fun v => accepted 0 14 (fun _ => True) v ∧ ¬ TopChoice.blocked v)
+    creditOf (List.range' 14 124).toFinset (fun v hv => by
       obtain ⟨c, hc, ha⟩ := (accepted12_iff v).mp hv.1
       rw [creditOf_of_acc ha, List.mem_toFinset, List.mem_range'_1]
       have := SigGolfResearch.T51Top.acc_le c v ha
@@ -637,7 +637,7 @@ theorem freeCount_eq_compl : TopChoice.freeCount topGood = topHighWeight :=
 
 /-- The d6b top selection count at credit `c ≥ floor ≥ 14`: weight `2^128` through LOW (credit `c - 2`),
 `topHighWeight` through HIGH (credit `c`). -/
-theorem selected_top_path_card (floor c : Nat) (hf : 18 ≤ floor) (hc : floor ≤ c) :
+theorem selected_top_path_card (floor c : Nat) (hf : 16 ≤ floor) (hc : floor ≤ c) :
     (univ.filter fun answer : HashOutput => ∃ dl, CanonicalPolicy.producerDecodeOut 0 floor answer = some dl ∧
         CanonicalPolicy.credit 0 dl.2 dl.1 = c).card =
       topWordCount (c - 2) * 2^128 + topHighWeight * topWordCount c := by
@@ -704,7 +704,7 @@ def topAcceptedHistogram : List (Nat × Nat) :=
   topCounts.flatMap fun e => [(e.1 + 2, e.2 * 2 ^ 128), (e.1, e.2 * topHighW)]
 
 /-- Exact upward-rounded initial bound for the revised top-copy law at pool 72, top floor 18 (Z7: R1 law and f25ef952 L1/L2 floors). -/
-def initialBound : Nat := 366942623832279997567078593630503699467
+def initialBound : Nat := 366942637837142824573845162141226607408
 
 /-- T51 fixed sign cost (PINNED P12, measured): 4 + 112142 + 16 top family pairs + 152 + 12 = 112326 compressions. -/
 def fixedSignCost : Nat := 112326
@@ -744,7 +744,8 @@ def groundM (b : Nat) : Nat :=
   if b = 1 then 340285965984933645675468342432275971788
   else if b = 2 then 340289565125062062546873124227847124433
   else if b = 3 then 340296763633728263433442488925276359072
-  else 340311161564765781666276742203532247926
+  else if b = 4 then 340311161564765781666276742203532247926
+  else 340339961082202552920555136142458666879
 
 /-- Z3, Y5: the 226 ground nodes (N7g-B, soispoke f25ef952): 128 with `b = 1`, 80 with `b = 2`, 12 with `b = 3`, 6 with
 `b = 4` (lower (4,3,2,1) × 3: 48 / 24 / 12 / 6; FTS heap 8..15: 16 / 56; Y5 FTS heap 16..31 of coordinates 0..3: 64). -/
@@ -806,12 +807,12 @@ theorem envelope_ratio_le_two : ((fixedBound:ℝ)/scale)*
   envelope_ratio_le_two_of fixedBound 199999 (by norm_num) full_moment_checked
 
 /-- Geometric retry step for a ground node with `b ∈ {1,2,3}` zero bits, at the sign `z = zNum/zDen`. -/
-theorem groundM_step_z (b : Nat) (hb1 : 1 ≤ b) (hb3 : b ≤ 4) :
+theorem groundM_step_z (b : Nat) (hb1 : 1 ≤ b) (hb3 : b ≤ 5) :
     (zNum:ℝ)/zDen * (1/2^b + (1 - 1/2^b) * ((groundM b:ℝ)/scale)) ≤ (groundM b:ℝ)/scale ∧
       (zNum:ℝ)/zDen ≤ (groundM b:ℝ)/scale := by
   interval_cases b <;> norm_num [groundM, zNum, zDen, scale]
 
-theorem groundM_step (b : Nat) (hb1 : 1 ≤ b) (hb3 : b ≤ 4) (z : ℝ) (hz : z ≤ (zNum:ℝ)/zDen) :
+theorem groundM_step (b : Nat) (hb1 : 1 ≤ b) (hb3 : b ≤ 5) (z : ℝ) (hz : z ≤ (zNum:ℝ)/zDen) :
     z * (1/2^b + (1 - 1/2^b) * ((groundM b:ℝ)/scale)) ≤ (groundM b:ℝ)/scale ∧ z ≤ (groundM b:ℝ)/scale := by
   obtain ⟨h1, h2⟩ := groundM_step_z b hb1 hb3
   have hq : (1:ℝ)/2^b ≤ 1 := by
