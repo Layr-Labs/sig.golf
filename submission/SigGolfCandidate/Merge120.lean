@@ -1244,7 +1244,7 @@ theorem kOf_bounds (c : NCtx) (hds : c.DigitsOk) (q : Nat) (hq : q<17) : c.kOf q
   c.kOf_lt_nRank hds q hq
 theorem qX_lt (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<50) : c.qX i+4<257181 :=
   (group_bounds _ _ (by omega) (c.kOf_bounds hds (i/3) (by omega))).2.1
-theorem ckArm_room (d : Nat) (hd : d ≤ 7) : ckArm d+partLen 17 d+5<257181 := by
+theorem ckArm_room (d : Nat) (hd : d ≤ 5) : ckArm d+partLen 17 d+5<257181 := by
   have := partLen_le 17 d
   unfold ckArm; omega
 theorem startPc_50 (c : NCtx) : c.startPc 50=ckArm (c.dig 50) := by simp [startPc]
@@ -1912,7 +1912,7 @@ theorem ck_dispatch_step {p : Nat} (hp : p < 257181) (hrun : vrun p 5 = some ckD
       Frame s t (fun _ => False) := by
   refine ⟨ckDispR.toState s, piece_steps45 hrun hp s hpc (by simp [ckDispR]), ?_, ?_, ?_⟩
   · rw [Result.toState_pc]
-    show (((s.getReg .x24 <<< ((11#64).toNat % 64))) + 1168#64) &&& ~~~1#64 = _
+    show (((s.getReg .x24 <<< ((17#64).toNat % 64))) + 1696#64) &&& ~~~1#64 = _
     rw [h24]; exact ck_target ds hd
   · intro r hr
     rw [Result.toState_getReg]
@@ -1920,22 +1920,23 @@ theorem ck_dispatch_step {p : Nat} (hp : p < 257181) (hrun : vrun p 5 = some ckD
     rw [RegFile.get_set_ne _ _ (show r ≠ .x14 by simpa using hr), RegFile.init_get_eval]
   · intro A _ _
     simp [ckDispR, rv_simp]
-theorem ckWord_lt (ds : Nat) : ckWord ds < 257214 := by unfold ckWord topT; omega
-/-- Checksum landing: an arm when `T - 5 <= ds <= T` (checksum digit 0..5), otherwise a zero word. -/
+/-- Sparse checksum dispatch preserves both valid arms and all invalid traps. -/
 theorem ck_landing (ds : Nat) (hd : ds < 232) :
     (topT - 5 ≤ ds ∧ ds ≤ topT ∧ ckWord ds = ckArm (topT - ds)) ∨
       (∀ s : MachineState, s.pc = pcOf (ckWord ds) → fetch vimage s = none) := by
   by_cases h : topT - 5 ≤ ds ∧ ds ≤ topT
-  · left; refine ⟨h.1, h.2, ?_⟩; unfold ckWord ckArm topT at *; omega
-  · right; intro s hpc
-    have hc := ckGuardCheck_at ds hd
-    unfold ckGuardCheck at hc
-    have hz : zeroAt (ckWord ds) = true := by
-      simp only [Bool.or_eq_true, decide_eq_true_eq] at hc
-      rcases hc with hc | hc
-      · exact absurd hc h
-      · exact hc
-    exact fetch_zero_word (ckWord_lt ds) hz s hpc
+  · left; refine ⟨h.1,h.2,?_⟩
+    have hlo : 147 ≤ ds := by unfold topT at h;omega
+    have hhi : ds ≤ 152 := by unfold topT at h;omega
+    interval_cases ds <;> decide
+  · right;intro s hpc
+    by_cases he : ds=146
+    · subst ds
+      exact fetch_zero_word (by decide : ckWord 146 < 257214) (by decide +kernel) s hpc
+    · apply fetch_outside'
+      rw [hpc]
+      have hbad : ds<147 ∨ 152<ds := by unfold topT at h;omega
+      interval_cases ds <;> first | omega | decide
 /-- r6 group `h >= 1` landing: rank `raw < 216` at its cell, otherwise a zero-word guard. -/
 theorem r6_landing (h raw : Nat) (h1 : 1 ≤ h) (h8 : h ≤ 8) (hr : raw < 256) :
     (raw < 216 ∧ cell6 h raw = cellW h raw) ∨
@@ -3323,8 +3324,8 @@ def rReg (lay : Nat) : Reg := if lay = 3 then .x22 else .x31
 def leafE (lay : Nat) : E := if lay = 0 then .reg .x31 else .bin .and (.reg (rReg lay)) (kw (2 ^ hL lay - 1))
 def treeE (lay : Nat) : E := .bin .srl (.reg (rReg lay)) (kw (hL lay))
 def tpE (lay : Nat) : E := if lay = 0 then .bin .sll (leafE lay) (kw 32) else .bin .or (.bin .sll (leafE lay) (kw 32)) (treeE lay)
-def dispatchHeap (lay leaf : Nat) : Nat := if lay = 0 then 16 * (s7Bias lay + leaf) else s7Bias lay + leaf
-def s7E (lay : Nat) : E := if lay = 0 then .bin .sll (leafE lay) (kw 4) else .bin .add (leafE lay) (kw (s7Bias lay))
+def dispatchHeap (lay leaf : Nat) : Nat := if lay = 0 then 32 * (s7Bias lay + leaf) else s7Bias lay + leaf
+def s7E (lay : Nat) : E := if lay = 0 then .bin .sll (leafE lay) (kw 5) else .bin .add (leafE lay) (kw (s7Bias lay))
 def ctrE (lay : Nat) : E := .un (.ld .wu (4 * ((lay + 1) % 2))) (.ld (kw (0x10B0 + 8 * ((lay + 1) / 2))))
 def ctrBr (lay : Nat) (d : Bool) : Br := ⟨if lay = 3 then .ltu else .geu, ctrE lay, kw 0x400000, d⟩
 def setupPc (_lay p : Nat) : Nat := p

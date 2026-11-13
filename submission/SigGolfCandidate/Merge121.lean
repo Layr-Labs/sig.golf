@@ -4074,14 +4074,14 @@ def mkNch (lay : Nat) : Nat := if lay = 0 then 2 else 1
 def mkLo (lay ci : Nat) : Nat := if lay = 0 ∧ ci = 1 then 6 else 0
 def mkBits (lay ci : Nat) : Nat := if lay = 0 then 6 else hL lay
 def mkTab (lay ci : Nat) : Nat := if lay = 0 ∧ ci = 1 then 133840 else stabIdx lay
-def mkTabW (lay ci sh : Nat) : Nat := if lay = 0 ∧ ci = 1 then 15718 + 256 * sh else stabW lay sh
+def mkTabW (lay ci sh : Nat) : Nat := if lay = 0 ∧ ci = 1 then 32029 + 512 * sh else stabW lay sh
 def mkShp (lay ci sh : Nat) : Nat :=
   if lay = 3 then 133764 + 128 * sh else if lay = 2 then 141956 + 128 * sh
-  else if lay = 1 then 1028 + 1024 * sh else if ci = 0 then 142032 + 128 * sh else 133840 + 128 * sh
+  else if lay = 1 then 1028 + 1024 * sh else if ci = 0 then 142032 + 128 * sh else 32029 + 512 * sh
 /-- C2: every lower fold writes its packed tweak word from an immediate (`addi gp,t3,K; sd gp,16(a0)`), so it costs
 like the old register-heap levels; the top tree keeps register heaps on its last three levels only. -/
 def mkReg (lay l : Nat) : Bool := decide (lay ≠ 0 ∨ hL lay ≤ l + 3)
-/-- Words of the level-`l` block (its ecall included). C4 top: one label store per level (`srli gp,s7,5+l; sd gp,16(a0)`
+/-- Words of the level-`l` block (its ecall included). C4 top: one label store per level (`srli gp,s7,6+l; sd gp,16(a0)`
 in the lower copy, `addi gp,zero,heap; sd gp,16(a0)` or `sd REG,16(a0)` in the upper copy); the last level (11) counts
 a virtual `addi a2` (`mkMove 0 11 = 0`). -/
 def mkWords (lay l : Nat) : Nat :=
@@ -4120,7 +4120,7 @@ def mkKc (lay : Nat) : List (Reg × Word) :=
   gkL lay ++ (if lay = 0 then [(.x6, 520192)] else []) ++ [(if lay = 0 then (.x4, BitVec.ofNat 64 s3v) else (.x4, BitVec.ofNat 64 (bufferBias lay))), (.x13, 2),
     (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), (.x5, 0)]
 def mkKeep : List Reg := [.x4, .x1, .x2, .x16, .x17, .x8, .x9, .x24, .x23, .x6, .x25, .x27, .x29, .x31]
-def mkEntSpec (lay ci sh : Nat) : Spec := let st := if lay = 0 ∧ ci = 1 then 2 else 1; ⟨[], [], mkShp lay ci sh + 1, true, st, [], none, st⟩
+def mkEntSpec (lay ci sh : Nat) : Spec := let st := 1; ⟨[], [], mkShp lay ci sh + 1, true, st, [], none, st⟩
 def mkEntPost (lay ci sh : Nat) : List (Reg × Word) :=
   mkKc lay ++ [(.x12, BitVec.ofNat 64 (mkCur lay (mkLeafOf lay ci sh) (mkLo lay ci) (sh % 2)))]
 def mkEntKeep : List Reg := mkKeep ++ [.x10, .x11, .x14, .x4, .x28]
@@ -4129,7 +4129,7 @@ def mkEntK (lay ci : Nat) : List (Reg × Word) :=
 def mkEntCheck (lay ci sh : Nat) : Bool :=
   mkSpecB [] [] (gkL lay) (mkEntK lay ci) [] (mkTabW lay ci sh) [] (mkEntSpec lay ci sh) [] (mkEntPost lay ci sh) mkEntKeep
 def mkHeapE (lay ci sh l : Nat) : E :=
-  if lay = 0 ∧ ci = 0 then .bin .srl (.reg .x23) (kw (l + 5)) else kw (mkHeap lay ci sh l)
+  if lay = 0 ∧ ci = 0 then .bin .srl (.reg .x23) (kw (l + 6)) else kw (mkHeap lay ci sh l)
 /-- L-hyper (F): a lower level-0 block forms the next layer's label word from the routed register, which carries the
 layer marker: `slli t3,t6,16` (it no longer loads a per-layer header word; the label's low half is 0). -/
 def t3E (_l' : Nat) : E := .bin .sll (.reg .x31) (kw 16)
@@ -4146,7 +4146,7 @@ def mkLvlRegs (lay l : Nat) : List (Reg × E) := if l = 0 ∧ lay ≠ 0 then [(.
 def mkLvlKeep (lay l : Nat) : List Reg := if l = 0 ∧ lay ≠ 0 then [] else [.x28]
 def mkLvlAllow (lay sh l : Nat) : List Nat := [mkBlk lay sh l + 16, mkBlk lay sh l + 24]
 def mkDispTgt (sh : Nat) : E :=
-  .bin .and (addC (.reg .x23) (BitVec.ofNat 64 1432 - BitVec.ofNat 64 (16 * sh))) (.c (~~~1#64))
+  .bin .and (addC (.reg .x23) (BitVec.ofNat 64 1140 - BitVec.ofNat 64 (32 * sh))) (.c (~~~1#64))
 def mkBody (lay l : Nat) : Nat :=
   (if l = 0 then (if lay = 0 then 2 else 4) else (if lay = 0 then 1 else 2)) + (if mkReg lay l then 1 else 2)
 def mkIsDisp (lay ci kk : Nat) : Bool := decide (lay = 0 ∧ ci = 0 ∧ kk + 1 = mkBits lay ci)
@@ -4184,8 +4184,8 @@ def mkLvlCheck (lay ci sh kk : Nat) : Bool :=
 def mkBlockCheck (lay ci sh : Nat) : Bool :=
   mkEntCheck lay ci sh && (List.range (mkBits lay ci)).all (mkLvlCheck lay ci sh)
 def mkChunkCheck (lay ci lo n : Nat) : Bool := (List.range' lo n).all (mkBlockCheck lay ci)
-/-- C4: the root compare moved up 6 words (`133868 + 128 c`) and reads the root where upper copy `c` wrote it. -/
-def cmpPc (c : Nat) : Nat := 133868 + 128 * c - ClaudeWCT.WCT9.CanonicalPolicy.topPairSave c
+/-- Root comparison in the relocated final chunk; it reads the root written by upper copy `c`. -/
+def cmpPc (c : Nat) : Nat := 32057 + 512 * c - ClaudeWCT.WCT9.CanonicalPolicy.topPairSave c
 def cmpDst (c : Nat) : Nat := 11920 + 16 * topRootSlot.getD c 0
 def cmpK (c : Nat) : List (Reg × Word) := gkL 0 ++ [(.x12, BitVec.ofNat 64 (cmpDst c))]
 def cmpBr1 (c : Nat) (d : Bool) : Br := ⟨.ne, .ld (kw (cmpDst c)), .ld (kw 160), d⟩
@@ -4212,7 +4212,7 @@ open SigGolfCandidate.T3M.Verify
 def mkShp (lay ci sh : Nat) : Nat :=
   T3M.mkShp lay ci sh
 def mkEntSpec (lay ci sh : Nat) : Spec :=
-  let st := if lay = 0 ∧ ci = 1 then 2 else 1
+  let st := 1
   ⟨[], [], mkShp lay ci sh + 1, true, st, [], none, st⟩
 def mkEntCheck (lay ci sh : Nat) : Bool :=
   mkSpecB [] [] (gkL lay) (mkEntK lay ci) [] (mkTabW lay ci sh) []
