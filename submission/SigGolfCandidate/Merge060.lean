@@ -375,6 +375,26 @@ private theorem shared_flatten_length (cs : List (List (BitVec 32)))
     simp only [List.flatten_cons, List.length_append, List.length_cons, hc, hs]
     omega
 
+private theorem unpack_length (w p n : Nat) : (SigGolfCandidate.ImageLiteral.unpack w p n).length = n := by
+  simp only [SigGolfCandidate.ImageLiteral.unpack,List.length_map,List.length_range]
+theorem expand_driver_prefix_banks : ∃ P, expandCode_172=P++expandSharedBanks ∧ P.length=151552 := by
+  refine ⟨_,rfl,?_⟩
+  simp only [List.length_append,List.length_replicate,unpack_length,
+    SigGolfCandidate.T3M.Images.expandSharedLowTail,
+    SigGolfCandidate.T3M.Images.expandSharedDriver,
+    SigGolfCandidate.T3M.Images.expandE11Code,
+    SigGolfCandidate.T3M.Images.expandR6Code,
+    SigGolfCandidate.T3M.Images.expandFtsSearch,
+    SigGolfCandidate.T3M.Images.expandFtsPost,
+    SigGolfCandidate.T3M.Images.expandFtsTramp,
+    SigGolfCandidate.T3M.Images.expandFtsCopyFirst,
+    SigGolfCandidate.T3M.Images.expandFtsCopyK8,
+    SigGolfCandidate.T3M.Images.expandFtsCopyOdd,
+    SigGolfCandidate.T3M.Images.expandY5Code,
+    SigGolfCandidate.T3M.Images.expandShiftedUnpack]
+  simp only [List.length_append,List.length_nil,List.length_cons,List.length_replicate,unpack_length]
+  <;> decide +kernel
+
 set_option maxHeartbeats 4000000 in
 /-- The producer executes the exact proved verifier chain and child banks. -/
 theorem expand_banks_eq_verify :
@@ -427,7 +447,7 @@ theorem expand_banks_eq_verify :
     rw [hh, ← List.drop_drop, List.drop_left]
     -- Pairing stage 1: the driver prefix now also holds the constructor/layout blocks (48000..49738).
     obtain ⟨driverPrefix, hdp, hp⟩ : ∃ P, expandCode_172 = P ++ expandSharedBanks ∧ P.length = 151552 :=
-      ⟨_, rfl, by decide +kernel⟩
+      expand_driver_prefix_banks
     rw [hdp, ← hp, List.drop_left]
   rw [he, hv, ← hpre, List.drop_left]
   rw [← hbank, List.take_left, List.take_length]
@@ -446,7 +466,7 @@ theorem expand_drop_banks : expandCode.drop 195584 = expandSharedBanks := by
   rw [hh, ← List.drop_drop, List.drop_left]
   -- Pairing stage 1: the driver prefix now also holds the constructor/layout blocks (48000..49738).
   obtain ⟨driverPrefix, hdp, hp⟩ : ∃ P, expandCode_172 = P ++ expandSharedBanks ∧ P.length = 151552 :=
-    ⟨_, rfl, by decide +kernel⟩
+    expand_driver_prefix_banks
   rw [hdp, ← hp, List.drop_left]
 end SigGolfCandidate.T3M.Images
 

@@ -3573,32 +3573,21 @@ def dispatch9R : Result :=
     .bin .and (.bin .add a (.c 720)) (.c (~~~1#64)),.jump,3,3⟩
 /-- Field source of the dispatch into r6 group `h` (1..8): g1 = a6 bits 8..15 (no shift), g2..g6 = a6 >> 8(h-1),
 g7 = a7 >> 40 (bits 112..119), g8 = a7 >> 48 (bits 120..127); masked with t4 = 0xFF00. -/
+def r6ByteOff (h : Nat) : Nat := if h=8 then 15 else h
+/-- Byte of the preserved selected-message block, aligned at x16. -/
 def r6Src (h : Nat) : E :=
-if h=1 then .bin .sll (.reg .x16) (.c 3#64)
-  else if h<8 then .bin .srl (.reg .x16) (.c (BitVec.ofNat 64 (8*h-11)))
-  else .bin .srl (.reg .x17) (.c 45#64)
-
-/-- `a4 = s2 - 256 raw` (table B) or `256 raw + s2` (table A). -/
-def r6A (h : Nat) : E :=
-.bin .and (r6Src h) (.reg .x29)
-
-/-- The jalr immediate of the dispatch into r6 group `h` (sign-extended): 4 (64 row0 + off - 212992). -/
+  .un (.ld .bu (if h=8 then 7 else h))
+    (.ld (if h=8 then addC (.reg .x16) 8 else .reg .x16))
+def r6A (h : Nat) : E := .bin .sll (r6Src h) (.c 11#64)
 def r6Imm (h : Nat) : Word :=
   BitVec.ofNat 64 (2^64+4*([0,62,68,74,80,86,92,98,354].getD h 0)-2048)
-
 def r6DispR (h : Nat) : Result :=
-  ⟨⟨RegFile.init.set .x14 (r6A h),[],[]⟩,.bin .and (.bin .add (r6A h) (.c (r6Imm h))) (.c (~~~1#64)),.jump,
-    3,3⟩
-/-- T51: the r6 mask word `0xFF00` is loaded by group 0's bodies (`ld t4,-288(s1)`: verify data word 16). -/
+  ⟨⟨RegFile.init.set .x14 (r6A h),[],
+    [.align8 (.reg .x16),.valid ⟨some (.reg .x16),BitVec.ofNat 64 (r6ByteOff h)⟩ 1]⟩,
+    .bin .and (.bin .add (r6A h) (.c (r6Imm h))) (.c (~~~1#64)),.jump,3,3⟩
 def maskE : E := .ld (.bin .add (.reg .x2) (.c (BitVec.ofNat 64 16)))
-def g0A : E :=
-  .bin .and (.bin .sll (.reg .x16) (.c 3#64)) maskE
-
-/-- Group 0's next dispatch `ld t4,-288(s1); lui s2,209; and a4,a6,t4; sub a4,s2,a4; jalr -72(a4)` (into g1). -/
-def g0DispR : Result :=
-  ⟨⟨(RegFile.init.set .x29 maskE).set .x14 g0A,[],
-    [.valid ⟨some (.reg .x2),BitVec.ofNat 64 16⟩ 8]⟩,
-    .bin .and (.bin .add g0A (.c (BitVec.ofNat 64 (2^64-1800)))) (.c (~~~1#64)),.jump,4,4⟩
+def g0A : E := r6A 1
+def g0DispR : Result := r6DispR 1
 /-! ### Sparse checksum chain 50
 The six checksum arms are separated by 32,768 words. With accumulator bias 1,
 `slli a4,s8,17; jalr 1696(a4)` sends data sum `ds` in 147..152 to
