@@ -18508,6 +18508,7 @@ theorem lanes7 : ∀ raw < 128, 79 ≤ raw →
   decide +kernel
 theorem e_valid0 : ∀ raw < 256, (eW raw = 256 ↔ raw < 40) := by decide +kernel
 theorem e_valid6 : ∀ raw < 256, (eW (40 + raw) = 256 ↔ 216 ≤ raw) := by decide +kernel
+theorem e_valid6_shift : ∀ raw < 256, (eW (37 + raw) = 256 ↔ raw < 3 ∨ 219 ≤ raw) := by decide +kernel
 theorem e_valid5 : ∀ raw < 128, (eW (296 + raw) = 256 ↔ raw < 3) := by decide +kernel
 theorem e_r6P : ∀ f < 296, eP f = 0 := by decide +kernel
 theorem e_r5D : ∀ f < 473, 296 ≤ f → eD f = 0 := by decide +kernel
@@ -18724,7 +18725,7 @@ theorem penalty_top (ds : List Nat) :
 /-- Table index read for group `j` of a half `v` (the r7 index is meaningful only for `raw7 ≥ 79`). -/
 def gIdx (v : Digest) (j : Nat) : Nat :=
   if j = 0 then v.toNat % 256
-  else if j < 9 then 40 + v.toNat / 2 ^ T3.r6Shift j % 256
+  else if j < 9 then 37 + v.toNat / 2 ^ T3.r6Shift j % 256
   else if j = 9 then 296 + (v.toNat / 2 ^ 64 % 128 + 1) % 128
   else if j < 16 then 296 + v.toNat / 2 ^ (7 * j + 1) % 128
   else 345 + v.toNat / 2 ^ 113 % 128
@@ -18744,7 +18745,7 @@ theorem coreDigit_48 (v : Digest) : T3.coreDigit 0 v 48 = T3.r7Rank v % 7 := by
   unfold T3.coreDigit; simp
 theorem coreDigit_49 (v : Digest) : T3.coreDigit 0 v 49 = T3.r7Rank v / 7 % 7 := by
   unfold T3.coreDigit; simp
-theorem r6Raw_idx (v : Digest) (j : Nat) (h1 : 1 ≤ j) (h8 : j < 9) : gIdx v j = 40 + T3.r6Raw v j := by
+theorem r6Raw_idx (v : Digest) (j : Nat) (h1 : 1 ≤ j) (h8 : j < 9) : gIdx v j = 37 + T3.r6Raw v j := by
   unfold gIdx; rw [if_neg (by omega), if_pos h8, r6Raw_eq v j (by omega)]
 /-- The kernel index of an r6 group is `40 + rank` and its validity is `rank < 216`. -/
 theorem gIdx_r6 (v : Digest) (j : Nat) (hj : j < 9) :
@@ -18753,23 +18754,29 @@ theorem gIdx_r6 (v : Digest) (j : Nat) (hj : j < 9) :
   have hr := r6Raw_eq v j (by omega)
   unfold T3.r6Valid T3.r6Rank
   by_cases h0 : j = 0
-  · subst h0
+  · subst j
     simp only [if_true, decide_eq_true_eq]
     rw [hr, show T3.r6Shift 0 = 0 from rfl, pow_zero, Nat.div_one]
     have hlt : v.toNat % 256 < 256 := Nat.mod_lt _ (by norm_num)
-    have := e_valid0 _ hlt
+    have he := e_valid0 _ hlt
     have hg : gIdx v 0 = v.toNat % 256 := rfl
     rw [hg]
     constructor
     · constructor
-      · intro h; rw [Ne, this]; omega
-      · intro h; rw [Ne, this] at h; omega
+      · intro h; rw [Ne, he]; omega
+      · intro h; rw [Ne, he] at h; omega
     · intro h; constructor <;> omega
-  · simp only [h0, if_false, decide_eq_true_eq]
-    rw [r6Raw_idx v j (by omega) hj]
+  · rw [r6Raw_idx v j (by omega) hj]
     have hlt : T3.r6Raw v j < 256 := by rw [hr]; exact Nat.mod_lt _ (by norm_num)
-    have := e_valid6 _ hlt
-    refine ⟨⟨fun h => by rw [Ne, this]; omega, fun h => by rw [Ne, this] at h; omega⟩, fun h => ⟨rfl, h⟩⟩
+    simp only [hr] at *
+    simp only [if_neg h0, decide_eq_true_eq]
+    have he := e_valid6_shift _ hlt
+    constructor
+    · constructor
+      · intro h; rw [Ne, he]; omega
+      · intro h; rw [Ne, he] at h; omega
+    · intro h; constructor <;> omega
+
 theorem gIdx_r5 (v : Digest) (j : Nat) (hj : 9 ≤ j ∧ j < 16) :
     (T3.r5Rank v j < 125 ↔ eW (gIdx v j) ≠ 256) ∧ gIdx v j = 296 + (127 - T3.r5Rank v j) ∧
       T3.r5Rank v j ≤ 127 := by
@@ -20107,7 +20114,7 @@ def k_259e : List (BitVec 32) := [0x3e42906f,0x13,0x13,0x13]
 def k_259 (b : Nat) : List (BitVec 32) := if b = 354 then k_259e else k_259s
 def k_263 : List (BitVec 32) := [0x13,0x13]
 /-- Campaign T51: the legacy top-trial block. The T51 images change three of its words: expand (b = 354) word
-b + 425 = 'j 354' (top exhaustion rejects), sign (b = 543) words b + 430, 431 = 'li t3, 2 ; j 21230' (the dead
+b + 425 = 'j 354' (top exhaustion rejects), sign (b = 543) words b + 430, 431 = 'li t3, 2 ; j 26241' (the dead
 dummy fallback enters the T51 unpacker). -/
 def k_265 (b : Nat) : List (BitVec 32) :=
   if b = 354 then [0xffff37,0x30e13,0x7fe7e93,0x1ee8eb3,0xecc83,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x139e93,0x1ceee33,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7e7e93,0x1dc8cb3,0x3e5e93,0x7efe93,0x1dc8cb3,0x3d3de93,0x1dc8cb3,0x411c8eb3,0xbe0e9ee3,0x2312906f,0x20ab7,0x420a8a93,0x80f0f13,0x7f37e13,0x2e1e13,0x1ee0e33,0xe6e83,0x1da8023,0x8ede93,0x1da80a3,0x8ede93,0x1da8123,0x735313,0x3939e13,0x1c36333,0x73d393,0x3a8a93,0x1a0a13,0x11a3e13,0xfc0e10e3,0x737e13,0x1ca8123,0x335313,0x737e13,0x1ca8023,0x335313,0x737e13,0x1ca80a3,0x8067,0x30513,0x38593,0x613,0x1100a13,0x7f57e13,0x2e1e13,0x1ee0e33,0x83e4e03,0x1c60633,0x755513,0x3959e13,0x1c56533,0x75d593,0xfffa0a13,0xfc0a1ce3,0x757e13,0xffae0e13,0x1e3e13,0x1c60633,0x355513,0x757e13,0xffae0e13,0x1e3e13,0x1c60633,0x355513,0xffa50e13,0x1e3e13,0x1c60633,0x963e13,0xa0e1e63,0xa13,0xf11ff06f,0x960410e3,0x95dff06f,0x277f4e03,0x940e0ae3,0x278f3303,0x280f3383,0x8100c93,0xa13,0xeedff06f,0x38e13,0x3fe1e13,0x1c34333,0x139393,0x23d393]
@@ -21530,7 +21537,7 @@ def topSeg387 : List (BitVec 32) := [0x1ca8023]
 def topSeg388 : List (BitVec 32) := [0x335313,0x737e13]
 def topSeg390 : List (BitVec 32) := [0x1ca80a3]
 def topSeg391 (_b : Nat) : List (BitVec 32) := [0x8067]
-/-- Campaign T51: b-dependent (expand word b + 425 = `j b`, sign words b + 430, 431 = `li t3, 2 ; j 21230`). -/
+/-- Campaign T51: b-dependent (expand word b + 425 = `j b`, sign words b + 430, 431 = `li t3, 2 ; j 26241`). -/
 def topSeg392 (b : Nat) : List (BitVec 32) := if b = 354 then [197907,230803,1555,17828371,0x7f57e13,3022355,32378419,0x83e4e03,29754931,7689491,60136979,29713715,7722387,0xfffa0a13,0xfc0a1ce3,0x757e13,0xffae0e13,1981971,29754931,0x355513,0x757e13,0xffae0e13,1981971,29754931,0x355513,0xffa50e13,1981971,29754931,9846291,0xa0e1e63,2579,0xf11ff06f,0x960410e3,0x95dff06f,662654467,0x940e0ae3,663696131,672084867,0x8100c93,2579,0xeedff06f,232979,66985491,29573939,1282963,2347923] else [197907,230803,1555,17828371,0x7f57e13,3022355,32378419,0x83e4e03,29754931,7689491,60136979,29713715,7722387,0xfffa0a13,0xfc0a1ce3,0x757e13,0xffae0e13,1981971,29754931,0x355513,0x757e13,0xffae0e13,1981971,29754931,0x355513,0xffa50e13,1981971,29754931,9846291,0xa0e1e63,2579,0xf11ff06f,0x960410e3,0xffff37,662654467,0x940e0ae3,663696131,672084867,0x200e13,0x4811306f,0xeedff06f,232979,66985491,29573939,1282963,2347923]
 def topSegLayout (b : Nat) : Rv.Layout := [(0, topSeg265), (2, topSeg267), (4, topSeg269), (5, topSeg270), (6, topSeg271), (8, topSeg273), (9, topSeg274), (11, topSeg276), (13, topSeg278), (14, topSeg279), (16, topSeg281), (18, topSeg283), (19, topSeg284), (21, topSeg286), (23, topSeg288), (24, topSeg289), (26, topSeg291), (28, topSeg293), (29, topSeg294), (31, topSeg296), (33, topSeg298), (34, topSeg299), (36, topSeg301), (38, topSeg303), (39, topSeg304), (41, topSeg306), (43, topSeg308), (44, topSeg309), (46, topSeg311), (48, topSeg313), (50, topSeg315), (51, topSeg316), (53, topSeg318), (55, topSeg320), (56, topSeg321), (58, topSeg323), (60, topSeg325), (61, topSeg326), (63, topSeg328), (65, topSeg330), (66, topSeg331), (68, topSeg333), (70, topSeg335), (71, topSeg336), (73, topSeg338), (75, topSeg340), (76, topSeg341), (78, topSeg343), (80, topSeg345), (81, topSeg346), (83, topSeg348), (85, topSeg350), (86, topSeg351), (88, topSeg353), (97, topSeg362 b), (104, topSeg369), (105, topSeg370), (106, topSeg371), (107, topSeg372), (108, topSeg373), (109, topSeg374), (110, topSeg375), (118, topSeg383), (119, topSeg384), (120, topSeg385), (122, topSeg387), (123, topSeg388), (125, topSeg390), (126, topSeg391 b), (127, topSeg392 b)]
 theorem topSegLayout_ok {b : Nat} (hb : b=354 ∨ b=543) : layoutOk 0 (topSegLayout b) = true := by
@@ -23389,8 +23396,8 @@ by `KInst` (the words) and the hooks of `T51KAt` (their behaviour):
 * word 117: `sd t4, CREDIT(t5)` (`hCr`, credit cell `0x66000 + CREDIT`);
 * word 119: `j U_ENTRY` (`hU`);
 * word 128: `j NEXT` (`hN`, the reject continuation).
-Sign: `K_ENTRY` 1798, block 0xFFF800, credit 0x66018, `U_ENTRY` 21230, `NEXT` 1011.
-Expand: `K_ENTRY` 54176, block RAM 0xA0000, credit 0x66040, `U_ENTRY` 54356, `NEXT` 822. -/
+Sign: `K_ENTRY` 1798, block 0xFFF800, credit 0x66018, `U_ENTRY` 26241, `NEXT` 1011.
+Expand: `K_ENTRY` 54176, block RAM 0xA0000, credit 0x66040, `U_ENTRY` 90000, `NEXT` 822. -/
 section
 namespace SigGolfCandidate.T3M.Search.T51
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
@@ -23427,12 +23434,12 @@ structure KInst where
 def kE2 : List (BitVec 32) := [0xa13,0xe00a93]
 def kG0a : List (BitVec 32) := [0x231e13,0x3fce7e13,0xae0e33,0xf60e6c83]
 def kG0b : List (BitVec 32) := [0xccde93,0x4efe93,0x1dc8cb3]
-def kLk1 : List (BitVec 32) := [0x635e13,0x3fce7e13,0xae0e33,0xe6e83,0x1dc8cb3]
-def kLk2 : List (BitVec 32) := [0xe35e13,0x3fce7e13,0xae0e33,0xe6e83,0x1dc8cb3]
-def kLk3 : List (BitVec 32) := [0x1635e13,0x3fce7e13,0xae0e33,0xe6e83,0x1dc8cb3]
-def kLk4 : List (BitVec 32) := [0x1e35e13,0x3fce7e13,0xae0e33,0xe6e83,0x1dc8cb3]
-def kLk5 : List (BitVec 32) := [0x2635e13,0x3fce7e13,0xae0e33,0xe6e83,0x1dc8cb3]
-def kLk6 : List (BitVec 32) := [0x2e35e13,0x3fce7e13,0xae0e33,0xe6e83,0x1dc8cb3]
+def kLk1 : List (BitVec 32) := [0x635e13,0x3fce7e13,0xae0e33,0xff4e6e83,0x1dc8cb3]
+def kLk2 : List (BitVec 32) := [0xe35e13,0x3fce7e13,0xae0e33,0xff4e6e83,0x1dc8cb3]
+def kLk3 : List (BitVec 32) := [0x1635e13,0x3fce7e13,0xae0e33,0xff4e6e83,0x1dc8cb3]
+def kLk4 : List (BitVec 32) := [0x1e35e13,0x3fce7e13,0xae0e33,0xff4e6e83,0x1dc8cb3]
+def kLk5 : List (BitVec 32) := [0x2635e13,0x3fce7e13,0xae0e33,0xff4e6e83,0x1dc8cb3]
+def kLk6 : List (BitVec 32) := [0x2e35e13,0x3fce7e13,0xae0e33,0xff4e6e83,0x1dc8cb3]
 def kR7a : List (BitVec 32) := [0x2f3de13,0x1fce7e13,0x13ce3e93]
 def kR7b : List (BitVec 32) := [0x120e9863]
 def kR7l : List (BitVec 32) := [0xae0e33,0x4c4e6e83,0x1dc8cb3]
@@ -23444,8 +23451,8 @@ def kQ12 : List (BitVec 32) := [0x133de13,0x1fce7e13,0xae0e33,0x400e6e83,0x1d585
 def kQ13 : List (BitVec 32) := [0x1a3de13,0x1fce7e13,0xae0e33,0x400e6e83,0x1dc8cb3]
 def kQ14 : List (BitVec 32) := [0x213de13,0x1fce7e13,0xae0e33,0x400e6e83,0x1dc8cb3]
 def kQ15 : List (BitVec 32) := [0x283de13,0x1fce7e13,0xae0e33,0x400e6e83,0x1dc8cb3]
-def kG7 : List (BitVec 32) := [0x3635e13,0x3fce7e13,0xae0e33,0xe6e83,0x1dc8cb3]
-def kG8 : List (BitVec 32) := [0x363de13,0x3fce7e13,0xae0e33,0xe6e83,0x1dc8cb3]
+def kG7 : List (BitVec 32) := [0x3635e13,0x3fce7e13,0xae0e33,0xff4e6e83,0x1dc8cb3]
+def kG8 : List (BitVec 32) := [0x363de13,0x3fce7e13,0xae0e33,0xff4e6e83,0x1dc8cb3]
 def kTot : List (BitVec 32) := [0xbc8cb3,0x125d593,0xf5f593,0x16cde13,0x41c88e33,0x6e3e93]
 def kBr101 : List (BitVec 32) := [0x40e8663]
 def kH2a : List (BitVec 32) := [0x8cde93,0x3fefe93,0x1e3f13,0x1ee8eb3,0x8ebe93]
@@ -23912,7 +23919,7 @@ theorem h1a_run {image : Image} {P : KInst} (hK : T51KAt image P) (s0 s : Machin
     (r := v.toNat / 2 ^ (8 * 1) % 256) (f := gIdx v 1) (gIdx_lt v 1) h10
     (by change (t2.getReg .x6 >>> 6) &&& BitVec.ofNat 64 (4 * (2 ^ 8 - 1)) = _
         rw [((R2 .x6 (by decide)).trans h6), shr_and_mul4 _ 6 8 (by norm_num), lo_field v (6 + 2) 8 (by norm_num)] <;> norm_num)
-    (by change _ + _ + BitVec.ofNat 64 0 = BitVec.ofNat 64 (P.blk + 4 * (40 + v.toNat / 2 ^ (8 * 1) % 256))
+    (by change _ + _ + BitVec.ofNat 64 18446744073709551604 = BitVec.ofNat 64 (P.blk + 4 * (37 + v.toNat / 2 ^ (8 * 1) % 256))
         exact hoff_eq (by omega))
     a25_2
   obtain ⟨t4, s4, p4, R4, F4, g4, x4⟩ := lookR (s0 := s0) (k := P.kb + 16) (src := .x6) (acc := .x25) (codeAt_kf hK 5 rfl) p3 (by omega)
@@ -23920,7 +23927,7 @@ theorem h1a_run {image : Image} {P : KInst} (hK : T51KAt image P) (s0 s : Machin
     (r := v.toNat / 2 ^ (8 * 2) % 256) (f := gIdx v 2) (gIdx_lt v 2) h10
     (by change (t3.getReg .x6 >>> 14) &&& BitVec.ofNat 64 (4 * (2 ^ 8 - 1)) = _
         rw [((R3 .x6 (by decide)).trans h6), shr_and_mul4 _ 14 8 (by norm_num), lo_field v (14 + 2) 8 (by norm_num)] <;> norm_num)
-    (by change _ + _ + BitVec.ofNat 64 0 = BitVec.ofNat 64 (P.blk + 4 * (40 + v.toNat / 2 ^ (8 * 2) % 256))
+    (by change _ + _ + BitVec.ofNat 64 18446744073709551604 = BitVec.ofNat 64 (P.blk + 4 * (37 + v.toNat / 2 ^ (8 * 2) % 256))
         exact hoff_eq (by omega))
     g3
   obtain ⟨t5, s5, p5, R5, F5, g5, x5⟩ := lookR (s0 := s0) (k := P.kb + 21) (src := .x6) (acc := .x25) (codeAt_kf hK 6 rfl) p4 (by omega)
@@ -23928,7 +23935,7 @@ theorem h1a_run {image : Image} {P : KInst} (hK : T51KAt image P) (s0 s : Machin
     (r := v.toNat / 2 ^ (8 * 3) % 256) (f := gIdx v 3) (gIdx_lt v 3) h10
     (by change (t4.getReg .x6 >>> 22) &&& BitVec.ofNat 64 (4 * (2 ^ 8 - 1)) = _
         rw [((R4 .x6 (by decide)).trans h6), shr_and_mul4 _ 22 8 (by norm_num), lo_field v (22 + 2) 8 (by norm_num)] <;> norm_num)
-    (by change _ + _ + BitVec.ofNat 64 0 = BitVec.ofNat 64 (P.blk + 4 * (40 + v.toNat / 2 ^ (8 * 3) % 256))
+    (by change _ + _ + BitVec.ofNat 64 18446744073709551604 = BitVec.ofNat 64 (P.blk + 4 * (37 + v.toNat / 2 ^ (8 * 3) % 256))
         exact hoff_eq (by omega))
     g4
   obtain ⟨t6, s6, p6, R6, F6, g6, x6⟩ := lookR (s0 := s0) (k := P.kb + 26) (src := .x6) (acc := .x25) (codeAt_kf hK 7 rfl) p5 (by omega)
@@ -23936,7 +23943,7 @@ theorem h1a_run {image : Image} {P : KInst} (hK : T51KAt image P) (s0 s : Machin
     (r := v.toNat / 2 ^ (8 * 4) % 256) (f := gIdx v 4) (gIdx_lt v 4) h10
     (by change (t5.getReg .x6 >>> 30) &&& BitVec.ofNat 64 (4 * (2 ^ 8 - 1)) = _
         rw [((R5 .x6 (by decide)).trans h6), shr_and_mul4 _ 30 8 (by norm_num), lo_field v (30 + 2) 8 (by norm_num)] <;> norm_num)
-    (by change _ + _ + BitVec.ofNat 64 0 = BitVec.ofNat 64 (P.blk + 4 * (40 + v.toNat / 2 ^ (8 * 4) % 256))
+    (by change _ + _ + BitVec.ofNat 64 18446744073709551604 = BitVec.ofNat 64 (P.blk + 4 * (37 + v.toNat / 2 ^ (8 * 4) % 256))
         exact hoff_eq (by omega))
     g5
   obtain ⟨t7, s7, p7, R7, F7, g7, x7⟩ := lookR (s0 := s0) (k := P.kb + 31) (src := .x6) (acc := .x25) (codeAt_kf hK 8 rfl) p6 (by omega)
@@ -23944,7 +23951,7 @@ theorem h1a_run {image : Image} {P : KInst} (hK : T51KAt image P) (s0 s : Machin
     (r := v.toNat / 2 ^ (8 * 5) % 256) (f := gIdx v 5) (gIdx_lt v 5) h10
     (by change (t6.getReg .x6 >>> 38) &&& BitVec.ofNat 64 (4 * (2 ^ 8 - 1)) = _
         rw [((R6 .x6 (by decide)).trans h6), shr_and_mul4 _ 38 8 (by norm_num), lo_field v (38 + 2) 8 (by norm_num)] <;> norm_num)
-    (by change _ + _ + BitVec.ofNat 64 0 = BitVec.ofNat 64 (P.blk + 4 * (40 + v.toNat / 2 ^ (8 * 5) % 256))
+    (by change _ + _ + BitVec.ofNat 64 18446744073709551604 = BitVec.ofNat 64 (P.blk + 4 * (37 + v.toNat / 2 ^ (8 * 5) % 256))
         exact hoff_eq (by omega))
     g6
   obtain ⟨t8, s8, p8, R8, F8, g8, x8⟩ := lookR (s0 := s0) (k := P.kb + 36) (src := .x6) (acc := .x25) (codeAt_kf hK 9 rfl) p7 (by omega)
@@ -23952,7 +23959,7 @@ theorem h1a_run {image : Image} {P : KInst} (hK : T51KAt image P) (s0 s : Machin
     (r := v.toNat / 2 ^ (8 * 6) % 256) (f := gIdx v 6) (gIdx_lt v 6) h10
     (by change (t7.getReg .x6 >>> 46) &&& BitVec.ofNat 64 (4 * (2 ^ 8 - 1)) = _
         rw [((R7 .x6 (by decide)).trans h6), shr_and_mul4 _ 46 8 (by norm_num), lo_field v (46 + 2) 8 (by norm_num)] <;> norm_num)
-    (by change _ + _ + BitVec.ofNat 64 0 = BitVec.ofNat 64 (P.blk + 4 * (40 + v.toNat / 2 ^ (8 * 6) % 256))
+    (by change _ + _ + BitVec.ofNat 64 18446744073709551604 = BitVec.ofNat 64 (P.blk + 4 * (37 + v.toNat / 2 ^ (8 * 6) % 256))
         exact hoff_eq (by omega))
     g7
   obtain ⟨t9, s9, p9, x28_9, x29_9, r9, f9⟩ := r7a_spec (codeAt_kf hK 10 rfl) t8 (by rw [p8]) v ((R8 .x7 (by decide)).trans h7)
@@ -24060,7 +24067,7 @@ theorem h1b_run {image : Image} {P : KInst} (hK : T51KAt image P) (s0 s : Machin
     (r := v.toNat / 2 ^ 56 % 256) (f := gIdx v 7) (gIdx_lt v 7) h10
     (by change (t9.getReg .x6 >>> 54) &&& BitVec.ofNat 64 (4 * (2 ^ 8 - 1)) = _
         rw [((R9 .x6 (by decide)).trans h6), shr_and_mul4 _ 54 8 (by norm_num), lo_field v (54 + 2) 8 (by norm_num)] <;> norm_num)
-    (by change _ + _ + BitVec.ofNat 64 0 = BitVec.ofNat 64 (P.blk + 4 * (40 + v.toNat / 2 ^ 56 % 256))
+    (by change _ + _ + BitVec.ofNat 64 18446744073709551604 = BitVec.ofNat 64 (P.blk + 4 * (37 + v.toNat / 2 ^ 56 % 256))
         exact hoff_eq (by omega))
     g9
   have a11_10 : t10.getReg .x11 = _ := (x10 .x11 (by decide)).trans a11_9
@@ -24069,7 +24076,7 @@ theorem h1b_run {image : Image} {P : KInst} (hK : T51KAt image P) (s0 s : Machin
     (r := v.toNat / 2 ^ 120 % 256) (f := gIdx v 8) (gIdx_lt v 8) h10
     (by change (t10.getReg .x7 >>> 54) &&& BitVec.ofNat 64 (4 * (2 ^ 8 - 1)) = _
         rw [((R10 .x7 (by decide)).trans h7), shr_and_mul4 _ 54 8 (by norm_num), hi_field v (54 + 2) 8 (by norm_num)] <;> norm_num)
-    (by change _ + _ + BitVec.ofNat 64 0 = BitVec.ofNat 64 (P.blk + 4 * (40 + v.toNat / 2 ^ 120 % 256))
+    (by change _ + _ + BitVec.ofNat 64 18446744073709551604 = BitVec.ofNat 64 (P.blk + 4 * (37 + v.toNat / 2 ^ 120 % 256))
         exact hoff_eq (by omega))
     g10
   have a11_11 : t11.getReg .x11 = _ := (x11 .x11 (by decide)).trans a11_10
@@ -27025,7 +27032,7 @@ def flagCode : List (BitVec 32) := [662654467]
 def beqCode : List (BitVec 32) := [0x940e0ae3]
 def ld1Code : List (BitVec 32) := [663696131]
 def ld2Code : List (BitVec 32) := [672084867]
-/-- Campaign T51: sign (b = 543) words b + 430, 431 are `li t3, 2 ; j 21230` (dead dummy path into the T51 unpacker). -/
+/-- Campaign T51: sign (b = 543) words b + 430, 431 are `li t3, 2 ; j 26241` (dead dummy path into the T51 unpacker). -/
 def dumCode (b : Nat) : List (BitVec 32) :=
   if b = 354 then [0x8100c93,2579,0xeedff06f] else [0x200e13,0x4811306f,0xeedff06f]
 def alignCode : List (BitVec 32) := [232979,66985491,29573939,1282963,2347923]
@@ -27873,28 +27880,28 @@ def kUp2 : List (BitVec 32) := [0x600f13,0x500593,0x138c93,0x7fcfc93,0x13]
 def kUg0 : List (BitVec 32) := [0xff37e13,0xfd8e0e13]
 def kUs0a : List (BitVec 32) := [0x3ee7eb3,0x1d50023]
 def kUs0b : List (BitVec 32) := [0x3ee5e33,0x3ee7eb3,0x1d500a3,0x3ee5eb3,0x1d50123]
-def kUg1 : List (BitVec 32) := [0x835e13,0xffe7e13]
+def kUg1 : List (BitVec 32) := [0x835e13,0xffe7e13,0xffde0e13]
 def kUs1a : List (BitVec 32) := [0x3ee7eb3,0x1d501a3]
 def kUs1b : List (BitVec 32) := [0x3ee5e33,0x3ee7eb3,0x1d50223,0x3ee5eb3,0x1d502a3]
-def kUg2 : List (BitVec 32) := [0x1035e13,0xffe7e13]
+def kUg2 : List (BitVec 32) := [0x1035e13,0xffe7e13,0xffde0e13]
 def kUs2a : List (BitVec 32) := [0x3ee7eb3,0x1d50323]
 def kUs2b : List (BitVec 32) := [0x3ee5e33,0x3ee7eb3,0x1d503a3,0x3ee5eb3,0x1d50423]
-def kUg3 : List (BitVec 32) := [0x1835e13,0xffe7e13]
+def kUg3 : List (BitVec 32) := [0x1835e13,0xffe7e13,0xffde0e13]
 def kUs3a : List (BitVec 32) := [0x3ee7eb3,0x1d504a3]
 def kUs3b : List (BitVec 32) := [0x3ee5e33,0x3ee7eb3,0x1d50523,0x3ee5eb3,0x1d505a3]
-def kUg4 : List (BitVec 32) := [0x2035e13,0xffe7e13]
+def kUg4 : List (BitVec 32) := [0x2035e13,0xffe7e13,0xffde0e13]
 def kUs4a : List (BitVec 32) := [0x3ee7eb3,0x1d50623]
 def kUs4b : List (BitVec 32) := [0x3ee5e33,0x3ee7eb3,0x1d506a3,0x3ee5eb3,0x1d50723]
-def kUg5 : List (BitVec 32) := [0x2835e13,0xffe7e13]
+def kUg5 : List (BitVec 32) := [0x2835e13,0xffe7e13,0xffde0e13]
 def kUs5a : List (BitVec 32) := [0x3ee7eb3,0x1d507a3]
 def kUs5b : List (BitVec 32) := [0x3ee5e33,0x3ee7eb3,0x1d50823,0x3ee5eb3,0x1d508a3]
-def kUg6 : List (BitVec 32) := [0x3035e13,0xffe7e13]
+def kUg6 : List (BitVec 32) := [0x3035e13,0xffe7e13,0xffde0e13]
 def kUs6a : List (BitVec 32) := [0x3ee7eb3,0x1d50923]
 def kUs6b : List (BitVec 32) := [0x3ee5e33,0x3ee7eb3,0x1d509a3,0x3ee5eb3,0x1d50a23]
-def kUg7 : List (BitVec 32) := [0x3835e13,0xffe7e13]
+def kUg7 : List (BitVec 32) := [0x3835e13,0xffe7e13,0xffde0e13]
 def kUs7a : List (BitVec 32) := [0x3ee7eb3,0x1d50aa3]
 def kUs7b : List (BitVec 32) := [0x3ee5e33,0x3ee7eb3,0x1d50b23,0x3ee5eb3,0x1d50ba3]
-def kUg8 : List (BitVec 32) := [0x383de13]
+def kUg8 : List (BitVec 32) := [0x383de13,0xffde0e13]
 def kUs8a : List (BitVec 32) := [0x3ee7eb3,0x1d50c23]
 def kUs8b : List (BitVec 32) := [0x3ee5e33,0x3ee7eb3,0x1d50ca3,0x3ee5eb3,0x1d50d23]
 def kUg9 : List (BitVec 32) := [0x7fcfe13,0x7fe4e13]
@@ -27923,7 +27930,7 @@ def kUr7a : List (BitVec 32) := [0x3ee7eb3,0x3d50823]
 def kUr7b : List (BitVec 32) := [0x3ee5eb3,0x3d508a3]
 def kUret : List (BitVec 32) := [0x8067]
 /-- Fine layout of the first unpacker segment (112 words at `U_ENTRY`). -/
-def uLA : Rv.Layout := [(0, kUp1), (2, kUsb), (3, kUp2), (8, kUg0), (10, kUs0a), (12, kUs0b), (17, kUg1), (19, kUs1a), (21, kUs1b), (26, kUg2), (28, kUs2a), (30, kUs2b), (35, kUg3), (37, kUs3a), (39, kUs3b), (44, kUg4), (46, kUs4a), (48, kUs4b), (53, kUg5), (55, kUs5a), (57, kUs5b), (62, kUg6), (64, kUs6a), (66, kUs6b), (71, kUg7), (73, kUs7a), (75, kUs7b), (80, kUg8), (81, kUs8a), (83, kUs8b), (88, kUg9), (90, kUs9a), (92, kUs9b), (97, kUg10), (100, kUs10a), (102, kUs10b), (107, kUg11), (110, kUs11a)]
+def uLA : Rv.Layout := [(0, kUp1), (2, kUsb), (3, kUp2), (8, kUg0), (10, kUs0a), (12, kUs0b), (17, kUg1), (20, kUs1a), (22, kUs1b), (27, kUg2), (30, kUs2a), (32, kUs2b), (37, kUg3), (40, kUs3a), (42, kUs3b), (47, kUg4), (50, kUs4a), (52, kUs4b), (57, kUg5), (60, kUs5a), (62, kUs5b), (67, kUg6), (70, kUs6a), (72, kUs6b), (77, kUg7), (80, kUs7a), (82, kUs7b), (87, kUg8), (89, kUs8a), (91, kUs8b), (96, kUg9), (98, kUs9a), (100, kUs9b), (105, kUg10), (108, kUs10a), (110, kUs10b), (115, kUg11), (118, kUs11a)]
 /-- Fine layout of the second unpacker segment (54 words at `uc`). -/
 def uLB : Rv.Layout := [(0, kUs11b), (5, kUg12), (8, kUs12a), (10, kUs12b), (15, kUg13), (18, kUs13a), (20, kUs13b), (25, kUg14), (28, kUs14a), (30, kUs14b), (35, kUg15), (38, kUs15a), (40, kUs15b), (45, kUr7), (49, kUr7a), (51, kUr7b), (53, kUret)]
 def uCodeA : List (BitVec 32) := layoutCode uLA
@@ -27935,9 +27942,9 @@ abbrev uRegs : List Reg := [.x10, .x11, .x25, .x28, .x29, .x30]
 structure T51UAt (image : Image) (P : KInst) : Prop where
   codeA : CodeAt image (pcOf P.ub) uCodeA
   codeB : CodeAt image (pcOf P.uc) uCodeB
-  ubLt : P.ub + 112 < 2 ^ 40
+  ubLt : P.ub + 120 < 2 ^ 40
   ucLt : P.uc + 54 < 2 ^ 40
-  hJ : ∀ s : MachineState, s.pc = pcOf (P.ub + 112) → ∃ t, Steps image s P.uj P.uj t ∧ t.pc = pcOf P.uc ∧
+  hJ : ∀ s : MachineState, s.pc = pcOf (P.ub + 120) → ∃ t, Steps image s P.uj P.uj t ∧ t.pc = pcOf P.uc ∧
     RegsExcept s t [] ∧ Frame s t (fun _ => False)
 theorem codeAt_ua {image : Image} {P : KInst} (h : T51UAt image P) (i : Nat) {o : Nat} {seg : List (BitVec 32)}
     (hi : uLA[i]? = some (o, seg)) : CodeAt image (pcOf (P.ub + o)) seg :=
@@ -27977,20 +27984,20 @@ theorem kUg0_spec {image : Image} {pc : Word} (hc : CodeAt image pc kUg0) (s : M
   · intro A _ _; simp [kUg0Run.res, rv_simp]
 sym_block kUg7Run := symRun { noAlias := true } kUg7 0 10
 theorem run_kUg7 (pc : Word) : symRun { noAlias := true } kUg7 pc 10 =
-    some ⟨kUg7Run.res.st, .c (pc + 4 + 4), .endOfCode, 2, 2⟩ := by
+    some ⟨kUg7Run.res.st, .c (pc + 4 + 4 + 4), .endOfCode, 3, 3⟩ := by
   rfl
 theorem kUg7_spec {image : Image} {pc : Word} (hc : CodeAt image pc kUg7) (s : MachineState) (hpc : s.pc = pc) :
-    ∃ t, Steps image s 2 2 t ∧ t.pc = pc + 4 + 4 ∧ t.getReg .x28 = (s.getReg .x6 >>> 56) &&& 255#64 ∧ RegsExcept s t [.x28] ∧ Frame s t (fun _ => False) := by
+    ∃ t, Steps image s 3 3 t ∧ t.pc = pc + 4 + 4 + 4 ∧ t.getReg .x28 = ((s.getReg .x6 >>> 56) &&& 255#64) - 3#64 ∧ RegsExcept s t [.x28] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound (run_kUg7 pc) hc s hpc (by simp [kUg7Run.res, rv_simp]), by simp [rv_simp], ?_, ?_, ?_⟩
   · simp only [rv_simp, kUg7Run.res, BitVec.toNat_ofNat, Nat.reducePow, Nat.reduceMod] <;> first | rfl | (exact ⟨trivial, trivial, trivial⟩) | (exact ⟨trivial, trivial⟩) | (refine ⟨?_, ?_, ?_⟩ <;> rfl) | (refine ⟨?_, ?_⟩ <;> rfl) | skip
   · intro r hr; simp at hr; cases r <;> simp_all [kUg7Run.res, rv_simp] <;> rfl
   · intro A _ _; simp [kUg7Run.res, rv_simp]
 sym_block kUg8Run := symRun { noAlias := true } kUg8 0 10
 theorem run_kUg8 (pc : Word) : symRun { noAlias := true } kUg8 pc 10 =
-    some ⟨kUg8Run.res.st, .c (pc + 4), .endOfCode, 1, 1⟩ := by
+    some ⟨kUg8Run.res.st, .c (pc + 4 + 4), .endOfCode, 2, 2⟩ := by
   rfl
 theorem kUg8_spec {image : Image} {pc : Word} (hc : CodeAt image pc kUg8) (s : MachineState) (hpc : s.pc = pc) :
-    ∃ t, Steps image s 1 1 t ∧ t.pc = pc + 4 ∧ t.getReg .x28 = s.getReg .x7 >>> 56 ∧ RegsExcept s t [.x28] ∧ Frame s t (fun _ => False) := by
+    ∃ t, Steps image s 2 2 t ∧ t.pc = pc + 4 + 4 ∧ t.getReg .x28 = (s.getReg .x7 >>> 56) - 3#64 ∧ RegsExcept s t [.x28] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound (run_kUg8 pc) hc s hpc (by simp [kUg8Run.res, rv_simp]), by simp [rv_simp], ?_, ?_, ?_⟩
   · simp only [rv_simp, kUg8Run.res, BitVec.toNat_ofNat, Nat.reducePow, Nat.reduceMod] <;> first | rfl | (exact ⟨trivial, trivial, trivial⟩) | (exact ⟨trivial, trivial⟩) | (refine ⟨?_, ?_, ?_⟩ <;> rfl) | (refine ⟨?_, ?_⟩ <;> rfl) | skip
   · intro r hr; simp at hr; cases r <;> simp_all [kUg8Run.res, rv_simp] <;> rfl
@@ -28017,60 +28024,60 @@ theorem kUr7_spec {image : Image} {pc : Word} (hc : CodeAt image pc kUr7) (s : M
   · intro A _ _; simp [kUr7Run.res, rv_simp]
 sym_block kUg1Run := symRun { noAlias := true } kUg1 0 10
 theorem run_kUg1 (pc : Word) : symRun { noAlias := true } kUg1 pc 10 =
-    some ⟨kUg1Run.res.st, .c (pc + 4 + 4), .endOfCode, 2, 2⟩ := by
+    some ⟨kUg1Run.res.st, .c (pc + 4 + 4 + 4), .endOfCode, 3, 3⟩ := by
   rfl
 theorem kUg1_spec {image : Image} {pc : Word} (hc : CodeAt image pc kUg1) (s : MachineState) (hpc : s.pc = pc) :
-    ∃ t, Steps image s 2 2 t ∧ t.pc = pc + 4 + 4 ∧ t.getReg .x28 = (s.getReg .x6 >>> 8) &&& 255#64 ∧ RegsExcept s t [.x28] ∧ Frame s t (fun _ => False) := by
+    ∃ t, Steps image s 3 3 t ∧ t.pc = pc + 4 + 4 + 4 ∧ t.getReg .x28 = ((s.getReg .x6 >>> 8) &&& 255#64) - 3#64 ∧ RegsExcept s t [.x28] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound (run_kUg1 pc) hc s hpc (by simp [kUg1Run.res, rv_simp]), by simp [rv_simp], ?_, ?_, ?_⟩
   · simp only [rv_simp, kUg1Run.res, BitVec.toNat_ofNat, Nat.reducePow, Nat.reduceMod] <;> first | rfl | (exact ⟨trivial, trivial, trivial⟩) | (exact ⟨trivial, trivial⟩) | (refine ⟨?_, ?_, ?_⟩ <;> rfl) | (refine ⟨?_, ?_⟩ <;> rfl) | skip
   · intro r hr; simp at hr; cases r <;> simp_all [kUg1Run.res, rv_simp] <;> rfl
   · intro A _ _; simp [kUg1Run.res, rv_simp]
 sym_block kUg2Run := symRun { noAlias := true } kUg2 0 10
 theorem run_kUg2 (pc : Word) : symRun { noAlias := true } kUg2 pc 10 =
-    some ⟨kUg2Run.res.st, .c (pc + 4 + 4), .endOfCode, 2, 2⟩ := by
+    some ⟨kUg2Run.res.st, .c (pc + 4 + 4 + 4), .endOfCode, 3, 3⟩ := by
   rfl
 theorem kUg2_spec {image : Image} {pc : Word} (hc : CodeAt image pc kUg2) (s : MachineState) (hpc : s.pc = pc) :
-    ∃ t, Steps image s 2 2 t ∧ t.pc = pc + 4 + 4 ∧ t.getReg .x28 = (s.getReg .x6 >>> 16) &&& 255#64 ∧ RegsExcept s t [.x28] ∧ Frame s t (fun _ => False) := by
+    ∃ t, Steps image s 3 3 t ∧ t.pc = pc + 4 + 4 + 4 ∧ t.getReg .x28 = ((s.getReg .x6 >>> 16) &&& 255#64) - 3#64 ∧ RegsExcept s t [.x28] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound (run_kUg2 pc) hc s hpc (by simp [kUg2Run.res, rv_simp]), by simp [rv_simp], ?_, ?_, ?_⟩
   · simp only [rv_simp, kUg2Run.res, BitVec.toNat_ofNat, Nat.reducePow, Nat.reduceMod] <;> first | rfl | (exact ⟨trivial, trivial, trivial⟩) | (exact ⟨trivial, trivial⟩) | (refine ⟨?_, ?_, ?_⟩ <;> rfl) | (refine ⟨?_, ?_⟩ <;> rfl) | skip
   · intro r hr; simp at hr; cases r <;> simp_all [kUg2Run.res, rv_simp] <;> rfl
   · intro A _ _; simp [kUg2Run.res, rv_simp]
 sym_block kUg3Run := symRun { noAlias := true } kUg3 0 10
 theorem run_kUg3 (pc : Word) : symRun { noAlias := true } kUg3 pc 10 =
-    some ⟨kUg3Run.res.st, .c (pc + 4 + 4), .endOfCode, 2, 2⟩ := by
+    some ⟨kUg3Run.res.st, .c (pc + 4 + 4 + 4), .endOfCode, 3, 3⟩ := by
   rfl
 theorem kUg3_spec {image : Image} {pc : Word} (hc : CodeAt image pc kUg3) (s : MachineState) (hpc : s.pc = pc) :
-    ∃ t, Steps image s 2 2 t ∧ t.pc = pc + 4 + 4 ∧ t.getReg .x28 = (s.getReg .x6 >>> 24) &&& 255#64 ∧ RegsExcept s t [.x28] ∧ Frame s t (fun _ => False) := by
+    ∃ t, Steps image s 3 3 t ∧ t.pc = pc + 4 + 4 + 4 ∧ t.getReg .x28 = ((s.getReg .x6 >>> 24) &&& 255#64) - 3#64 ∧ RegsExcept s t [.x28] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound (run_kUg3 pc) hc s hpc (by simp [kUg3Run.res, rv_simp]), by simp [rv_simp], ?_, ?_, ?_⟩
   · simp only [rv_simp, kUg3Run.res, BitVec.toNat_ofNat, Nat.reducePow, Nat.reduceMod] <;> first | rfl | (exact ⟨trivial, trivial, trivial⟩) | (exact ⟨trivial, trivial⟩) | (refine ⟨?_, ?_, ?_⟩ <;> rfl) | (refine ⟨?_, ?_⟩ <;> rfl) | skip
   · intro r hr; simp at hr; cases r <;> simp_all [kUg3Run.res, rv_simp] <;> rfl
   · intro A _ _; simp [kUg3Run.res, rv_simp]
 sym_block kUg4Run := symRun { noAlias := true } kUg4 0 10
 theorem run_kUg4 (pc : Word) : symRun { noAlias := true } kUg4 pc 10 =
-    some ⟨kUg4Run.res.st, .c (pc + 4 + 4), .endOfCode, 2, 2⟩ := by
+    some ⟨kUg4Run.res.st, .c (pc + 4 + 4 + 4), .endOfCode, 3, 3⟩ := by
   rfl
 theorem kUg4_spec {image : Image} {pc : Word} (hc : CodeAt image pc kUg4) (s : MachineState) (hpc : s.pc = pc) :
-    ∃ t, Steps image s 2 2 t ∧ t.pc = pc + 4 + 4 ∧ t.getReg .x28 = (s.getReg .x6 >>> 32) &&& 255#64 ∧ RegsExcept s t [.x28] ∧ Frame s t (fun _ => False) := by
+    ∃ t, Steps image s 3 3 t ∧ t.pc = pc + 4 + 4 + 4 ∧ t.getReg .x28 = ((s.getReg .x6 >>> 32) &&& 255#64) - 3#64 ∧ RegsExcept s t [.x28] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound (run_kUg4 pc) hc s hpc (by simp [kUg4Run.res, rv_simp]), by simp [rv_simp], ?_, ?_, ?_⟩
   · simp only [rv_simp, kUg4Run.res, BitVec.toNat_ofNat, Nat.reducePow, Nat.reduceMod] <;> first | rfl | (exact ⟨trivial, trivial, trivial⟩) | (exact ⟨trivial, trivial⟩) | (refine ⟨?_, ?_, ?_⟩ <;> rfl) | (refine ⟨?_, ?_⟩ <;> rfl) | skip
   · intro r hr; simp at hr; cases r <;> simp_all [kUg4Run.res, rv_simp] <;> rfl
   · intro A _ _; simp [kUg4Run.res, rv_simp]
 sym_block kUg5Run := symRun { noAlias := true } kUg5 0 10
 theorem run_kUg5 (pc : Word) : symRun { noAlias := true } kUg5 pc 10 =
-    some ⟨kUg5Run.res.st, .c (pc + 4 + 4), .endOfCode, 2, 2⟩ := by
+    some ⟨kUg5Run.res.st, .c (pc + 4 + 4 + 4), .endOfCode, 3, 3⟩ := by
   rfl
 theorem kUg5_spec {image : Image} {pc : Word} (hc : CodeAt image pc kUg5) (s : MachineState) (hpc : s.pc = pc) :
-    ∃ t, Steps image s 2 2 t ∧ t.pc = pc + 4 + 4 ∧ t.getReg .x28 = (s.getReg .x6 >>> 40) &&& 255#64 ∧ RegsExcept s t [.x28] ∧ Frame s t (fun _ => False) := by
+    ∃ t, Steps image s 3 3 t ∧ t.pc = pc + 4 + 4 + 4 ∧ t.getReg .x28 = ((s.getReg .x6 >>> 40) &&& 255#64) - 3#64 ∧ RegsExcept s t [.x28] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound (run_kUg5 pc) hc s hpc (by simp [kUg5Run.res, rv_simp]), by simp [rv_simp], ?_, ?_, ?_⟩
   · simp only [rv_simp, kUg5Run.res, BitVec.toNat_ofNat, Nat.reducePow, Nat.reduceMod] <;> first | rfl | (exact ⟨trivial, trivial, trivial⟩) | (exact ⟨trivial, trivial⟩) | (refine ⟨?_, ?_, ?_⟩ <;> rfl) | (refine ⟨?_, ?_⟩ <;> rfl) | skip
   · intro r hr; simp at hr; cases r <;> simp_all [kUg5Run.res, rv_simp] <;> rfl
   · intro A _ _; simp [kUg5Run.res, rv_simp]
 sym_block kUg6Run := symRun { noAlias := true } kUg6 0 10
 theorem run_kUg6 (pc : Word) : symRun { noAlias := true } kUg6 pc 10 =
-    some ⟨kUg6Run.res.st, .c (pc + 4 + 4), .endOfCode, 2, 2⟩ := by
+    some ⟨kUg6Run.res.st, .c (pc + 4 + 4 + 4), .endOfCode, 3, 3⟩ := by
   rfl
 theorem kUg6_spec {image : Image} {pc : Word} (hc : CodeAt image pc kUg6) (s : MachineState) (hpc : s.pc = pc) :
-    ∃ t, Steps image s 2 2 t ∧ t.pc = pc + 4 + 4 ∧ t.getReg .x28 = (s.getReg .x6 >>> 48) &&& 255#64 ∧ RegsExcept s t [.x28] ∧ Frame s t (fun _ => False) := by
+    ∃ t, Steps image s 3 3 t ∧ t.pc = pc + 4 + 4 + 4 ∧ t.getReg .x28 = ((s.getReg .x6 >>> 48) &&& 255#64) - 3#64 ∧ RegsExcept s t [.x28] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound (run_kUg6 pc) hc s hpc (by simp [kUg6Run.res, rv_simp]), by simp [rv_simp], ?_, ?_, ?_⟩
   · simp only [rv_simp, kUg6Run.res, BitVec.toNat_ofNat, Nat.reducePow, Nat.reduceMod] <;> first | rfl | (exact ⟨trivial, trivial, trivial⟩) | (exact ⟨trivial, trivial⟩) | (refine ⟨?_, ?_, ?_⟩ <;> rfl) | (refine ⟨?_, ?_⟩ <;> rfl) | skip
   · intro r hr; simp at hr; cases r <;> simp_all [kUg6Run.res, rv_simp] <;> rfl
@@ -28166,13 +28173,13 @@ theorem xor127 (x : Nat) (hx : x < 128) : BitVec.ofNat 64 x ^^^ 127#64 = BitVec.
     toNat_ofNat_lt (show 127 - x < 2 ^ 64 by omega), h x hx]
 theorem r6Rank_0 (v : Digest) : T3.r6Rank v 0 = v.toNat % 256 - 40 := by
   unfold T3.r6Rank; simp [r6Raw_eq v 0 (by norm_num), T3.r6Shift]
-theorem r6Rank_g (v : Digest) (g : Nat) (h1 : 1 ≤ g) (h6 : g ≤ 6) : T3.r6Rank v g = v.toNat / 2 ^ (8 * g) % 256 := by
+theorem r6Rank_g (v : Digest) (g : Nat) (h1 : 1 ≤ g) (h6 : g ≤ 6) : T3.r6Rank v g = v.toNat / 2 ^ (8 * g) % 256 - 3 := by
   unfold T3.r6Rank
   rw [if_neg (by omega), r6Raw_eq v g (by omega)]
   simp [T3.r6Shift, show g < 8 by omega]
-theorem r6Rank_7 (v : Digest) : T3.r6Rank v 7 = v.toNat / 2 ^ 56 % 256 := by
+theorem r6Rank_7 (v : Digest) : T3.r6Rank v 7 = v.toNat / 2 ^ 56 % 256 - 3 := by
   unfold T3.r6Rank; rw [if_neg (by norm_num), r6Raw_eq v 7 (by norm_num)]; rfl
-theorem r6Rank_8 (v : Digest) : T3.r6Rank v 8 = v.toNat / 2 ^ 120 % 256 := by
+theorem r6Rank_8 (v : Digest) : T3.r6Rank v 8 = v.toNat / 2 ^ 120 % 256 - 3 := by
   unfold T3.r6Rank; rw [if_neg (by norm_num), r6Raw_eq v 8 (by norm_num)]; rfl
 theorem r6Rank_lt (v : Digest) (g : Nat) : T3.r6Rank v g < 256 := by
   unfold T3.r6Rank T3.r6Raw; split_ifs <;> omega
@@ -28188,6 +28195,24 @@ theorem g0_valid {v : Digest} {ds : List Nat} (hd : WCT9.CanonicalPolicy.decode 
   unfold T3.r6Valid at this
   rw [r6Raw_eq v 0 (by norm_num)] at this
   simpa [T3.r6Shift] using this
+theorem shifted_valid {v : Digest} {ds : List Nat} (hd : WCT9.CanonicalPolicy.decode 0 v = some ds)
+    (g : Nat) (h1 : 1≤g) (h7 : g≤7) :
+    3 ≤ v.toNat/2^(8*g)%256 ∧ v.toNat/2^(8*g)%256 < 219 := by
+  have hv := (decode_top_eq hd).1
+  obtain ⟨h6, _, _⟩ := valid_groups hv
+  have hh := h6 g (by omega)
+  simp only [T3.r6Valid, if_neg (show g≠0 by omega), if_neg (show g≠8 by omega), decide_eq_true_eq] at hh
+  rw [r6Raw_eq v g (by omega)] at hh
+  simpa only [T3.r6Shift, if_pos (show g<8 by omega)] using hh
+theorem shifted_valid8 {v : Digest} {ds : List Nat} (hd : WCT9.CanonicalPolicy.decode 0 v = some ds) :
+    3 ≤ v.toNat/2^120%256 ∧ v.toNat/2^120%256 < 219 := by
+  have hv := (decode_top_eq hd).1
+  obtain ⟨h6, _, _⟩ := valid_groups hv
+  have hh := h6 8 (by omega)
+  simp only [T3.r6Valid, if_neg (show (8:Nat)≠0 by omega), decide_eq_true_eq] at hh
+  rw [r6Raw_eq v 8 (by omega)] at hh
+  simpa only [T3.r6Shift, if_neg (show ¬(8:Nat)<8 by omega)] using hh
+
 theorem udig6 {v : Digest} {ds : List Nat} (hd : WCT9.CanonicalPolicy.decode 0 v = some ds) (g m : Nat)
     (hm : m = 3 * g) (hg : g < 9) :
     ds.getD m 0 = T3.r6Rank v g % 6 ∧ ds.getD (m + 1) 0 = T3.r6Rank v g / 6 % 6 ∧
@@ -28276,7 +28301,7 @@ theorem unpack {image : Image} {P : KInst} (hU : T51UAt image P) (u : MachineSta
     (v : Digest) (ds : List Nat) (hd : WCT9.CanonicalPolicy.decode 0 v = some ds)
     (h6 : u.getReg .x6 = v.extractLsb' 0 64) (h7 : u.getReg .x7 = v.extractLsb' 64 64)
     (h28 : u.getReg .x28 = BitVec.ofNat 64 (ds.getD 50 0)) :
-    ∃ t, Steps image u (166 + P.uj) (364 + P.uj) t ∧ t.pc = u.getReg .x1 &&& ~~~1#64 ∧
+    ∃ t, Steps image u (174 + P.uj) (372 + P.uj) t ∧ t.pc = u.getReg .x1 &&& ~~~1#64 ∧
       (∀ j < 51, t.getByte (BitVec.ofNat 64 (DIGITS + j)) = BitVec.ofNat 8 (ds.getD j 0)) ∧
       RegsExcept u t uRegs ∧ Frame u t (fun A => DIGITS ≤ A ∧ A < DIGITS + 64) := by
   have hub := hU.ubLt
@@ -28345,10 +28370,11 @@ theorem unpack {image : Image} {P : KInst} (hU : T51UAt image P) (u : MachineSta
   have n1 : a1.getReg .x28 = BitVec.ofNat 64 (T3.r6Rank v 1) := by
     rw [va, R0 .x6 (by decide), c3x6, show (255#64 : Word) = BitVec.ofNat 64 (2 ^ 8 - 1) from rfl,
       fld_lo v 8 8 (by norm_num), r6Rank_g v 1 (by norm_num) (by norm_num)]
-    try norm_num
-  have pa1' : a1.pc = pcOf (P.ub + 19) := by rw [pa1]; simp only [pcOf_4]
+    change BitVec.ofNat 64 (v.toNat / 2^(8*1) % 256) - 3#64 = BitVec.ofNat 64 (v.toNat / 2^(8*1) % 256 - 3)
+    rw [bv_sub _ 3 (shifted_valid hd 1 (by omega) (by omega)).1 (by have hh := (shifted_valid hd 1 (by omega) (by omega)).2; omega)]
+  have pa1' : a1.pc = pcOf (P.ub + 20) := by rw [pa1]; simp only [pcOf_4]
   obtain ⟨t1, st1, pt1, b0_1, b1_1, b2_1, bf1, rt1, ft1⟩ :=
-    trip (R := .x30) (o := 3) (r := 6) (codeAt_ua hU 7 rfl) (codeAt_ua hU 8 rfl) pa1' (mid0 (P.ub + 19))
+    trip (R := .x30) (o := 3) (r := 6) (codeAt_ua hU 7 rfl) (codeAt_ua hU 8 rfl) pa1' (mid0 (P.ub + 20))
       rfl rfl rfl rfl rfl rfl rfl (by decide) rfl rfl rfl (by norm_num) (by rw [Ra1 .x10 (by decide), c3x10])
       (by rw [Ra1 .x30 (by decide), c3x30]) (by norm_num) n1 (by have := r6Rank_lt v 1; omega)
   have D1 : DInv t1 ds (3 + 3) :=
@@ -28356,17 +28382,18 @@ theorem unpack {image : Image} {P : KInst} (hU : T51UAt image P) (u : MachineSta
   have R1 : RegsExcept c3 t1 [.x28, .x29] := (Ra1.trans rt1).mono (by decide)
   have F1 : Frame c3 t1 (fun A => DIGITS ≤ A ∧ A < DIGITS + 64) :=
     ((F0.trans fa1).trans ft1).mono (fun _ _ h => by simp only [or_false] at h; rcases h with h | h <;> exact h)
-  have pt1' : t1.pc = pcOf (P.ub + 26) := by rw [pt1]; simp only [pcOf_4]
+  have pt1' : t1.pc = pcOf (P.ub + 27) := by rw [pt1]; simp only [pcOf_4]
   -- group 2
   obtain ⟨a2, sa2, pa2, va, ra2, fa2⟩ := kUg2_spec (codeAt_ua hU 9 rfl) t1 pt1'
   have Ra2 : RegsExcept c3 a2 [.x28, .x29] := (R1.trans ra2).mono (by decide)
   have n2 : a2.getReg .x28 = BitVec.ofNat 64 (T3.r6Rank v 2) := by
     rw [va, R1 .x6 (by decide), c3x6, show (255#64 : Word) = BitVec.ofNat 64 (2 ^ 8 - 1) from rfl,
       fld_lo v 16 8 (by norm_num), r6Rank_g v 2 (by norm_num) (by norm_num)]
-    try norm_num
-  have pa2' : a2.pc = pcOf (P.ub + 28) := by rw [pa2]; simp only [pcOf_4]
+    change BitVec.ofNat 64 (v.toNat / 2^(8*2) % 256) - 3#64 = BitVec.ofNat 64 (v.toNat / 2^(8*2) % 256 - 3)
+    rw [bv_sub _ 3 (shifted_valid hd 2 (by omega) (by omega)).1 (by have hh := (shifted_valid hd 2 (by omega) (by omega)).2; omega)]
+  have pa2' : a2.pc = pcOf (P.ub + 30) := by rw [pa2]; simp only [pcOf_4]
   obtain ⟨t2, st2, pt2, b0_2, b1_2, b2_2, bf2, rt2, ft2⟩ :=
-    trip (R := .x30) (o := 6) (r := 6) (codeAt_ua hU 10 rfl) (codeAt_ua hU 11 rfl) pa2' (mid0 (P.ub + 28))
+    trip (R := .x30) (o := 6) (r := 6) (codeAt_ua hU 10 rfl) (codeAt_ua hU 11 rfl) pa2' (mid0 (P.ub + 30))
       rfl rfl rfl rfl rfl rfl rfl (by decide) rfl rfl rfl (by norm_num) (by rw [Ra2 .x10 (by decide), c3x10])
       (by rw [Ra2 .x30 (by decide), c3x30]) (by norm_num) n2 (by have := r6Rank_lt v 2; omega)
   have D2 : DInv t2 ds (6 + 3) :=
@@ -28374,17 +28401,18 @@ theorem unpack {image : Image} {P : KInst} (hU : T51UAt image P) (u : MachineSta
   have R2 : RegsExcept c3 t2 [.x28, .x29] := (Ra2.trans rt2).mono (by decide)
   have F2 : Frame c3 t2 (fun A => DIGITS ≤ A ∧ A < DIGITS + 64) :=
     ((F1.trans fa2).trans ft2).mono (fun _ _ h => by simp only [or_false] at h; rcases h with h | h <;> exact h)
-  have pt2' : t2.pc = pcOf (P.ub + 35) := by rw [pt2]; simp only [pcOf_4]
+  have pt2' : t2.pc = pcOf (P.ub + 37) := by rw [pt2]; simp only [pcOf_4]
   -- group 3
   obtain ⟨a3, sa3, pa3, va, ra3, fa3⟩ := kUg3_spec (codeAt_ua hU 12 rfl) t2 pt2'
   have Ra3 : RegsExcept c3 a3 [.x28, .x29] := (R2.trans ra3).mono (by decide)
   have n3 : a3.getReg .x28 = BitVec.ofNat 64 (T3.r6Rank v 3) := by
     rw [va, R2 .x6 (by decide), c3x6, show (255#64 : Word) = BitVec.ofNat 64 (2 ^ 8 - 1) from rfl,
       fld_lo v 24 8 (by norm_num), r6Rank_g v 3 (by norm_num) (by norm_num)]
-    try norm_num
-  have pa3' : a3.pc = pcOf (P.ub + 37) := by rw [pa3]; simp only [pcOf_4]
+    change BitVec.ofNat 64 (v.toNat / 2^(8*3) % 256) - 3#64 = BitVec.ofNat 64 (v.toNat / 2^(8*3) % 256 - 3)
+    rw [bv_sub _ 3 (shifted_valid hd 3 (by omega) (by omega)).1 (by have hh := (shifted_valid hd 3 (by omega) (by omega)).2; omega)]
+  have pa3' : a3.pc = pcOf (P.ub + 40) := by rw [pa3]; simp only [pcOf_4]
   obtain ⟨t3, st3, pt3, b0_3, b1_3, b2_3, bf3, rt3, ft3⟩ :=
-    trip (R := .x30) (o := 9) (r := 6) (codeAt_ua hU 13 rfl) (codeAt_ua hU 14 rfl) pa3' (mid0 (P.ub + 37))
+    trip (R := .x30) (o := 9) (r := 6) (codeAt_ua hU 13 rfl) (codeAt_ua hU 14 rfl) pa3' (mid0 (P.ub + 40))
       rfl rfl rfl rfl rfl rfl rfl (by decide) rfl rfl rfl (by norm_num) (by rw [Ra3 .x10 (by decide), c3x10])
       (by rw [Ra3 .x30 (by decide), c3x30]) (by norm_num) n3 (by have := r6Rank_lt v 3; omega)
   have D3 : DInv t3 ds (9 + 3) :=
@@ -28392,17 +28420,18 @@ theorem unpack {image : Image} {P : KInst} (hU : T51UAt image P) (u : MachineSta
   have R3 : RegsExcept c3 t3 [.x28, .x29] := (Ra3.trans rt3).mono (by decide)
   have F3 : Frame c3 t3 (fun A => DIGITS ≤ A ∧ A < DIGITS + 64) :=
     ((F2.trans fa3).trans ft3).mono (fun _ _ h => by simp only [or_false] at h; rcases h with h | h <;> exact h)
-  have pt3' : t3.pc = pcOf (P.ub + 44) := by rw [pt3]; simp only [pcOf_4]
+  have pt3' : t3.pc = pcOf (P.ub + 47) := by rw [pt3]; simp only [pcOf_4]
   -- group 4
   obtain ⟨a4, sa4, pa4, va, ra4, fa4⟩ := kUg4_spec (codeAt_ua hU 15 rfl) t3 pt3'
   have Ra4 : RegsExcept c3 a4 [.x28, .x29] := (R3.trans ra4).mono (by decide)
   have n4 : a4.getReg .x28 = BitVec.ofNat 64 (T3.r6Rank v 4) := by
     rw [va, R3 .x6 (by decide), c3x6, show (255#64 : Word) = BitVec.ofNat 64 (2 ^ 8 - 1) from rfl,
       fld_lo v 32 8 (by norm_num), r6Rank_g v 4 (by norm_num) (by norm_num)]
-    try norm_num
-  have pa4' : a4.pc = pcOf (P.ub + 46) := by rw [pa4]; simp only [pcOf_4]
+    change BitVec.ofNat 64 (v.toNat / 2^(8*4) % 256) - 3#64 = BitVec.ofNat 64 (v.toNat / 2^(8*4) % 256 - 3)
+    rw [bv_sub _ 3 (shifted_valid hd 4 (by omega) (by omega)).1 (by have hh := (shifted_valid hd 4 (by omega) (by omega)).2; omega)]
+  have pa4' : a4.pc = pcOf (P.ub + 50) := by rw [pa4]; simp only [pcOf_4]
   obtain ⟨t4, st4, pt4, b0_4, b1_4, b2_4, bf4, rt4, ft4⟩ :=
-    trip (R := .x30) (o := 12) (r := 6) (codeAt_ua hU 16 rfl) (codeAt_ua hU 17 rfl) pa4' (mid0 (P.ub + 46))
+    trip (R := .x30) (o := 12) (r := 6) (codeAt_ua hU 16 rfl) (codeAt_ua hU 17 rfl) pa4' (mid0 (P.ub + 50))
       rfl rfl rfl rfl rfl rfl rfl (by decide) rfl rfl rfl (by norm_num) (by rw [Ra4 .x10 (by decide), c3x10])
       (by rw [Ra4 .x30 (by decide), c3x30]) (by norm_num) n4 (by have := r6Rank_lt v 4; omega)
   have D4 : DInv t4 ds (12 + 3) :=
@@ -28410,17 +28439,18 @@ theorem unpack {image : Image} {P : KInst} (hU : T51UAt image P) (u : MachineSta
   have R4 : RegsExcept c3 t4 [.x28, .x29] := (Ra4.trans rt4).mono (by decide)
   have F4 : Frame c3 t4 (fun A => DIGITS ≤ A ∧ A < DIGITS + 64) :=
     ((F3.trans fa4).trans ft4).mono (fun _ _ h => by simp only [or_false] at h; rcases h with h | h <;> exact h)
-  have pt4' : t4.pc = pcOf (P.ub + 53) := by rw [pt4]; simp only [pcOf_4]
+  have pt4' : t4.pc = pcOf (P.ub + 57) := by rw [pt4]; simp only [pcOf_4]
   -- group 5
   obtain ⟨a5, sa5, pa5, va, ra5, fa5⟩ := kUg5_spec (codeAt_ua hU 18 rfl) t4 pt4'
   have Ra5 : RegsExcept c3 a5 [.x28, .x29] := (R4.trans ra5).mono (by decide)
   have n5 : a5.getReg .x28 = BitVec.ofNat 64 (T3.r6Rank v 5) := by
     rw [va, R4 .x6 (by decide), c3x6, show (255#64 : Word) = BitVec.ofNat 64 (2 ^ 8 - 1) from rfl,
       fld_lo v 40 8 (by norm_num), r6Rank_g v 5 (by norm_num) (by norm_num)]
-    try norm_num
-  have pa5' : a5.pc = pcOf (P.ub + 55) := by rw [pa5]; simp only [pcOf_4]
+    change BitVec.ofNat 64 (v.toNat / 2^(8*5) % 256) - 3#64 = BitVec.ofNat 64 (v.toNat / 2^(8*5) % 256 - 3)
+    rw [bv_sub _ 3 (shifted_valid hd 5 (by omega) (by omega)).1 (by have hh := (shifted_valid hd 5 (by omega) (by omega)).2; omega)]
+  have pa5' : a5.pc = pcOf (P.ub + 60) := by rw [pa5]; simp only [pcOf_4]
   obtain ⟨t5, st5, pt5, b0_5, b1_5, b2_5, bf5, rt5, ft5⟩ :=
-    trip (R := .x30) (o := 15) (r := 6) (codeAt_ua hU 19 rfl) (codeAt_ua hU 20 rfl) pa5' (mid0 (P.ub + 55))
+    trip (R := .x30) (o := 15) (r := 6) (codeAt_ua hU 19 rfl) (codeAt_ua hU 20 rfl) pa5' (mid0 (P.ub + 60))
       rfl rfl rfl rfl rfl rfl rfl (by decide) rfl rfl rfl (by norm_num) (by rw [Ra5 .x10 (by decide), c3x10])
       (by rw [Ra5 .x30 (by decide), c3x30]) (by norm_num) n5 (by have := r6Rank_lt v 5; omega)
   have D5 : DInv t5 ds (15 + 3) :=
@@ -28428,17 +28458,18 @@ theorem unpack {image : Image} {P : KInst} (hU : T51UAt image P) (u : MachineSta
   have R5 : RegsExcept c3 t5 [.x28, .x29] := (Ra5.trans rt5).mono (by decide)
   have F5 : Frame c3 t5 (fun A => DIGITS ≤ A ∧ A < DIGITS + 64) :=
     ((F4.trans fa5).trans ft5).mono (fun _ _ h => by simp only [or_false] at h; rcases h with h | h <;> exact h)
-  have pt5' : t5.pc = pcOf (P.ub + 62) := by rw [pt5]; simp only [pcOf_4]
+  have pt5' : t5.pc = pcOf (P.ub + 67) := by rw [pt5]; simp only [pcOf_4]
   -- group 6
   obtain ⟨a6, sa6, pa6, va, ra6, fa6⟩ := kUg6_spec (codeAt_ua hU 21 rfl) t5 pt5'
   have Ra6 : RegsExcept c3 a6 [.x28, .x29] := (R5.trans ra6).mono (by decide)
   have n6 : a6.getReg .x28 = BitVec.ofNat 64 (T3.r6Rank v 6) := by
     rw [va, R5 .x6 (by decide), c3x6, show (255#64 : Word) = BitVec.ofNat 64 (2 ^ 8 - 1) from rfl,
       fld_lo v 48 8 (by norm_num), r6Rank_g v 6 (by norm_num) (by norm_num)]
-    try norm_num
-  have pa6' : a6.pc = pcOf (P.ub + 64) := by rw [pa6]; simp only [pcOf_4]
+    change BitVec.ofNat 64 (v.toNat / 2^(8*6) % 256) - 3#64 = BitVec.ofNat 64 (v.toNat / 2^(8*6) % 256 - 3)
+    rw [bv_sub _ 3 (shifted_valid hd 6 (by omega) (by omega)).1 (by have hh := (shifted_valid hd 6 (by omega) (by omega)).2; omega)]
+  have pa6' : a6.pc = pcOf (P.ub + 70) := by rw [pa6]; simp only [pcOf_4]
   obtain ⟨t6, st6, pt6, b0_6, b1_6, b2_6, bf6, rt6, ft6⟩ :=
-    trip (R := .x30) (o := 18) (r := 6) (codeAt_ua hU 22 rfl) (codeAt_ua hU 23 rfl) pa6' (mid0 (P.ub + 64))
+    trip (R := .x30) (o := 18) (r := 6) (codeAt_ua hU 22 rfl) (codeAt_ua hU 23 rfl) pa6' (mid0 (P.ub + 70))
       rfl rfl rfl rfl rfl rfl rfl (by decide) rfl rfl rfl (by norm_num) (by rw [Ra6 .x10 (by decide), c3x10])
       (by rw [Ra6 .x30 (by decide), c3x30]) (by norm_num) n6 (by have := r6Rank_lt v 6; omega)
   have D6 : DInv t6 ds (18 + 3) :=
@@ -28446,17 +28477,18 @@ theorem unpack {image : Image} {P : KInst} (hU : T51UAt image P) (u : MachineSta
   have R6 : RegsExcept c3 t6 [.x28, .x29] := (Ra6.trans rt6).mono (by decide)
   have F6 : Frame c3 t6 (fun A => DIGITS ≤ A ∧ A < DIGITS + 64) :=
     ((F5.trans fa6).trans ft6).mono (fun _ _ h => by simp only [or_false] at h; rcases h with h | h <;> exact h)
-  have pt6' : t6.pc = pcOf (P.ub + 71) := by rw [pt6]; simp only [pcOf_4]
+  have pt6' : t6.pc = pcOf (P.ub + 77) := by rw [pt6]; simp only [pcOf_4]
   -- group 7
   obtain ⟨a7, sa7, pa7, va, ra7, fa7⟩ := kUg7_spec (codeAt_ua hU 24 rfl) t6 pt6'
   have Ra7 : RegsExcept c3 a7 [.x28, .x29] := (R6.trans ra7).mono (by decide)
   have n7 : a7.getReg .x28 = BitVec.ofNat 64 (T3.r6Rank v 7) := by
     rw [va, R6 .x6 (by decide), c3x6, show (255#64 : Word) = BitVec.ofNat 64 (2 ^ 8 - 1) from rfl,
       fld_lo v 56 8 (by norm_num), r6Rank_7]
-    try norm_num
-  have pa7' : a7.pc = pcOf (P.ub + 73) := by rw [pa7]; simp only [pcOf_4]
+    change BitVec.ofNat 64 (v.toNat / 2^(8*7) % 256) - 3#64 = BitVec.ofNat 64 (v.toNat / 2^(8*7) % 256 - 3)
+    rw [bv_sub _ 3 (shifted_valid hd 7 (by omega) (by omega)).1 (by have hh := (shifted_valid hd 7 (by omega) (by omega)).2; omega)]
+  have pa7' : a7.pc = pcOf (P.ub + 80) := by rw [pa7]; simp only [pcOf_4]
   obtain ⟨t7, st7, pt7, b0_7, b1_7, b2_7, bf7, rt7, ft7⟩ :=
-    trip (R := .x30) (o := 21) (r := 6) (codeAt_ua hU 25 rfl) (codeAt_ua hU 26 rfl) pa7' (mid0 (P.ub + 73))
+    trip (R := .x30) (o := 21) (r := 6) (codeAt_ua hU 25 rfl) (codeAt_ua hU 26 rfl) pa7' (mid0 (P.ub + 80))
       rfl rfl rfl rfl rfl rfl rfl (by decide) rfl rfl rfl (by norm_num) (by rw [Ra7 .x10 (by decide), c3x10])
       (by rw [Ra7 .x30 (by decide), c3x30]) (by norm_num) n7 (by have := r6Rank_lt v 7; omega)
   have D7 : DInv t7 ds (21 + 3) :=
@@ -28464,18 +28496,23 @@ theorem unpack {image : Image} {P : KInst} (hU : T51UAt image P) (u : MachineSta
   have R7 : RegsExcept c3 t7 [.x28, .x29] := (Ra7.trans rt7).mono (by decide)
   have F7 : Frame c3 t7 (fun A => DIGITS ≤ A ∧ A < DIGITS + 64) :=
     ((F6.trans fa7).trans ft7).mono (fun _ _ h => by simp only [or_false] at h; rcases h with h | h <;> exact h)
-  have pt7' : t7.pc = pcOf (P.ub + 80) := by rw [pt7]; simp only [pcOf_4]
+  have pt7' : t7.pc = pcOf (P.ub + 87) := by rw [pt7]; simp only [pcOf_4]
   -- group 8
   obtain ⟨a8, sa8, pa8, va, ra8, fa8⟩ := kUg8_spec (codeAt_ua hU 27 rfl) t7 pt7'
   have Ra8 : RegsExcept c3 a8 [.x28, .x29] := (R7.trans ra8).mono (by decide)
   have n8 : a8.getReg .x28 = BitVec.ofNat 64 (T3.r6Rank v 8) := by
     rw [va, R7 .x7 (by decide), c3x7, r6Rank_8]
-    apply BitVec.eq_of_toNat_eq
-    simp only [BitVec.toNat_ushiftRight, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow, BitVec.toNat_ofNat]
-    omega
-  have pa8' : a8.pc = pcOf (P.ub + 81) := by rw [pa8]; simp only [pcOf_4]
+    calc
+      _ = BitVec.ofNat 64 (v.toNat / 2 ^ 120 % 256) - 3#64 := by
+        apply congrArg (fun z : BitVec 64 => z - 3#64)
+        apply BitVec.eq_of_toNat_eq
+        simp only [BitVec.toNat_ushiftRight, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow, BitVec.toNat_ofNat]
+        omega
+      _ = _ := by
+        rw [bv_sub _ 3 (shifted_valid8 hd).1 (by have hh := (shifted_valid8 hd).2; omega)]
+  have pa8' : a8.pc = pcOf (P.ub + 89) := by rw [pa8]; simp only [pcOf_4]
   obtain ⟨t8, st8, pt8, b0_8, b1_8, b2_8, bf8, rt8, ft8⟩ :=
-    trip (R := .x30) (o := 24) (r := 6) (codeAt_ua hU 28 rfl) (codeAt_ua hU 29 rfl) pa8' (mid0 (P.ub + 81))
+    trip (R := .x30) (o := 24) (r := 6) (codeAt_ua hU 28 rfl) (codeAt_ua hU 29 rfl) pa8' (mid0 (P.ub + 89))
       rfl rfl rfl rfl rfl rfl rfl (by decide) rfl rfl rfl (by norm_num) (by rw [Ra8 .x10 (by decide), c3x10])
       (by rw [Ra8 .x30 (by decide), c3x30]) (by norm_num) n8 (by have := r6Rank_lt v 8; omega)
   have D8 : DInv t8 ds (24 + 3) :=
@@ -28483,7 +28520,7 @@ theorem unpack {image : Image} {P : KInst} (hU : T51UAt image P) (u : MachineSta
   have R8 : RegsExcept c3 t8 [.x28, .x29] := (Ra8.trans rt8).mono (by decide)
   have F8 : Frame c3 t8 (fun A => DIGITS ≤ A ∧ A < DIGITS + 64) :=
     ((F7.trans fa8).trans ft8).mono (fun _ _ h => by simp only [or_false] at h; rcases h with h | h <;> exact h)
-  have pt8' : t8.pc = pcOf (P.ub + 88) := by rw [pt8]; simp only [pcOf_4]
+  have pt8' : t8.pc = pcOf (P.ub + 96) := by rw [pt8]; simp only [pcOf_4]
   -- group 9
   obtain ⟨a9, sa9, pa9, va, ra9, fa9⟩ := kUg9_spec (codeAt_ua hU 30 rfl) t8 pt8'
   have Ra9 : RegsExcept c3 a9 [.x28, .x29] := (R8.trans ra9).mono (by decide)
@@ -28493,9 +28530,9 @@ theorem unpack {image : Image} {P : KInst} (hU : T51UAt image P) (u : MachineSta
       show (BitVec.ofNat 64 (2 ^ 7 - 1) : Word) = 127#64 from rfl,
       xor127 ((v.toNat / 2 ^ 64 % 128 + 1) % 128) (Nat.mod_lt _ (by norm_num)), r5Rank9_raw v]
     try norm_num
-  have pa9' : a9.pc = pcOf (P.ub + 90) := by rw [pa9]; simp only [pcOf_4]
+  have pa9' : a9.pc = pcOf (P.ub + 98) := by rw [pa9]; simp only [pcOf_4]
   obtain ⟨t9, st9, pt9, b0_9, b1_9, b2_9, bf9, rt9, ft9⟩ :=
-    trip (R := .x11) (o := 27) (r := 5) (codeAt_ua hU 31 rfl) (codeAt_ua hU 32 rfl) pa9' (mid0 (P.ub + 90))
+    trip (R := .x11) (o := 27) (r := 5) (codeAt_ua hU 31 rfl) (codeAt_ua hU 32 rfl) pa9' (mid0 (P.ub + 98))
       rfl rfl rfl rfl rfl rfl rfl (by decide) rfl rfl rfl (by norm_num) (by rw [Ra9 .x10 (by decide), c3x10])
       (by rw [Ra9 .x11 (by decide), c3x11]) (by norm_num) n9 (by have := r5Rank_lt v 9; omega)
   have D9 : DInv t9 ds (27 + 3) :=
@@ -28503,7 +28540,7 @@ theorem unpack {image : Image} {P : KInst} (hU : T51UAt image P) (u : MachineSta
   have R9 : RegsExcept c3 t9 [.x28, .x29] := (Ra9.trans rt9).mono (by decide)
   have F9 : Frame c3 t9 (fun A => DIGITS ≤ A ∧ A < DIGITS + 64) :=
     ((F8.trans fa9).trans ft9).mono (fun _ _ h => by simp only [or_false] at h; rcases h with h | h <;> exact h)
-  have pt9' : t9.pc = pcOf (P.ub + 97) := by rw [pt9]; simp only [pcOf_4]
+  have pt9' : t9.pc = pcOf (P.ub + 105) := by rw [pt9]; simp only [pcOf_4]
   -- group 10
   obtain ⟨a10, sa10, pa10, va, ra10, fa10⟩ := kUg10_spec (codeAt_ua hU 33 rfl) t9 pt9'
   have Ra10 : RegsExcept c3 a10 [.x28, .x29] := (R9.trans ra10).mono (by decide)
@@ -28512,9 +28549,9 @@ theorem unpack {image : Image} {P : KInst} (hU : T51UAt image P) (u : MachineSta
       fld_hi v 7 7 (by norm_num), show (BitVec.ofNat 64 (2 ^ 7 - 1) : Word) = 127#64 from rfl,
       xor127 (v.toNat / 2 ^ (64 + 7) % 2 ^ 7) (Nat.mod_lt _ (by norm_num)), r5Rank_eq v 10 (by norm_num)]
     try norm_num
-  have pa10' : a10.pc = pcOf (P.ub + 100) := by rw [pa10]; simp only [pcOf_4]
+  have pa10' : a10.pc = pcOf (P.ub + 108) := by rw [pa10]; simp only [pcOf_4]
   obtain ⟨t10, st10, pt10, b0_10, b1_10, b2_10, bf10, rt10, ft10⟩ :=
-    trip (R := .x11) (o := 30) (r := 5) (codeAt_ua hU 34 rfl) (codeAt_ua hU 35 rfl) pa10' (mid0 (P.ub + 100))
+    trip (R := .x11) (o := 30) (r := 5) (codeAt_ua hU 34 rfl) (codeAt_ua hU 35 rfl) pa10' (mid0 (P.ub + 108))
       rfl rfl rfl rfl rfl rfl rfl (by decide) rfl rfl rfl (by norm_num) (by rw [Ra10 .x10 (by decide), c3x10])
       (by rw [Ra10 .x11 (by decide), c3x11]) (by norm_num) n10 (by have := r5Rank_lt v 10; omega)
   have D10 : DInv t10 ds (30 + 3) :=
@@ -28522,7 +28559,7 @@ theorem unpack {image : Image} {P : KInst} (hU : T51UAt image P) (u : MachineSta
   have R10 : RegsExcept c3 t10 [.x28, .x29] := (Ra10.trans rt10).mono (by decide)
   have F10 : Frame c3 t10 (fun A => DIGITS ≤ A ∧ A < DIGITS + 64) :=
     ((F9.trans fa10).trans ft10).mono (fun _ _ h => by simp only [or_false] at h; rcases h with h | h <;> exact h)
-  have pt10' : t10.pc = pcOf (P.ub + 107) := by rw [pt10]; simp only [pcOf_4]
+  have pt10' : t10.pc = pcOf (P.ub + 115) := by rw [pt10]; simp only [pcOf_4]
   -- group 11
   obtain ⟨a11, sa11, pa11, va, ra11, fa11⟩ := kUg11_spec (codeAt_ua hU 36 rfl) t10 pt10'
   have Ra11 : RegsExcept c3 a11 [.x28, .x29] := (R10.trans ra11).mono (by decide)
@@ -28531,7 +28568,7 @@ theorem unpack {image : Image} {P : KInst} (hU : T51UAt image P) (u : MachineSta
       fld_hi v 14 7 (by norm_num), show (BitVec.ofNat 64 (2 ^ 7 - 1) : Word) = 127#64 from rfl,
       xor127 (v.toNat / 2 ^ (64 + 14) % 2 ^ 7) (Nat.mod_lt _ (by norm_num)), r5Rank_eq v 11 (by norm_num)]
     try norm_num
-  have pa11' : a11.pc = pcOf (P.ub + 110) := by rw [pa11]; simp only [pcOf_4]
+  have pa11' : a11.pc = pcOf (P.ub + 118) := by rw [pa11]; simp only [pcOf_4]
   obtain ⟨t11, st11, pt11, b0_11, b1_11, b2_11, bf11, rt11, ft11⟩ :=
     trip (R := .x11) (o := 33) (r := 5) (codeAt_ua hU 37 rfl) (codeAt_ub hU 0 rfl) pa11' (fun x hx => hU.hJ x (by rw [hx, pcOf_4, pcOf_4]))
       rfl rfl rfl rfl rfl rfl rfl (by decide) rfl rfl rfl (by norm_num) (by rw [Ra11 .x10 (by decide), c3x10])
@@ -28666,14 +28703,14 @@ open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGol
 set_option maxRecDepth 16384
 set_option maxHeartbeats 1000000
 set_option linter.unusedSimpArgs false
-/-- Sign instance: `K_ENTRY` 1798, `U_ENTRY` 21230 (split jump at 21342 to 21852), block 0xFFF800 (TOP_DATA + 2048),
+/-- Sign instance: `K_ENTRY` 1798, `U_ENTRY` 26241 (split jump at 21342 to 26361), block 0xFFF800 (TOP_DATA + 2048),
 credit 0x66018, reject continuation 1011 (`b + 468`, b = 543). -/
 def signInst : KInst :=
-  ⟨1798, 21230, 21852, 1, 0xFFF800, 0x66018, 1011, 0x1000537, 0x8a050513, 0x1df3c23, 0x5c51206f, 0x9b4ff06f⟩
-/-- Expand instance: `K_ENTRY` 54176, `U_ENTRY` 54356 (contiguous unpacker), RAM block 0xA0000, credit 0x66040,
+  ⟨1798, 26241, 26361, 0, 0xFFF800, 0x66018, 1011, 0x1000537, 0x8a050513, 0x1df3c23, 0x4111706f, 0x9b4ff06f⟩
+/-- Expand instance: `K_ENTRY` 54176, `U_ENTRY` 90000 (contiguous unpacker), RAM block 0xA0000, credit 0x66040,
 reject continuation 822 (`b + 468`, b = 354). -/
 def expandInst : KInst :=
-  ⟨54176, 54356, 54468, 0, 0xA0000, 0x66040, 822, 0xa0537, 0xa050513, 0x5df3023, 0xf40006f, 0xc59cb06f⟩
+  ⟨54176, 90000, 90120, 0, 0xA0000, 0x66040, 822, 0xa0537, 0xa050513, 0x5df3023, 0x5e52206f, 0xc59cb06f⟩
 def jal1 (n : Nat) : List (BitVec 32) := [BitVec.ofNat 32 n]
 theorem jump_hook {image : Image} {w : BitVec 32} {k t : Nat} {off : Nat}
     (hrun : ∀ pc : Word, symRun { noAlias := true } [w] pc 10 = some ⟨SymState.init, .c (pc + BitVec.ofNat 64 off), .jump, 1, 1⟩)
@@ -28732,7 +28769,7 @@ theorem signKAt {image : Image} (hc : CodeAt image (pcOf 1798) (kCode signInst))
   hE := sign_hE (codeAt_sublayout hc (kLF_ok _) (i := 0) rfl)
   hCr := cr_hook (k := 1798 + 117) (c := 24) (codeAt_sublayout hc (kLF_ok _) (i := 32) rfl) rfl rfl
     (by norm_num [signInst]) (by norm_num [signInst])
-  hU := jump_hook (off := 77252) (fun _ => rfl) (codeAt_sublayout hc (kLF_ok _) (i := 34) rfl) (by norm_num [signInst])
+  hU := jump_hook (off := 97296) (fun _ => rfl) (codeAt_sublayout hc (kLF_ok _) (i := 34) rfl) (by norm_num [signInst])
     (by norm_num [signInst]) (by norm_num [signInst])
   hN := jump_hook (off := 18446744073709547956) (fun _ => rfl) (codeAt_sublayout hc (kLF_ok _) (i := 40) rfl)
     (by norm_num [signInst]) (by norm_num [signInst]) (by norm_num [signInst])
@@ -28747,21 +28784,21 @@ theorem expandKAt {image : Image} (hc : CodeAt image (pcOf 54176) (kCode expandI
   hE := expand_hE (codeAt_sublayout hc (kLF_ok _) (i := 0) rfl)
   hCr := cr_hook (k := 54176 + 117) (c := 64) (codeAt_sublayout hc (kLF_ok _) (i := 32) rfl) rfl rfl
     (by norm_num [expandInst]) (by norm_num [expandInst])
-  hU := jump_hook (off := 244) (fun _ => rfl) (codeAt_sublayout hc (kLF_ok _) (i := 34) rfl) (by norm_num [expandInst])
+  hU := jump_hook (off := 142820) (fun _ => rfl) (codeAt_sublayout hc (kLF_ok _) (i := 34) rfl) (by norm_num [expandInst])
     (by norm_num [expandInst]) (by norm_num [expandInst])
   hN := jump_hook (off := 18446744073709337688) (fun _ => rfl) (codeAt_sublayout hc (kLF_ok _) (i := 40) rfl)
     (by norm_num [expandInst]) (by norm_num [expandInst]) (by norm_num [expandInst])
-/-- The sign unpacker's split jump `j 21852` at 21342. -/
+/-- The sign unpacker's split jump `j 26361` at 21342. -/
 def uJumpS : List (BitVec 32) := [0x7f80006f]
-theorem signUAt {image : Image} (hA : CodeAt image (pcOf 21230) uCodeA) (hJ : CodeAt image (pcOf 21342) uJumpS)
-    (hB : CodeAt image (pcOf 21852) uCodeB) : T51UAt image signInst where
+theorem signUAt {image : Image} (hA : CodeAt image (pcOf 26241) uCodeA) (hJ : CodeAt image (pcOf 21342) uJumpS)
+    (hB : CodeAt image (pcOf 26361) uCodeB) : T51UAt image signInst where
   codeA := hA
   codeB := hB
   ubLt := by norm_num [signInst]
   ucLt := by norm_num [signInst]
-  hJ := jump_hook (off := 2040) (fun _ => rfl) hJ (by norm_num [signInst]) (by norm_num [signInst]) (by norm_num [signInst])
-theorem expandUAt {image : Image} (hA : CodeAt image (pcOf 54356) uCodeA)
-    (hB : CodeAt image (pcOf 54468) uCodeB) : T51UAt image expandInst where
+  hJ := fun s hs => ⟨s, Steps.refl _, hs, RegsExcept.refl _ _, Frame.refl _ _⟩
+theorem expandUAt {image : Image} (hA : CodeAt image (pcOf 90000) uCodeA)
+    (hB : CodeAt image (pcOf 90120) uCodeB) : T51UAt image expandInst where
   codeA := hA
   codeB := hB
   ubLt := by norm_num [expandInst]
@@ -28867,14 +28904,14 @@ structure Code (im : Image) : Prop where
   prep : CodeAt im (pcOf 54310) prepCode
   test : CodeAt im (pcOf 54317) testCode
   reject : CodeAt im (pcOf 54318) [0xc21cb06f]
-  accept : CodeAt im (pcOf 54319) [0x940006f]
+  accept : CodeAt im (pcOf 54319) [0x5852206f]
 theorem guard_steps {im : Image} (hc : Code im)
     (s : MachineState) (hp : s.pc=pcOf 54310) (leaf credit : Nat)
     (hleaf : leaf<4096) (hcredit : credit<2^64)
     (h18 : s.getReg .x18=BitVec.ofNat 64 leaf)
     (hm : s.getMem 0x66040=BitVec.ofNat 64 credit) :
     ∃ t, Steps im s 9 9 t ∧
-      t.pc=(if credit < max 18 (ClaudeWCT.Numerics.TopRoute.rootPool leaf-54) then pcOf 822 else pcOf 54356) ∧
+      t.pc=(if credit < max 18 (ClaudeWCT.Numerics.TopRoute.rootPool leaf-54) then pcOf 822 else pcOf 90000) ∧
       RegsExcept s t [.x29,.x30] ∧ Frame s t (fun _=>False) := by
   let floor := max 18 (ClaudeWCT.Numerics.TopRoute.rootPool leaf-54)
   have hfloor : floor<2^64 := by
@@ -28888,16 +28925,16 @@ theorem guard_steps {im : Image} (hc : Code im)
       (k := 54318) (t := 822) (off := 18446744073709337632) (fun _=>rfl) hc.reject (by norm_num [pcOf])
       (by norm_num [pcOf]) (by norm_num [pcOf]) v pv
     refine ⟨t, (su.trans sv).trans st, ?_, ((ru.trans rv).trans rt).mono (by decide), ?_⟩
-    · change t.pc = (if credit < floor then pcOf 822 else pcOf 54356)
+    · change t.pc = (if credit < floor then pcOf 822 else pcOf 90000)
       rw [if_pos h]
       exact pt
     · exact ((fu.trans fv).trans ft).mono (by simp)
   · rw [if_neg h] at pv
     obtain ⟨t,st,pt,rt,ft⟩ := SigGolfCandidate.T3M.Search.T51.jump_hook
-      (k := 54319) (t := 54356) (off := 148) (fun _=>rfl) hc.accept (by norm_num [pcOf])
+      (k := 54319) (t := 90000) (off := 142724) (fun _=>rfl) hc.accept (by norm_num [pcOf])
       (by norm_num [pcOf]) (by norm_num [pcOf]) v pv
     refine ⟨t, (su.trans sv).trans st, ?_, ((ru.trans rv).trans rt).mono (by decide), ?_⟩
-    · change t.pc = (if credit < floor then pcOf 822 else pcOf 54356)
+    · change t.pc = (if credit < floor then pcOf 822 else pcOf 90000)
       rw [if_neg h]
       exact pt
     · exact ((fu.trans fv).trans ft).mono (by simp)
@@ -28958,14 +28995,14 @@ structure Code (im : Image) : Prop where
   prep : CodeAt im (pcOf 1952) prepCode
   test : CodeAt im (pcOf 1959) testCode
   reject : CodeAt im (pcOf 1960) [0x92cff06f]
-  accept : CodeAt im (pcOf 1961) [0x5151206f]
+  accept : CodeAt im (pcOf 1961) [0x3611706f]
 theorem guard_steps {im : Image} (hc : Code im)
     (s : MachineState) (hp : s.pc=pcOf 1952) (leaf credit : Nat)
     (hleaf : leaf<4096) (hcredit : credit<2^64)
     (h18 : s.getReg .x18=BitVec.ofNat 64 leaf)
     (hm : s.getMem 0x66018=BitVec.ofNat 64 credit) :
     ∃ t, Steps im s 9 9 t ∧
-      t.pc=(if credit < max 18 (ClaudeWCT.Numerics.TopRoute.rootPool leaf-54) then pcOf 1011 else pcOf 21230) ∧
+      t.pc=(if credit < max 18 (ClaudeWCT.Numerics.TopRoute.rootPool leaf-54) then pcOf 1011 else pcOf 26241) ∧
       RegsExcept s t [.x29,.x30] ∧ Frame s t (fun _=>False) := by
   let floor := max 18 (ClaudeWCT.Numerics.TopRoute.rootPool leaf-54)
   have hfloor : floor<2^64 := by
@@ -28979,16 +29016,16 @@ theorem guard_steps {im : Image} (hc : Code im)
       (k := 1960) (t := 1011) (off := 18446744073709547820) (fun _=>rfl) hc.reject (by norm_num [pcOf])
       (by norm_num [pcOf]) (by norm_num [pcOf]) v pv
     refine ⟨t, (su.trans sv).trans st, ?_, ((ru.trans rv).trans rt).mono (by decide), ?_⟩
-    · change t.pc = (if credit < floor then pcOf 1011 else pcOf 21230)
+    · change t.pc = (if credit < floor then pcOf 1011 else pcOf 26241)
       rw [if_pos h]
       exact pt
     · exact ((fu.trans fv).trans ft).mono (by simp)
   · rw [if_neg h] at pv
     obtain ⟨t,st,pt,rt,ft⟩ := SigGolfCandidate.T3M.Search.T51.jump_hook
-      (k := 1961) (t := 21230) (off := 77076) (fun _=>rfl) hc.accept (by norm_num [pcOf])
+      (k := 1961) (t := 26241) (off := 97120) (fun _=>rfl) hc.accept (by norm_num [pcOf])
       (by norm_num [pcOf]) (by norm_num [pcOf]) v pv
     refine ⟨t, (su.trans sv).trans st, ?_, ((ru.trans rv).trans rt).mono (by decide), ?_⟩
-    · change t.pc = (if credit < floor then pcOf 1011 else pcOf 21230)
+    · change t.pc = (if credit < floor then pcOf 1011 else pcOf 26241)
       rw [if_neg h]
       exact pt
     · exact ((fu.trans fv).trans ft).mono (by simp)
@@ -29068,7 +29105,7 @@ structure Code (im : Image) : Prop where
   helper : CodeAt im (pcOf 88095) LocalRouteMachineHelpers.expandRootCode
   test : CodeAt im (pcOf 54317) TopRouteGuard.testCode
   reject : CodeAt im (pcOf 54318) [0xc21cb06f]
-  accept : CodeAt im (pcOf 54319) [0x940006f]
+  accept : CodeAt im (pcOf 54319) [0x5852206f]
 theorem prep_steps {im : Image} (hc : Code im)
     (s : MachineState) (hp : s.pc=pcOf 54310) (leaf credit : Nat)
     (hleaf : leaf<4096) (h18 : s.getReg .x18=BitVec.ofNat 64 leaf)
@@ -29093,7 +29130,7 @@ theorem guard_steps {im : Image} (hc : Code im)
     (h18 : s.getReg .x18=BitVec.ofNat 64 leaf)
     (hm : s.getMem 0x66040=BitVec.ofNat 64 credit) :
     ∃ t, Steps im s 14 14 t ∧
-      t.pc=(if credit < LocalRouteMachineHelpers.rootFloor leaf then pcOf 822 else pcOf 54356) ∧
+      t.pc=(if credit < LocalRouteMachineHelpers.rootFloor leaf then pcOf 822 else pcOf 90000) ∧
       RegsExcept s t [.x29,.x30] ∧ Frame s t (fun _=>False) := by
   let floor := LocalRouteMachineHelpers.rootFloor leaf
   have hfloor : floor<2^64 := by
@@ -29107,16 +29144,16 @@ theorem guard_steps {im : Image} (hc : Code im)
       (k := 54318) (t := 822) (off := 18446744073709337632) (fun _=>rfl) hc.reject (by norm_num [pcOf])
       (by norm_num [pcOf]) (by norm_num [pcOf]) v pv
     refine ⟨t, (su.trans sv).trans st, ?_, ((ru.trans rv).trans rt).mono (by decide), ?_⟩
-    · change t.pc = (if credit < floor then pcOf 822 else pcOf 54356)
+    · change t.pc = (if credit < floor then pcOf 822 else pcOf 90000)
       rw [if_pos h]
       exact pt
     · exact ((fu.trans fv).trans ft).mono (by simp)
   · rw [if_neg h] at pv
     obtain ⟨t,st,pt,rt,ft⟩ := SigGolfCandidate.T3M.Search.T51.jump_hook
-      (k := 54319) (t := 54356) (off := 148) (fun _=>rfl) hc.accept (by norm_num [pcOf])
+      (k := 54319) (t := 90000) (off := 142724) (fun _=>rfl) hc.accept (by norm_num [pcOf])
       (by norm_num [pcOf]) (by norm_num [pcOf]) v pv
     refine ⟨t, (su.trans sv).trans st, ?_, ((ru.trans rv).trans rt).mono (by decide), ?_⟩
-    · change t.pc = (if credit < floor then pcOf 822 else pcOf 54356)
+    · change t.pc = (if credit < floor then pcOf 822 else pcOf 90000)
       rw [if_neg h]
       exact pt
     · exact ((fu.trans fv).trans ft).mono (by simp)
@@ -29132,7 +29169,7 @@ structure Code (im : Image) : Prop where
   helper : CodeAt im (pcOf 26008) LocalRouteMachineHelpers.guardCode
   test : CodeAt im (pcOf 1959) TopRouteGuardSign.testCode
   reject : CodeAt im (pcOf 1960) [0x92cff06f]
-  accept : CodeAt im (pcOf 1961) [0x5151206f]
+  accept : CodeAt im (pcOf 1961) [0x3611706f]
 theorem prep_steps {im : Image} (hc : Code im)
     (s : MachineState) (hp : s.pc=pcOf 1952) (leaf credit : Nat)
     (hleaf : leaf<4096) (h18 : s.getReg .x18=BitVec.ofNat 64 leaf)
@@ -29157,7 +29194,7 @@ theorem guard_steps {im : Image} (hc : Code im)
     (h18 : s.getReg .x18=BitVec.ofNat 64 leaf)
     (hm : s.getMem 0x66018=BitVec.ofNat 64 credit) :
     ∃ t, Steps im s 14 14 t ∧
-      t.pc=(if credit < LocalRouteMachineHelpers.rootFloor leaf then pcOf 1011 else pcOf 21230) ∧
+      t.pc=(if credit < LocalRouteMachineHelpers.rootFloor leaf then pcOf 1011 else pcOf 26241) ∧
       RegsExcept s t [.x29,.x30] ∧ Frame s t (fun _=>False) := by
   let floor := LocalRouteMachineHelpers.rootFloor leaf
   have hfloor : floor<2^64 := by
@@ -29171,16 +29208,16 @@ theorem guard_steps {im : Image} (hc : Code im)
       (k := 1960) (t := 1011) (off := 18446744073709547820) (fun _=>rfl) hc.reject (by norm_num [pcOf])
       (by norm_num [pcOf]) (by norm_num [pcOf]) v pv
     refine ⟨t, (su.trans sv).trans st, ?_, ((ru.trans rv).trans rt).mono (by decide), ?_⟩
-    · change t.pc = (if credit < floor then pcOf 1011 else pcOf 21230)
+    · change t.pc = (if credit < floor then pcOf 1011 else pcOf 26241)
       rw [if_pos h]
       exact pt
     · exact ((fu.trans fv).trans ft).mono (by simp)
   · rw [if_neg h] at pv
     obtain ⟨t,st,pt,rt,ft⟩ := SigGolfCandidate.T3M.Search.T51.jump_hook
-      (k := 1961) (t := 21230) (off := 77076) (fun _=>rfl) hc.accept (by norm_num [pcOf])
+      (k := 1961) (t := 26241) (off := 97120) (fun _=>rfl) hc.accept (by norm_num [pcOf])
       (by norm_num [pcOf]) (by norm_num [pcOf]) v pv
     refine ⟨t, (su.trans sv).trans st, ?_, ((ru.trans rv).trans rt).mono (by decide), ?_⟩
-    · change t.pc = (if credit < floor then pcOf 1011 else pcOf 21230)
+    · change t.pc = (if credit < floor then pcOf 1011 else pcOf 26241)
       rw [if_neg h]
       exact pt
     · exact ((fu.trans fv).trans ft).mono (by simp)
@@ -31176,16 +31213,16 @@ structure Code (image : Image) : Prop where
   floorHook : CodeAt image (pcOf 22491) lowerFloorCode
   lowerHook : CodeAt image (pcOf 22495) lowerCreditCode
   topHook : CodeAt image (pcOf 22499) topCreditCode
-  /-- Campaign T51: the top-trial kernel `K` at 1798 and the split unpacker (21230 | jump at 21342 | 21852). -/
+  /-- Campaign T51: the top-trial kernel `K` at 1798 and the split unpacker (26241 | jump at 21342 | 26361). -/
   t51K : CodeAt image (pcOf 1798) (T51.kCode T51.signGuardInst)
-  t51UA : CodeAt image (pcOf 21230) T51.uCodeA
+  t51UA : CodeAt image (pcOf 26241) T51.uCodeA
   t51UJ : CodeAt image (pcOf 21342) T51.uJumpS
-  t51UB : CodeAt image (pcOf 21852) T51.uCodeB
+  t51UB : CodeAt image (pcOf 26361) T51.uCodeB
   guardPrep : CodeAt image (pcOf 1952) TopRouteGuardSignV2.prepCode
   guardHelper : CodeAt image (pcOf 26008) LocalRouteMachineHelpers.guardCode
   guardTest : CodeAt image (pcOf 1959) TopRouteGuardSign.testCode
   guardReject : CodeAt image (pcOf 1960) [0x92cff06f]
-  guardAccept : CodeAt image (pcOf 1961) [0x5151206f]
+  guardAccept : CodeAt image (pcOf 1961) [0x3611706f]
 theorem Code.kAt {image : Image} (h : Code image) : T51.T51KAt image T51.signGuardInst := T51.signGuardKAt h.t51K
 theorem Code.guardAt {image : Image} (h : Code image) : TopRouteGuardSignV2.Code image :=
   ⟨h.guardPrep,h.guardHelper,h.guardTest,h.guardReject,h.guardAccept⟩
@@ -31909,7 +31946,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 543 (Canonic
             rw [WCT9.CanonicalPolicy.top_out_filter A.floor hf0 a,hD]
             simp [hpass] <;> omega
           rw [hnew]
-          have pgood : g.pc = pcOf 21230 := by
+          have pgood : g.pc = pcOf 26241 := by
             rw [← hfl] at pguard
             simpa only [if_neg (by omega : ¬ WCT9.CanonicalPolicy.credit 0 low ds < A.floor)] using pguard
           obtain ⟨t',st',pt',tdig,rt',ft'⟩ := T51.unpack hUT g pgood _ ds hdec

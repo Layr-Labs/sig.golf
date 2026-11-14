@@ -1992,7 +1992,8 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 open SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (Digest HashOutput Layer route height chainCount counterLimit decode encodingInput target
   dataDigits pad64 lowerSpare lowerWord)
-theorem xtrTab_bound : (xtrTab.all fun r => r.all fun x => decide (x < 160000)) = true := by decide +kernel
+set_option debug.skipKernelTC false in
+theorem xtrTab_bound : (xtrTab.all fun r => r.all fun x => decide (x < 200000)) = true := by decide +kernel
 theorem getD_lt_of_all : ∀ (l : List Nat) (B c : Nat), 0 < B → (l.all fun x => decide (x < B)) = true →
     l.getD c 0 < B
   | [], B, c, hB, _ => by simpa using hB
@@ -2011,8 +2012,8 @@ theorem getD_getD_lt : ∀ (L : List (List Nat)) (i j B : Nat), 0 < B →
   | r :: L, i + 1, j, B, hB, h => by
     simp only [List.all_cons, Bool.and_eq_true] at h
     simpa using getD_getD_lt L i j B hB h.2
-theorem trPc_lt (lay c : Nat) : trPc lay c < 160000 :=
-  getD_getD_lt xtrTab lay c 160000 (by norm_num) xtrTab_bound
+theorem trPc_lt (lay c : Nat) : trPc lay c < 200000 :=
+  getD_getD_lt xtrTab lay c 200000 (by norm_num) xtrTab_bound
 theorem origW_of {w : ClaudeWCT.W9.T3M.WBytes} {s : MachineState} {P : Nat → Prop} (hO : Verify.Orig w P s) (A : Nat)
     (hA : WIT ≤ A) (h8 : (A - WIT) % 8 = 0) (hx : A - WIT < WX) (hP : P (A - WIT)) : OrigW w s A := by
   have := hO.word (A - WIT) h8 hx hP
@@ -3370,10 +3371,10 @@ set_option linter.unusedSimpArgs false
 /-- Campaign T51: the dispatch jump of the head lands on `g0Target V`. -/
 theorem g0_jump (V : Digest) :
     ((((V.extractLsb' 0 64) <<< ((56#64 : Word).toNat % 64)) >>> ((45#64 : Word).toNat % 64)) +
-      18446744073709550872#64) &&& 18446744073709551614#64 = g0Target V := by
+      18446744073709550736#64) &&& 18446744073709551614#64 = g0Target V := by
   have e1 : (56#64 : Word).toNat % 64 = 56 := rfl
   have e2 : (45#64 : Word).toNat % 64 = 45 := rfl
-  have e3 : (18446744073709550872#64 : Word) = BitVec.ofNat 64 (2^64-744) := rfl
+  have e3 : (18446744073709550736#64 : Word) = BitVec.ofNat 64 (2^64-880) := rfl
   have e4 : (18446744073709551614#64 : Word) = ~~~1#64 := by decide
   rw [e1, e2, e3, e4]; rfl
 /-- One 6-word dispatch block of the d6b head (`hi`: the HIGH block at `a2+16`; T51: 5 instructions run, the
@@ -3573,29 +3574,32 @@ namespace SigGolfCandidate.T3M.Verify.Nonbinary
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 set_option maxRecDepth 65536
 set_option maxHeartbeats 600000
-def rejectJumpCode : List (BitVec 32) := [0xea8fa06f]
+def rejectJumpCode : List (BitVec 32) := [0x4913106f]
 sym_block rejectJumpBase := symRun { noAlias := true } rejectJumpCode (pcOf 9147) 20
+set_option debug.skipKernelTC false in
 theorem rejectJump_at : CodeAt Verify.image (pcOf 9147) rejectJumpCode := by
   have h := codeAt_from 9147 (by decide +kernel)
   have hp : rejectJumpCode <+: codeFrom 9147 := by decide +kernel
   exact ⟨by decide +kernel, by decide +kernel, by decide +kernel, hp.trans h.2.2.2⟩
 def rejectExitCode : List (BitVec 32) := [1049235,1049875]
-sym_block rejectExitBase := symRun { noAlias := true } rejectExitCode (pcOf 3429) 20
-theorem rejectExit_at : CodeAt Verify.image (pcOf 3429) rejectExitCode := by
-  have h := codeAt_from 3429 (by decide +kernel)
-  have hp : rejectExitCode <+: codeFrom 3429 := by decide +kernel
+sym_block rejectExitBase := symRun { noAlias := true } rejectExitCode (pcOf 60127) 20
+set_option debug.skipKernelTC false in
+theorem rejectExit_at : CodeAt Verify.image (pcOf 60127) rejectExitCode := by
+  have h := codeAt_from 60127 (by decide +kernel)
+  have hp : rejectExitCode <+: codeFrom 60127 := by decide +kernel
   exact ⟨by decide +kernel, by decide +kernel, by decide +kernel, hp.trans h.2.2.2⟩
+set_option debug.skipKernelTC false in
 theorem reject_halt (s : MachineState) (hpc : s.pc = pcOf 9147) :
     ∃ t, Steps Verify.image s 3 3 t ∧ fetch Verify.image t = some (.base .ECALL) ∧
       t.getReg .x5 = 1 ∧ t.getReg .x10 = 1 := by
   have e1 := symRun_sound rejectJumpBase rejectJump_at s hpc (by simp [rejectJumpBase.res, rv_simp])
-  have p1 : (rejectJumpBase.res.toState s).pc = pcOf 3429 := by simp [rejectJumpBase.res, rv_simp, pcOf]
+  have p1 : (rejectJumpBase.res.toState s).pc = pcOf 60127 := by simp [rejectJumpBase.res, rv_simp, pcOf]
   have e2 := symRun_sound rejectExitBase rejectExit_at (rejectJumpBase.res.toState s) p1
     (by simp [rejectExitBase.res, rv_simp])
   refine ⟨_, e1.trans e2, ?_, ?_, ?_⟩
-  · have h : CodeAt Verify.image (pcOf 3431) [0x00000073] := by
-      have h := codeAt_from 3431 (by decide +kernel)
-      have hp : [0x00000073] <+: codeFrom 3431 := by decide +kernel
+  · have h : CodeAt Verify.image (pcOf 60129) [0x00000073] := by
+      have h := codeAt_from 60129 (by decide +kernel)
+      have hp : [0x00000073] <+: codeFrom 60129 := by decide +kernel
       exact ⟨by decide +kernel, by decide +kernel, by decide +kernel, hp.trans h.2.2.2⟩
     exact h.fetch _ (by simp [rejectExitBase.res, rv_simp, pcOf])
   · simp [rejectExitBase.res, rv_simp]
@@ -4075,9 +4079,11 @@ def mkLo (lay ci : Nat) : Nat := if lay = 0 ∧ ci = 1 then 6 else 0
 def mkBits (lay ci : Nat) : Nat := if lay = 0 then 6 else hL lay
 def mkTab (lay ci : Nat) : Nat := if lay = 0 ∧ ci = 1 then 133840 else stabIdx lay
 def mkTabW (lay ci sh : Nat) : Nat := if lay = 0 ∧ ci = 1 then 32029 + 512 * sh else stabW lay sh
+def l1Shape : List Nat := [1028,2052,3076,4100,5124,6148,7172,8196,9220,10244,11268,12292,13316,14340,15364,16388,17412,18436,19460,20484,21508,22532,23556,24580,25604,26628,27652,28676,29700,30724,31748,32772,33796,34820,35844,36868,37892,38916,39940,40964,41988,43012,44036,45060,46084,47108,48132,49156,50180,51204,52228,53252,54276,55300,56324,57348,58372,59396,60420,61444,62468,63492,64516,65540,66564,67588,68612,69636,70660,71684,72708,73732,74756,75780,76804,77828,78852,79876,80900,81924,82948,83972,84996,86020,87044,88068,89092,90116,91140,92164,93188,94212,95236,96260,97284,98308,99332,100356,101380,102404,103428,104452,105476,106500,107524,108548,109572,110596,111620,112644,113668,114692,115716,116740,117764,118788,119812,120836,121860,122884,123908,124932,125956,126980,128004,129028,130052,131076]
+def finalShape : List Nat := [108058,108964,109988,110101,111012,111126,112036,112153,113060,113179,115108,115224,116132,116249,117156,119204,120228,120346,121252,125348,126372,121371,127396,129444,130381,129995,130428,130492,130556,130620,130684,130748,133287,133327,133366,133405,133453,133493,133532,133571,133611,133651,133690,185409,185488,185528,185616,185812,186123,186163,186250,186289,186378,186618,186657,186766,186806,186901,186940,187090,187346,187386,187425,187541]
 def mkShp (lay ci sh : Nat) : Nat :=
   if lay = 3 then 133764 + 128 * sh else if lay = 2 then 141956 + 128 * sh
-  else if lay = 1 then 1028 + 1024 * sh else if ci = 0 then 142032 + 128 * sh else 32029 + 512 * sh
+  else if lay = 1 then l1Shape.getD sh 0 else if ci = 0 then 142032 + 128 * sh else finalShape.getD sh 0
 /-- C2: every lower fold writes its packed tweak word from an immediate (`addi gp,t3,K; sd gp,16(a0)`), so it costs
 like the old register-heap levels; the top tree keeps register heaps on its last three levels only. -/
 def mkReg (lay l : Nat) : Bool := decide (lay ≠ 0 ∨ hL lay ≤ l + 3)
@@ -4120,7 +4126,7 @@ def mkKc (lay : Nat) : List (Reg × Word) :=
   gkL lay ++ (if lay = 0 then [(.x6, 520192)] else []) ++ [(if lay = 0 then (.x4, BitVec.ofNat 64 s3v) else (.x4, BitVec.ofNat 64 (bufferBias lay))), (.x13, 2),
     (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), (.x5, 0)]
 def mkKeep : List Reg := [.x4, .x1, .x2, .x16, .x17, .x8, .x9, .x24, .x23, .x6, .x25, .x27, .x29, .x31]
-def mkEntSpec (lay ci sh : Nat) : Spec := let st := 1; ⟨[], [], mkShp lay ci sh + 1, true, st, [], none, st⟩
+def mkEntSpec (lay ci sh : Nat) : Spec := let st := if lay=0 ∧ ci=1 then 2 else 1; ⟨[], [], mkShp lay ci sh + 1, true, st, [], none, st⟩
 def mkEntPost (lay ci sh : Nat) : List (Reg × Word) :=
   mkKc lay ++ [(.x12, BitVec.ofNat 64 (mkCur lay (mkLeafOf lay ci sh) (mkLo lay ci) (sh % 2)))]
 def mkEntKeep : List Reg := mkKeep ++ [.x10, .x11, .x14, .x4, .x28]
@@ -4185,7 +4191,7 @@ def mkBlockCheck (lay ci sh : Nat) : Bool :=
   mkEntCheck lay ci sh && (List.range (mkBits lay ci)).all (mkLvlCheck lay ci sh)
 def mkChunkCheck (lay ci lo n : Nat) : Bool := (List.range' lo n).all (mkBlockCheck lay ci)
 /-- Root comparison in the relocated final chunk; it reads the root written by upper copy `c`. -/
-def cmpPc (c : Nat) : Nat := 32057 + 512 * c - ClaudeWCT.WCT9.CanonicalPolicy.topPairSave c
+def cmpPc (c : Nat) : Nat := finalShape.getD c 0 + 28 - ClaudeWCT.WCT9.CanonicalPolicy.topPairSave c
 def cmpDst (c : Nat) : Nat := 11920 + 16 * topRootSlot.getD c 0
 def cmpK (c : Nat) : List (Reg × Word) := gkL 0 ++ [(.x12, BitVec.ofNat 64 (cmpDst c))]
 def cmpBr1 (c : Nat) (d : Bool) : Br := ⟨.ne, .ld (kw (cmpDst c)), .ld (kw 160), d⟩
@@ -4212,7 +4218,7 @@ open SigGolfCandidate.T3M.Verify
 def mkShp (lay ci sh : Nat) : Nat :=
   T3M.mkShp lay ci sh
 def mkEntSpec (lay ci sh : Nat) : Spec :=
-  let st := 1
+  let st := if lay=0 ∧ ci=1 then 2 else 1
   ⟨[], [], mkShp lay ci sh + 1, true, st, [], none, st⟩
 def mkEntCheck (lay ci sh : Nat) : Bool :=
   mkSpecB [] [] (gkL lay) (mkEntK lay ci) [] (mkTabW lay ci sh) []

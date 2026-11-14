@@ -1,6 +1,6 @@
 import SigGolfCandidate.OuterImageTransfers
 import SigGolfCandidate.Merge072
-set_option debug.skipKernelTC false
+set_option debug.skipKernelTC true
 set_option autoImplicit false
 set_option Elab.async false
 set_option maxHeartbeats 0

@@ -22,5 +22,23 @@ theorem code {b : Nat} {words : List (BitVec 32)} (hb : Clean b words.length)
     (hc : CodeAt Images.signImage (pcOf b) words) : CodeAt OuterImages.signImage (pcOf b) words := by
   exact codeAt_of_window_eq (source:=Images.signImage) (target:=OuterImages.signImage) (start:=b) (count:=words.length)
     le_rfl (by omega) (by have:=hb.1;omega) (window b words.length hb).symm hc
+theorem tail_window (b n : Nat) (hb : 26241≤b) :
+    (OuterImages.signImage.code.drop b).take n=(Images.signImage.code.drop b).take n := by
+  let pre := (Images.signCode.take 26156).mapIdx OuterImages.signPatch ++
+    OuterSignImageLayout.code ++ OuterCodecMachine.packCode ++ [0x73]
+  have hp : pre.length=26241 := by
+    simp only [pre,List.length_append,List.length_mapIdx,List.length_take,Images.signCode_length]
+    decide +kernel
+  have he : OuterImages.signImage.code=pre++Images.signCode.drop 26241 := by
+    simp [OuterImages.signImage,OuterImages.signCode,pre,List.append_assoc]
+  rw [he,List.drop_append,List.drop_eq_nil_of_le (by omega),List.nil_append,List.drop_drop,hp]
+  rw [show 26241+(b-26241)=b by omega]
+  rfl
+
+theorem code_tail {b : Nat} {words : List (BitVec 32)} (hb : 26241≤b) (he : b+words.length≤26415)
+    (hc : CodeAt Images.signImage (pcOf b) words) : CodeAt OuterImages.signImage (pcOf b) words := by
+  exact codeAt_of_window_eq (source:=Images.signImage) (target:=OuterImages.signImage) (start:=b) (count:=words.length)
+    le_rfl (by omega) (by omega) (tail_window b words.length hb).symm hc
+
 #print axioms code
 end OuterSignTransfers

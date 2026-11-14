@@ -27,7 +27,7 @@ def Inputs : Prop:=∀ (floors : SigGolfCandidate.T3.Layer→Nat),OuterVerifyBud
   ∀(m : Message)(pk : PublicKey)(w : Bytes 21756)(s : MachineState),
   initialState SigGolfCandidate.T3M.submission .verify (m,pk,w)=some s →
   GoodQP (fun hash=>HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w) hash ∧ DigestCapOk hash m w)
-    s 10083 15784 True 6873 (ccM (ClaudeWCT.W9.T3M.Paired.verifyP m pk w) Kb)
+    s 10083 15785 True 6868 (ccM (ClaudeWCT.W9.T3M.Paired.verifyP m pk w) Kb)
 
 theorem inputs : Inputs := by
   intro floors hcredit message pk witness state hstate
@@ -66,7 +66,7 @@ theorem terminates : ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes
 theorem accept_cycles : ∀ (floors : SigGolfCandidate.T3.Layer→Nat), OuterVerifyBudget.CreditFloors74 floors →
   ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 21756),
   HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w) hash → DigestCapOk hash m w →
-  (sub.runWith hash .verify (m,pk,w)).value.isSome=true → (sub.runWith hash .verify (m,pk,w)).cycles≤6873 := by
+  (sub.runWith hash .verify (m,pk,w)).value.isSome=true → (sub.runWith hash .verify (m,pk,w)).cycles≤6868 := by
   intro floors hcredit hash m pk w hok hcap h
   obtain ⟨s,hs⟩ := W9Fin.V7.init_exists m pk w
   have hs' := (initial_eq m pk w).trans hs
