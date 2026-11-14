@@ -41,7 +41,7 @@ theorem post_of {L : W9Machine.Layout} (w : ClaudeWCT.W9.T3M.WBytes) (index : Na
     change (x.getReg .x1+_) &&& _=_
     rw [hx.returnPC]
     simp only [if_pos hc,↓reduceIte]
-    change (pcOf (L.returnWord k)+BitVec.ofNat 64 (4*79)) &&& ~~~1#64=_
+    change (pcOf (L.returnWord k)+BitVec.ofNat 64 (4*506)) &&& ~~~1#64=_
     rw [W9Drv.SharedBank.pcOf_add_words,pcOf_and_not1]
   · rw [←hh,hbase];exact ht.top
   · rw [ht.a2,←hbase,ho]

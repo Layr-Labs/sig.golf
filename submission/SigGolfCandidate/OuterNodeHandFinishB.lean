@@ -12,7 +12,7 @@ open SigGolfCandidate.FtsGrind W9Drv.SharedBProof OuterNodeSearchInvariant
 open ClaudeWCT.W9.Machine.Expand.SharedScatter (coordRegion)
 
 def Post (coord j : Nat) (u : MachineState) (res : Nat×Digest) (t : MachineState) : Prop :=
-  t.pc=(u.getReg .x1+304#64) &&& ~~~1#64 ∧
+  t.pc=(u.getReg .x1+2012#64) &&& ~~~1#64 ∧
   t.getReg .x11=64 ∧ t.getReg .x12=BitVec.ofNat 64 (coordRegion coord-handO j) ∧
   DigAt t (coordRegion coord-handO j+16) res.2 ∧
   t.getMem (BitVec.ofNat 64 (8323072+(coord-1)*4096))=BitVec.ofNat 64 res.1 ∧

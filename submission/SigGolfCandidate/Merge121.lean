@@ -3371,10 +3371,10 @@ set_option linter.unusedSimpArgs false
 /-- Campaign T51: the dispatch jump of the head lands on `g0Target V`. -/
 theorem g0_jump (V : Digest) :
     ((((V.extractLsb' 0 64) <<< ((56#64 : Word).toNat % 64)) >>> ((45#64 : Word).toNat % 64)) +
-      18446744073709550736#64) &&& 18446744073709551614#64 = g0Target V := by
+      18446744073709550872#64) &&& 18446744073709551614#64 = g0Target V := by
   have e1 : (56#64 : Word).toNat % 64 = 56 := rfl
   have e2 : (45#64 : Word).toNat % 64 = 45 := rfl
-  have e3 : (18446744073709550736#64 : Word) = BitVec.ofNat 64 (2^64-880) := rfl
+  have e3 : (18446744073709550872#64 : Word) = BitVec.ofNat 64 (2^64-744) := rfl
   have e4 : (18446744073709551614#64 : Word) = ~~~1#64 := by decide
   rw [e1, e2, e3, e4]; rfl
 /-- One 6-word dispatch block of the d6b head (`hi`: the HIGH block at `a2+16`; T51: 5 instructions run, the
@@ -4080,7 +4080,7 @@ def mkBits (lay ci : Nat) : Nat := if lay = 0 then 6 else hL lay
 def mkTab (lay ci : Nat) : Nat := if lay = 0 ∧ ci = 1 then 133840 else stabIdx lay
 def mkTabW (lay ci sh : Nat) : Nat := if lay = 0 ∧ ci = 1 then 32029 + 512 * sh else stabW lay sh
 def l1Shape : List Nat := [1028,2052,3076,4100,5124,6148,7172,8196,9220,10244,11268,12292,13316,14340,15364,16388,17412,18436,19460,20484,21508,22532,23556,24580,25604,26628,27652,28676,29700,30724,31748,32772,33796,34820,35844,36868,37892,38916,39940,40964,41988,43012,44036,45060,46084,47108,48132,49156,50180,51204,52228,53252,54276,55300,56324,57348,58372,59396,60420,61444,62468,63492,64516,65540,66564,67588,68612,69636,70660,71684,72708,73732,74756,75780,76804,77828,78852,79876,80900,81924,82948,83972,84996,86020,87044,88068,89092,90116,91140,92164,93188,94212,95236,96260,97284,98308,99332,100356,101380,102404,103428,104452,105476,106500,107524,108548,109572,110596,111620,112644,113668,114692,115716,116740,117764,118788,119812,120836,121860,122884,123908,124932,125956,126980,128004,129028,130052,131076]
-def finalShape : List Nat := [108058,108964,109988,110101,111012,111126,112036,112153,113060,113179,115108,115224,116132,116249,117156,119204,120228,120346,121252,125348,126372,121371,127396,129444,130381,129995,130428,130492,130556,130620,130684,130748,133287,133327,133366,133405,133453,133493,133532,133571,133611,133651,133690,185409,185488,185528,185616,185812,186123,186163,186250,186289,186378,186618,186657,186766,186806,186901,186940,187090,187346,187386,187425,187541]
+def finalShape : List Nat := [32029,32541,33053,33565,34077,34589,35101,35613,36125,36637,37149,37661,38173,38685,39197,39709,40221,40733,41245,41757,42269,42781,43293,43805,44317,44829,45341,45853,46365,46877,47389,47901,48413,48925,49437,49949,50461,50973,51485,51997,52509,53021,53533,54045,54557,55069,55581,56093,56605,57117,57629,58141,58653,59165,59677,60189,60701,61213,61725,62237,62749,63261,63773,64285]
 def mkShp (lay ci sh : Nat) : Nat :=
   if lay = 3 then 133764 + 128 * sh else if lay = 2 then 141956 + 128 * sh
   else if lay = 1 then l1Shape.getD sh 0 else if ci = 0 then 142032 + 128 * sh else finalShape.getD sh 0
@@ -4126,7 +4126,7 @@ def mkKc (lay : Nat) : List (Reg × Word) :=
   gkL lay ++ (if lay = 0 then [(.x6, 520192)] else []) ++ [(if lay = 0 then (.x4, BitVec.ofNat 64 s3v) else (.x4, BitVec.ofNat 64 (bufferBias lay))), (.x13, 2),
     (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), (.x5, 0)]
 def mkKeep : List Reg := [.x4, .x1, .x2, .x16, .x17, .x8, .x9, .x24, .x23, .x6, .x25, .x27, .x29, .x31]
-def mkEntSpec (lay ci sh : Nat) : Spec := let st := if lay=0 ∧ ci=1 then 2 else 1; ⟨[], [], mkShp lay ci sh + 1, true, st, [], none, st⟩
+def mkEntSpec (lay ci sh : Nat) : Spec := let st := 1; ⟨[], [], mkShp lay ci sh + 1, true, st, [], none, st⟩
 def mkEntPost (lay ci sh : Nat) : List (Reg × Word) :=
   mkKc lay ++ [(.x12, BitVec.ofNat 64 (mkCur lay (mkLeafOf lay ci sh) (mkLo lay ci) (sh % 2)))]
 def mkEntKeep : List Reg := mkKeep ++ [.x10, .x11, .x14, .x4, .x28]
@@ -4218,7 +4218,7 @@ open SigGolfCandidate.T3M.Verify
 def mkShp (lay ci sh : Nat) : Nat :=
   T3M.mkShp lay ci sh
 def mkEntSpec (lay ci sh : Nat) : Spec :=
-  let st := if lay=0 ∧ ci=1 then 2 else 1
+  let st := 1
   ⟨[], [], mkShp lay ci sh + 1, true, st, [], none, st⟩
 def mkEntCheck (lay ci sh : Nat) : Bool :=
   mkSpecB [] [] (gkL lay) (mkEntK lay ci) [] (mkTabW lay ci sh) []

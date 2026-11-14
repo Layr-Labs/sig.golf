@@ -7,8 +7,8 @@ namespace OuterNodeBankReturn
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv SigGolfCandidate.T3M
 open SigGolfCandidate.FtsGrind
 
-def bCode : List (BitVec 32) := [0x13008067]
-def cCode : List (BitVec 32) := [0x13c08067]
+def bCode : List (BitVec 32) := [0x7dc08067]
+def cCode : List (BitVec 32) := [0x7e808067]
 sym_block b_ret := symRun {noAlias:=true} bCode 0 40
 sym_block c_ret := symRun {noAlias:=true} cCode 0 40
 
@@ -26,7 +26,7 @@ theorem c_slices : ∀ j : Fin 128,
 theorem runB {im : Image} (j : Fin 128)
     (hc : CodeAt im (pcOf (W9Drv.SharedBProof.childBase j.val)) (OuterNodeBankLayout.bWords j.val))
     (s : MachineState) (hp : s.pc=pcOf (W9Drv.SharedBProof.childBase j.val+OuterNodeBankLayout.bSite j.val+1)) :
-    ∃ t,Steps im s 1 1 t ∧ t.pc=(s.getReg .x1+304#64) &&& ~~~1#64 ∧
+    ∃ t,Steps im s 1 1 t ∧ t.pc=(s.getReg .x1+2012#64) &&& ~~~1#64 ∧
       (∀ r,t.getReg r=s.getReg r) ∧ (∀ a,t.getMem a=s.getMem a) := by
   have hs:=b_slices j
   have hlen:=(OuterNodeBankLayout.b_slices j).1
@@ -44,7 +44,7 @@ theorem runB {im : Image} (j : Fin 128)
 theorem runC {im : Image} (j : Fin 128)
     (hc : CodeAt im (pcOf (W9Drv.SharedCProof.childBase j.val)) (OuterNodeBankLayout.cWords j.val))
     (s : MachineState) (hp : s.pc=pcOf (W9Drv.SharedCProof.childBase j.val+OuterNodeBankLayout.cSite j.val+1)) :
-    ∃ t,Steps im s 1 1 t ∧ t.pc=(s.getReg .x1+316#64) &&& ~~~1#64 ∧
+    ∃ t,Steps im s 1 1 t ∧ t.pc=(s.getReg .x1+2024#64) &&& ~~~1#64 ∧
       (∀ r,t.getReg r=s.getReg r) ∧ (∀ a,t.getMem a=s.getMem a) := by
   have hs:=c_slices j
   have hlen:=(OuterNodeBankLayout.c_slices j).1

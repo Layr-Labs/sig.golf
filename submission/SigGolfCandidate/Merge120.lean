@@ -1847,7 +1847,7 @@ theorem guard6_fault (g raw : Nat) (hg : g < 9) (hr : raw < 256) (hv : raw6Valid
   by_cases hl : g≠0 ∧ raw<3
   · apply fetch_outside' s
     rw [hpc,cell6_tab g raw (by omega) (by omega),if_pos hl.2]
-    exact r6_wrapped_fault raw ([0,66,72,78,84,90,96,298,304].getD g 0) hl.2 (by interval_cases g <;> simp_all)
+    exact r6_wrapped_fault raw ([0,62,68,74,80,86,92,98,354].getD g 0) hl.2 (by interval_cases g <;> simp_all)
   · have hc := guard6Check_at g raw hg hr
     unfold guard6Check at hc
     rw [hv,Bool.false_or] at hc
@@ -1919,7 +1919,7 @@ theorem g0_dispatch_step {p : Nat} (hp : p < 257181) (hrun : vrun p 5 = some g0D
     rw [h9, show (0xffbde0#64 : Word) + BitVec.ofNat 64 16 = 0xffbdf0#64 from rfl]; exact hmask
   refine ⟨g0DispR.toState s, piece_steps45 hrun hp s hpc hobl, ?_, ?_, ?_, ?_, ?_⟩
   · rw [Result.toState_pc]
-    show ((g0A.eval s)+(BitVec.ofNat 64 (2^64-1784))) &&& ~~~1#64 = _
+    show ((g0A.eval s)+(BitVec.ofNat 64 (2^64-1800))) &&& ~~~1#64 = _
     have hf := r6_word_mask11 (V.extractLsb' 0 64) 8
     rw [lo_field V 8 (by omega)] at hf
     have hg : g0A.eval s = BitVec.ofNat 64 (2048*(V.toNat/2^8%256)) := by
@@ -1927,9 +1927,9 @@ theorem g0_dispatch_step {p : Nat} (hp : p < 257181) (hrun : vrun p 5 = some g0D
     rw [hg,cell6_tab 1 _ (by omega) (by omega)]
     by_cases hl : V.toNat/2^8%256<3
     · rw [if_pos hl]
-      exact r6_direct_wrapped _ 66 hl (by omega)
+      exact r6_direct_wrapped _ 62 hl (by omega)
     · rw [if_neg hl]
-      exact r6_direct_target _ 66 (by omega)
+      exact r6_direct_target _ 62 (by omega)
   · rw [Result.toState_getReg]; simp only [g0DispR]
     rw [RegFile.get_set_ne _ _ (by decide), RegFile.get_set_ne _ _ (by decide), RegFile.get_set_self _ _ (by decide)]
     exact hm
@@ -1987,7 +1987,7 @@ theorem r6_landing (h raw : Nat) (h1 : 1 ≤ h) (h8 : h ≤ 8) (hr : raw < 256) 
 /-- g0 landing (prologue dispatch on `a6`): field value `raw >= 40` at the cell of rank `raw - 40`; every other
 value faults (zero-word guards for 3 <= raw < 40, below the code for raw = 1, 2, above it for raw = 0). -/
 theorem g0_landing (W : Word) (s : MachineState)
-    (hpc : s.pc = (((W <<< 56) >>> 45) + BitVec.ofNat 64 (2^64-880)) &&& ~~~1#64) :
+    (hpc : s.pc = (((W <<< 56) >>> 45) + BitVec.ofNat 64 (2^64-744)) &&& ~~~1#64) :
     (40 ≤ W.toNat % 256 ∧ s.pc = pcOf (cellW 0 (W.toNat % 256 - 40))) ∨ fetch vimage s = none := by
   have hr : W.toNat % 256 < 256 := Nat.mod_lt _ (by norm_num)
   by_cases h0 : W.toNat % 256 = 0
@@ -2784,18 +2784,18 @@ theorem end_dispatch0_in (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : Machine
   refine ⟨t, st, hB, hl, ?_⟩
   rw [pt]; unfold entPc; rw [c.fit_rank6 hf 1 (by omega) hv]
 theorem g0_valid (W : Word) (s : MachineState) (h40 : 40 ≤ W.toNat % 256)
-    (hpc : s.pc = (((W <<< 56) >>> 45) + BitVec.ofNat 64 (2^64-880)) &&& ~~~1#64) :
+    (hpc : s.pc = (((W <<< 56) >>> 45) + BitVec.ofNat 64 (2^64-744)) &&& ~~~1#64) :
     s.pc = pcOf (cellW 0 (W.toNat % 256 - 40)) := by
   rw [g0_target W _ rfl (by omega), g0_cell _ (by omega)] at hpc
   rw [hpc, cell6_valid 0 _ (by omega) (by simp [raw6Valid, h40])]; rfl
 theorem g0_bad (W : Word) (s : MachineState) (h40 : W.toNat % 256 < 40)
-    (hpc : s.pc = (((W <<< 56) >>> 45) + BitVec.ofNat 64 (2^64-880)) &&& ~~~1#64) : fetch vimage s = none := by
+    (hpc : s.pc = (((W <<< 56) >>> 45) + BitVec.ofNat 64 (2^64-744)) &&& ~~~1#64) : fetch vimage s = none := by
   rcases g0_landing W s hpc with ⟨h, -⟩ | h
   · omega
   · exact h
 /-- The prologue's g0 dispatch (on a6 = the low half of `V`) at NCtx level. -/
 theorem g0_group (c : NCtx) {V : Digest} (hf : c.Fit6 V) (s : MachineState)
-    (hpc : s.pc = ((((V.extractLsb' 0 64) <<< 56) >>> 45) + BitVec.ofNat 64 (2^64-880)) &&& ~~~1#64) :
+    (hpc : s.pc = ((((V.extractLsb' 0 64) <<< 56) >>> 45) + BitVec.ofNat 64 (2^64-744)) &&& ~~~1#64) :
     (gValid V 0 → s.pc = pcOf (c.entPc 0)) ∧ (¬ gValid V 0 → fetch vimage s = none) := by
   have hr := g0_raw V
   refine ⟨fun hv => ?_, fun hv => ?_⟩
@@ -3237,8 +3237,8 @@ dispatch jumps to `g0Target V` = the g0 cell `512 (raw0 - 3) + 326` of the first
 def dProWordsOf (_a : Nat) : List (BitVec 32) := [0x21813303]
 def dHint : List (BitVec 32) := [0x3c820183,0x1d663]
 def dHead : List (BitVec 32) := [0xf64183,0x2b1f263]
-def dLow : List (BitVec 32) := [0x863883,0x63803,0x3881713,0x2d75713,0xc9070067,0x13]
-def dHigh : List (BitVec 32) := [0x1863883,0x1063803,0x3881713,0x2d75713,0xc9070067,0x13]
+def dLow : List (BitVec 32) := [0x863883,0x63803,0x3881713,0x2d75713,0xd1870067,0x13]
+def dHigh : List (BitVec 32) := [0x1863883,0x1063803,0x3881713,0x2d75713,0xd1870067,0x13]
 /-- The bit of the witness choice byte (abs 15304) that requests HIGH. -/
 def selHintBit : Nat := 7
 def prefixWordsOf (a : Nat) : List (BitVec 32) :=
@@ -3274,7 +3274,7 @@ theorem dPro_run (a : Nat) (ha : a ∈ aVals) (p : Word) :
 /-- Campaign T51: the landing of the head's dispatch (`slli a4,a6,56; srli a4,a4,45; jalr -880(a4)`) for the selected
 half `V` (R6's form; `ChainsDispatchArith.g0_target` / `g0_cell` evaluate it to the g0 cell `512 (raw0 - 3) + 326`). -/
 def g0Target (V : BitVec 128) : Word :=
-  ((((V.extractLsb' 0 64) <<< 56) >>> 45) + BitVec.ofNat 64 (2^64-880)) &&& ~~~1#64
+  ((((V.extractLsb' 0 64) <<< 56) >>> 45) + BitVec.ofNat 64 (2^64-744)) &&& ~~~1#64
 end SigGolfCandidate.T3M.Verify.Nonbinary
 end
 -- ==== merged from T3M_Verify_Nonbinary_TopAlias ====
@@ -3308,7 +3308,7 @@ section
 namespace SigGolfCandidate.T3M
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M.Verify
-def xtrTab : List (List Nat) :=[[1062,2085,3109,4133,5158,6181,7206,8230,9254,10277,11301,12325,13350,14373,15398,16422,17446,18469,19493,20517,21542,22565,23590,24614,25638,26661,27685,28709,29734,30757,31782,32806,33830,34853,35877,36901,37926,38949,39974,40998,42022,43045,44069,45093,46118,47141,48166,49190,50214,51237,52261,53285,54310,55333,56358,57382,58406,59429,60453,61477,62502,63525,64550,65574,66598,67621,68645,69669,70694,71717,72742,73766,74790,75813,76837,77861,78886,79909,80934,81958,82982,84005,85029,86053,87078,88101,89126,90150,91174,92197,93221,94245,95270,96293,97318,98342,99366,100389,101413,102437,103462,104485,105510,106534,107558,108581,109605,110629,111654,112677,113702,114726,115750,116773,117797,118821,119846,120869,121894,122918,123942,124965,125989,127013,128038,129061,130086,131110],[141985,142112,142240,142369,142497,142624,142752,142881,143009,143136,143264,143393,143521,143648,143776,143905,144033,144160,144288,144417,144545,144672,144800,144929,145057,145184,145312,145441,145569,145696,145824,145953,146081,146208,146336,146465,146593,146720,146848,146977,147105,147232,147360,147489,147617,147744,147872,148001,148129,148256,148384,148513,148641,148768,148896,149025,149153,149280,149408,149537,149665,149792,149920,150049],[133793,133920,134048,134177,134305,134432,134560,134689,134817,134944,135072,135201,135329,135456,135584,135713,135841,135968,136096,136225,136353,136480,136608,136737,136865,136992,137120,137249,137377,137504,137632,137761,137889,138016,138144,138273,138401,138528,138656,138785,138913,139040,139168,139297,139425,139552,139680,139809,139937,140064,140192,140321,140449,140576,140704,140833,140961,141088,141216,141345,141473,141600,141728,141857],[192881]]
+def xtrTab : List (List Nat) :=[[1062,2085,3109,4133,5158,6181,7206,8230,9254,10277,11301,12325,13350,14373,15398,16422,17446,18469,19493,20517,21542,22565,23590,24614,25638,26661,27685,28709,29734,30757,31782,32806,33830,34853,35877,36901,37926,38949,39974,40998,42022,43045,44069,45093,46118,47141,48166,49190,50214,51237,52261,53285,54310,55333,56358,57382,58406,59429,60453,61477,62502,63525,64550,65574,66598,67621,68645,69669,70694,71717,72742,73766,74790,75813,76837,77861,78886,79909,80934,81958,82982,84005,85029,86053,87078,88101,89126,90150,91174,92197,93221,94245,95270,96293,97318,98342,99366,100389,101413,102437,103462,104485,105510,106534,107558,108581,109605,110629,111654,112677,113702,114726,115750,116773,117797,118821,119846,120869,121894,122918,123942,124965,125989,127013,128038,129061,130086,131110],[141985,142112,142240,142369,142497,142624,142752,142881,143009,143136,143264,143393,143521,143648,143776,143905,144033,144160,144288,144417,144545,144672,144800,144929,145057,145184,145312,145441,145569,145696,145824,145953,146081,146208,146336,146465,146593,146720,146848,146977,147105,147232,147360,147489,147617,147744,147872,148001,148129,148256,148384,148513,148641,148768,148896,149025,149153,149280,149408,149537,149665,149792,149920,150049],[133793,133920,134048,134177,134305,134432,134560,134689,134817,134944,135072,135201,135329,135456,135584,135713,135841,135968,136096,136225,136353,136480,136608,136737,136865,136992,137120,137249,137377,137504,137632,137761,137889,138016,138144,138273,138401,138528,138656,138785,138913,139040,139168,139297,139425,139552,139680,139809,139937,140064,140192,140321,140449,140576,140704,140833,140961,141088,141216,141345,141473,141600,141728,141857],[4905]]
 def nCopy (lay : Nat) : Nat := (xtrTab.getD lay []).length
 def trPc (lay c : Nat) : Nat := (xtrTab.getD lay []).getD c 0
 def kw (k : Nat) : E := .c (BitVec.ofNat 64 k)

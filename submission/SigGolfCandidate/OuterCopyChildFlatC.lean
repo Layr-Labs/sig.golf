@@ -35,7 +35,7 @@ theorem outside16 (coord : Fin 9) (j : Fin 128) (X : Nat)
   · exact htail ht
 
 structure Post (coord j : Nat) (u : MachineState) (res : Nat×Nat×Nat×Digest) (t : MachineState) : Prop where
-  pc : t.pc=(u.getReg .x1+316#64) &&& ~~~1#64
+  pc : t.pc=(u.getReg .x1+2024#64) &&& ~~~1#64
   a1 : t.getReg .x11=64
   a2 : t.getReg .x12=BitVec.ofNat 64 (coordRegion coord-handO j)
   top : DigAt t (coordRegion coord-handO j+OuterGroundCore.offset coord (heapOf 5 j)/8) res.2.2.2

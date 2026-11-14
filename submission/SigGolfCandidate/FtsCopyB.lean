@@ -359,10 +359,10 @@ def preC (k index j : Nat) (tws sibs : Nat → Digest) (v : Digest) : List UInt8
 def rightC (j : Nat) (sibs : Nat → Digest) (v : Digest) : List UInt8 :=
   bytesLE 16 (if bitAt j 3 = 0 then sibs 3 else v)
 
-/-- Back at the caller (`ra + 304`, Y6 R-odd) after a copy routine: the bank's `HandPost`, plus the nonce record and the
+/-- Back at the caller (`ra + 2012`, Y6 R-odd) after a copy routine: the bank's `HandPost`, plus the nonce record and the
 re-zeroed search scratch; the frame adds the record, the saves and `SCR`. -/
 structure HandPostC (B j : Nat) (u : MachineState) (res : Nat × Digest) (t : MachineState) : Prop where
-  pc : t.pc = (u.getReg .x1 + 304) &&& ~~~1#64
+  pc : t.pc = (u.getReg .x1 + 2012) &&& ~~~1#64
   a1 : t.getReg .x11 = 64
   top : DigAt t (B - handO j + 16) res.2
   a2 : t.getReg .x12 = BitVec.ofNat 64 (B - handO j)
@@ -931,7 +931,7 @@ end level2
 /-- Back at the caller after a copy routine: `HandPostC` with the level-2 record and the widened frame. -/
 structure HandPostC16 (B j : Nat) (u : MachineState) (sel : Bool) (res : Nat × Nat × Digest) (t : MachineState) :
     Prop where
-  pc : t.pc = (u.getReg .x1 + 304) &&& ~~~1#64
+  pc : t.pc = (u.getReg .x1 + 2012) &&& ~~~1#64
   a1 : t.getReg .x11 = 64
   top : DigAt t (B - handO j + 16) res.2.2
   a2 : t.getReg .x12 = BitVec.ofNat 64 (B - handO j)

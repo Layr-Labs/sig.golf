@@ -34,7 +34,7 @@ theorem outside (coord : Fin 9) (j : Fin 128) (X : Nat) (hx : X<8323072)
   · omega
 
 structure Post (coord j : Nat) (u : MachineState) (res : Nat×Nat×Digest) (t : MachineState) : Prop where
-  pc : t.pc=(u.getReg .x1+304#64) &&& ~~~1#64
+  pc : t.pc=(u.getReg .x1+2012#64) &&& ~~~1#64
   a1 : t.getReg .x11=64
   a2 : t.getReg .x12=BitVec.ofNat 64 (coordRegion coord-handO j)
   top : DigAt t (coordRegion coord-handO j+16) res.2.2
