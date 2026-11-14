@@ -9,19 +9,19 @@ open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGol
 open SigGolfCandidate.FtsGrind OuterImages
 
 theorem sign_helper : CodeAt signImage (pcOf 26156) OuterSignImageLayout.code := by
-  apply CodeAt.of_append (pre:=Images.signCode.mapIdx signPatch) (post:=OuterCodecMachine.packCode++[0x73])
+  apply CodeAt.of_append (pre:=(Images.signCode.take 26156).mapIdx signPatch) (post:=OuterCodecMachine.packCode++[0x73]++Images.signCode.drop 26241)
     (by simp [signImage,signCode,List.append_assoc])
-  · simp only [List.length_mapIdx,Images.signCode_length,pcOf]
+  · simp only [List.length_mapIdx,List.length_take,Images.signCode_length,pcOf]
     decide +kernel
-  · simp only [List.length_mapIdx,Images.signCode_length]
+  · simp only [List.length_mapIdx,List.length_take,Images.signCode_length]
     decide +kernel
 
 theorem sign_pack : CodeAt signImage (pcOf 26207) OuterCodecMachine.packCode := by
-  apply CodeAt.of_append (pre:=Images.signCode.mapIdx signPatch++OuterSignImageLayout.code) (post:=[0x73])
+  apply CodeAt.of_append (pre:=(Images.signCode.take 26156).mapIdx signPatch++OuterSignImageLayout.code) (post:=[0x73]++Images.signCode.drop 26241)
     (by simp [signImage,signCode,List.append_assoc])
-  · simp only [List.length_append,List.length_mapIdx,Images.signCode_length,pcOf]
+  · simp only [List.length_append,List.length_mapIdx,List.length_take,Images.signCode_length,pcOf]
     decide +kernel
-  · simp only [List.length_append,List.length_mapIdx,Images.signCode_length]
+  · simp only [List.length_append,List.length_mapIdx,List.length_take,Images.signCode_length]
     decide +kernel
 
 theorem expand_chunk (a : Nat) (code : List (BitVec 32)) (hb : a+code.length≤235776)

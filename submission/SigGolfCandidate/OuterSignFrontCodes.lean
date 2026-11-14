@@ -26,7 +26,7 @@ theorem label : DigestLabel.Code OuterImages.signImage false := by
   · exact OuterSignTransfers.code (b:=25694) (words:=[0x73]) (by decide +kernel) old.hash_at
   · exact OuterSignTransfers.code (b:=25695) (words:=[0xfe1fc06f]) (by decide +kernel) old.back_at
 theorem look : LookOK OuterImages.signImage (SharedDigest.look false) :=
-  OuterSignLook.transfer _ SharedDigest.installed_sign_look (by decide +kernel) (by decide +kernel) (by decide +kernel)
+  OuterSignLook.transfer _ SharedDigest.installed_sign_look (OuterSignLook.gap0 _ (by decide +kernel)) (by decide +kernel) (by decide +kernel) (by decide +kernel)
 theorem success : CodeAt OuterImages.signImage (pcOf 22754) SharedDigestBoundary.signCode :=
   OuterSignTransfers.code (by decide +kernel) SharedDigestBoundary.installed_sign_success
 theorem failureJump : CodeAt OuterImages.signImage (pcOf 22764) [0xcccea06f] :=

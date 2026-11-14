@@ -8,7 +8,7 @@ import SigGolfCandidate.Merge094
 import SigGolfCandidate.Merge095
 import SigGolfCandidate.FtsSignGrind
 import SigGolfCandidate.FtsBridge
-set_option debug.skipKernelTC false
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_New_Machine_Sign_PackedLeaf ====

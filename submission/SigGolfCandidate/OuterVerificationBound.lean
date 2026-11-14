@@ -44,7 +44,7 @@ theorem expand_witness (hash : Hash) (m : Message) (pk : PublicKey)
     exact ⟨_,p.1,p.2.1,p.2.2,hx,(Option.some.inj he).symm⟩
 
 #print axioms expand_witness
-theorem bound : sub.VerificationBound 6958 := by
+theorem bound : sub.VerificationBound 6952 := by
   intro hash sk m
   dsimp only
   intro h
