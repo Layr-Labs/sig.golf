@@ -1753,9 +1753,34 @@ theorem getD_mem_or_default (l : List Nat) (r d : Nat) : l.getD r d ∈ l ∨ l.
 
 /-- Y5: the signer's hint `529 f1 + 23 f2 + f3` from admissible floors (`threshold 1 r1 < 15`,
 `threshold 2 r2 < 23`, `threshold 3 r3 < 23`) is in the alphabet (`HintOK`; every table value is checked). -/
-theorem hints_ok_table : ∀ r1 : Fin 58, ∀ r2 : Fin 42, ∀ r3 : Fin 24,
-    HintOK (576 * ClaudeWCT.WCT9.Policy75Safe23.threshold 1 r1.val + 24 * ClaudeWCT.WCT9.Policy75Safe23.threshold 2 r2.val +
-      ClaudeWCT.WCT9.Policy75Safe23.threshold 3 r3.val) := by decide +kernel
+private theorem threshold1_index : ∀ r : Fin 58, ∃ i : Fin 4,
+    ClaudeWCT.WCT9.Policy75Safe23.threshold 1 r.val = hintA1 i.val := by decide +kernel
+private theorem threshold2_index : ∀ r : Fin 42, ∃ i : Fin 6,
+    ClaudeWCT.WCT9.Policy75Safe23.threshold 2 r.val = hintA2 i.val := by decide +kernel
+private theorem threshold3_index : ∀ r : Fin 24, ∃ i : Fin 15,
+    ClaudeWCT.WCT9.Policy75Safe23.threshold 3 r.val = hintA3 i.val := by decide +kernel
+private theorem hintOK_alphabet (i : Fin 4) (j : Fin 6) (k : Fin 15) :
+    HintOK (576 * hintA1 i.val + 24 * hintA2 j.val + hintA3 k.val) := by
+  let t := (i.val * 6 + j.val) * 15 + k.val
+  have hi := i.isLt
+  have hj := j.isLt
+  have hk := k.isLt
+  have ht : t < 360 := by dsimp [t]; omega
+  have h1 : t / 90 = i.val := by dsimp [t]; omega
+  have h2 : t / 15 % 6 = j.val := by dsimp [t]; omega
+  have h3 : t % 15 = k.val := by dsimp [t]; omega
+  have h := hintOK_packH t ht
+  simpa only [packH, h1, h2, h3] using h
+ theorem hints_ok_table (r1 : Fin 58) (r2 : Fin 42) (r3 : Fin 24) :
+    HintOK (576 * ClaudeWCT.WCT9.Policy75Safe23.threshold 1 r1.val +
+      24 * ClaudeWCT.WCT9.Policy75Safe23.threshold 2 r2.val +
+      ClaudeWCT.WCT9.Policy75Safe23.threshold 3 r3.val) := by
+  obtain ⟨i,hi⟩ := threshold1_index r1
+  obtain ⟨j,hj⟩ := threshold2_index r2
+  obtain ⟨k,hk⟩ := threshold3_index r3
+  rw [hi,hj,hk]
+  exact hintOK_alphabet i j k
+
 
 theorem threshold_lt_ranges (lay r : Nat) (hl : lay = 1 ∨ lay = 2 ∨ lay = 3)
     (h : ClaudeWCT.WCT9.Policy75Safe23.threshold lay r < 24) :

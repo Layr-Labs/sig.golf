@@ -1771,7 +1771,7 @@ theorem fault_top126_fetch (q : Nat) (hq : q<16) (h9 : 9≤q) (he : 1024≤entOf
 /-! ### T51 dispatch landings (VERA2; R6 VER-A's template)
 Machine-level facts for the T51 top region: zero-word guards fault; the dispatch into r6 group `h` (1..8) lands on
 `cell6 h raw` (a cell for raw < 216, a guard otherwise); the prologue's g0 dispatch lands on the g0 column; group 0's
-5-word dispatch also loads the r6 mask (t4 = 0xFF00) and the table base (s2 = 856064); q15's dispatch (#938's into
+5-word dispatch also loads the r6 mask (t4 = 0xFF00) and the table base (s2 = 4095); q15's dispatch (#938's into
 group 8) lands on the r7 pair's cells (rank < 49) or guards; the checksum dispatch lands on an arm or a guard. -/
 theorem fetch_zero_word {p : Nat} (hp : p < 257214) (hz : zeroAt p = true) (s : MachineState)
     (hpc : s.pc = pcOf p) : fetch vimage s = none := by
@@ -1861,7 +1861,7 @@ theorem guard6_fault (g raw : Nat) (hg : g < 9) (hr : raw < 256) (hv : raw6Valid
 /-- `a4` of the dispatch into r6 group `h` (2..8; group 1 is entered by group 0's `g0DispR`). -/
 theorem r6A_eval (h : Nat) (h1 : 1 ≤ h) (h8 : h ≤ 8) (V : Digest) (s : MachineState)
     (h16 : s.getReg .x16 = V.extractLsb' 0 64) (h17 : s.getReg .x17 = V.extractLsb' 64 64)
-    (h29 : s.getReg .x29 = 522240#64) (h18 : s.getReg .x18 = 856064#64) :
+    (h29 : s.getReg .x29 = 522240#64) (h18 : s.getReg .x18 = 4095#64) :
     (r6A h).eval s = BitVec.ofNat 64 (2048*(V.toNat/2^(r6Pos h)%256)) := by
   by_cases he : h=8
   · subst h
@@ -1874,7 +1874,7 @@ theorem r6A_eval (h : Nat) (h1 : 1 ≤ h) (h8 : h ≤ 8) (V : Digest) (s : Machi
 /-- Dispatch into r6 group `h` (1..8): pc at the cell of the field value. -/
 theorem r6_dispatch_pc (h : Nat) (h1 : 1 ≤ h) (h8 : h ≤ 8) (V : Digest) (s : MachineState)
     (h16 : s.getReg .x16 = V.extractLsb' 0 64) (h17 : s.getReg .x17 = V.extractLsb' 64 64)
-    (h29 : s.getReg .x29 = 522240#64) (h18 : s.getReg .x18 = 856064#64) :
+    (h29 : s.getReg .x29 = 522240#64) (h18 : s.getReg .x18 = 4095#64) :
     (r6DispR h).pc.eval s = pcOf (cell6 h (V.toNat / 2^(r6Pos h) % 256)) := by
   have ha := r6A_eval h h1 h8 V s h16 h17 h29 h18
   have hr : V.toNat/2^(r6Pos h)%256<256 := Nat.mod_lt _ (by norm_num)
@@ -1890,7 +1890,7 @@ theorem r6_dispatch_pc (h : Nat) (h1 : 1 ≤ h) (h8 : h ≤ 8) (V : Digest) (s :
 theorem r6_dispatch_step {p h : Nat} (h1 : 1 ≤ h) (h8 : h ≤ 8) (hp : p < 257181)
     (hrun : vrun p 5 = some (r6DispR h)) (s : MachineState) (V : Digest) (hpc : s.pc = pcOf p)
     (h16 : s.getReg .x16 = V.extractLsb' 0 64) (h17 : s.getReg .x17 = V.extractLsb' 64 64)
-    (h29 : s.getReg .x29 = 522240#64) (h18 : s.getReg .x18 = 856064#64) :
+    (h29 : s.getReg .x29 = 522240#64) (h18 : s.getReg .x18 = 4095#64) :
     ∃ t, Steps Images.verifyImage s (r6DispR h).steps (r6DispR h).cycles t ∧
       t.pc = pcOf (cell6 h (V.toNat / 2^(r6Pos h) % 256)) ∧ RegsExcept s t [.x14] ∧ Frame s t (fun _ => False) := by
   refine ⟨(r6DispR h).toState s, piece_steps45 hrun hp s hpc (by simp [r6DispR]), ?_, ?_, ?_⟩
@@ -1901,13 +1901,13 @@ theorem r6_dispatch_step {p h : Nat} (h1 : 1 ≤ h) (h8 : h ≤ 8) (hp : p < 257
     rw [RegFile.get_set_ne _ _ (show r ≠ .x14 by simpa using hr), RegFile.init_get_eval]
   · intro A _ _
     simp [r6DispR, rv_simp]
-/-- Group 0's 5-word dispatch into group 1: loads t4 = 0xFF00 (verify data word 16 at `s1 - 288`) and s2 = 856064,
+/-- Group 0's 5-word dispatch into group 1: loads t4 = 0xFF00 (verify data word 16 at `s1 - 288`) and s2 = 4095,
 then jumps to group 1's cell of the field `a6 bits 8..15`. -/
 theorem g0_dispatch_step {p : Nat} (hp : p < 257181) (hrun : vrun p 5 = some g0DispR) (s : MachineState)
     (V : Digest) (hpc : s.pc = pcOf p) (h16 : s.getReg .x16 = V.extractLsb' 0 64)
-    (h9 : s.getReg .x2 = 0xffbde0#64) (hmask : s.getMem 0xffbdf0#64 = 522240#64) :
-    ∃ t, Steps Images.verifyImage s 5 5 t ∧ t.pc = pcOf (cell6 1 (V.toNat / 2^8 % 256)) ∧
-      t.getReg .x29 = 522240#64 ∧ t.getReg .x18 = 856064#64 ∧ RegsExcept s t [.x29, .x18, .x14] ∧
+    (h9 : s.getReg .x2 = 0xffbde0#64) (hmask : s.getMem 0xffbdf0#64 = 522240#64) (h18 : s.getReg .x18 = 4095#64) :
+    ∃ t, Steps Images.verifyImage s 4 4 t ∧ t.pc = pcOf (cell6 1 (V.toNat / 2^8 % 256)) ∧
+      t.getReg .x29 = 522240#64 ∧ t.getReg .x18 = 4095#64 ∧ RegsExcept s t [.x29, .x18, .x14] ∧
       Frame s t (fun _ => False) := by
   have hobl : ∀ o ∈ g0DispR.st.obl, o.holds s := by
     intro o ho
@@ -1931,15 +1931,15 @@ theorem g0_dispatch_step {p : Nat} (hp : p < 257181) (hrun : vrun p 5 = some g0D
     · rw [if_neg hl]
       exact r6_direct_target _ 62 (by omega)
   · rw [Result.toState_getReg]; simp only [g0DispR]
-    rw [RegFile.get_set_ne _ _ (by decide), RegFile.get_set_ne _ _ (by decide), RegFile.get_set_self _ _ (by decide)]
+    rw [RegFile.get_set_ne _ _ (by decide), RegFile.get_set_self _ _ (by decide)]
     exact hm
   · rw [Result.toState_getReg]; simp only [g0DispR]
-    rw [RegFile.get_set_ne _ _ (by decide), RegFile.get_set_self _ _ (by decide)]; rfl
+    rw [RegFile.get_set_ne _ _ (by decide), RegFile.get_set_ne _ _ (by decide), RegFile.init_get_eval]; exact h18
   · intro r hr
     rw [Result.toState_getReg]
     simp only [g0DispR]
     simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
-    rw [RegFile.get_set_ne _ _ hr.2.2, RegFile.get_set_ne _ _ hr.2.1, RegFile.get_set_ne _ _ hr.1,
+    rw [RegFile.get_set_ne _ _ hr.2.2, RegFile.get_set_ne _ _ hr.1,
       RegFile.init_get_eval]
   · intro A _ _
     simp [g0DispR, rv_simp]
@@ -2223,8 +2223,8 @@ theorem set24_known (c : NCtx) {b : MachineState} (x : Word) (hk : ∀p∈c.know
   exact hk p hp
 theorem set24_orig (c : NCtx) {b : MachineState} (x : Word) (h0 : c.Orig0 b) : c.Orig0 (set24 b x) :=
   ⟨⟨fun i hi k hk => h0.1.1 i hi k hk,fun i hi k hk => h0.1.2 i hi k hk⟩, h0.2.congr (fun A _ _ => set24_mem b x _)⟩
-/-- T51: group 0's dispatch loads t4 = 0xFF00 and s2 = 856064; the later groups run on this base. -/
-def setTab (b : MachineState) : MachineState := (b.setReg .x29 522240#64).setReg .x18 856064#64
+/-- T51: group 0's dispatch loads t4 = 0xFF00 and s2 = 4095; the later groups run on this base. -/
+def setTab (b : MachineState) : MachineState := (b.setReg .x29 522240#64).setReg .x18 4095#64
 theorem setTab_regs (b : MachineState) (r : Reg) (h29 : r≠.x29) (h18 : r≠.x18) :
     (setTab b).getReg r=b.getReg r := by
   unfold setTab
@@ -2234,7 +2234,7 @@ theorem setTab_29 (b : MachineState) : (setTab b).getReg .x29=522240#64 := by
   unfold setTab
   rw [setReg_of_ne _ _ (by decide +kernel), setReg_of_ne b _ (by decide +kernel)]
   rfl
-theorem setTab_18 (b : MachineState) : (setTab b).getReg .x18=856064#64 := by
+theorem setTab_18 (b : MachineState) : (setTab b).getReg .x18=4095#64 := by
   unfold setTab
   rw [setReg_of_ne _ _ (by decide +kernel)]
   rfl
@@ -2381,19 +2381,20 @@ structure Encoded0 (V : Digest) (s : MachineState) : Prop where
   lo : s.getReg .x16 = V.extractLsb' 0 64
   hi : s.getReg .x17 = V.extractLsb' 64 64
   mask5 : s.getReg .x6 = 520192#64
-/-- ... and after group 0's dispatch: the r6 mask t4 = 0xFF00 and the table base s2 = 856064 (`setTab`). -/
+  base18 : s.getReg .x18 = 4095#64
+/-- ... and after group 0's dispatch: the r6 mask t4 = 0xFF00 and the table base s2 = 4095 (`setTab`). -/
 structure Encoded6 (V : Digest) (s : MachineState) : Prop where
   lo : s.getReg .x16 = V.extractLsb' 0 64
   hi : s.getReg .x17 = V.extractLsb' 64 64
   mask6 : s.getReg .x29 = 522240#64
-  base6 : s.getReg .x18 = 856064#64
+  base6 : s.getReg .x18 = 4095#64
   mask5 : s.getReg .x6 = 520192#64
 theorem setTab_encoded {V : Digest} {b : MachineState} (he : Encoded0 V b) : Encoded6 V (setTab b) :=
   ⟨(setTab_regs _ _ (by decide) (by decide)).trans he.lo, (setTab_regs _ _ (by decide) (by decide)).trans he.hi,
     setTab_29 b, setTab_18 b, (setTab_regs _ _ (by decide) (by decide)).trans he.mask5⟩
 theorem set24_encoded0 {V : Digest} {b : MachineState} (x : Word) (he : Encoded0 V b) : Encoded0 V (set24 b x) :=
   ⟨(set24_regs _ _ _ (by decide +kernel)).trans he.lo,(set24_regs _ _ _ (by decide +kernel)).trans he.hi,
-    (set24_regs _ _ _ (by decide +kernel)).trans he.mask5⟩
+    (set24_regs _ _ _ (by decide +kernel)).trans he.mask5,(set24_regs _ _ _ (by decide +kernel)).trans he.base18⟩
 theorem set24_encoded6 {V : Digest} {b : MachineState} (x : Word) (he : Encoded6 V b) : Encoded6 V (set24 b x) :=
   ⟨(set24_regs _ _ _ (by decide +kernel)).trans he.lo,(set24_regs _ _ _ (by decide +kernel)).trans he.hi,
     (set24_regs _ _ _ (by decide +kernel)).trans he.mask6,(set24_regs _ _ _ (by decide +kernel)).trans he.base6,
@@ -2435,7 +2436,7 @@ def gRank (V : Digest) (q : Nat) : Nat :=
   if q < 9 then T3.r6Rank V q else if q < 16 then T3.r5Rank V q else T3.r7Rank V
 /-- Steps from the end of group `j - 1` (its dispatch word) to the entry word of group `j`: group 0's 5-word
 dispatch, the r6 dispatches (4), the merged q9 dispatch (3, sg-topdigit), #938's r5 dispatches and the pair's (3). -/
-def dspR6 (j : Nat) : Nat := if j = 1 then 5 else 3
+def dspR6 (j : Nat) : Nat := if j = 1 then 4 else 3
 theorem dspR6_le (j : Nat) : dspR6 j ≤ 5 := by unfold dspR6; split_ifs <;> omega
 theorem r6DispR_steps (h : Nat) (h2 : 2 ≤ h) (h8 : h < 9) : (r6DispR h).steps = dspR6 h ∧ (r6DispR h).cycles = dspR6 h := by
   unfold r6DispR dspR6
@@ -2483,7 +2484,7 @@ theorem endInv_group (c : NCtx) {s0 s : MachineState} {acc : List Digest} (q : N
   have he := c.endPc_group q (by omega)
   rw [show 3*q+nCh q-1 = 3*q+2 by unfold nCh; rw [if_neg (by omega)]; omega] at he
   rw [hs.2.2, he]
-/-- T51: end of group 0 (chain 2 done). Group 0's 5-word dispatch loads t4 = 0xFF00 / s2 = 856064 (the base becomes
+/-- T51: end of group 0 (chain 2 done). Group 0's 5-word dispatch loads t4 = 0xFF00 / s2 = 4095 (the base becomes
 `setTab s0`) and lands on group 1's cell (field `raw6Of V 1 < 216`) or a zero-word guard. -/
 theorem end_dispatch0 (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState} {V : Digest}
     (he : Encoded0 V s0) (hk : ∀p∈c.known,s0.getReg p.1=p.2) (hmask : s0.getMem 0xffbdf0#64 = 522240#64)
@@ -2507,7 +2508,8 @@ theorem end_dispatch0 (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineSta
     unfold Wr; rw [slot0, slot1]; omega
   have hm : s.getMem 0xffbdf0#64 = 522240#64 := by
     rw [show (0xffbdf0#64 : Word) = BitVec.ofNat 64 0xffbdf0 from rfl, hF.get (by norm_num) hnw]; exact hmask
-  obtain ⟨t, st, pt, t29, t18, rt, ft⟩ := g0_dispatch_step hbound hr s V hpc' h16 h9 hm
+  have h18 : s.getReg .x18 = 4095#64 := (hR _ (by decide +kernel)).trans he.base18
+  obtain ⟨t, st, pt, t29, t18, rt, ft⟩ := g0_dispatch_step hbound hr s V hpc' h16 h9 hm h18
   have base_of : c.Base (setTab s0) (c.Wr 3) acc t := by
     refine ⟨fun x hx => ?_, fun A hA hn => ?_, fun j hj => ?_⟩
     · by_cases h29 : x = .x29
@@ -2521,9 +2523,9 @@ theorem end_dispatch0 (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineSta
   have hraw : V.toNat / 2^8 % 256 < 256 := Nat.mod_lt _ (by norm_num)
   have e1 : raw6Of V 1 = V.toNat / 2^8 % 256 := by unfold raw6Of r6Pos; norm_num
   rw [gValid_r6 V 1 (by omega) (by omega), gRank_r6 V 1 (by omega) (by omega), e1]
-  have hd : dspR6 1 = 5 := rfl
+  have hd : dspR6 1 = 4 := rfl
   rw [hd]
-  refine ⟨fun hv => ⟨t, st, base_of, hlen, ?_⟩, fun hv => ⟨5, t, st, le_rfl, ?_⟩⟩
+  refine ⟨fun hv => ⟨t, st, base_of, hlen, ?_⟩, fun hv => ⟨4, t, st, by decide, ?_⟩⟩
   · have hcell := cell6_valid 1 _ (by omega) (by simpa [raw6Valid] using hv)
     rw [pt]
     exact congrArg pcOf (by simpa [entW] using hcell)
@@ -2542,7 +2544,7 @@ theorem end_dispatch6 (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineSta
   have h16 : s.getReg .x16 = V.extractLsb' 0 64 := (hR _ (by decide +kernel)).trans he.lo
   have h17 : s.getReg .x17 = V.extractLsb' 64 64 := (hR _ (by decide +kernel)).trans he.hi
   have h29 : s.getReg .x29 = 522240#64 := (hR _ (by decide +kernel)).trans he.mask6
-  have h18 : s.getReg .x18 = 856064#64 := (hR _ (by decide +kernel)).trans he.base6
+  have h18 : s.getReg .x18 = 4095#64 := (hR _ (by decide +kernel)).trans he.base6
   obtain ⟨t, st, pt, rt, ft⟩ := r6_dispatch_step (h := q+1) (by omega) (by omega) hbound hr s V hpc' h16 h17 h29 h18
   obtain ⟨hst, hcy⟩ := r6DispR_steps (q+1) (by omega) (by omega)
   rw [hst, hcy] at st
@@ -2984,14 +2986,14 @@ theorem groups_zero (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState
     have hov := ov_succ 0 m (by omega)
     rw [he0] at hov
     simp only [Nat.zero_add] at hov
-    have hd1 : dspR6 1=5 := rfl
+    have hd1 : dspR6 1=4 := rfl
     have hmB : (set24 s0 (c.s8v 0)).getMem 0xffbdf0#64 = 522240#64 := by rw [set24_mem]; exact hmask
     have hkS := setTab_known c hk
     have h0S := setTab_orig c h0
     have heS := setTab_encoded he
     have H := c.group_good hc hds hkB h0B 0 (by omega)
       (fun ends => Verify.ccM ((List.range' (0+3) (3*m)).foldlM c.chainF ends) K)
-      (N+126*m+5) (C+c.chainsCost 3 (3*m)+ov 1 m+5) (A+c.chainsCost 3 (3*m)+ov 1 m+5) Q
+      (N+126*m+5) (C+c.chainsCost 3 (3*m)+ov 1 m+4) (A+c.chainsCost 3 (3*m)+ov 1 m+4) Q
       (fun ends u hu => by
         rw [hn0] at hu
         obtain ⟨u',st,hu'⟩ := c.end_dispatch0_in hc hds heB hkB hmB hf (hval 1 (by omega)) ends u hu
@@ -3016,7 +3018,7 @@ def TopOut (c : NCtx) (s0 : MachineState) (acc : List Digest) (s : MachineState)
   (∀ x, x ∉ chainRegs → x ≠ .x24 → x ≠ .x29 → x ≠ .x18 → s.getReg x=s0.getReg x) ∧
   Frame s0 s (c.Wr 51) ∧ acc.length=51 ∧
   (∀ j < acc.length, DigAt s (slot j) (acc.getD j 0)) ∧
-  s.pc = pcOf (ckTail (c.dig 50)) ∧ s.getReg .x24=c.s8v 16 ∧ s.getReg .x29=522240#64 ∧ s.getReg .x18=856064#64
+  s.pc = pcOf (ckTail (c.dig 50)) ∧ s.getReg .x24=c.s8v 16 ∧ s.getReg .x29=522240#64 ∧ s.getReg .x18=4095#64
 /-- The checksum digit of a context: chain 50's digit is `topT - (data digit sum)` whenever that lies in `0..5`. -/
 def CkOk (c : NCtx) : Prop :=
   ∀ ds, ((List.range 50).map c.dig).sum = ds → topT-5 ≤ ds → ds ≤ topT → c.dig 50 = topT-ds
@@ -3089,7 +3091,7 @@ theorem pair_ck_good (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) (hck : c.CkOk) {s
   have H' := Verify.GoodQP.steps (st1.trans st2) H
   rw [ec]
   refine H'.mono ?_ ?_ (fun h => ⟨h,?_⟩) <;> omega
-theorem ov_16 : ov 0 16 = 63 := by decide +kernel
+theorem ov_16 : ov 0 16 = 62 := by decide +kernel
 /-- The whole T51 top region for a valid word: 16 groups, the r7 pair, the checksum chain. -/
 theorem top_full (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) (hck : c.CkOk) {s0 : MachineState}
     (hk : ∀p∈c.known,s0.getReg p.1=p.2) (h0 : c.Orig0 s0) {V : Digest} (he : Encoded0 V s0) (hf : c.Fit6 V)
@@ -3099,7 +3101,7 @@ theorem top_full (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) (hck : c.CkOk) {s0 : 
     (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs) (N C A : Nat) (Q : Prop)
     (hK : ∀ acc t,c.TopOut s0 acc t → Verify.GoodQP P t N C Q A (K acc))
     (s : MachineState) (hs : c.GroupIn s0 0 [] s) :
-    Verify.GoodQP P s (N+2146) (C+c.chainsCost 0 51+69) Q (A+c.chainsCost 0 51+69)
+    Verify.GoodQP P s (N+2146) (C+c.chainsCost 0 51+68) Q (A+c.chainsCost 0 51+68)
       (Verify.ccM c.topP K) := by
   unfold topP
   rw [show (51:Nat)=3*16+3 from rfl,← List.range'_append_1,List.foldlM_append,Verify.ccM_bind]
@@ -3482,9 +3484,9 @@ def rejBothSpare (lay c : Nat) : Spec :=
   ⟨[], [], spareTrap lay c, false, 8, [spareHiBr lay true, spareBr lay true], none, 8⟩
 def lfAllowed (lay : Nat) : List Nat := [bufferBase lay+16,bufferBase lay+24]
 /-- Campaign T51: the global register facts kept through layer `lay`'s leaf and merkle code. The T51 g0 body loads
-`s2 = 856064` (the r6 table base), and nothing after it restores main's `s2 = 0xFFF` (the top leaf, merkle and root
+`s2 = 4095` (the r6 table base), and nothing after it restores main's `s2 = 0xFFF` (the top leaf, merkle and root
 compare never read `s2`), so the top keeps only `t0 = 0`; lower layers keep `baseK`. -/
-def gkL (lay : Nat) : List (Reg × Word) := if lay = 0 then [(.x5, 0), (.x18, 856064)] else baseK
+def gkL (lay : Nat) : List (Reg × Word) := if lay = 0 then [(.x5, 0), (.x18, 4095)] else baseK
 theorem gkL_low {lay : Nat} (h : lay ≠ 0) : gkL lay = baseK := if_neg h
 def leafK (lay : Nat) : List (Reg × Word) :=
   gkL lay ++ (if lay = 0 then [(.x5, 0), (.x6, 520192)] else [(.x5, 0)]) ++ [(.x4,BitVec.ofNat 64 (bufferBias lay))]

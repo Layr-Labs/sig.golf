@@ -139,9 +139,9 @@ theorem leafHalfHigh_lower {lay : Layer} (h : lay ≠ 0) (leaf : Nat) : leafHalf
 is never the digest word 0, never an FTS word (`≥ 2 ^ 16`) and never a lower word (type byte 193). -/
 def topNodeWord (heap : Nat) : Nat :=
   let n := (heap - 1) % 4095 + 1
-  if n = 1 then 856064 else if n = 7 then 520192 else n
+  if n = 1 then 14336 else if n = 7 then 520192 else n
 /-- Inverse of the special top-node label on the valid top-label image. -/
-def topNodeHeap (word : Nat) : Nat := if word = 856064 then 1 else if word = 520192 then 7 else word
+def topNodeHeap (word : Nat) : Nat := if word = 14336 then 1 else if word = 520192 then 7 else word
 def privatePair (tag lay tree position index : Nat) : M (Digest × Digest) := do
   let output ← privateHash (.inl (header tag lay tree position index))
   pure (output.extractLsb' 0 128, output.extractLsb' 128 128)

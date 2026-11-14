@@ -3963,11 +3963,11 @@ def topChainRegs : List Reg := [.x10,.x12,.x25,.x3,.x14,.x15,.x24,.x29,.x18]
 chain blocks. The leaf tweak `[15304, 15320)` is never written. -/
 def topChainWrites (A : Nat) : Prop := (15272 ≤ A ∧ A < 15304) ∨ (15320 ≤ A ∧ A < 16136) ∨ (12592 ≤ A ∧ A < 15288)
 /-- Campaign T51: the top leaf's known registers (`leafK 0` keeps `t0 = 0` but not main's `s2 = 0xFFF`: the g0 body
-loads `s2 = 856064`). -/
+loads `s2 = 14336`). -/
 theorem topLeafK_of (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (t s0 s : MachineState)
     (a : BitVec 256) (ht : BC.EncPre w pk index 0 c t)
     (he : TopEntry (writeHash t a) (T3.TopChoice.read (ClaudeWCT.W9.T3M.wtopHigh w) a) (trPc 0 c) s0)
-    (hr : RegsExcept s0 s topChainRegs) (_h15 : s.getReg .x9 = 0x7fc01#64) (h18 : s.getReg .x18=856064#64) : KnownOK (leafK 0) s := by
+    (hr : RegsExcept s0 s topChainRegs) (_h15 : s.getReg .x9 = 0x7fc01#64) (h18 : s.getReg .x18=4095#64) : KnownOK (leafK 0) s := by
   intro p hp
   simp only [leafK, gkL, ↓reduceIte, List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil,
     or_false] at hp
@@ -3998,7 +3998,7 @@ theorem topLeafReady_of (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : N
     (he : TopEntry (writeHash t a) (T3.TopChoice.read (ClaudeWCT.W9.T3M.wtopHigh w) a) (trPc 0 c) s0)
     (hp : s.pc = pcOf (Nonbinary.ckTail
       ((nctxOf w index (T3.TopChoice.read (ClaudeWCT.W9.T3M.wtopHigh w) a) (trPc 0 c)).dig 50)))
-    (hr : RegsExcept s0 s topChainRegs) (hf : Frame s0 s topChainWrites) (h15 : s.getReg .x9 = 0x7fc01#64) (h18 : s.getReg .x18=856064#64)
+    (hr : RegsExcept s0 s topChainRegs) (hf : Frame s0 s topChainWrites) (h15 : s.getReg .x9 = 0x7fc01#64) (h18 : s.getReg .x18=4095#64)
     (hlen : ends.length = 51) (hend : ∀j<51, DigAt s (slotT j) (ends.getD j 0)) :
     TopLeafReady w pk index c ends s := by
   have hk := topLeafK_of w pk index c t s0 s a ht he hr h15 h18
@@ -4145,7 +4145,7 @@ def mkK7 : Nat := 1920
 /-- C2: lower levels write only the packed tweak word `hyperWord + mkK7 + heap`; its high word is witness memory.
 C4: a top level writes only its one-word label, the heap. -/
 def mkLabE (lay ci sh l : Nat) : E :=
-  if lay = 0 then (if mkHeap lay ci sh l = 1 then kw 856064 else if mkHeap lay ci sh l = 7 then kw 520192 else mkHeapE lay ci sh l) else addC (mkHdrE lay l) (BitVec.ofNat 64 (mkK7 + mkHeap lay ci sh l))
+  if lay = 0 then (if mkHeap lay ci sh l = 1 then kw 14336 else if mkHeap lay ci sh l = 7 then kw 520192 else mkHeapE lay ci sh l) else addC (mkHdrE lay l) (BitVec.ofNat 64 (mkK7 + mkHeap lay ci sh l))
 def mkLvlMem (lay ci sh l : Nat) : List (Addr × E) :=
   [(⟨none, BitVec.ofNat 64 (mkBlk lay (mkLeafOf lay ci sh) l + 16)⟩, mkLabE lay ci sh l)]
 def mkLvlRegs (lay l : Nat) : List (Reg × E) := if l = 0 ∧ lay ≠ 0 then [(.x28, t3E (lay - 1))] else []

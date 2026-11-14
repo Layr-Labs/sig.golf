@@ -3596,9 +3596,9 @@ def g0A : E :=
 
 /-- Group 0's next dispatch `ld t4,-288(s1); lui s2,209; and a4,a6,t4; sub a4,s2,a4; jalr -72(a4)` (into g1). -/
 def g0DispR : Result :=
-  ⟨⟨((RegFile.init.set .x29 maskE).set .x18 (.c 856064#64)).set .x14 g0A,[],
+  ⟨⟨(RegFile.init.set .x29 maskE).set .x14 g0A,[],
     [.valid ⟨some (.reg .x2),BitVec.ofNat 64 16⟩ 8]⟩,
-    .bin .and (.bin .add g0A (.c (BitVec.ofNat 64 (2^64-1800)))) (.c (~~~1#64)),.jump,5,5⟩
+    .bin .and (.bin .add g0A (.c (BitVec.ofNat 64 (2^64-1800)))) (.c (~~~1#64)),.jump,4,4⟩
 /-! ### Sparse checksum chain 50
 The six checksum arms are separated by 32,768 words. With accumulator bias 1,
 `slli a4,s8,17; jalr 1696(a4)` sends data sum `ds` in 147..152 to

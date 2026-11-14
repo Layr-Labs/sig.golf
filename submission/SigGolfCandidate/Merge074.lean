@@ -101,7 +101,7 @@ theorem eD1_pc (s : MachineState) : eD1.res.pc.eval s = pcOf 60919 := rfl
 def cfgR6 : Config := { noAlias := true }
 set_option maxRecDepth 100000 in
 theorem codeAt_r6 : CodeAt Images.expandImage (pcOf 60919) Images.expandR6Code := by
-  apply codeAt_expand_last <;> decide +kernel
+  apply codeAt_expand_lastR <;> decide +kernel
 
 theorem d1_spec (s : MachineState) (hpc : s.pc = pcOf 54569) :
     ∃ t, Steps Images.expandImage s 73 73 t ∧ t.pc = pcOf 60919 ∧
@@ -254,7 +254,7 @@ def cU4 : List (BitVec 32) := (Images.expandR6Code.drop 11).take 31
 sym_block eU4 := symRun cfgR6 cU4 (pcOf 60930) 40
 set_option maxRecDepth 100000 in
 theorem codeAt_y5 : CodeAt Images.expandImage (pcOf 84000) Images.expandY5Code := by
-  apply codeAt_expand_last <;> decide +kernel
+  apply codeAt_expand_lastR <;> decide +kernel
 /-- Y5: the hint decode `DEC5` (expand 88000..88056): `t1 := packH t4` (`t4 = N mod 360`), stored at `0x66000`; `j 54644`. -/
 def cDec : List (BitVec 32) := (Images.expandY5Code.drop 4000).take 57
 theorem codeAt_dec : CodeAt Images.expandImage (pcOf 88000) cDec :=

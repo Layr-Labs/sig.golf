@@ -13664,7 +13664,7 @@ theorem take8_bytesLE16 (a : BitVec 128) : (bytesLE 16 a).take 8 = bytesLE 8 (a.
 /- Every bounded FTS position has a low word above the top-label range. -/
 set_option debug.skipKernelTC true in
 theorem ftsPos_low {p : Extract.Pos} (hb : p.Bounded) (h : FtsPos p) :
-    (tweakLow p.hdr = 0 ∨ 4096 ≤ tweakLow p.hdr) ∧ tweakLow p.hdr < 2 ^ 64 ∧ tweakLow p.hdr ≠ 520192 ∧ tweakLow p.hdr ≠ 856064 := by
+    (tweakLow p.hdr = 0 ∨ 4096 ≤ tweakLow p.hdr) ∧ tweakLow p.hdr < 2 ^ 64 ∧ tweakLow p.hdr ≠ 520192 ∧ tweakLow p.hdr ≠ 14336 := by
   cases p with
   | wctChain index coord child t step =>
       obtain ⟨-, hk, -, ht, -⟩ := hb
@@ -13685,7 +13685,7 @@ theorem ftsPos_low {p : Extract.Pos} (hb : p.Bounded) (h : FtsPos p) :
         have hm := WCT9.ftsSelMul_mul_facts coord child
         unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN
         omega
-      have hn1 : WCT9.ftsLeafLow index coord child ≠ 856064 := by
+      have hn1 : WCT9.ftsLeafLow index coord child ≠ 14336 := by
         have hm := WCT9.ftsSelMul_mul_facts coord child
         unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN
         omega
@@ -13708,10 +13708,10 @@ theorem ftsPos_low {p : Extract.Pos} (hb : p.Bounded) (h : FtsPos p) :
       have hneN : WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) ≠ 520192 := by
         unfold WCT9.ftsNodeLowN SigGolfCandidate.T3.ftsBiasN
         omega
-      have hneL1 : WCT9.ftsLeafLow index coord 0 ≠ 856064 := by
+      have hneL1 : WCT9.ftsLeafLow index coord 0 ≠ 14336 := by
         unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN
         omega
-      have hneN1 : WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) ≠ 856064 := by
+      have hneN1 : WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) ≠ 14336 := by
         unfold WCT9.ftsNodeLowN SigGolfCandidate.T3.ftsBiasN
         omega
       simp only [Extract.Pos.hdr]

@@ -8,7 +8,7 @@ open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 namespace SigGolfCandidate.T3M.ExpandLabel
 open _root_.SigGolfCandidate.T3M.OneLabelArithmetic (arithmetic arithmetic_eq arithmetic_seven)
 def window : List (BitVec 32) := [0x100006f,0xff930193,0xfe019ce3,0x7f337]
-def remapCode : List (BitVec 32) := [0xfff30193,0x11b193,0xd13b7,0xfff38393,0x403001b3,0x71f1b3,0x330333,0x393,0xed51e06f]
+def remapCode : List (BitVec 32) := [0xfff30193,0x11b193,0x33b7,0x7ff38393,0x403001b3,0x71f1b3,0x330333,0x393,0xed51e06f]
 def jump : BitVec 32 := 0x644b806f
 def look (n : Nat) : Option (BitVec 32) :=
   if 1125 ≤ n ∧ n < 1129 then window[n-1125]?
@@ -48,7 +48,7 @@ private theorem prefix_get {im : Image} {xs : List (BitVec 32)} {base n : Nat} {
   cases nz <;> rfl
  theorem post_word (nz : Bool) (s : MachineState) :
     ((result nz).toState s).getReg .x6 =
-      if nz then (if s.getReg .x6=1#64 then 856064#64 else s.getReg .x6) else 520192#64 := by
+      if nz then (if s.getReg .x6=1#64 then 14336#64 else s.getReg .x6) else 520192#64 := by
   cases nz
   · rfl
   · change arithmetic (s.getReg .x6) = _
@@ -91,7 +91,7 @@ private theorem prefix_get {im : Image} {xs : List (BitVec 32)} {base n : Nat} {
     let heap:=heapNat
     let nz:=decide (s.getReg .x6≠7#64)
     ((result nz).toState s).getReg .x6 =
-      BitVec.ofNat 64 (if heap=1 then 856064 else if heap=7 then 520192 else heap) := by
+      BitVec.ofNat 64 (if heap=1 then 14336 else if heap=7 then 520192 else heap) := by
   intro heap nz
   rw [post_word]
   by_cases hh7 : heap=7

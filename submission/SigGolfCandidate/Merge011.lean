@@ -2009,7 +2009,7 @@ theorem rowTweak_high (lay : Layer) (tree leaf : Nat) : tweakHigh (rowTweak lay 
 theorem topNodeWord_pos (heap : Nat) : 1 ≤ topNodeWord heap := by
   dsimp only [topNodeWord]
   split_ifs <;> omega
-theorem topNodeWord_small_or_special (heap : Nat) : topNodeWord heap < 4096 ∨ topNodeWord heap = 520192 ∨ topNodeWord heap = 856064 := by
+theorem topNodeWord_small_or_special (heap : Nat) : topNodeWord heap < 4096 ∨ topNodeWord heap = 520192 ∨ topNodeWord heap = 14336 := by
   dsimp only [topNodeWord]
   split_ifs <;> omega
 theorem topNodeWord_ne_seven (heap : Nat) : topNodeWord heap ≠ 7 := by
@@ -2019,7 +2019,7 @@ theorem topNodeWord_lt (heap : Nat) : topNodeWord heap < 856065 := by
   have := topNodeWord_small_or_special heap
   omega
 theorem topNodeWord_eq {heap : Nat} (h1 : 1 ≤ heap) (h : heap < 4096) :
-    topNodeWord heap = if heap = 1 then 856064 else if heap = 7 then 520192 else heap := by
+    topNodeWord heap = if heap = 1 then 14336 else if heap = 7 then 520192 else heap := by
   have he : (heap - 1) % 4095 + 1 = heap := by omega
   simp only [topNodeWord, he]
 theorem topNodeWord_inj {heap heap' : Nat} (h1 : 1 ≤ heap) (h : heap < 4096) (h1' : 1 ≤ heap') (h' : heap' < 4096)
@@ -2470,7 +2470,7 @@ theorem nodeTweak_fts_ne_hyper {lay lay' : Nat} (h4 : 4 ≤ lay) (h13 : lay < 13
         exact hn (by simpa using ht)
       · have ht := congrArg tweakTag he
         rw [nodeTweak_top_tag, hs] at ht
-        have hn := nodeTweak_fts_tag_ne h4 h13 tree heap (t := 16) (by decide) (by decide)
+        have hn := nodeTweak_fts_tag_ne h4 h13 tree heap (t := 56) (by decide) (by decide)
         exact hn (by simpa using ht)
   · exact ne_of_tweakTag (by rw [nodeTweak_lower_tag h0 hl']; exact nodeTweak_fts_tag_ne h4 h13 _ _ (by decide) (by decide))
 
