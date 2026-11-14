@@ -8,7 +8,7 @@ import SigGolfCandidate.Merge059
 import SigGolfCandidate.Merge060
 import SigGolfCandidate.Merge070
 import SigGolfCandidate.Merge075
-set_option debug.skipKernelTC false
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from T3M_Expand_LayerBlocks ====

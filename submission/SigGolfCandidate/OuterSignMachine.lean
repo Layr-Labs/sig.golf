@@ -13,7 +13,7 @@ open SigGolfCandidate.T3M.Verify
 open ClaudeWCT.W9.Machine.Sign
 
 theorem forestLook : LookOK OuterImages.signImage SharedBoundary.forLook :=
-  OuterSignLook.transfer _ SharedBoundary.installed_forLook (by decide +kernel) (by decide +kernel) (by decide +kernel)
+  OuterSignLook.transfer _ SharedBoundary.installed_forLook (OuterSignLook.gap0 _ (by decide +kernel)) (by decide +kernel) (by decide +kernel) (by decide +kernel)
 
 def work : Nat:=SigGolfCandidate.T3M.Sign.frontC+(1+((11*2^17)*200+20+OuterSignOutput.work))
 

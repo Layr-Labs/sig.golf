@@ -19,7 +19,7 @@ def signPatch (i : Nat) (w : BitVec 32) : BitVec 32 :=
   else if i=25963 then jump i 26207
   else w
 
-def signCode : List (BitVec 32) := Images.signCode.mapIdx signPatch++OuterSignImageLayout.code++OuterCodecMachine.packCode++[0x73]
+def signCode : List (BitVec 32) := (Images.signCode.take 26156).mapIdx signPatch++OuterSignImageLayout.code++OuterCodecMachine.packCode++[0x73]++Images.signCode.drop 26241
 
 def expandPatch (i : Nat) (w : BitVec 32) : BitVec 32 :=
   if i=0 then jump 0 88300
@@ -41,8 +41,8 @@ def signImage : SigGolfCandidate.Legacy.Riscv.Image := ⟨signCode,Images.signDa
 def expandImage : SigGolfCandidate.Legacy.Riscv.Image := ⟨expandCode,Images.expandData⟩
 def images : ClaudeWCT.W9.T3M.Images := ⟨signImage,expandImage,Images.verifyImage⟩
 
-theorem sign_length : signCode.length=26241 := by
-  simp only [signCode,List.length_append,List.length_mapIdx,Images.signCode_length]
+theorem sign_length : signCode.length=26415 := by
+  simp only [signCode,List.length_append,List.length_mapIdx,List.length_take,List.length_drop,Images.signCode_length]
   decide +kernel
 
 theorem prefix_length : expandPrefix.length=235776 := by

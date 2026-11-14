@@ -340,9 +340,9 @@ def score (w : Word) : Nat :=
 def stat (w : Word) : Nat :=
   (∑ g : Fin 9, tstat 6 (decide (g.val = 0)) false (w.1 g).val) +
     (∑ j : Fin 7, tstat 5 false (pen j) (w.2.1 j).val) + pstat w.2.2.val
-/-- LOW is not forced (`TopChoice.blocked` fails): the rank of r6 group 8 (bits 120..127) is at least 64. -/
-def isFree (w : Word) : Prop := 64 ≤ (w.1 8).val
-instance (w : Word) : Decidable (isFree w) := inferInstanceAs (Decidable (64 ≤ (w.1 8).val))
+/-- LOW is not forced (`TopChoice.blocked` fails): the rank of r6 group 8 (bits 120..127) is at least 61. -/
+def isFree (w : Word) : Prop := 61 ≤ (w.1 8).val
+instance (w : Word) : Decidable (isFree w) := inferInstanceAs (Decidable (61 ≤ (w.1 8).val))
 
 theorem stat_eq (w : Word) : stat w = 32712 * zeros w + 141 * weight w + score w := by
   simp only [stat, tstat, pstat, zeros, weight, score, Finset.sum_add_distrib, ← Finset.mul_sum]
@@ -449,7 +449,7 @@ theorem weighted_generic (f6 : Fin 9 → Fin 216 → Nat) (f5 : Fin 7 → Fin 12
 
 /-! ### Generic group statistics
 A statistic of a word is a sum of per-group statistics `s6 g r6`, `s5 j r5`, `s7 r7`. With `free`, words whose LOW
-half is forced (`¬ isFree`) are dropped (group 8 restricted to ranks `≥ 64`). -/
+half is forced (`¬ isFree`) are dropped (group 8 restricted to ranks `≥ 61`). -/
 structure GStat where
   s6 : Fin 9 → Nat → Nat
   s5 : Fin 7 → Nat → Nat
@@ -459,7 +459,7 @@ def GStat.eval (S : GStat) (w : Word) : Nat :=
   (∑ g : Fin 9, S.s6 g (w.1 g).val) + (∑ j : Fin 7, S.s5 j (w.2.1 j).val) + S.s7 w.2.2.val
 
 def F6 (y : Nat) (S : GStat) (free : Bool) (g : Fin 9) : Nat :=
-  ∑ r : Fin 216, if free = true ∧ g.val = 8 ∧ r.val < 64 then 0 else y ^ S.s6 g r.val
+  ∑ r : Fin 216, if free = true ∧ g.val = 8 ∧ r.val < 61 then 0 else y ^ S.s6 g r.val
 def F5 (y : Nat) (S : GStat) (j : Fin 7) : Nat := ∑ r : Fin 125, y ^ S.s5 j r.val
 def F7 (y : Nat) (S : GStat) : Nat := ∑ r : Fin 49, y ^ S.s7 r.val
 
@@ -468,7 +468,7 @@ def factors (y : Nat) (S : GStat) (free : Bool) : List Nat :=
 
 theorem factors_prod (y : Nat) (S : GStat) (free : Bool) :
     (factors y S free).prod = ∑ w ∈ univ.filter (fun w : Word => free = true → isFree w), y ^ S.eval w := by
-  have h := weighted_generic (fun g r => if free = true ∧ g.val = 8 ∧ r.val < 64 then 0 else y ^ S.s6 g r.val)
+  have h := weighted_generic (fun g r => if free = true ∧ g.val = 8 ∧ r.val < 61 then 0 else y ^ S.s6 g r.val)
     (fun j r => y ^ S.s5 j r.val) (fun r => y ^ S.s7 r.val)
   have hl : (factors y S free).prod =
       (∏ g : Fin 9, F6 y S free g) * (∏ j : Fin 7, F5 y S j) * F7 y S := by
@@ -480,7 +480,7 @@ theorem factors_prod (y : Nat) (S : GStat) (free : Bool) :
   apply Finset.sum_congr rfl
   intro w _
   rw [Finset.prod_pow_eq_pow_sum]
-  by_cases hf : free = true ∧ (w.1 8).val < 64
+  by_cases hf : free = true ∧ (w.1 8).val < 61
   · rw [if_neg (by unfold isFree; intro h1; have := h1 hf.1; omega)]
     apply mul_eq_zero_of_left
     apply mul_eq_zero_of_left

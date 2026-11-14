@@ -16,7 +16,7 @@ def CreditFloors74 (floors : Layer→Nat) : Prop:=
 theorem after_good (floors : SigGolfCandidate.T3.Layer → Nat) (hcredit : CreditFloors74 floors) (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (Q : Prop) (hQ : Q) (a : HashOutput)
     (top : Digest × Digest) (u : MachineState)
     (h : FtsOut ⟨pk, w, a⟩ top u) :
-    GoodQP (HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) u 8050 13750 Q 5231
+    GoodQP (HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) u 8050 13750 Q 5224
       (ccM (afterFts pk w (ClaudeWCT.WCT9.digestIndex a) (some top)) Kb) := by
   have hidx : ClaudeWCT.WCT9.digestIndex a < 2 ^ 31 := ClaudeWCT.WCT9.digestIndex_lt a
   obtain ⟨t, hst, hL3⟩ := layerIn_of_fts w pk _ top.1 top.2 u hidx h.glob h.idx h.pc h.left h.right h.wit h.base h.a1
@@ -38,9 +38,9 @@ theorem installed_good (floors : Layer→Nat) (hcredit : CreditFloors74 floors)
     GoodQP
       (W9Fin.V7.Canonical.Pre (HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh witness))
         SigGolfCandidate.Research.SharedForest.jointAccountingCost 776 message witness)
-      state 10083 15784 True 6873
+      state 10083 15785 True 6867
       (ccM (ClaudeWCT.W9.T3M.Paired.verifyP message pk witness) Kb) := by
-  have H:=W9Fin.V7.Canonical.verify_good (cap:=776) (ovh:=855) (aG:=5231)
+  have H:=W9Fin.V7.Canonical.verify_good (cap:=776) (ovh:=855) (aG:=5224)
     (P:=fun w=>HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) W9Fin.V7.prefixGood
     (fun _=>W9Fin.V7.Canonical.fts_installed)
     (fun pk w Q hQ answer top state hstate=>after_good floors hcredit pk w Q hQ answer top state hstate)

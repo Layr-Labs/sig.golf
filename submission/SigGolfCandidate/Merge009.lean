@@ -515,10 +515,10 @@ def r6Shift (g : Nat) : Nat := if g < 8 then 8 * g else 120
 /-- T51: raw 8-bit field of r6 group `g` (read through `topCode`, which leaves the r6 fields unchanged). -/
 def r6Raw (value : Digest) (g : Nat) : Nat := topCode value / 2 ^ r6Shift g % 256
 /-- T51: rank of r6 group `g` (group 0 is offset by 40). -/
-def r6Rank (value : Digest) (g : Nat) : Nat := if g = 0 then r6Raw value 0 - 40 else r6Raw value g
+def r6Rank (value : Digest) (g : Nat) : Nat := if g = 0 then r6Raw value 0 - 40 else r6Raw value g - 3
 /-- T51: range check of r6 group `g`. -/
 def r6Valid (value : Digest) (g : Nat) : Bool :=
-  if g = 0 then decide (40 ≤ r6Raw value 0) else decide (r6Raw value g < 216)
+  if g = 0 then decide (40 ≤ r6Raw value 0) else decide (3 ≤ r6Raw value g ∧ r6Raw value g < 219)
 /-- T51: rank of r5 group `q` (9..15): `127 - raw` of bits `7 q .. 7 q + 6`. -/
 def r5Rank (value : Digest) (q : Nat) : Nat := topCode value / 2 ^ (7 * q + 1) % 128
 /-- T51: rank of the r7 pair: `127 - raw` of bits 56..62 (`d48 + 7 d49`). -/

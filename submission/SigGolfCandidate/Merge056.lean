@@ -978,7 +978,7 @@ def words (k : Nat) : List (BitVec 32) :=
     [0x188e8b3,0x1b8f233,0x6787b3,0xf20fb3,0xd25b93,0x1cb8bb3,0xcb040413,0x98f733,0x700e7],
     [0x128f233,0x6787b3,0xf20fb3,0x1225b93,0x1db8bb3,0xcb040413,0x198d713,0x977733,0x700e7],
     [0x2585213,0x927733,0x1b27233,0x6787b3,0xf20fb3,0x4013c83,0xc25b93,0x19b8bb3,0xcb040413,0x700e7]].getD k []
-def start (k : Nat) : Nat := [90,171,258,341,426,511,596,680,765].getD k 849
+def start (k : Nat) : Nat := 192027 + [90,171,258,341,426,511,596,680,765].getD k 849
 def length (k : Nat) : Nat := [6,11,8,9,10,9,9,9,10].getD k 0
 def first (k : Nat) : Bool := decide (k < 8 ∧ k % 2 = 0)
 def rankPosition (k : Nat) : Nat := [8,33,8,45,8,33,8,33,45].getD k 13
@@ -2011,8 +2011,8 @@ def FtsGoodByCost (acceptCost : HashOutput → Nat) (P : Hash → Prop := HashOk
 def ftsAcceptCost (a : HashOutput) : Nat := 855 + SharedForest.jointAccountingCost a
 
 theorem fts_good_of
-    (checkLink : sliceChecked 4 SharedGate.gCheckWords = true)
-    (setupLink : sliceChecked 72 SharedGate.gSetupWords = true)
+    (checkLink : sliceChecked 192031 SharedGate.gCheckWords = true)
+    (setupLink : sliceChecked 192099 SharedGate.gSetupWords = true)
     (links : ∀ k : Fin 9, sliceChecked (SharedDispatch.start k.val) (SharedDispatch.words k.val) = true)
     (chains : ∀ k : Fin 9, N600.AllGood (P := P) (SharedLayout.layout k))
     (childs : ∀ (k : Fin 9) (raw : Fin 128), SharedChild.Good (P := P) (SharedLayout.layout k) k raw) :
