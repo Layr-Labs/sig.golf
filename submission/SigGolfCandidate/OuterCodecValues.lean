@@ -1,5 +1,5 @@
 import SigGolfCandidate.OuterCodecFrame
-set_option debug.skipKernelTC false
+set_option debug.skipKernelTC true
 set_option maxHeartbeats 0
 set_option maxRecDepth 100000
 namespace OuterCodecValues

@@ -16,7 +16,7 @@ abbrev sub : Submission:=OuterRuntime.runtimeSub images
 
 theorem sign_raw : OuterImages.signImage.Valid OuterValidityCore.sizes OuterValidityCore.layout := by
   have h:=OuterValidityLengths.valid OuterImages.signImage OuterImages.signCode Images.signData
-    rfl rfl 26241 86144 OuterImages.sign_length Images.signData_length (by decide) (by decide)
+    rfl rfl 26415 86144 OuterImages.sign_length Images.signData_length (by decide) (by decide)
   exact h
 
 theorem expand_raw : OuterImages.expandImage.Valid OuterValidityCore.sizes OuterValidityCore.layout := by

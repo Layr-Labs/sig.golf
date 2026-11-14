@@ -2,6 +2,7 @@ import SigGolfCandidate.Merge054
 import SigGolfCandidate.Merge058
 import SigGolfCandidate.Merge060
 set_option linter.all false
+set_option maxRecDepth 100000
 
 -- ==== merged from ClaudeWCT_W9_New_Machine_Expand_Canon ====
 section
@@ -12,7 +13,7 @@ Split out of `Expand/Routine.lean` so that it builds independently of the forest
 Expand kernel base `b = 354`; choice block at 43040 (`choiceBase 354`), `pa` at 43057, `topcr` at 43064..43070,
 floor hooks at 46905 (policy hints, Y5 radix 576/24/1), lower credit hook at 46918 (credit words `0x66040 + 8 lay`).
 Campaign T51: the top layer runs the shared T51 kernel at its expand instance (`1272: j 54176`, `K_ENTRY` 54176, unpacker
-54356..54521, RAM table 0xA0000 from KCOPY): `T51.trial` / `T51.unpack` in `CanonicalExpand.cs_loop`. -/
+90000..54521, RAM table 0xA0000 from KCOPY): `T51.trial` / `T51.unpack` in `CanonicalExpand.cs_loop`. -/
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedCounterHooks
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
@@ -263,15 +264,15 @@ structure Code (image : Image) : Prop where
   lowerBad : CodeAt image (pcOf 43029) lowerBadCode
   hooks : ClaudeWCT.W9.Machine.Expand.SharedCounterHooks.Code image
   /-- Campaign T51: the top-trial kernel `K` at 54176 (`1272: j 54176`) and the contiguous unpacker
-  (54356..54467 | 54468..54521). -/
+  (90000..54467 | 90120..54521). -/
   t51K : CodeAt image (pcOf 54176) (T51.kCode T51.expandGuardInst)
-  t51UA : CodeAt image (pcOf 54356) T51.uCodeA
-  t51UB : CodeAt image (pcOf 54468) T51.uCodeB
+  t51UA : CodeAt image (pcOf 90000) T51.uCodeA
+  t51UB : CodeAt image (pcOf 90120) T51.uCodeB
   guardPrep : CodeAt image (pcOf 54310) TopRouteGuardV2.prepCode
   guardHelper : CodeAt image (pcOf 88095) LocalRouteMachineHelpers.expandRootCode
   guardTest : CodeAt image (pcOf 54317) TopRouteGuard.testCode
   guardReject : CodeAt image (pcOf 54318) [0xc21cb06f]
-  guardAccept : CodeAt image (pcOf 54319) [0x940006f]
+  guardAccept : CodeAt image (pcOf 54319) [0x5852206f]
 theorem Code.kAt {image : Image} (h : Code image) : T51.T51KAt image T51.expandGuardInst := T51.expandGuardKAt h.t51K
 theorem Code.guardAt {image : Image} (h : Code image) : TopRouteGuardV2.Code image :=
   ⟨h.guardPrep,h.guardHelper,h.guardTest,h.guardReject,h.guardAccept⟩
@@ -488,6 +489,7 @@ theorem reward_code_of_hooks (hH : SharedCounterHooks.Code Images.expandImage) :
   rotate_right 7
   all_goals first
     | (apply codeAt_t51_at <;> decide +kernel)
+    | (apply codeAt_expand_lastR <;> decide +kernel)
     | (apply codeAt_expand_current_chunk <;> decide +kernel)
 theorem installed_reward_code : CanonicalExpandHooks.Code Images.expandImage :=
   reward_code_of_hooks SharedCounterHooks.installed_code
@@ -1000,7 +1002,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 354 (Canonic
             rw [WCT9.CanonicalPolicy.top_out_filter A.floor hf0 a,hD]
             simp [hpass] <;> omega
           rw [hnew]
-          have pgood : g.pc = pcOf 54356 := by
+          have pgood : g.pc = pcOf 90000 := by
             rw [← hfl] at pguard
             simpa only [if_neg (by omega : ¬ WCT9.CanonicalPolicy.credit 0 low ds < A.floor)] using pguard
           obtain ⟨t',st',pt',tdig,rt',ft'⟩ := T51.unpack hUT g pgood _ ds hdec

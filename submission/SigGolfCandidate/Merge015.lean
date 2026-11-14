@@ -144,11 +144,16 @@ theorem topRanksValid_parts {v : Digest} (h : topRanksValid v = true) :
   exact ⟨h6, fun q h1 h2 => h5 q ⟨h1, by omega⟩, h7⟩
 theorem r6Rank_lt {v : Digest} {g : Nat} (h : r6Valid v g = true) : r6Rank v g < 216 := by
   have hr := Nat.mod_lt (topCode v / 2 ^ r6Shift g) (show 0 < 256 by decide)
-  unfold r6Valid at h
-  unfold r6Rank
-  split_ifs at h ⊢ with hg
-  · subst hg; simp only [decide_eq_true_eq] at h; unfold r6Raw at h ⊢; omega
-  · simpa only [decide_eq_true_eq] using h
+  by_cases h0 : g = 0
+  · subst g
+    simp only [r6Valid, if_true, decide_eq_true_eq] at h
+    simp only [r6Rank, if_true]
+    unfold r6Raw at h ⊢
+    omega
+  · simp only [r6Valid, if_neg h0, decide_eq_true_eq] at h
+    simp only [r6Rank, if_neg h0]
+    omega
+
 theorem rank6_eq {r s : Nat} (hr : r < 216) (hs : s < 216)
     (h0 : r % 6 = s % 6) (h1 : r / 6 % 6 = s / 6 % 6) (h2 : r / 36 % 6 = s / 36 % 6) : r = s := by omega
 theorem rank5_eq {r s : Nat} (hr : r < 125) (hs : s < 125)
@@ -208,11 +213,14 @@ theorem top_r7Rank_eq {a b : Digest} (h : dataDigits 0 a = dataDigits 0 b)
   exact rank7_eq ha hb h0 h1
 theorem r6Raw_eq_of_rank {a b : Digest} {g : Nat} (ha : r6Valid a g = true) (hb : r6Valid b g = true)
     (h : r6Rank a g = r6Rank b g) : r6Raw a g = r6Raw b g := by
-  unfold r6Valid at ha hb
-  unfold r6Rank at h
-  split_ifs at ha hb h with hg
-  · subst hg; simp only [decide_eq_true_eq] at ha hb; omega
-  · exact h
+  by_cases h0 : g = 0
+  · subst g
+    simp only [r6Valid, r6Rank, if_true, decide_eq_true_eq] at ha hb h
+    omega
+  · simp only [r6Valid, if_neg h0, decide_eq_true_eq] at ha hb
+    simp only [r6Rank, if_neg h0] at h
+    omega
+
 /-- Campaign T51: the top data digits determine the whole 128-bit value of a valid word (9 r6 fields, 7 flipped r5
 fields, the flipped r7 field; the fields partition bits 0..127, no spare bit). Decoding is injective (PINNED P3a). -/
 theorem top_digest_injective {a b : Digest} (h : dataDigits 0 a=dataDigits 0 b)
@@ -534,11 +542,11 @@ theorem packF_field : ∀ (L : List (Nat × Nat)) (k : Nat), (∀ p ∈ L, p.2 <
 
 /-- The T51 fields of a model word (before the flip of the 7-bit fields). -/
 def fields (w : Word) : List (Nat × Nat) :=
-  [(8, (w.1 0).val + 40), (8, (w.1 1).val), (8, (w.1 2).val), (8, (w.1 3).val), (8, (w.1 4).val),
-    (8, (w.1 5).val), (8, (w.1 6).val), (8, (w.1 7).val),
+  [(8, (w.1 0).val + 40), (8, (w.1 1).val + 3), (8, (w.1 2).val + 3), (8, (w.1 3).val + 3), (8, (w.1 4).val + 3),
+    (8, (w.1 5).val + 3), (8, (w.1 6).val + 3), (8, (w.1 7).val + 3),
     (7, (w.2.1 0).val), (7, (w.2.1 1).val), (7, (w.2.1 2).val), (7, (w.2.1 3).val), (7, (w.2.1 4).val),
     (7, (w.2.1 5).val), (7, (w.2.1 6).val), (7, w.2.2.val),
-    (8, (w.1 8).val)]
+    (8, (w.1 8).val + 3)]
 
 theorem fields_bound (w : Word) : ∀ p ∈ fields w, p.2 < 2 ^ p.1 := by
   simp only [fields, List.forall_mem_cons, List.forall_mem_nil, and_true]
@@ -579,7 +587,7 @@ theorem code_field (w : Word) (k : Nat) (hk : k < 17) :
   packF_field _ k (fields_bound w) _
 
 theorem r6Raw_encode (w : Word) (g : Fin 9) :
-    r6Raw (encode w) g.val = if g.val = 0 then (w.1 g).val + 40 else (w.1 g).val := by
+    r6Raw (encode w) g.val = if g.val = 0 then (w.1 g).val + 40 else (w.1 g).val + 3 := by
   unfold r6Raw r6Shift
   rw [topCode_encode]
   fin_cases g
@@ -594,32 +602,23 @@ theorem r6Raw_encode (w : Word) (g : Fin 9) :
   · exact code_field w 16 (by decide)
 
 theorem r6Rank_encode (w : Word) (g : Fin 9) : r6Rank (encode w) g.val = (w.1 g).val := by
-  by_cases h : g = 0
-  · subst h
-    have := r6Raw_encode w 0
-    rw [Fin.val_zero, if_pos rfl] at this
-    unfold r6Rank
-    rw [Fin.val_zero, if_pos rfl, this, Nat.add_sub_cancel]
-  · have hg : g.val ≠ 0 := fun e => h (Fin.ext e)
-    have := r6Raw_encode w g
-    rw [if_neg hg] at this
-    unfold r6Rank
-    rw [if_neg hg, this]
+  have he := r6Raw_encode w g
+  by_cases h0 : g.val = 0
+  · simp only [h0, if_true] at he
+    simp only [r6Rank, h0, if_true, he, Nat.add_sub_cancel]
+  · simp only [if_neg h0] at he
+    simp only [r6Rank, if_neg h0, he, Nat.add_sub_cancel]
 
 theorem r6Valid_encode (w : Word) (g : Fin 9) : r6Valid (encode w) g.val = true := by
-  by_cases h : g = 0
-  · subst h
-    have := r6Raw_encode w 0
-    rw [Fin.val_zero, if_pos rfl] at this
-    unfold r6Valid
-    rw [Fin.val_zero, if_pos rfl, this]
-    simp
-  · have hg : g.val ≠ 0 := fun e => h (Fin.ext e)
-    have := r6Raw_encode w g
-    rw [if_neg hg] at this
-    unfold r6Valid
-    rw [if_neg hg, this]
-    simpa using (w.1 g).isLt
+  have he := r6Raw_encode w g
+  have hb := (w.1 g).isLt
+  by_cases h0 : g.val = 0
+  · simp only [h0, if_true] at he
+    simp only [r6Valid, h0, if_true, he, decide_eq_true_eq]
+    omega
+  · simp only [if_neg h0] at he
+    simp only [r6Valid, if_neg h0, he, decide_eq_true_eq]
+    omega
 
 theorem r5Rank_encode (w : Word) (j : Fin 7) : r5Rank (encode w) (9 + j.val) = (w.2.1 j).val := by
   unfold r5Rank

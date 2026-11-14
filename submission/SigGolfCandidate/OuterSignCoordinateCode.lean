@@ -9,10 +9,10 @@ open SigGolfCandidate.T3M.Verify ClaudeWCT.W9.Machine.Sign
 
 theorem reuse : SharedReuse.Fetch OuterImages.signImage := by
   constructor
-  · exact OuterSignLook.transfer _ SharedReuse.installed_fetch.head (by decide +kernel) (by decide +kernel) (by decide +kernel)
+  · exact OuterSignLook.transfer _ SharedReuse.installed_fetch.head (OuterSignLook.gap0 _ (by decide +kernel)) (by decide +kernel) (by decide +kernel) (by decide +kernel)
   · intro c hc
     have h : ∀c:Fin 9,SharedReuse.coordLook c.val 1977=none ∧ SharedReuse.coordLook c.val 25338=none ∧ SharedReuse.coordLook c.val 25963=none := by decide +kernel
-    exact OuterSignLook.transfer _ (SharedReuse.installed_fetch.coordinate c hc) (h ⟨c,hc⟩).1 (h ⟨c,hc⟩).2.1 (h ⟨c,hc⟩).2.2
+    exact OuterSignLook.transfer _ (SharedReuse.installed_fetch.coordinate c hc) (OuterSignLook.gap9 SharedReuse.coordLook (by decide +kernel) c hc) (h ⟨c,hc⟩).1 (h ⟨c,hc⟩).2.1 (h ⟨c,hc⟩).2.2
 
 structure Code (c : Nat) : Prop where
   field : LookOK OuterImages.signImage (SharedField.look c)
@@ -29,23 +29,23 @@ theorem installed (c : Nat) (hc : c<9) : Code c := by
   have ho:=SharedCoordinate.installed_Code c hc
   constructor
   · have h : ∀c:Fin 9,SharedField.look c.val 1977=none ∧ SharedField.look c.val 25338=none ∧ SharedField.look c.val 25963=none := by decide +kernel
-    exact OuterSignLook.transfer _ ho.field (h ⟨c,hc⟩).1 (h ⟨c,hc⟩).2.1 (h ⟨c,hc⟩).2.2
+    exact OuterSignLook.transfer _ ho.field (OuterSignLook.gap9 SharedField.look (by decide +kernel) c hc) (h ⟨c,hc⟩).1 (h ⟨c,hc⟩).2.1 (h ⟨c,hc⟩).2.2
   · have h : ∀c:Fin 9,SharedLeaf.look c.val 1977=none ∧ SharedLeaf.look c.val 25338=none ∧ SharedLeaf.look c.val 25963=none := by decide +kernel
-    exact OuterSignLook.transfer _ ho.leaf (h ⟨c,hc⟩).1 (h ⟨c,hc⟩).2.1 (h ⟨c,hc⟩).2.2
+    exact OuterSignLook.transfer _ ho.leaf (OuterSignLook.gap9 SharedLeaf.look (by decide +kernel) c hc) (h ⟨c,hc⟩).1 (h ⟨c,hc⟩).2.1 (h ⟨c,hc⟩).2.2
   · have h : ∀c:Fin 9,SharedLeaf.hookLook c.val 1977=none ∧ SharedLeaf.hookLook c.val 25338=none ∧ SharedLeaf.hookLook c.val 25963=none := by decide +kernel
-    exact OuterSignLook.transfer _ ho.hook (h ⟨c,hc⟩).1 (h ⟨c,hc⟩).2.1 (h ⟨c,hc⟩).2.2
+    exact OuterSignLook.transfer _ ho.hook (OuterSignLook.gap9 SharedLeaf.hookLook (by decide +kernel) c hc) (h ⟨c,hc⟩).1 (h ⟨c,hc⟩).2.1 (h ⟨c,hc⟩).2.2
   · have h : ∀c:Fin 9,SharedNext.look c.val 1977=none ∧ SharedNext.look c.val 25338=none ∧ SharedNext.look c.val 25963=none := by decide +kernel
-    exact OuterSignLook.transfer _ ho.next (h ⟨c,hc⟩).1 (h ⟨c,hc⟩).2.1 (h ⟨c,hc⟩).2.2
+    exact OuterSignLook.transfer _ ho.next (OuterSignLook.gap9 SharedNext.look (by decide +kernel) c hc) (h ⟨c,hc⟩).1 (h ⟨c,hc⟩).2.1 (h ⟨c,hc⟩).2.2
   · have h : ∀c:Fin 9,SharedNode.look c.val 1977=none ∧ SharedNode.look c.val 25338=none ∧ SharedNode.look c.val 25963=none := by decide +kernel
-    exact OuterSignLook.transfer _ ho.node (h ⟨c,hc⟩).1 (h ⟨c,hc⟩).2.1 (h ⟨c,hc⟩).2.2
+    exact OuterSignLook.transfer _ ho.node (OuterSignLook.gap9 SharedNode.look (by decide +kernel) c hc) (h ⟨c,hc⟩).1 (h ⟨c,hc⟩).2.1 (h ⟨c,hc⟩).2.2
   · have h : ∀c:Fin 9,SharedTail.look c.val 1977=none ∧ SharedTail.look c.val 25338=none ∧ SharedTail.look c.val 25963=none := by decide +kernel
-    exact OuterSignLook.transfer _ ho.tail (h ⟨c,hc⟩).1 (h ⟨c,hc⟩).2.1 (h ⟨c,hc⟩).2.2
+    exact OuterSignLook.transfer _ ho.tail (OuterSignLook.gap9 SharedTail.look (by decide +kernel) c hc) (h ⟨c,hc⟩).1 (h ⟨c,hc⟩).2.1 (h ⟨c,hc⟩).2.2
   · have h : ∀c:Fin 9,SharedFinish.look c.val 1977=none ∧ SharedFinish.look c.val 25338=none ∧ SharedFinish.look c.val 25963=none := by decide +kernel
-    exact OuterSignLook.transfer _ ho.finish (h ⟨c,hc⟩).1 (h ⟨c,hc⟩).2.1 (h ⟨c,hc⟩).2.2
+    exact OuterSignLook.transfer _ ho.finish (OuterSignLook.gap9 SharedFinish.look (by decide +kernel) c hc) (h ⟨c,hc⟩).1 (h ⟨c,hc⟩).2.1 (h ⟨c,hc⟩).2.2
   · have h : ∀c:Fin 9,SharedPath.look c.val 1977=none ∧ SharedPath.look c.val 25338=none ∧ SharedPath.look c.val 25963=none := by decide +kernel
-    exact OuterSignLook.transfer _ ho.path (h ⟨c,hc⟩).1 (h ⟨c,hc⟩).2.1 (h ⟨c,hc⟩).2.2
+    exact OuterSignLook.transfer _ ho.path (OuterSignLook.gap9 SharedPath.look (by decide +kernel) c hc) (h ⟨c,hc⟩).1 (h ⟨c,hc⟩).2.1 (h ⟨c,hc⟩).2.2
   · have h : ∀c:Fin 9,SharedEnd.look c.val 1977=none ∧ SharedEnd.look c.val 25338=none ∧ SharedEnd.look c.val 25963=none := by decide +kernel
-    exact OuterSignLook.transfer _ ho.ending (h ⟨c,hc⟩).1 (h ⟨c,hc⟩).2.1 (h ⟨c,hc⟩).2.2
+    exact OuterSignLook.transfer _ ho.ending (OuterSignLook.gap9 SharedEnd.look (by decide +kernel) c hc) (h ⟨c,hc⟩).1 (h ⟨c,hc⟩).2.1 (h ⟨c,hc⟩).2.2
 
 #print axioms reuse
 #print axioms installed

@@ -9,8 +9,13 @@ open SigGolfCandidate.FtsGrind OuterImages
 
 theorem prefix_window (a n : Nat) (hb : a+n≤26156) :
     (signCode.drop a).take n=((Images.signCode.mapIdx signPatch).drop a).take n := by
-  rw [List.take_drop,signCode,List.append_assoc,List.append_assoc,
-    List.take_append_of_le_length (by simp only [List.length_mapIdx,Images.signCode_length];omega),←List.take_drop]
+  rw [List.take_drop,signCode,List.append_assoc,List.append_assoc,List.append_assoc,
+    List.take_append_of_le_length (by simp only [List.length_mapIdx,List.length_take,Images.signCode_length];omega)]
+  apply List.ext_getElem
+  · simp only [List.length_drop,List.length_take,List.length_mapIdx,Images.signCode_length]
+    omega
+  · intro i h1 h2
+    simp only [List.getElem_drop,List.getElem_take,List.getElem_mapIdx]
 
 theorem unchanged_window (a n : Nat) (hb : a+n≤26156)
     (hc : ∀ i,a ≤ i → i<a+n → ∀ w,signPatch i w=w) :

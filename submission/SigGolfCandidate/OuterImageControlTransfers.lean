@@ -29,15 +29,14 @@ theorem unpack_return : CodeAt expandImage (pcOf 88338) [jump 88338 87500] := wo
 #check unpack_return
 
 theorem sign_halt : CodeAt signImage (pcOf 26240) [0x73] := by
-  let pre:=Images.signCode.mapIdx signPatch++OuterSignImageLayout.code++OuterCodecMachine.packCode
-  have hp : pre.length=26240 := by
-    simp only [pre,List.length_append,List.length_mapIdx,Images.signCode_length]
+  apply CodeAt.of_append
+    (pre:=(Images.signCode.take 26156).mapIdx signPatch ++ OuterSignImageLayout.code ++ OuterCodecMachine.packCode)
+    (post:=Images.signCode.drop 26241)
+    (by simp [signImage,signCode,List.append_assoc])
+  · simp only [List.length_append,List.length_mapIdx,List.length_take,Images.signCode_length,pcOf]
     decide +kernel
-  have hs : signCode=pre++[0x73] := rfl
-  apply codeAt_slice (image:=signImage) (b:=26240) (code:=[0x73]) (by decide)
-  change (signCode.drop 26240).take 1=[0x73]
-  rw [hs,←hp,List.drop_left]
-  rfl
+  · simp only [List.length_append,List.length_mapIdx,List.length_take,Images.signCode_length]
+    decide +kernel
 
 #print axioms entry
 #print axioms post_jump

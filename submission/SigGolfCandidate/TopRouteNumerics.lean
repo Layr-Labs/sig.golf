@@ -7,15 +7,15 @@ set_option maxHeartbeats 0
 set_option maxRecDepth 1000000
 set_option exponentiation.threshold 10000000
 set_option Elab.async false
-def initial71 : Nat := 366715101453533867254227592209046039425
-def initial72 : Nat := 366942637837142824573845162141226607408
-def initial73 : Nat := 367292552996307512249389056467610792516
+def initial71 : Nat := 366715107545796050819992259851601894746
+def initial72 : Nat := 366942643904593431787406997148413147551
+def initial73 : Nat := 367292559183542624456206104990048416928
 def initialFor (pool : Nat) : Nat := if pool = 71 then initial71 else if pool = 72 then initial72 else initial73
 def topFloorFor (pool : Nat) : Nat := max 18 (pool - 54)
 theorem initial_checked (pool : Nat) (hlo : 71 ≤ pool) (hhi : pool ≤ 73) :
     recurrenceCheck topDen topAcceptedHistogram (topFloorFor pool) pool rowOne (initialFor pool) = true := by
   interval_cases pool <;> decide +kernel
-def meanInitial : Nat := 366973232531031757162826743239777511690
+def meanInitial : Nat := 366973238634631384712753089784619151694
 theorem mean_checked : initial71 + 2 * initial72 + initial73 ≤ 4 * meanInitial := by decide +kernel
 theorem full_moment_checked :
     mulUp (mulUp (mulUp fixedBoundU16 groundBound) ftsBound) meanInitial * 100000 < 200000 * scale := by
