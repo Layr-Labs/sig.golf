@@ -17,12 +17,12 @@ def work : Nat := 341+OuterSuffix.work+40+2365+37+((11*2^17)*200+12)+OuterSearch
 
 theorem expand (sk : BitVec 256) (message : SigGolfCandidate.T3.Message) (pk : PublicKey) (sig : NewSig) :
     TBSim OuterImages.expandImage sk (w9init OuterImages.expandImage message pk sig) work
-      (OuterExpand.expandN message pk (SharedCodec.sigDecC (OuterSignatureCodec.expand sig))) OuterForestHalt.Post := by
+      (OuterExpand.expandN message (SigGolfCandidate.T3M.Verify.decD pk) (SharedCodec.sigDecC (OuterSignatureCodec.expand sig))) OuterForestHalt.Post := by
   let b:=OuterSignatureCodec.expand sig
   have hlen : OuterImages.expandImage.data.length=29936 := Images.expandData_length
   have hw:=OuterCompactInitial.input_words OuterImages.expandImage message pk sig
   have hz:=OuterCompactInitial.tail_zero OuterImages.expandImage hlen message pk sig
-  rw [OuterExpandSource.expandN_source message pk _ (SharedCodec.fill_sigDecC _)]
+  rw [OuterExpandSource.expandN_source message (SigGolfCandidate.T3M.Verify.decD pk) _ (SharedCodec.fill_sigDecC _)]
   by_cases bad:12288≤(SharedCodec.sigDecC b).policyHints.toNat
   · rw [if_pos bad]
     have hc : ¬SharedCodec.nOfB b<PrePass.nCanon := by
@@ -40,16 +40,17 @@ theorem expand (sk : BitVec 256) (message : SigGolfCandidate.T3.Message) (pk : P
       rw [SharedCodec.R_mul_360] at h1
       unfold PrePass.nCanon
       omega
-    obtain ⟨v,sv,vp,vm,vr,vz,vf⟩:=OuterEntry.unpack_entry sig _ (PrePass.w9_pc _ _ _ _) hw hz
-    have initial:=OuterInitialInfrastructure.initialized message pk sig v vm vf
-    have hdata:=OuterInitialInfrastructure.initialized_data message pk sig v vm vf
-    have vmem:=OuterInitialMemoryEq.memory OuterImages.expandImage message pk sig v vm vf
+    obtain ⟨v,sv,vp,vm,vr,vz,vf0,vpk⟩:=OuterEntry.unpack_entry sig _ (PrePass.w9_pc _ _ _ _) hw hz
+    have vf:=OuterInitialMemoryEq.decoded OuterImages.expandImage message pk sig v vf0 vpk
+    have initial:=OuterInitialInfrastructure.initialized message (SigGolfCandidate.T3M.Verify.decD pk) sig v vm vf
+    have hdata:=OuterInitialInfrastructure.initialized_data message (SigGolfCandidate.T3M.Verify.decD pk) sig v vm vf
+    have vmem:=OuterInitialMemoryEq.memory OuterImages.expandImage message (SigGolfCandidate.T3M.Verify.decD pk) sig v vm vf
     rw [OuterInitialInfrastructure.initial_eq] at vmem
     obtain ⟨u,ku,cu,su,hcu,up,uz,ur,uin,uh,uf⟩:=OuterDecode.dec_gen v b vp vm hc
     have hmsg : ∀ k,k<4→u.getMem (BitVec.ofNat 64 (0x65A0+8*k))=message.extractLsb' (64*k) 64 := by
       intro k hk
       exact (uf.get (by omega) (by omega)).trans ((congrFun vmem _).trans
-        (SharedInit.msgWord Images.expandData_length SharedInit.installed_dataBase message pk b k hk))
+        (SharedInit.msgWord Images.expandData_length SharedInit.installed_dataBase message (SigGolfCandidate.T3M.Verify.decD pk) b k hk))
     have v5 : v.getReg .x5=0 := (vr .x5 (by decide)).trans (PrePass.w9_getReg_zero _ _ _ _ .x5 (by decide))
     have u5 : u.getReg .x5=0 := (ur .x5 (by decide)).trans v5
     obtain ⟨t,st,ready⟩:=SharedFront.prepare OuterDigestCodes.front_tail OuterDigestCodes.front_zero OuterDigestCodes.front_jump

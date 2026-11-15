@@ -37,7 +37,7 @@ theorem readout {o : Option Result} {t : MachineState} (h : OuterForestHalt.Post
 theorem refines (message : Message) (pk : PublicKey) (sig : NewSig) :
     (fun r=>(r.value,r.hashCalls,r.hashCompressions)) <$> sub.run .expand (message,pk,sig)=
       (fun p=>(p.1.map encode,p.2.1,p.2.2)) <$>
-        countBoth (mrealize 0 (OuterExpand.expandN message pk (SharedCodec.sigDecC (OuterSignatureCodec.expand sig)))) := by
+        countBoth (mrealize 0 (OuterExpand.expandN message (SigGolfCandidate.T3M.Verify.decD pk) (SharedCodec.sigDecC (OuterSignatureCodec.expand sig)))) := by
   apply Sim.run_eq sub .expand (message,pk,sig) (initial message pk sig)
     (OuterExpandMachine.expand 0 message pk sig) (Nat.lt_of_succ_lt work_lt) (fun o=>o.map encode)
   intro o t h

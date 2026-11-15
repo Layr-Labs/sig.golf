@@ -16,7 +16,7 @@ theorem run_eq (sk : SecretKey) : sub.run .keygen sk=SigGolfCandidate.T3M.submis
 
 theorem counts (sk : SecretKey) :
     (fun r=>(r.value,r.hashCalls,r.hashCompressions)) <$> sub.run .keygen sk=
-      (fun p=>(some ((p.1.1 : PublicKey),cacheB p.1.2),p.2.1,p.2.2)) <$>
+      (fun p=>(some ((Verify.encD p.1.1 : PublicKey),cacheB p.1.2),p.2.1,p.2.2)) <$>
         countBoth (mrealize sk SigGolfCandidate.T3.keygen) := by
   rw [run_eq]
   exact SigGolfCandidate.T3M.Keygen.keygen_run_counts sk

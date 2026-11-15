@@ -830,22 +830,6 @@ theorem fts_installed {P : Hash → Prop} :
     (fun top next hnextState => goodQP_frozen.mpr (hnext top next hnextState))
   exact goodQP_frozen.mp h
 
-theorem after_installed (floors : SigGolfCandidate.T3.Layer → Nat) (hcredit : CreditFloors floors) :
-    AfterGoodBudget installedOut SigGolfCandidate.T3M.Verify.afterFts 5231
-      (fun w => HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) :=
-  fun pk w Q hQ answer top state hstate =>
-    SigGolfCandidate.T3M.after_good_budget floors hcredit pk w Q hQ answer top state hstate
-
-theorem installed_verify_good (floors : SigGolfCandidate.T3.Layer → Nat) (hcredit : CreditFloors floors)
-    (message : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (witness : WB) (state : MachineState)
-    (hstate : initialState submission .verify (message, pk, witness) = some state) :
-    GoodQP (Pre (HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh witness))
-      SigGolfCandidate.Research.SharedForest.jointAccountingCost 776 message witness)
-      state 10083 15784 True 6873
-      (ccM (verifyP installedFts SigGolfCandidate.T3M.Verify.afterFts message pk witness) Kb) :=
-  verify_good_6997 (P := fun w => HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) W9Fin.V7.prefixGood
-    (fun _ => fts_installed) (after_installed floors hcredit)
-    (fun _ _ _ => rfl) message pk witness state hstate
 end W9Fin.V7.Canonical
 
 
@@ -975,18 +959,5 @@ end W9Fin.V7.Canonical.Runtime
 namespace W9Fin.V7.Canonical.Runtime
 open SigGolfCandidate.Legacy SigGolfCandidate.T3M.Verify
 
-theorem installed_inputs : Inputs := by
-  intro floors hcredit message pk witness state hstate
-  have h := W9Fin.V7.Canonical.installed_verify_good floors hcredit message pk witness state hstate
-  rw [←W9Fin.V7.Canonical.paired_verifyP_eq] at h
-  exact h
-
-theorem installed_verify_inputs (I : ClaudeWCT.W9.T3M.Images)
-    (hI : I.verify=SigGolfCandidate.T3M.Images.verifyImage)
-    (had : (pairedSubmission I).Admissible) :
-    ClaudeWCT.W9.T3M.Final.Paired.VerifyRefines I ∧
-    ClaudeWCT.W9.T3M.Final.Paired.VerifyTerminates I ∧
-    ClaudeWCT.W9.T3M.Final.Paired.VerifyAcceptCycles I :=
-  verify_inputs_of I hI had installed_inputs
 end W9Fin.V7.Canonical.Runtime
 end

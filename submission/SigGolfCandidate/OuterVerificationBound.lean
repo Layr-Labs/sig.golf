@@ -17,7 +17,7 @@ attribute [local reducible] OuterRuntime.runtimeSub SigGolfCandidate.Legacy.Outp
 attribute [local irreducible] SigGolfCandidate.Legacy.Submission.run SigGolfCandidate.T3M.Verify.Agree
 
 theorem run_agree (f g : Hash) (m : Message) (pk : PublicKey) (w : Bytes 21756)
-    (hagree : Agree f g (mrealize 0 (ClaudeWCT.W9.T3M.Paired.verifyP m pk w))) :
+    (hagree : Agree f g (mrealize 0 (ClaudeWCT.W9.T3M.Paired.verifyP m (decD pk) w))) :
     sub.runWith f .verify (m,pk,w)=sub.runWith g .verify (m,pk,w) := by
   have hm : Agree f g ((fun r=>r.value.isSome) <$> sub.run .verify (m,pk,w)) :=
     Eq.mpr (congrArg (Agree f g) (OuterRunValues.verify m pk w)) hagree
@@ -28,7 +28,7 @@ theorem run_agree (f g : Hash) (m : Message) (pk : PublicKey) (w : Bytes 21756)
 #print axioms run_agree
 theorem expand_witness (hash : Hash) (m : Message) (pk : PublicKey)
     (s : Bytes 5183) (w : Bytes 21756) (he : (sub.runWith hash .expand (m,pk,s)).value=some w) :
-    ∃sig output wt ns,evalWithAnswerFn (machineAnswers hash 0) (OuterExpand.expandN m pk sig)=some (output,wt,ns) ∧
+    ∃sig output wt ns,evalWithAnswerFn (machineAnswers hash 0) (OuterExpand.expandN m (decD pk) sig)=some (output,wt,ns) ∧
       w=OuterExpand.witEncOuter output wt ns := by
   have h:=congrArg (evalWithAnswerFn hash) (OuterRunValues.expand m pk s)
   simp only [evalWithAnswerFn_map] at h
@@ -36,7 +36,7 @@ theorem expand_witness (hash : Hash) (m : Message) (pk : PublicKey)
   conv_rhs at h => rw [OuterExpand.expandCompact,evalWithAnswerFn_map]
   unfold Submission.runWith at he
   rw [h] at he
-  cases hx : evalWithAnswerFn (machineAnswers hash 0) (OuterExpand.expandN m pk
+  cases hx : evalWithAnswerFn (machineAnswers hash 0) (OuterExpand.expandN m (decD pk)
     (ClaudeWCT.W9.T3M.SharedCodec.sigDecC (OuterSignatureCodec.expand s))) with
   | none=>rw [hx] at he;cases he
   | some p=>
@@ -44,13 +44,13 @@ theorem expand_witness (hash : Hash) (m : Message) (pk : PublicKey)
     exact ⟨_,p.1,p.2.1,p.2.2,hx,(Option.some.inj he).symm⟩
 
 #print axioms expand_witness
-theorem bound : sub.VerificationBound 6949 := by
+theorem bound : sub.VerificationBound 6947 := by
   intro hash sk m
   dsimp only
   intro h
   obtain ⟨pk,s,w,he,hacc,hcyc⟩:=ClaudeWCT.W9.T3M.Final.Credit.honest_success_verify_cf sub hash sk m h
   obtain ⟨sig,output,wt,ns,hx,rfl⟩:=expand_witness hash m pk s w he
-  obtain ⟨floors,hfloors,hagree⟩:=OuterExpandedAgreement.agree hash m pk sig output wt ns hx
+  obtain ⟨floors,hfloors,hagree⟩:=OuterExpandedAgreement.agree hash m (decD pk) sig output wt ns hx
   have heq:=run_agree hash (okHashBy floors wt.topHigh hash) m pk _ hagree
   have hw : witnessCycles sub.sizes.witness=85:=by decide
   rw [hcyc,hw,heq]
@@ -59,7 +59,7 @@ theorem bound : sub.VerificationBound 6949 := by
       (okHashBy floors wt.topHigh hash) := by
     rw [OuterVerifierLayers.topHigh];exact hashOkBy_okHashBy floors wt.topHigh hash
   have hc:=OuterVerifyRun.accept_cycles floors hfloors (okHashBy floors wt.topHigh hash) m pk _
-    hok (OuterExpandedCap.cap floors wt.topHigh hash m pk sig output wt ns hx) hacc
+    hok (OuterExpandedCap.cap floors wt.topHigh hash m (decD pk) sig output wt ns hx) hacc
   omega
 #print axioms bound
 end OuterVerificationBound

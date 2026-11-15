@@ -19,7 +19,7 @@ attribute [local irreducible] SigGolfCandidate.Legacy.Submission.run
 
 theorem key_value (sk : SecretKey) (hash : Hash) :
     (sub.runWith hash .keygen sk).value=some
-      ((evalWithAnswerFn hash (mrealize sk keygen)).1,cacheB (evalWithAnswerFn hash (mrealize sk keygen)).2) := by
+      (Verify.encD (evalWithAnswerFn hash (mrealize sk keygen)).1,cacheB (evalWithAnswerFn hash (mrealize sk keygen)).2) := by
   have h:=congrArg (evalWithAnswerFn hash) (OuterKeygenValue.value sk)
   simpa only [evalWithAnswerFn_map,Submission.runWith] using h
 
@@ -27,7 +27,7 @@ theorem sign (sk : SecretKey) (m : Message) (hash : Hash) :
     evalWithAnswerFn hash ((fun r=>r.costs .sign) <$> sub.honest sk m)=
       evalWithAnswerFn hash ((fun r=>r.2) <$> mrealize sk (OuterLooseBudget.honestSignCount m)) := by
   have h:=generic_outer_sign_cost sub hash sk m (mrealize sk keygen)
-    (fun key=>(key.1,cacheB key.2))
+    (fun key=>(Verify.encD key.1,cacheB key.2))
     (fun key=>Prod.snd <$> mrealize sk (SigGolfCandidate.T3.Cost.countBlocks (OuterLooseSource.signCompact key.2 m)))
     (key_value sk hash) (fun key=>by
       rw [evalWithAnswerFn_map]
@@ -46,10 +46,10 @@ theorem sign_value (sk : SecretKey) (cache : SigGolfCandidate.T3.Cache) (m : Mes
 
 theorem expand_cost (sk : SecretKey) (m : Message) (pk : PublicKey) (sig : OuterSignatureCodec.NewSig) (hash : Hash) :
     (sub.runWith hash .expand (m,pk,sig)).hashCompressions=
-      evalWithAnswerFn hash (Prod.snd <$> mrealize sk (SigGolfCandidate.T3.Cost.countBlocks (OuterExpand.expandCompact m pk sig))) := by
+      evalWithAnswerFn hash (Prod.snd <$> mrealize sk (SigGolfCandidate.T3.Cost.countBlocks (OuterExpand.expandCompact m (SigGolfCandidate.T3M.Verify.decD pk) sig))) := by
   have h:=OuterCompressionCounts.expand m pk sig hash
-  have hp : AllQueriesSatisfy (SigGolfCandidate.T3.Cost.countBlocks (OuterExpand.expandCompact m pk sig)) isPublic :=
-    allQ_countWith SigGolfCandidate.T3.Cost.weight (OuterPublicQueries.expandCompact m pk sig)
+  have hp : AllQueriesSatisfy (SigGolfCandidate.T3.Cost.countBlocks (OuterExpand.expandCompact m (SigGolfCandidate.T3M.Verify.decD pk) sig)) isPublic :=
+    allQ_countWith SigGolfCandidate.T3.Cost.weight (OuterPublicQueries.expandCompact m (SigGolfCandidate.T3M.Verify.decD pk) sig)
   rw [mrealize_public 0 sk hp] at h
   rw [evalWithAnswerFn_map]
   simpa only [Submission.runWith] using h
@@ -58,11 +58,11 @@ theorem expand (sk : SecretKey) (m : Message) (hash : Hash) :
     evalWithAnswerFn hash ((fun r=>r.costs .expand) <$> sub.honest sk m)=
       evalWithAnswerFn hash ((fun r=>r.2) <$> mrealize sk (OuterLooseMoment.joint m)) := by
   have h:=generic_outer_expand_cost sub hash sk m (mrealize sk keygen)
-    (fun key=>(key.1,cacheB key.2))
+    (fun key=>(Verify.encD key.1,cacheB key.2))
     (fun key=>mrealize sk (SigGolfCandidate.T3.Cost.countBlocks (OuterLooseSource.signCompact key.2 m))) Prod.fst id
     (fun key sig=>Prod.snd <$> mrealize sk (SigGolfCandidate.T3.Cost.countBlocks (OuterExpand.expandCompact m key.1 sig)))
     (key_value sk hash) (fun key=>by simpa only [Option.map_id,id_eq] using sign_value sk key.2 m hash)
-    (fun key sig=>expand_cost sk m key.1 sig hash)
+    (fun key sig=>by simpa only [Verify.decD_encD, id_eq] using expand_cost sk m (Verify.encD key.1) sig hash)
   exact h.trans (congrArg (evalWithAnswerFn hash)
     (generic_joint_count_pipeline sk keygen (fun key=>OuterLooseSource.signCompact key.2 m)
       (fun key sig=>OuterExpand.expandCompact m key.1 sig)))

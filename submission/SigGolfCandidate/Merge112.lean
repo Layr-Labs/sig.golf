@@ -3464,8 +3464,9 @@ def headRH (rb : Reg) (o : Word) (d : Nat) (sl : Option Nat) (p i : Nat) (g : Bo
 def emptyR (p : Nat) : Result := ⟨SymState.init,.c (pcOf p),.fuel,0,0⟩
 /-- T51 top target (the checksum digit is `topT - sum`). -/
 def topT : Nat := 152
-/-- Sparse checksum dispatch: group 0 initializes `s8` with bias 1, so `s8 = 153 - dataSum` modulo 2^64. -/
-def s8T : Nat := 153
+/-- Sparse checksum dispatch (q16 fold): group 0 initializes `s8 = s2 - 609 - kss = 3486 - kss` (main's `s2 = 0xFFF`),
+so `s8 = 3486 - dataSum` modulo 2^64. -/
+def s8T : Nat := 3486
 /-- r6 group `g` dispatches through table B (`s2 - 256 raw`: g1, g2, g3, g8) or table A (`256 raw + s2`: g4..g7). -/
 def r6B (g : Nat) : Bool := decide (g<4 ∨ g=8)
 def r6Off (g : Nat) : Nat := 40+6*(g%4)
@@ -3509,7 +3510,7 @@ def entW (q k : Nat) : Nat := cellW q k
 def inl (q : Nat) : Bool := decide (q=9 ∨ (13 ≤ q ∧ q ≤ 15))
 def leadOff (q : Nat) : Nat := 1
 def q9BodyTab : List Nat := [128180,127156,126132,125108,124084,123060,122036,121012,119988,118964,117940,116916,115892,114868,113844,112820,111796,110772,109748,108724,107700,106676,105652,104628,103604,102580,101556,100532,99508,98484,97460,96436,95412,94388,93364,92340,91316,90292,89268,88244,87220,86196,85172,84148,83124,82100,81076,80052,79028,78004,76980,75956,74932,73908,72884,71860,70836,69812,68788,67764,66740,65716,64692,63668,62644,61620,60596,59572,58548,57524,56500,55476,54452,53428,52404,51380,50356,49332,48308,47284,46260,45236,44212,43188,42164,41140,40116,39092,38068,37044,36020,34996,33972,32948,31924,30900,29876,28852,27828,26804,25780,24756,23732,22708,21684,20660,19636,18612,17588,16564,15540,14516,13492,12468,11444,10420,9396,8372,7348,6324,5300,4276,3252,2228,1204]
-def leadPc (q k : Nat) : Nat := entW q k+(if q=16 ∧ k=0 then 0 else leadOff q)
+def leadPc (q k : Nat) : Nat := entW q k+(if q=16 then 0 else leadOff q)
 def kdig (q k j : Nat) : Nat := k/(mx q+1)^j%(mx q+1)
 def kss (q k : Nat) : Nat := kdig q k 0+kdig q k 1+kdig q k 2
 def rowInl (q k : Nat) : Bool := inl q || decide (q=16 ∨ (9≤q ∧ q<16 ∧ 3≤kss q k))
@@ -3546,9 +3547,9 @@ def headJDTermF (rb : Reg) (o : Word) (tgt i d : Nat) : Result :=
   {headJDTerm rb o tgt i d with stop:=.fuel,steps:=3,cycles:=3}
 def s8R (n p : Nat) : Result :=
   ⟨⟨RegFile.init.set .x24 (addC (.reg .x24) (-BitVec.ofNat 64 n)),[],[]⟩,.c (pcOf (p+1)),.fuel,1,1⟩
-/-- T51 group 0's first cell word `addi s8,zero,T-kss`. -/
+/-- T51 group 0's first cell word `addi s8,s2,-609-kss` (s2 = 0xFFF: s8 = T - kss). -/
 def guardR (k : Nat) : Result :=
-  ⟨⟨RegFile.init.set .x24 (.c (BitVec.ofNat 64 s8T-BitVec.ofNat 64 (kss 0 k))),[],[]⟩,
+  ⟨⟨RegFile.init.set .x24 (addC (.reg .x18) (-BitVec.ofNat 64 (609+kss 0 k))),[],[]⟩,
     .c (pcOf (cellW 0 k+1)),.fuel,1,1⟩
 def bge9R (p : Nat) : Result :=
   ⟨SymState.init,.ite .ge (.reg .x16) (.c 0) (.c (BitVec.ofNat 64 (0x1000+4*p-4096))) (.c (pcOf (p+1))),.branch,1,1⟩
@@ -3589,24 +3590,25 @@ def maskE : E := .ld (.bin .add (.reg .x2) (.c (BitVec.ofNat 64 16)))
 def g0A : E := r6A 1
 def g0DispR : Result := r6DispR 1
 /-! ### Sparse checksum chain 50
-The six checksum arms are separated by 32,768 words. With accumulator bias 1,
-`slli a4,s8,17; jalr 1696(a4)` sends data sum `ds` in 147..152 to
-`32168 + 32768 * (152-ds)`. The invalid sum 146 reaches a zero word;
-all other invalid sums land outside the code image. This frees the old checksum
-arm locations for the final Merkle chunks without adding an instruction. -/
-def ckE : E := .bin .sll (.reg .x24) (.c 17#64)
-def ckDispR : Result :=
-  ⟨⟨RegFile.init.set .x14 ckE,[],[]⟩,.bin .and (.bin .add ckE (.c 1696#64)) (.c (~~~1#64)),.jump,2,2⟩
-def ckArm (d : Nat) : Nat := 32168+32768*d
+q16 fold: the six checksum arms are 64 words apart at `212776 + 64 d`. The r7 pair's digits are not subtracted
+from s8 (no entry word); rank `k`'s dispatch `slli a4,s8,8; jalr (1696-256 m)(a4)` (m = kss 16 k) folds them in,
+so with `s8 = 3486 - (chains 0..47)` data sum `ds` in 147..152 reaches `212776 + 64 (152-ds)` and every other
+sum <= 231 reaches a zero word in 207720..222504. -/
+def ckE : E := .bin .sll (.reg .x24) (.c 8#64)
+def ckDispR (m : Nat) : Result :=
+  ⟨⟨RegFile.init.set .x14 ckE,[],[]⟩,.bin .and (.bin .add ckE (.c (BitVec.ofNat 64 (2^64+1696-256*m)))) (.c (~~~1#64)),.jump,2,2⟩
+def ckArm (d : Nat) : Nat := 212776+64*d
 def ckTail (d : Nat) : Nat := ckArm d+partLen 17 d
-/-- Landing word modulo the 64-bit PC, including out-of-image invalid sums. -/
-def ckWord (ds : Nat) : Nat := ((2^64 + 153*131072 + 1696 - 4096 - 131072*ds) % 2^64)/4
+/-- Landing word of data sum `ds <= 231`. -/
+def ckWord (ds : Nat) : Nat := 222504-64*ds
 /-- The dispatch at the end of top group `q`: q = 0 the 5-word g1 dispatch (mask/table setup), r6 groups into the
 next r6 group, g8 into q9 (#938's dispatch9), q9..q14 into q+1, q15 into the r7 pair (#938's dispatch into group 8),
-the r7 pair into the checksum arms. -/
+the r7 pair into the checksum arms (`dispK`: rank-dependent imm). -/
 def nextDispR (q : Nat) : Result :=
   if q=0 then g0DispR else if q<8 then r6DispR (q+1) else if q=8 then dispatch9R
-  else if q<15 then dispatchR (q+1) else if q=15 then dispatchR 8 else ckDispR
+  else if q<15 then dispatchR (q+1) else if q=15 then dispatchR 8 else ckDispR 0
+/-- The dispatch at the end of top group `q`, rank `k`: the r7 pair's checksum dispatch carries `kss 16 k` in its imm. -/
+def dispK (q k : Nat) : Result := if q=16 then ckDispR (kss 16 k) else nextDispR q
 def rungsOK (q d0 sl p : Nat) : Bool :=
   (List.range' d0 (mx q-d0)).all fun m =>
     rOK (vrun (p+2*(m-d0)) 3)
@@ -3620,8 +3622,8 @@ def partOK (q i d p : Nat) (skip : Bool := false) : Bool :=
       (if d+1=mx q then headRHT .x4 (off i) d (slot i) p i
        else headRH .x4 (off i) d none p i (topG i)) &&
     rungsOK q (d+1) (slot i) (p+5)
-def entryCost (q : Nat) : Nat := if q=9 then 1 else 1
-def s8Check (q k : Nat) : Bool := if q=16 ∧ k=0 then rOK (vrun (entW q k) 0) (emptyR (entW q k)) else
+def entryCost (q : Nat) : Nat := if q=16 then 0 else 1
+def s8Check (q k : Nat) : Bool := if q=16 then rOK (vrun (entW q k) 0) (emptyR (entW q k)) else
   (if q=0 then rOK (vrun (entW 0 k) 1) (guardR k)  else rOK (vrun (entW q k) 1) (s8R (kss q k) (entW q k)))
 def dispatchOK (q dB dC : Nat) : Bool :=
   if q<17 then rOK (vrun (pcX q dB dC) 5) (nextDispR q) else true
@@ -3646,7 +3648,7 @@ def inlineCheck (q k : Nat) : Bool :=
       (tailR (if dA+1=mx q then some (termSlot (3*q)) else none) (gbase q k+2*dA+1)) &&
     rungsOK q (dA+1) (termSlot (3*q)) (gbase q k+2*(dA+1))) &&
   partOK q (3*q+1) (kdig q k 1) (gB q k) (skipB q k) && (decide (q=16) || partOK q (3*q+2) (kdig q k 2) (gC q k) (skipC q k)) &&
-  rOK (vrun (gX q k) 5) (nextDispR q)
+  rOK (vrun (gX q k) 5) (dispK q k)
 def entCheck (q k : Nat) : Bool :=
   if rowInl q k then inlineCheck q k else
   let dA := kdig q k 0
@@ -3682,8 +3684,8 @@ def guard6All (g : Nat) : Bool := (List.range 256).all (guard6Check g)
 /-- Invalid r7 ranks 49..125 land on zero words (126, 127 land below the code). -/
 def r7GuardCheck (k : Nat) : Bool := decide (k<49) || zeroAt (cellW 16 k)
 def r7GuardAll : Bool := (List.range 126).all r7GuardCheck
-/-- Invalid checksum landings either leave the code image or reach a zero word. -/
-def ckGuardCheck (ds : Nat) : Bool := decide (topT-5≤ds ∧ ds≤topT) || decide ((pcOf (ckWord ds)).toNat < 4096 ∨ 4096+4*257280 ≤ (pcOf (ckWord ds)).toNat) || zeroAt (ckWord ds)
+/-- Invalid checksum landings reach a zero word. -/
+def ckGuardCheck (ds : Nat) : Bool := decide (topT-5≤ds ∧ ds≤topT) || zeroAt (ckWord ds)
 def ckGuardAll : Bool := (List.range 232).all ckGuardCheck
 def ckArmCheck (d : Nat) : Bool := partOK 17 50 d (ckArm d)
 def ckArmAll : Bool := (List.range 6).all ckArmCheck
@@ -3746,7 +3748,7 @@ def ok (c : NCtx) : Prop :=
     c.ret < 209920
 def known (c : NCtx) : List (Reg × Word) :=
   [(.x5, 0), (.x11, 64), (.x9, 0x7fc01), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
-   (.x28, BitVec.ofNat 64 c.pre0), (.x4, BitVec.ofNat 64 c.S3), (.x2, BitVec.ofNat 64 0xffbde0), (.x4, 14336)]
+   (.x28, BitVec.ofNat 64 c.pre0), (.x4, BitVec.ofNat 64 c.S3), (.x2, BitVec.ofNat 64 0xffbde0), (.x4, 14336), (.x18, 0xFFF)]
 /-- Rank of top group `q`: the digit triple in radix `mx q + 1`; group 16 (the r7 pair, chains 48 and 49) has only two
 digits, `d48 + 7 d49`. -/
 def kOf (c : NCtx) (q : Nat) : Nat :=
@@ -4695,8 +4697,8 @@ theorem prologue_value (W : Word) :
 /-! ### T51 dispatch arithmetic (ported from R6)
 g0 (prologue): `slli a4,a6,56; srli a4,a4,45; jalr -744(a4)` lands on `cell6 0 raw` (raw = a6 % 256 >= 3), below the
 code start (raw = 1, 2) or far above it (raw = 0).  r6 groups 1..8: `a4 = field & 0xFF00 = 256 raw`, table B
-(g1..g3, g8) `s2 - a4`, table A `a4 + s2`, `jalr` to `cell6 h raw`.  Checksum: `((s8 + 89) << 11) + 1168` with
-`s8 = T - ds` (T = 152, ds <= 231) lands on `ckWord ds`. -/
+(g1..g3, g8) `s2 - a4`, table A `a4 + s2`, `jalr` to `cell6 h raw`.  Checksum (q16 fold): `(s8 << 8) + 1696 - 256 m` with
+`s8 = T - a` (T = 3486, a + m = ds <= 231, m <= 12) lands on `ckWord ds`. -/
 /-- The g0 dispatch shift pair `slli a4,a6,56; srli a4,a4,45`: `2048 * (a6 % 256)`. -/
 theorem g0_shift (W : Word) : (W <<< 56) >>> 45 = BitVec.ofNat 64 (2048 * (W.toNat % 256)) := by
   apply BitVec.eq_of_toNat_eq
@@ -4766,13 +4768,22 @@ theorem tabA_target (r o : Nat) (hr : r < 256) (ho : o < 64) :
       pcOf (64*(3328+r)+o) := by
   rw [ofNat_add_ofNat, ofNat_add_ofNat, even_andNot1' _ (by omega)]
   unfold pcOf; congr 1; omega
-theorem ck_s8 (ds : Nat) (hd : ds ≤ 231) :
-    (BitVec.ofNat 64 s8T - BitVec.ofNat 64 ds) = BitVec.ofNat 64 ((2^64+153-ds)%2^64) := by
-  interval_cases ds <;> decide
-theorem ck_target (ds : Nat) (hd : ds ≤ 231) :
-    (((BitVec.ofNat 64 s8T - BitVec.ofNat 64 ds) <<< 17) + 1696#64) &&& ~~~1#64 =
-      pcOf (ckWord ds) := by
-  interval_cases ds <;> decide
+theorem guard_s8 (n : Nat) (hn : n ≤ 15) :
+    (0xFFF : Word) + -BitVec.ofNat 64 (609+n) = BitVec.ofNat 64 s8T - BitVec.ofNat 64 n := by
+  interval_cases n <;> decide
+theorem ck_target (a m : Nat) (ha : a+m ≤ 231) (hm : m ≤ 12) :
+    (((BitVec.ofNat 64 s8T - BitVec.ofNat 64 a) <<< 8) + BitVec.ofNat 64 (2^64+1696-256*m)) &&& ~~~1#64 =
+      pcOf (ckWord (a+m)) := by
+  have h1 : BitVec.ofNat 64 s8T - BitVec.ofNat 64 a = BitVec.ofNat 64 (3486-a) := by
+    apply BitVec.eq_of_toNat_eq
+    first
+      | (simp only [s8T, BitVec.toNat_sub, BitVec.toNat_ofNat, Nat.reducePow]; omega)
+      | (simp [s8T]; omega)
+  rw [h1, ofNat_shl, ofNat_add_ofNat, even_andNot1' _ (by (try simp only [Nat.reducePow]); omega)]
+  unfold ckWord
+  apply BitVec.eq_of_toNat_eq
+  simp only [pcOf, BitVec.toNat_ofNat, Nat.reducePow]
+  omega
 /-- The r6 field read by the dispatch into group `h` (1..8): bits `8h..8h+7` (h < 7), `112..119` (g7),
 `120..127` (g8) (`= T3.r6Shift h`). -/
 def r6Pos (h : Nat) : Nat := if h=8 then 120 else 8*h

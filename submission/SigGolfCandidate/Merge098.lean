@@ -4279,7 +4279,7 @@ theorem blk277_spec (s : MachineState) (hpc : s.pc = pcOf 277) :
       t.getReg .x2 = BitVec.ofNat 64 TOP ∧
       t.getReg .x20 = BitVec.ofNat 64 4096 ∧ t.getReg .x22 = 0 ∧
       t.getReg .x24 = BitVec.ofNat 64 REGION ∧
-      t.getMem (BitVec.ofNat 64 0xA0) = s.getMem (BitVec.ofNat 64 (TOP+16)) ∧
+      t.getMem (BitVec.ofNat 64 0xA0) = 1 - s.getMem (BitVec.ofNat 64 (TOP+16)) ∧
       t.getMem (BitVec.ofNat 64 0xA8) = s.getMem (BitVec.ofNat 64 (TOP+24)) ∧
       RegsExcept s t [.x2,.x6,.x7,.x20,.x22,.x24,.x30] ∧
       Frame s t (fun A => A=0xA0 ∨ A=0xA8) := by
@@ -4291,6 +4291,7 @@ theorem blk277_spec (s : MachineState) (hpc : s.pc = pcOf 277) :
   · simp [blk_277.res,rv_simp]
   · simp [blk_277.res,rv_simp,REGION]
   · simp [blk_277.res,rv_simp,TOP]
+    try bv_omega
   · simp [blk_277.res,rv_simp,TOP]
   · intro r hr; simp at hr; cases r <;> simp_all [blk_277.res,rv_simp] <;> rfl
   · intro A hA hn
@@ -4701,7 +4702,7 @@ structure PayloadPost (sk : SecretKey) (r : Digest × Region) (t : MachineState)
   pc : t.pc = pcOf 334
   x20 : t.getReg .x20 = BitVec.ofNat 64 1
   x5 : t.getReg .x5 = 0
-  pk : DigAt t 0xA0 r.1
+  pk : DigAt t 0xA0 (Verify.encD r.1)
   region : t.readWords (BitVec.ofNat 64 REGION) 16380 = wordsOf (List.ofFn r.2)
   k0 : t.getMem (BitVec.ofNat 64 0x80) = sk.extractLsb' 0 64
   k8 : t.getMem (BitVec.ofNat 64 0x88) = sk.extractLsb' 64 64
@@ -4720,8 +4721,8 @@ theorem payload_tbsim :
   obtain ⟨t3, st3, t3pc, t3r, t3f⟩ := blk39_spec t tpc
   obtain ⟨t4, st4', t4pc, t4x2, t4x20, t4x22, t4x24, t4a', t4b', t4r', t4f'⟩ :=
     blk277_spec t3 t3pc
-  have t4a : t4.getMem (BitVec.ofNat 64 0xA0)=t.getMem (BitVec.ofNat 64 (TOP+16)) :=
-    t4a'.trans (t3f.get (by decide) (fun h => h))
+  have t4a : t4.getMem (BitVec.ofNat 64 0xA0)=1-t.getMem (BitVec.ofNat 64 (TOP+16)) :=
+    t4a'.trans (congrArg (fun x => 1 - x) (t3f.get (by decide) (fun h => h)))
   have t4b : t4.getMem (BitVec.ofNat 64 0xA8)=t.getMem (BitVec.ofNat 64 (TOP+24)) :=
     t4b'.trans (t3f.get (by decide) (fun h => h))
   have st4 := st3.trans st4'
@@ -4774,7 +4775,9 @@ theorem payload_tbsim :
   ·
     obtain ⟨hl12, hd12⟩ := hnodes 12 le_rfl
     have h0 := hd12.get (i := 0) (by rw [hl12]; decide)
-    have hpk : DigAt t4 0xA0 ((levels.getD 12 []).getD 0 0) := ⟨by rw [t4a]; exact h0.1, by rw [t4b]; exact h0.2⟩
+    have hpk : DigAt t4 0xA0 (Verify.encD ((levels.getD 12 []).getD 0 0)) :=
+      ⟨by rw [t4a]; exact (congrArg (fun x => 1 - x) h0.1).trans (Verify.dlo_encD _).symm,
+       by rw [t4b]; exact h0.2.trans (Verify.dhi_encD _).symm⟩
     exact hpk.frame hu.frame (by decide) (by unfold MW; kg_omega) (by unfold MW; kg_omega)
   ·
     show u.readWords (BitVec.ofNat 64 REGION) 16380 =
@@ -4831,7 +4834,7 @@ structure KDone (r : Digest × Cache) (t : MachineState) : Prop where
   pc : t.pc = pcOf 541
   x5 : t.getReg .x5 = 1
   x10 : t.getReg .x10 = 0
-  pk : t.readWords (BitVec.ofNat 64 0xA0) 2 = wordsOf (bytesLE 16 r.1)
+  pk : t.readWords (BitVec.ofNat 64 0xA0) 2 = wordsOf (bytesLE 16 (Verify.encD r.1))
   cache : t.readWords (BitVec.ofNat 64 0x80000) 16384 = wordsOf (cacheBytes r.2)
 section main
 variable {sk : SecretKey} {s1 : MachineState} (hs : KStart sk s1)
@@ -4851,7 +4854,7 @@ theorem keygen_from_start : TBSim image sk s1 (topTreeW + 163933 + 2489877) keyg
   refine TSim.bind (k₂ := 2) (c₂ := 2) (n₂ := 0) (b₂ := 0) hmac (fun tag u hu => ?_)
   obtain ⟨v,st,pc,h5,h10,hr,hf⟩ := haltSetup_spec u hu.pc
   refine TSim.pure_steps st ⟨pc,h5,h10,?_,?_⟩
-  · have hpk : DigAt u 0xA0 pk := ht.pk.frame hu.frame (by decide)
+  · have hpk : DigAt u 0xA0 (Verify.encD pk) := ht.pk.frame hu.frame (by decide)
         (by simp [FullCache.MacW,FullCache.PRIV,FullCache.KEYS,FullCache.OutW,FullCache.macOut])
         (by simp [FullCache.MacW,FullCache.PRIV,FullCache.KEYS,FullCache.OutW,FullCache.macOut])
     exact (hpk.frame hf (by decide) (fun h => h) (fun h => h)).words
@@ -4873,31 +4876,31 @@ theorem keygen_tbsim (sk : SecretKey) : TBSim image sk (kinit sk) keygenCycleBou
   obtain ⟨s1, st1, hs⟩ := kstart sk
   exact TBSim.steps st1 (keygen_from_start hs)
 theorem kdone_output {r : Digest × Cache} {t : MachineState} (h : KDone r t) :
-    readOutput submission.sizes submission.layout .keygen t = ((r.1 : PublicKey), cacheB r.2) := by
+    readOutput submission.sizes submission.layout .keygen t = ((Verify.encD r.1 : PublicKey), cacheB r.2) := by
   show (readBuffer t 160 16, readBuffer t 0x80000 131072) = _
-  have e1 : readBuffer t 160 (8 * 2) = BitVec.ofNat _ (readLE (bytesLE 16 r.1)) :=
-    readBuffer_of_words t 160 2 (bytesLE 16 r.1) (by decide) (by decide) (bytesLE_length _ _) h.pk
+  have e1 : readBuffer t 160 (8 * 2) = BitVec.ofNat _ (readLE (bytesLE 16 (Verify.encD r.1))) :=
+    readBuffer_of_words t 160 2 (bytesLE 16 (Verify.encD r.1)) (by decide) (by decide) (bytesLE_length _ _) h.pk
   have e2 : readBuffer t 0x80000 (8 * 16384) = BitVec.ofNat _ (readLE (cacheBytes r.2)) :=
     readBuffer_of_words t 0x80000 16384 (cacheBytes r.2) (by decide) (by decide) (cacheBytes_length r.2) h.cache
   rw [readLE_bytesLE] at e1
   refine Prod.ext ?_ e2
   refine e1.trans (BitVec.eq_of_toNat_eq ?_)
-  rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt r.1.isLt]
+  rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (Verify.encD r.1).isLt]
 /-- Top-bytes layer: the keygen run's value and its (data-dependent) hash call / compression counts are those of
 `countBoth (mrealize sk keygen)`. -/
 theorem keygen_run_counts (sk : SecretKey) :
     (fun r => (r.value, r.hashCalls, r.hashCompressions)) <$> submission.run .keygen sk =
-      (fun p => (some ((p.1.1 : PublicKey), cacheB p.1.2), p.2.1, p.2.2)) <$>
+      (fun p => (some ((Verify.encD p.1.1 : PublicKey), cacheB p.1.2), p.2.1, p.2.2)) <$>
         countBoth (mrealize sk keygen) :=
   Sim.run_eq submission .keygen sk (initialState_keygen sk) (keygen_tbsim sk)
-    (by have := keygenCycleBound_lt; omega) (fun r => some ((r.1 : PublicKey), cacheB r.2))
+    (by have := keygenCycleBound_lt; omega) (fun r => some ((Verify.encD r.1 : PublicKey), cacheB r.2))
     (fun _ t h => ⟨fetch_541 t h.pc, h.x5, by rw [if_pos h.x10, kdone_output h]; rfl⟩)
 /-- img-v6: for every hash function the keygen run returns the keys of `keygen` (evaluated at `hash`), finishes
 within `keygenCycleBound + 1 < CYCLE_LIMIT` cycles, and its hash call / compression counts are those of
 `countBoth (mrealize sk keygen)` evaluated at `hash` (the nonce trials make them data dependent). -/
 theorem keygen_runWith (hash : Hash) (sk : SecretKey) :
     (submission.runWith hash .keygen sk).value =
-        some (((evalWithAnswerFn hash (mrealize sk keygen)).1 : PublicKey),
+        some ((Verify.encD (evalWithAnswerFn hash (mrealize sk keygen)).1 : PublicKey),
           cacheB (evalWithAnswerFn hash (mrealize sk keygen)).2) ∧
       (submission.runWith hash .keygen sk).finished = true ∧
       (submission.runWith hash .keygen sk).cycles < CYCLE_LIMIT ∧
@@ -4905,7 +4908,7 @@ theorem keygen_runWith (hash : Hash) (sk : SecretKey) :
       (submission.runWith hash .keygen sk).hashCompressions =
         (evalWithAnswerFn hash (countBoth (mrealize sk keygen))).2.2 := by
   obtain ⟨h1, h2, h3, h4, h5⟩ := Sim.runWith_eval submission .keygen sk (initialState_keygen sk) (keygen_tbsim sk)
-    keygenCycleBound_lt (fun r => ((r.1 : PublicKey), cacheB r.2))
+    keygenCycleBound_lt (fun r => ((Verify.encD r.1 : PublicKey), cacheB r.2))
     (fun _ t h => ⟨fetch_541 t h.pc, h.x5, h.x10, kdone_output h⟩) hash
   exact ⟨h1, h2, lt_of_le_of_lt h3 keygenCycleBound_lt, h4, h5⟩
 theorem keygen_runWith_cycles_lt (hash : Hash) (sk : SecretKey) :
@@ -4951,13 +4954,6 @@ theorem keygen_run_eq (hadm : (submission I).Admissible) (sk : SecretKey) :
   exact run_keygen_congr (iA := (submission I).image) (iB := SigGolfCandidate.T3M.submission.image) hk hvA hvB
     (by rw [SigGolfCandidate.T3M.submission_layout]) (by rw [SigGolfCandidate.T3M.submission_layout])
     (by rw [SigGolfCandidate.T3M.submission_layout]) sk
-theorem keygen_run_counts_holds (hadm : (submission I).Admissible) : KeygenRunCounts I := fun sk => by
-  rw [keygen_run_eq I hadm sk]
-  exact SigGolfCandidate.T3M.Keygen.keygen_run_counts sk
-theorem keygen_runWith_holds (hadm : (submission I).Admissible) : KeygenRunWith I := fun hash sk => by
-  unfold Submission.runWith
-  rw [keygen_run_eq I hadm sk]
-  exact SigGolfCandidate.T3M.Keygen.keygen_runWith hash sk
 end ClaudeWCT.W9.T3M.Final
 
 namespace ClaudeWCT.W9.T3M.Final.Paired
@@ -4976,13 +4972,6 @@ theorem keygen_run_eq (hadm : (submission I).Admissible) (sk : SecretKey) :
   exact run_keygen_congr (iA := (submission I).image) (iB := SigGolfCandidate.T3M.submission.image) hk hvA hvB
     (by rw [SigGolfCandidate.T3M.submission_layout]) (by rw [SigGolfCandidate.T3M.submission_layout])
     (by rw [SigGolfCandidate.T3M.submission_layout]) sk
-theorem keygen_run_counts_holds (hadm : (submission I).Admissible) : KeygenRunCounts I := fun sk => by
-  rw [keygen_run_eq I hadm sk]
-  exact SigGolfCandidate.T3M.Keygen.keygen_run_counts sk
-theorem keygen_runWith_holds (hadm : (submission I).Admissible) : KeygenRunWith I := fun hash sk => by
-  unfold Submission.runWith
-  rw [keygen_run_eq I hadm sk]
-  exact SigGolfCandidate.T3M.Keygen.keygen_runWith hash sk
 end ClaudeWCT.W9.T3M.Final.Paired
 end
 -- ==== merged from ClaudeWCT_W9_T3M_Final_SourceDischarge ====
@@ -5052,17 +5041,6 @@ structure MachineFacts (I : Images) : Prop where
   verify_refines : VerifyRefines I
   verify_terminates : VerifyTerminates I
   verify_accept_cycles : VerifyAcceptCycles I
-theorem pending_of_machine {I : Images} (M : MachineFacts I) : Pending I where
-  admissible := M.admissible
-  keygen_run_counts := keygen_run_counts_holds I M.admissible
-  keygen_runWith := keygen_runWith_holds I M.admissible
-  sign_refines := M.sign_refines
-  sign_terminates := M.sign_terminates
-  expand_refines := M.expand_refines
-  expand_terminates := M.expand_terminates
-  verify_refines := M.verify_refines
-  verify_terminates := M.verify_terminates
-  verify_accept_cycles := M.verify_accept_cycles
 end ClaudeWCT.W9.T3M.Final
 
 namespace ClaudeWCT.W9.T3M.Final.Paired
@@ -5076,22 +5054,6 @@ structure MachineFacts (I : Images) : Prop where
   verify_refines : VerifyRefines I
   verify_terminates : VerifyTerminates I
   verify_accept_cycles : VerifyAcceptCycles I
-theorem pending_of_machine {I : Images} (M : MachineFacts I) : Pending I where
-  admissible := M.admissible
-  keygen_run_counts := keygen_run_counts_holds I M.admissible
-  keygen_runWith := keygen_runWith_holds I M.admissible
-  sign_refines := M.sign_refines
-  sign_terminates := M.sign_terminates
-  expand_refines := M.expand_refines
-  expand_terminates := M.expand_terminates
-  verify_refines := M.verify_refines
-  verify_terminates := M.verify_terminates
-  verify_accept_cycles := M.verify_accept_cycles
-theorem certificate_of_security {I : Images}
-    (expandV6 : SigGolfCandidate.Research.SharedExpansionClosure.ExpandV6Facts) (security : SecurityP)
-    (keygenMoment : KeygenMoment) (M : MachineFacts I) :
-    SigGolf.Certificate (submissionNew I) 6960 :=
-  certificateNew_of encodingFacts sourceQueries_holds (pending_of_machine M) (sourceFacts_of_securityP expandV6 security keygenMoment)
 end ClaudeWCT.W9.T3M.Final.Paired
 end
 -- ==== merged from ClaudeWCT_W9_T3_Secc_CapFail ====

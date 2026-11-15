@@ -57,38 +57,5 @@ theorem paired_sign_terminates : SignTerminates I0 := by
   intro hash sk cache message
   exact ClaudeWCT.W9.Machine.Sign.SharedController.sign_terminates hash sk cache message
 
-theorem paired_verify_inputs : VerifyRefines I0 ∧ VerifyTerminates I0 ∧ VerifyAcceptCycles I0 :=
-  W9Fin.V7.Canonical.Runtime.installed_verify_inputs I0 rfl paired_admissible
-
-theorem paired_machineFacts : MachineFacts I0 where
-  admissible := paired_admissible
-  sign_refines := paired_sign_refines
-  sign_terminates := paired_sign_terminates
-  expand_refines := ClaudeWCT.W9.Machine.ExpandLink.paired_expand_pending.1
-  expand_terminates := ClaudeWCT.W9.Machine.ExpandLink.paired_expand_pending.2
-  verify_refines := paired_verify_inputs.1
-  verify_terminates := paired_verify_inputs.2.1
-  verify_accept_cycles := paired_verify_inputs.2.2
-
-theorem certificate_ready :
-    SigGolf.Certificate (SigGolfCandidate.Transfer.currentOf SigGolfCandidate.T3M.Paired.submission) 6959 := by
-  change SigGolf.Certificate (submissionNew I0) 6959
-  have previous := certificate_of_security (SigGolfCandidate.Research.SharedExpansionClosure.expandV6_facts
-      SigGolfCandidate.Research.SharedExpansionV6.expandExcessNumeric19_holds)
-    ClaudeWCT.W9.T3.Secc.Paired.t3_securityP_layout_split (fun secret => ClaudeWCT.W9.T3.TopMoment.keygen_moment_v6 secret)
-    paired_machineFacts
-  have hL : (SigGolfCandidate.Transfer.legacyOf (submissionNew I0)).VerificationBound 6959 := by
-    rw [legacyOf_submissionNew]
-    exact submission_verificationBound_tight encodingFacts sourceQueries_holds (pending_of_machine paired_machineFacts)
-  have hrun : SigGolfCandidate.Transfer.RunAgrees (submissionNew I0) :=
-    SigGolfCandidate.Transfer.runAgrees_of_admissible (submissionNew I0) (by
-      rw [legacyOf_submissionNew]
-      exact paired_admissible)
-  exact { admission := previous.admission
-          completeness := previous.completeness
-          compressionBudgets := previous.compressionBudgets
-          verificationCycles := SigGolfCandidate.Transfer.verificationCycles_of_legacy (submissionNew I0) hrun _ hL
-          security := previous.security
-          termination := previous.termination }
 end SigGolfCandidate.Packaging
 end

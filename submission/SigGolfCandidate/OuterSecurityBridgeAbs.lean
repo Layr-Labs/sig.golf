@@ -45,7 +45,7 @@ def advLoop : ℕ → A.State → ℕ → OracleComp SSpec (Option ForgeryP)
         advLoop n (resume u) k
     | .step next => advLoop n next k
 def reductionP (rounds : ℕ) : AdversaryP :=
-  fun pk cache => advLoop I A rounds (A.initial (pk : PublicKey) (cacheB cache)) 0
+  fun pk cache => advLoop I A rounds (A.initial (SigGolfCandidate.T3M.Verify.encD pk : PublicKey) (cacheB cache)) 0
 noncomputable def srcImpl : QueryImpl SSpec (WriterT (QueryLog Requests) M) :=
   (fun input => liftM (forwardWorld input) : QueryImpl OracleWorld (WriterT (QueryLog Requests) M)) +
     signingOracle
@@ -145,7 +145,7 @@ set_option maxRecDepth 100000 in
 theorem src_top (F : QFacts) (secret : SecretKey) (rounds : ℕ) :
     countFrom costW (realize secret (gameP (reductionP I A rounds))) 0 =
       (liftM (countFrom (fun _ => 1) (hrealize secret keygen) 0) : OracleComp AW _) >>= fun p =>
-        absK I A secret p.1.1 rounds (A.initial (p.1.1 : PublicKey) (cacheB p.1.2)) 0 [] p.2 := by
+        absK I A secret p.1.1 rounds (A.initial (SigGolfCandidate.T3M.Verify.encD p.1.1 : PublicKey) (cacheB p.1.2)) 0 [] p.2 := by
   rw [gameP_eq, SigGolfCandidate.T3.Cost.realize_bind, realize_eq_liftM secret F.hashOnly_keygen, countFrom_bind,
     countFrom_liftM_hash _ (fun _ => rfl)]
   rfl

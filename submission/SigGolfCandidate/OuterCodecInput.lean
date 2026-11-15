@@ -98,7 +98,7 @@ theorem words (sig : NewSig) (s : MachineState)
   · rw [hw i hi',OuterCodecBits.regular_word sig i hi' h0 h1 h2 h3 h4 h5]
   · simp only [OuterCodecFrame.carrierWords,List.mem_append,List.mem_cons,List.not_mem_nil,or_false]
     intro he
-    rcases he with (he|he|he|he|he|he)|he
+    rcases he with (he|he|he|he|he|he)|he|he
     all_goals
       have he' := congrArg BitVec.toNat he
       have ha : (BitVec.ofNat 64 (28672+8*i)).toNat=28672+8*i := Nat.mod_eq_of_lt (by omega)
@@ -111,6 +111,7 @@ theorem words (sig : NewSig) (s : MachineState)
       | change 28672+8*i=30488 at he'
       | change 28672+8*i=33848 at he'
       | change 28672+8*i=33856 at he'
+      | change 28672+8*i=160 at he'
       omega
 #print axioms words
 end OuterCodecInput

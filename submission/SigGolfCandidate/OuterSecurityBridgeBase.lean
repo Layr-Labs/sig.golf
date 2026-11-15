@@ -39,13 +39,13 @@ attribute [local irreducible] SigGolfCandidate.Legacy.Submission.run
 structure Pending (_ : Images) : Prop where
   keygen_run_counts : ∀sk : SecretKey,
     (fun r=>(r.value,r.hashCalls,r.hashCompressions)) <$> OuterImageValidity.sub.run .keygen sk=
-      (fun p=>(some ((p.1.1 : PublicKey),cacheB p.1.2),p.2.1,p.2.2)) <$> countBoth (mrealize sk keygen)
+      (fun p=>(some ((SigGolfCandidate.T3M.Verify.encD p.1.1 : PublicKey),cacheB p.1.2),p.2.1,p.2.2)) <$> countBoth (mrealize sk keygen)
   sign_refines : ∀(sk : SecretKey)(cache : Bytes 131072)(m : Message),
     (fun r=>(r.value,r.hashCalls,r.hashCompressions)) <$> OuterImageValidity.sub.run .sign (sk,cache,m)=
       (fun p=>(p.1.map sigBC,p.2.1,p.2.2)) <$> countBoth (mrealize sk (sign (cacheDec cache) m))
   verify_refines : ∀(m : Message)(pk : PublicKey)(w : Bytes 21756),
     (fun r=>(r.value,r.hashCalls)) <$> OuterImageValidity.sub.run .verify (m,pk,w)=
-      (fun p=>(if p.1 then some () else none,p.2)) <$> SigGolfCandidate.T3M.countCalls (mrealize 0 (verifyP m pk w))
+      (fun p=>(if p.1 then some () else none,p.2)) <$> SigGolfCandidate.T3M.countCalls (mrealize 0 (verifyP m (SigGolfCandidate.T3M.Verify.decD pk) w))
 
 theorem pending (I : Images) : Pending I where
   keygen_run_counts:=OuterKeygenRun.counts
@@ -97,9 +97,9 @@ section eqs
 variable {I : Images}
 theorem keygen_eq (P : Pending I) (sk : SecretKey) :
     (fun r => (r.value, r.hashCalls)) <$> (submission I).run .keygen sk =
-      (fun p => (some ((p.1.1 : PublicKey), cacheB p.1.2), p.2)) <$>
+      (fun p => (some ((SigGolfCandidate.T3M.Verify.encD p.1.1 : PublicKey), cacheB p.1.2), p.2)) <$>
         SigGolfCandidate.Bridge.countCalls (relabel toQ (hrealize sk keygen)) := by
-  have h := calls_of_counts (F := fun p : Digest × Cache => some ((p.1 : PublicKey), cacheB p.2))
+  have h := calls_of_counts (F := fun p : Digest × Cache => some ((SigGolfCandidate.T3M.Verify.encD p.1 : PublicKey), cacheB p.2))
     (P.keygen_run_counts sk)
   rw [mrealize_eq_relabel] at h
   exact h
@@ -113,10 +113,10 @@ theorem sign_eq (P : Pending I) (sk : SecretKey) (cache : Bytes 131072) (m : Mes
   exact h
 theorem expand_eq (P : Pending I) (m : Message) (pk : PublicKey) (s : Bytes 5183) :
     (fun r=>(r.value,r.hashCalls)) <$> (submission I).run .expand (m,pk,s)=
-      SigGolfCandidate.Bridge.countCalls (relabel toQ (hrealize 0 (expandB m pk (sigDecC s)))) := by
+      SigGolfCandidate.Bridge.countCalls (relabel toQ (hrealize 0 (expandB m (SigGolfCandidate.T3M.Verify.decD pk) (sigDecC s)))) := by
   have h:=calls_of_counts (F:=id) (OuterCompactCounts.expand m pk s)
   rw [mrealize_eq_relabel] at h
-  have he : expandB m pk (sigDecC s)=OuterExpand.expandCompact m pk s := OuterRawExpand.expand_wire m pk s
+  have he : expandB m (SigGolfCandidate.T3M.Verify.decD pk) (sigDecC s)=OuterExpand.expandCompact m (SigGolfCandidate.T3M.Verify.decD pk) s := OuterRawExpand.expand_wire m _ s
   rw [he]
   have hi : (fun p : Option WBytes×Nat=>(id p.1,p.2))=id := by funext p;rfl
   simp only [hi,id_map] at h
@@ -125,7 +125,7 @@ set_option maxRecDepth 100000 in
 theorem verify_eq (P : Pending I) (m : Message) (pk : PublicKey) (w : Bytes 21756) :
     (fun r => (r.value, r.hashCalls)) <$> (submission I).run .verify (m, pk, w) =
       (fun p => (if p.1 then some () else none, p.2)) <$>
-        SigGolfCandidate.Bridge.countCalls (relabel toQ (hrealize 0 (verifyP m pk w))) := by
+        SigGolfCandidate.Bridge.countCalls (relabel toQ (hrealize 0 (verifyP m (SigGolfCandidate.T3M.Verify.decD pk) w))) := by
   rw [P.verify_refines m pk w, SigGolfCandidate.T3M.Final.countCalls_eq, mrealize_eq_relabel]
 
 end eqs

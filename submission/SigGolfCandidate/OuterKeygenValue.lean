@@ -11,7 +11,7 @@ open OuterImageValidity
 
 theorem value (sk : SecretKey) :
     (fun r=>r.value) <$> sub.run .keygen sk=
-      (fun p : SigGolfCandidate.T3.Digest×SigGolfCandidate.T3.Cache=>some ((p.1 : PublicKey),cacheB p.2)) <$>
+      (fun p : SigGolfCandidate.T3.Digest×SigGolfCandidate.T3.Cache=>some ((Verify.encD p.1 : PublicKey),cacheB p.2)) <$>
       mrealize sk SigGolfCandidate.T3.keygen :=
   ClaudeWCT.W9.T3M.Final.value_of_counts (OuterKeygenRun.counts sk)
 #print axioms value

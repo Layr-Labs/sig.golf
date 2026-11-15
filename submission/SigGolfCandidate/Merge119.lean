@@ -371,7 +371,7 @@ theorem blockCheck_at (q dB dC : Nat) (hq : q<16) (hn : inl q=false) (hB : dB â‰
   rw [if_neg h16, e1, e2, if_pos (by omega)] at hb
   exact hb
 theorem s8Run_at (q k : Nat) (hq : q<17) (hk : k<nRank q) :
-    (if q=16 âˆ§ k=0 then rOK (vrun (entW q k) 0) (emptyR (entW q k)) else
+    (if q=16 then rOK (vrun (entW q k) 0) (emptyR (entW q k)) else
       if q=0 then rOK (vrun (entW 0 k) 1) (guardR k)  else rOK (vrun (entW q k) 1) (s8R (kss q k) (entW q k)))=true := by
   exact s8Check_at q k hq hk
 /-! ### T51: guards, checksum landings and arms (Part5) -/

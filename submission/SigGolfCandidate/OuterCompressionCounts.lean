@@ -24,8 +24,8 @@ theorem sign (sk : SecretKey) (cache : Bytes 131072) (m : Message) (hash : Hash)
 theorem expand (m : Message) (pk : PublicKey) (sig : OuterSignatureCodec.NewSig) (hash : Hash) :
     (evalWithAnswerFn hash (sub.run .expand (m,pk,sig))).hashCompressions=
       (evalWithAnswerFn hash (mrealize 0 (SigGolfCandidate.T3.Cost.countBlocks
-        (OuterExpand.expandCompact m pk sig)))).2 :=
-  abstract_count_refinement 0 hash (OuterExpand.expandCompact m pk sig)
+        (OuterExpand.expandCompact m (SigGolfCandidate.T3M.Verify.decD pk) sig)))).2 :=
+  abstract_count_refinement 0 hash (OuterExpand.expandCompact m (SigGolfCandidate.T3M.Verify.decD pk) sig)
     (sub.run .expand (m,pk,sig)) id (OuterCompactCounts.expand m pk sig) (OuterGoodQueries.compactExpand ..)
 #print axioms sign
 #print axioms expand

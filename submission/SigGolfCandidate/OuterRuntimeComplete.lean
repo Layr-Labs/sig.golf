@@ -31,12 +31,15 @@ theorem successPipe_eq (sk : SecretKey) (m : Message) :
   | none=>rfl
   | some sig=>
     simp only
-    rw [OuterRunValues.expand,mrealize_bind,
+    rw [OuterRunValues.expand,Verify.decD_encD,mrealize_bind,
       mrealize_public 0 sk (OuterPublicQueries.expandCompact m kp.1 sig)]
     refine bind_congr fun e=>?_
     cases e with
     | none=>rfl
-    | some w=>exact (OuterRunValues.verify m kp.1 w).trans (mrealize_public 0 sk (ClaudeWCT.W9.T3M.Paired.publicOnly_verifyP m kp.1 w))
+    | some w=>
+      have hv := OuterRunValues.verify m (Verify.encD kp.1) w
+      rw [Verify.decD_encD] at hv
+      exact hv.trans (mrealize_public 0 sk (ClaudeWCT.W9.T3M.Paired.publicOnly_verifyP m kp.1 w))
 
 theorem allSucceed_eq (sk : SecretKey) :
     HonestSummary.allSucceed <$> sub.allMessages sk=mrealize sk OuterAllMessagesComplete.program := by

@@ -17,7 +17,7 @@ attribute [local reducible] OuterRuntime.runtimeSub SigGolfCandidate.Legacy.Outp
 
 theorem verify (m : Message) (pk : PublicKey) (w : Bytes 21756) :
     (fun r=>r.value.isSome) <$> sub.run .verify (m,pk,w)=
-      mrealize 0 (ClaudeWCT.W9.T3M.Paired.verifyP m pk w) := by
+      mrealize 0 (ClaudeWCT.W9.T3M.Paired.verifyP m (SigGolfCandidate.T3M.Verify.decD pk) w) := by
   have h:=congrArg (fun x=>(fun p : Option Unit×Nat=>p.1.isSome) <$> x) (OuterVerifyRun.refines m pk w)
   simp only [Functor.map_map] at h
   refine h.trans ?_
@@ -39,15 +39,15 @@ theorem sign (sk : SecretKey) (cache : Bytes 131072) (m : Message) :
     (fst_countBoth (mrealize sk (OuterSigning.sign (cacheDec cache) m)))
 
 theorem expand (m : Message) (pk : PublicKey) (sig : OuterSignatureCodec.NewSig) :
-    (fun r=>r.value) <$> sub.run .expand (m,pk,sig)=mrealize 0 (OuterExpand.expandCompact m pk sig) := by
+    (fun r=>r.value) <$> sub.run .expand (m,pk,sig)=mrealize 0 (OuterExpand.expandCompact m (SigGolfCandidate.T3M.Verify.decD pk) sig) := by
   have h:=congrArg (fun x=>Prod.fst <$> x) (OuterExpandRun.refines m pk sig)
   simp only [Functor.map_map] at h
   conv_rhs => rw [OuterExpand.expandCompact,mrealize_map]
-  change _ = (Option.map OuterExpandRun.encode) <$> mrealize 0 (OuterExpand.expandN m pk
+  change _ = (Option.map OuterExpandRun.encode) <$> mrealize 0 (OuterExpand.expandN m (SigGolfCandidate.T3M.Verify.decD pk)
     (ClaudeWCT.W9.T3M.SharedCodec.sigDecC (OuterSignatureCodec.expand sig)))
   refine h.trans ?_
   simpa only [Functor.map_map] using congrArg (fun x=>(Option.map OuterExpandRun.encode) <$> x)
-    (fst_countBoth (mrealize 0 (OuterExpand.expandN m pk
+    (fst_countBoth (mrealize 0 (OuterExpand.expandN m (SigGolfCandidate.T3M.Verify.decD pk)
       (ClaudeWCT.W9.T3M.SharedCodec.sigDecC (OuterSignatureCodec.expand sig)))))
 
 #print axioms verify

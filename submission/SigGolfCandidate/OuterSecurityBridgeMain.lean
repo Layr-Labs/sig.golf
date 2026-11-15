@@ -74,7 +74,7 @@ lemma inv_record {T : Transcript (submission I).sizes} {k : ℕ} {lg : QueryLog 
 variable (I) (A : Adversary (submission I).sizes)
 theorem rel_main (F : QFacts) (P : Pending I) (sk : SecretKey) (pk : Digest) :
     ∀ (n : ℕ) (s : A.State) (T : Transcript (submission I).sizes) (k : ℕ) (lg : QueryLog Requests) (c : ℕ),
-      Inv T k lg c → Rel (orgK I A sk (pk : PublicKey) n s T) (absK I A sk pk n s k lg c) RFin := by
+      Inv T k lg c → Rel (orgK I A sk (SigGolfCandidate.T3M.Verify.encD pk : PublicKey) n s T) (absK I A sk pk n s k lg c) RFin := by
   intro n
   induction n with
   | zero =>
@@ -87,7 +87,7 @@ theorem rel_main (F : QFacts) (P : Pending I) (sk : SecretKey) (pk : Digest) :
     | submit f =>
       cases f with
       | witness m w =>
-        rw [orgK_submit_witness F P hstep, absK_submit_witness F hstep, liftM_countFrom_shift,
+        rw [orgK_submit_witness F P hstep, SigGolfCandidate.T3M.Verify.decD_encD, absK_submit_witness F hstep, liftM_countFrom_shift,
           hrealize_public 0 sk (F.public_verifyP _ _ _), Functor.map_map, liftM_map]
         refine Rel.of_map _ _ _ fun z => ?_
         intro hwon
@@ -96,7 +96,7 @@ theorem rel_main (F : QFacts) (P : Pending I) (sk : SecretKey) (pk : Digest) :
         · simp only [length_of_inv hI, freshW_of_inv hI hwon.2, hwon.1, Bool.true_and]
         · simp [hI.1]
       | signature m σ =>
-        rw [orgK_submit_signature F P hstep, absK_submit_signature F hstep, liftM_countFrom_shift,
+        rw [orgK_submit_signature F P hstep, SigGolfCandidate.T3M.Verify.decD_encD, absK_submit_signature F hstep, liftM_countFrom_shift,
           hrealize_public 0 sk (F.public_expandB _ _ _), bind_map_left]
         refine Rel.bind_eq _ fun p => ?_
         rcases p with ⟨_ | w, e⟩
@@ -134,7 +134,7 @@ theorem realExperimentP_eq (F : QFacts) (rounds : ℕ) :
       SphincsSecurity.sampleMasterSeed >>= fun secret =>
         (simulateQ (roImpl (List UInt8) (BitVec 256))
           ((liftM (countFrom (fun _ => 1) (hrealize secret keygen) 0) : OracleComp AW _) >>= fun p =>
-            absK I A secret p.1.1 rounds (A.initial (p.1.1 : PublicKey) (cacheB p.1.2)) 0 [] p.2)).run' ∅ := by
+            absK I A secret p.1.1 rounds (A.initial (SigGolfCandidate.T3M.Verify.encD p.1.1 : PublicKey) (cacheB p.1.2)) 0 [] p.2)).run' ∅ := by
   unfold realExperimentP
   refine bind_congr fun secret => ?_
   rw [derivation_realize, countHashQueries_eq, src_top F secret rounds]

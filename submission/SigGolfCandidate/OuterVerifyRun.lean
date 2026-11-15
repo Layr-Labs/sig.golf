@@ -27,7 +27,7 @@ def Inputs : Prop:=∀ (floors : SigGolfCandidate.T3.Layer→Nat),OuterVerifyBud
   ∀(m : Message)(pk : PublicKey)(w : Bytes 21756)(s : MachineState),
   initialState SigGolfCandidate.T3M.submission .verify (m,pk,w)=some s →
   GoodQP (fun hash=>HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w) hash ∧ DigestCapOk hash m w)
-    s 10083 15784 True 6864 (ccM (ClaudeWCT.W9.T3M.Paired.verifyP m pk w) Kb)
+    s 10083 15784 True 6862 (ccM (ClaudeWCT.W9.T3M.Paired.verifyP m (decD pk) w) Kb)
 
 theorem inputs : Inputs := by
   intro floors hcredit message pk witness state hstate
@@ -35,7 +35,7 @@ theorem inputs : Inputs := by
 
 theorem refines : ∀ (m : Message) (pk : PublicKey) (w : Bytes 21756),
   (fun r=>(r.value,r.hashCalls)) <$> sub.run .verify (m,pk,w)=
-    (fun p=>(if p.1 then some () else none,p.2)) <$> countCalls (mrealize 0 (ClaudeWCT.W9.T3M.Paired.verifyP m pk w)) := by
+    (fun p=>(if p.1 then some () else none,p.2)) <$> countCalls (mrealize 0 (ClaudeWCT.W9.T3M.Paired.verifyP m (decD pk) w)) := by
   intro m pk w
   obtain ⟨s,hs⟩ := W9Fin.V7.init_exists m pk w
   have hs' := (initial_eq m pk w).trans hs
@@ -43,7 +43,7 @@ theorem refines : ∀ (m : Message) (pk : PublicKey) (w : Bytes 21756),
   rw [ccM_Kb] at hg
   rw [run_eq _ .verify _ s hs',Functor.map_map]
   change _ = (fun p => (if p.1 then some () else none,p.2)) <$>
-    countCalls (mrealize 0 (ClaudeWCT.W9.T3M.Paired.verifyP m pk w))
+    countCalls (mrealize 0 (ClaudeWCT.W9.T3M.Paired.verifyP m (decD pk) w))
   rw [←hg,Functor.map_map]
   refine congrArg (fun f => f <$> Riscv.execute CYCLE_LIMIT Verify.image s) ?_
   funext e
@@ -66,7 +66,7 @@ theorem terminates : ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes
 theorem accept_cycles : ∀ (floors : SigGolfCandidate.T3.Layer→Nat), OuterVerifyBudget.CreditFloors74 floors →
   ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 21756),
   HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w) hash → DigestCapOk hash m w →
-  (sub.runWith hash .verify (m,pk,w)).value.isSome=true → (sub.runWith hash .verify (m,pk,w)).cycles≤6864 := by
+  (sub.runWith hash .verify (m,pk,w)).value.isSome=true → (sub.runWith hash .verify (m,pk,w)).cycles≤6862 := by
   intro floors hcredit hash m pk w hok hcap h
   obtain ⟨s,hs⟩ := W9Fin.V7.init_exists m pk w
   have hs' := (initial_eq m pk w).trans hs

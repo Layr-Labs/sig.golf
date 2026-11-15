@@ -17,13 +17,14 @@ theorem unpack_entry (sig : NewSig) (s : MachineState) (hp : s.pc=pcOf 0)
       SigMemC t.getMem (OuterSignatureCodec.expand sig) ∧
       RegsExcept s t [.x6,.x7,.x28,.x29] ∧
       (∀ r,r∈[Reg.x6,.x7,.x28,.x29]→t.getReg r=0) ∧
-      (∀ a,a∉(OuterCodecFrame.carrierWords++[33856])→t.getMem a=s.getMem a) := by
+      (∀ a,a∉(OuterCodecFrame.carrierWords++[33856,160])→t.getMem a=s.getMem a) ∧
+      t.getMem 160=1-s.getMem 160 := by
   obtain ⟨u,su,up,ur,um⟩:=OuterControlRun.jump 0 88300 (by decide) (by decide) OuterImageControlTransfers.entry s hp
   let v:=unpackBlock.res.toState u
   have uv : Steps OuterImages.expandImage u 38 38 v := symRun_sound unpackBlock OuterImageHelpers.expand_unpack u up (unpack_obligs u)
   have vp : v.pc=pcOf 88338 := rfl
   obtain ⟨t,vt,tp,tr,tm⟩:=OuterControlRun.jump 88338 87500 (by decide) (by decide) OuterImageControlTransfers.unpack_return v vp
-  refine ⟨t,su.trans (uv.trans vt),tp,⟨?_⟩,?_,?_,?_⟩
+  refine ⟨t,su.trans (uv.trans vt),tp,⟨?_⟩,?_,?_,?_,?_⟩
   · intro i hi
     rw [tm]
     exact OuterCodecInput.words sig u (by intro i hi;rw [um];exact hw i hi) (by rw [um];exact hz) i hi
@@ -36,6 +37,7 @@ theorem unpack_entry (sig : NewSig) (s : MachineState) (hp : s.pc=pcOf 0)
     rcases hr with rfl|rfl|rfl|rfl <;> rfl
   · intro a ha
     rw [tm,OuterCodecFrame.unpack_frame u a ha,um]
+  · rw [tm,OuterCodecFrame.unpack_pk u,um]
 
 theorem decode_entry (sig : NewSig) (s0 : MachineState) (hpc : s0.pc=pcOf 0)
     (hw : ∀ i,i<648→s0.getMem (BitVec.ofNat 64 (28672+8*i))=sig.extractLsb' (64*i) 64)
@@ -46,19 +48,19 @@ theorem decode_entry (sig : NewSig) (s0 : MachineState) (hpc : s0.pc=pcOf 0)
       (∀ k, k < 332 → DigAt u (0x7000 + 16 * k)
         (SharedCodec.inflatedRead (0 : SigGolfCandidate.T3.Digest) (SharedCodec.digC (OuterSignatureCodec.expand sig)) k)) ∧
       u.getMem (BitVec.ofNat 64 417792) = BitVec.ofNat 64 (SharedCodec.sigDecC (OuterSignatureCodec.expand sig)).policyHints.toNat ∧
-      Frame s0 u (fun A => A = 417792 ∨ (0x7000 ≤ A ∧ A < 0x84c0)) := by
-  obtain ⟨v,sv,vp,vm,vr,vz,vf⟩:=unpack_entry sig s0 hpc hw hz
+      Frame s0 u (fun A => (A = 417792 ∨ (0x7000 ≤ A ∧ A < 0x84c0)) ∨ A = 160) := by
+  obtain ⟨v,sv,vp,vm,vr,vz,vf,-⟩:=unpack_entry sig s0 hpc hw hz
   obtain ⟨u,k,c,vu,hc',up,uz,ur,ui,uh,uf⟩:=OuterDecode.dec_gen v _ vp vm hc
   refine ⟨u,40+k,40+c,sv.trans vu,by omega,up,uz,?_,ui,uh,?_⟩
   · have hv : RegsExcept s0 v [.x6,.x7,.x18,.x19,.x20,.x28,.x29,.x30,.x31] := vr.mono (by decide)
     intro r hr
     exact (ur r hr).trans (hv r hr)
   · intro A hA hn
-    rw [uf.get hA hn]
+    rw [uf.get hA (fun h=>hn (Or.inl h))]
     apply vf
     simp only [OuterCodecFrame.carrierWords,List.mem_append,List.mem_cons,List.not_mem_nil,or_false]
     intro he
-    rcases he with (he|he|he|he|he|he)|he
+    rcases he with (he|he|he|he|he|he)|he|he
     all_goals
       have hh:=congrArg BitVec.toNat he
       rw [BitVec.toNat_ofNat,Nat.mod_eq_of_lt hA] at hh
@@ -70,8 +72,11 @@ theorem decode_entry (sig : NewSig) (s0 : MachineState) (hpc : s0.pc=pcOf 0)
       | change A=30488 at hh
       | change A=33848 at hh
       | change A=33856 at hh
+      | change A=160 at hh
       subst A
-      exact hn (Or.inr ⟨by decide,by decide⟩)
+      first
+      | exact hn (Or.inr rfl)
+      | exact hn (Or.inl (Or.inr ⟨by decide,by decide⟩))
 
 #print axioms decode_entry
 #print axioms unpack_entry

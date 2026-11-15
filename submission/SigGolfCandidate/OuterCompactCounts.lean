@@ -27,7 +27,7 @@ theorem sign (sk : SecretKey) (cache : Bytes 131072) (m : Message) :
 theorem expand (m : Message) (pk : PublicKey) (sig : OuterSignatureCodec.NewSig) :
     (fun r=>(r.value,r.hashCalls,r.hashCompressions)) <$> sub.run .expand (m,pk,sig)=
       (fun p=>(p.1,p.2.1,p.2.2)) <$>
-        countBoth (mrealize 0 (OuterExpand.expandCompact m pk sig)) := by
+        countBoth (mrealize 0 (OuterExpand.expandCompact m (SigGolfCandidate.T3M.Verify.decD pk) sig)) := by
   conv_rhs => rw [OuterExpand.expandCompact,mrealize_map,countBoth_map,Functor.map_map]
   exact OuterExpandRun.refines m pk sig
 #print axioms sign

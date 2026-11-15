@@ -73,7 +73,7 @@ lemma relabel_verify (F : QFacts) (P : Pending I) (m : Message) (w : Bytes (subm
         (pure (⟨verify.value.isSome && fresh, calls + verify.hashCalls⟩ : AttackResult) :
           OracleComp HashSpec AttackResult)) =
       (fun p => (⟨p.1 && fresh, calls + p.2⟩ : AttackResult)) <$>
-        SigGolfCandidate.Bridge.countCalls (hrealize 0 (verifyP m pk w)) := by
+        SigGolfCandidate.Bridge.countCalls (hrealize 0 (verifyP m (SigGolfCandidate.T3M.Verify.decD pk) w)) := by
   have e : (((submission I).run .verify (m, pk, w)) >>= fun verify =>
         (pure (⟨verify.value.isSome && fresh, calls + verify.hashCalls⟩ : AttackResult) :
           OracleComp HashSpec AttackResult)) =
@@ -83,7 +83,7 @@ lemma relabel_verify (F : QFacts) (P : Pending I) (m : Message) (w : Bytes (subm
     rfl
   rw [e, verify_eq P m pk w]
   erw [Functor.map_map, relabel_map]
-  erw [relabel_ofQ_countCalls _ (allQ_hrealize 0 (F.good_verifyP m pk w))]
+  erw [relabel_ofQ_countCalls _ (allQ_hrealize 0 (F.good_verifyP m (SigGolfCandidate.T3M.Verify.decD pk) w))]
   refine congrArg (· <$> _) ?_
   funext a
   rcases a with ⟨b, c⟩
@@ -93,7 +93,7 @@ lemma orgK_submit_witness (F : QFacts) (P : Pending I) {n : ℕ} {s : A.State}
     (h : A.step s = .submit (.witness m w)) :
     orgK I A sk pk (n + 1) s T =
       (liftM ((fun p => (⟨p.1 && T.freshMessage m, T.hashCalls + p.2⟩ : AttackResult)) <$>
-        SigGolfCandidate.Bridge.countCalls (hrealize 0 (verifyP m pk w))) : OracleComp AW _) := by
+        SigGolfCandidate.Bridge.countCalls (hrealize 0 (verifyP m (SigGolfCandidate.T3M.Verify.decD pk) w))) : OracleComp AW _) := by
   simp only [orgK, Submission.interact, h, relabelW_liftM_hash]
   rw [← relabel_verify F P m w]
   rfl
@@ -101,18 +101,18 @@ lemma orgK_submit_signature (F : QFacts) (P : Pending I) {n : ℕ} {s : A.State}
     {T : Transcript (submission I).sizes} {m : Message} {σ : Bytes (submission I).sizes.signature}
     (h : A.step s = .submit (.signature m σ)) :
     orgK I A sk pk (n + 1) s T =
-      (liftM (SigGolfCandidate.Bridge.countCalls (hrealize 0 (expandB m pk (sigDecC σ)))) : OracleComp AW _) >>=
+      (liftM (SigGolfCandidate.Bridge.countCalls (hrealize 0 (expandB m (SigGolfCandidate.T3M.Verify.decD pk) (sigDecC σ)))) : OracleComp AW _) >>=
         fun p =>
         match p.1 with
         | none => pure ⟨false, T.hashCalls + p.2⟩
         | some w =>
           (liftM ((fun q => (⟨q.1 && T.freshSignature m σ, T.hashCalls + p.2 + q.2⟩ :
-              AttackResult)) <$> SigGolfCandidate.Bridge.countCalls (hrealize 0 (verifyP m pk w))) :
+              AttackResult)) <$> SigGolfCandidate.Bridge.countCalls (hrealize 0 (verifyP m (SigGolfCandidate.T3M.Verify.decD pk) w))) :
             OracleComp AW _) := by
   simp only [orgK, Submission.interact, h, relabelW_liftM_hash, Submission.checkForgery]
   have hE : relabel ofQ ((fun r => (r.value, r.hashCalls)) <$>
       (submission I).run .expand (m, pk, σ)) =
-        SigGolfCandidate.Bridge.countCalls (hrealize 0 (expandB m pk (sigDecC σ))) := by
+        SigGolfCandidate.Bridge.countCalls (hrealize 0 (expandB m (SigGolfCandidate.T3M.Verify.decD pk) (sigDecC σ))) := by
     erw [expand_eq P m pk σ]
     exact relabel_ofQ_countCalls _ (allQ_hrealize 0 (F.good_expandB _ _ _))
   refine (congrArg (fun X => (liftM (relabel ofQ X) : OracleComp AW AttackResult))
@@ -136,7 +136,7 @@ variable (I A)
 noncomputable def orgGame (rounds : ℕ) : OracleComp AW AttackResult := do
   let sk ← (liftM sampleSecretKey : OracleComp AW _)
   let p ← (liftM (SigGolfCandidate.Bridge.countCalls (hrealize sk keygen)) : OracleComp AW _)
-  orgK I A sk (p.1.1 : PublicKey) rounds (A.initial (p.1.1 : PublicKey) (cacheB p.1.2)) { hashCalls := p.2 }
+  orgK I A sk (SigGolfCandidate.T3M.Verify.encD p.1.1 : PublicKey) rounds (A.initial (SigGolfCandidate.T3M.Verify.encD p.1.1 : PublicKey) (cacheB p.1.2)) { hashCalls := p.2 }
 set_option maxRecDepth 100000 in
 theorem securityExperiment_eq (F : QFacts) (P : Pending I) (rounds : ℕ) :
     (submission I).securityExperiment A rounds =

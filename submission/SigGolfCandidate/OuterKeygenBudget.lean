@@ -19,7 +19,7 @@ theorem cost_eval (sk : SecretKey) (m : Message) (hash : Hash) :
       evalWithAnswerFn hash ((fun r=>r.2) <$> mrealize sk (SigGolfCandidate.T3.Cost.countBlocks keygen)) := by
   rw [evalWithAnswerFn_map,eval_costs_keygen,evalWithAnswerFn_map]
   exact abstract_count_refinement sk hash keygen (sub.run .keygen sk)
-    (fun p=>some (p.1,cacheB p.2)) (OuterKeygenRun.counts sk) goodQ_keygen
+    (fun p=>some ((SigGolfCandidate.T3M.Verify.encD p.1 : PublicKey),cacheB p.2)) (OuterKeygenRun.counts sk) goodQ_keygen
 
 theorem keygen_bound (sk : SecretKey) (m : Message) :
     expectedValue (withRandomOracle (sub.honest sk m)) (fun result => ENNReal.ofReal

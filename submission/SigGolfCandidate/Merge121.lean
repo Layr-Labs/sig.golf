@@ -3761,7 +3761,7 @@ theorem nctx_known (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (
     exact hyperWord_top_prefix w index _ _ hidx
   intro p hp
   simp only [NCtx.known, List.mem_cons, List.not_mem_nil, or_false] at hp
-  rcases hp with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
+  rcases hp with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
   all_goals try exact he.s3
   all_goals try exact he.ra
   all_goals try exact hprefix
@@ -4170,13 +4170,11 @@ def cmpK (c : Nat) : List (Reg × Word) := gkL 0 ++ [(.x12, BitVec.ofNat 64 (cmp
 def cmpBr1 (c : Nat) (d : Bool) : Br := ⟨.ne, .ld (kw (cmpDst c)), .ld (kw 160), d⟩
 def cmpBr2 (c : Nat) (d : Bool) : Br := ⟨.ne, .ld (kw (cmpDst c + 8)), .ld (kw 168), d⟩
 def cmpDelta (c : Nat) : E := .bin .sub (.ld (kw (cmpDst c + 8))) (.ld (kw 168))
-def cmpAcc (c : Nat) : Spec :=
-  ⟨[(.x5, kw 1), (.x10, cmpDelta c)], [], cmpPc c + 7, true, 7, [cmpBr1 c false], none, 7⟩
-def cmpRej1 (c : Nat) : Spec :=
-  ⟨[(.x5, kw 1), (.x10, kw 1)], [], cmpPc c + 11, true, 5, [cmpBr1 c true], none, 5⟩
-def cmpCheck (c : Nat) : Bool :=
-  specB [] [] [] (runAt (cmpK c) [] (cmpPc c) [.br false]) (cmpAcc c) [] [] [] &&
-  specB [] [] [] (runAt (cmpK c) [] (cmpPc c) [.br true]) (cmpRej1 c) [] [] []
+/-- think49 tail: x5 = r0 + mem[160], x10 = r1 - mem[168], x11 = r0, x12 = mem[160]; 6 steps to the ECALL. -/
+def cmpNew (c : Nat) : Spec :=
+  ⟨[(.x5, .bin .add (.ld (kw (cmpDst c))) (.ld (kw 160))), (.x10, cmpDelta c),
+    (.x11, .ld (kw (cmpDst c))), (.x12, .ld (kw 160))], [], cmpPc c + 6, true, 6, [], none, 6⟩
+def cmpCheck (c : Nat) : Bool := specB [] [] [] (runAt (cmpK c) [] (cmpPc c) []) (cmpNew c) [] [] []
 end SigGolfCandidate.T3M
 end
 -- ==== merged from T3M_Verify_DirectMerkleChecks ====
