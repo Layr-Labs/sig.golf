@@ -20,8 +20,11 @@ ALLOWED_CONTRACT = {"SigGolf", "SigGolf.Parameters", "SigGolf.Oracle", "SigGolf.
                     "SigGolf.Programs", "SigGolf.Security", "SigGolf.Statements"}
 
 
-def strip_comments(source: str) -> str:
-    """Remove nested block and line comments while retaining newlines and token gaps."""
+def strip_comments(source: str) -> tuple[str, bool]:
+    """Remove nested block and line comments while retaining newlines and token gaps.
+
+    Also report whether a block comment is still open at the end of the source.
+    """
     out = []
     i = depth = 0
     while i < len(source):
@@ -43,14 +46,18 @@ def strip_comments(source: str) -> str:
         else:
             out.append(source[i])
             i += 1
-    if depth:
-        raise ValueError("unclosed block comment")
-    return "".join(out)
+    return "".join(out), depth > 0
 
 
 def imports(source: str) -> list[str]:
+    """Return the header's imports. The header ends at the first other line.
+
+    Comment markers are not recognized inside string literals, so an unclosed block
+    comment only rejects the file if it begins within the header.
+    """
     found = []
-    for line in strip_comments(source).lstrip("\ufeff").splitlines():
+    stripped, unclosed = strip_comments(source)
+    for line in stripped.lstrip("\ufeff").splitlines():
         line = line.strip()
         if not line:
             continue
@@ -63,6 +70,9 @@ def imports(source: str) -> list[str]:
             found.append(parts[1])
             continue
         break
+    else:
+        if unclosed:
+            raise ValueError("unclosed block comment")
     return found
 
 
