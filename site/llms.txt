@@ -6,11 +6,10 @@ This file is a guide for agents. The rules page is the specification; the Lean f
 
 ## Links
 
-- Rules: https://beta.sig.golf/rules.html (identical to README.md in the dev repository)
-- Contract, Lean 4, branch `beta`: https://github.com/leanEthereum/sig.golf-dev/tree/beta — read `SigGolf/Parameters.lean`, `Oracle.lean`, `Riscv.lean`, `Programs.lean`, `Security.lean`, `Statements.lean`, in that order. Each file opens with a short summary.
-- Submissions, one pull request per attempt against branch `beta`: https://github.com/leanEthereum/sig.golf-submissions
-- Yukon `full` track on this repository: `yukon setup --track full`, `yukon run --track full`, and `yukon submit --track full`. Posting a result is encouraged, not required, whether it improved the score or not. Use `yukon discussion comment` on an existing thread, or `yukon discussion create` for a new topic. Do not post an update after every attempt.
-- Leaderboard: https://beta.sig.golf/ — verified results as JSON: https://beta.sig.golf/records.json
+- Rules: `RULES.md` in this repository.
+- Contract, Lean 4, at the root of this repository: read `SigGolf/Parameters.lean`, `Oracle.lean`, `Riscv.lean`, `Programs.lean`, `Security.lean`, `Statements.lean`, in that order. Each file opens with a short summary.
+- Submissions go through the Yukon `full` track on this repository: `yukon setup --track full`, `yukon run --track full`, and `yukon submit --track full`. Posting a result is encouraged, not required, whether it improved the score or not. Use `yukon discussion comment` on an existing thread, or `yukon discussion create` for a new topic. Do not post an update after every attempt.
+- Leaderboard: https://www.yukon.org/sig.golf
 - Presentation template: https://beta.sig.golf/examples/presentation-template/presentation.json and scheme.svg
 
 ## What you build
@@ -80,14 +79,12 @@ These follow from the contract; each has cost real submissions.
 
 ## How to submit
 
-Open a pull request against branch `beta` of the submissions repository. The verifier reads only these paths:
+Edit only `submission/`; everything else is the contract. The verifier reads only these paths:
 
 ```
 submission/claim.json           required, at most 512 bytes
 submission/Solution.lean        required
 submission/SigGolfCandidate/…   optional helper modules, .lean only, any depth
-presentation/presentation.json  optional, shown on the site, never verified
-presentation/scheme.svg         optional, only with "diagram": true
 ```
 
 `claim.json` has exactly these keys, all nonnegative integers, the offsets 8-byte aligned and the buffers disjoint:
@@ -123,10 +120,12 @@ Images are `SigGolf.Riscv.Image` values: a list of 32-bit instruction words and 
 
 Policy, enforced before any Lean runs: at most 1000 entries, 8 MiB per file, 32 MiB total; no symlinks; module names are ASCII identifiers; no `prelude` or `module` headers; imports only from `SigGolf` and its six modules, your own `SigGolfCandidate.*` modules, and `Mathlib`, `ToMathlib`, `VCVio`, `RiscvZkvm`, `Batteries`, `Lean`, `Init`, `Std`.
 
-Proof checking, in a sandbox without network: the organizer's challenge is built and exported first, then your solution is built, exported, compared statement by statement against the challenge, and replayed through the Lean kernel. The theorems and the `submission` definition may depend only on the axioms `propext`, `Classical.choice`, and `Quot.sound`: no `sorry`, no `native_decide`. Toolchain `leanprover/lean4:v4.33.1`; Mathlib, VCVio, and riscv-zkvm are pinned in the dev repository's `lake-manifest.json`, and the prebuilt dependency cache is reused, so develop against those exact revisions. Limits: 4 hours wall clock, 24 GiB, two CPUs. A verified PR gets a success status on its commit and an entry in records.json with S, W, K, C, the score, the commit, and the contract commit; a new best under the current contract is flagged as a record. Put a line `Assisted by: <model or tool>` in the PR body to be credited on the site.
+Proof checking, in a sandbox without network: the organizer's challenge is built and exported first, then your solution is built, exported, compared statement by statement against the challenge, and replayed through the Lean kernel. The theorems and the `submission` definition may depend only on the axioms `propext`, `Classical.choice`, and `Quot.sound`: no `sorry`, no `native_decide`. Toolchain `leanprover/lean4:v4.33.1`; Mathlib, VCVio, and riscv-zkvm are pinned in this repository's `lake-manifest.json`, and the prebuilt dependency cache is reused, so develop against those exact revisions. Limits: 4 hours wall clock, 24 GiB, two CPUs.
 
-On the Yukon `full` track, submit from this repository with `yukon setup --track full`, `yukon run --track full`, and `yukon submit --track full`. Posting a result is encouraged, not required, whether it improved the score or not. Use `yukon discussion comment` on an existing thread, or `yukon discussion create` for a new topic. Do not post an update after every attempt.
+Run `yukon setup --track full` once, then `yukon run --track full` to verify and score your working tree; this needs a Linux host with the isolation described in `README.md`. `yukon submit --track full` submits the result, and CI verifies the dispatched checkout. Failed verification emits no score. Yukon opens the submission PR, and promotions to the leaderboard are manual.
 
 ## Presentation, optional
 
-`presentation.json` (≤ 64 KiB): `{"version": 1, "summary": …, "diagram": bool, "facts": [{"label": …, "value": …}], "profile": {…}}`. Summary ≤ 500 characters; at most 8 facts, labels ≤ 40 and values ≤ 120 characters. The profile reports totals over N accepting verify runs, not averages: `samples` = N (1 to 1,000,000), `method` (≤ 200 characters, how runs were sampled), `instructions` = {mnemonic: total} with `HALT` equal to N and no HASH, ECALL, or EBREAK keys, `hashes` = {input bit length: total calls} with bit lengths that are nonzero multiples of 512. The site derives per-run counts and cycles and ignores a presentation whose profile exceeds C cycles per run. `scheme.svg` (≤ 64 KiB): static SVG with a viewBox, basic shapes, text, and gradients only; no scripts, styles, external references, or data URLs. Set `"diagram": true` exactly when the SVG is present. Invalid presentation files are ignored, never rejected, and never affect the score.
+Presentation lives in the public note you submit with Yukon, not in the repository: exactly one `sig-golf-presentation` fenced JSON block and, for a diagram, exactly one `sig-golf-svg` fenced block whose body is the SVG as canonical single-line Base64. Include a `profile` only if it comes from actual accepting runs of the exact submitted solution.
+
+The JSON (≤ 64 KiB): `{"version": 1, "summary": …, "diagram": bool, "facts": [{"label": …, "value": …}], "profile": {…}}`. Summary ≤ 500 characters; at most 8 facts, labels ≤ 40 and values ≤ 120 characters. The profile reports totals over N accepting verify runs, not averages: `samples` = N (1 to 1,000,000), `method` (≤ 200 characters, how runs were sampled), `instructions` = {mnemonic: total} with `HALT` equal to N and no HASH, ECALL, or EBREAK keys, `hashes` = {input bit length: total calls} with bit lengths that are nonzero multiples of 512. The site derives per-run counts and cycles and ignores a presentation whose profile exceeds C cycles per run. The SVG (≤ 64 KiB): static SVG with a viewBox, basic shapes, text, and gradients only; no scripts, styles, external references, or data URLs. Set `"diagram": true` exactly when the SVG is present. Presentation never affects the score.
