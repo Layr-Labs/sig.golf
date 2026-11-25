@@ -279,7 +279,7 @@ theorem leafL_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (la
     fin_cases lay
     · exact absurd rfl hlay
     all_goals rfl
-  have hBB : bufferBase lay.val = bufferBias lay.val + 768 := by
+  have hBB : bufferBase lay.val = bufferBias lay.val + 784 := by
     fin_cases lay
     · exact absurd rfl hlay
     all_goals rfl
@@ -326,7 +326,7 @@ theorem leafL_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (la
   · have hGt : Glob baseK w pk t := glob_frame hG hF (fun A hA => by
         replace hA := L.Wr_range (by omega) hA
         unfold LCtx.bufferEnd LCtx.bufferSlot at hA; rw [hS6, hBias] at hA
-        have : slotL L.i0 = 768 := rfl
+        have : slotL L.i0 = 784 := rfl
         rw [this] at hA
         simp only [show L.i0 = 0 from rfl, slotL, if_neg (by omega : ¬43=0), if_pos rfl] at hA
         split_ifs at hA <;> rcases hA with hA | hA <;> omega)
@@ -351,7 +351,7 @@ theorem leafL_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (la
     have hj0 : slotL (L.i0 + j) = slotL j := by rw [show L.i0 = 0 from rfl, Nat.zero_add]
     simp only [LCtx.bufferSlot, hBias, hj0] at e
     simp only [lfSlot, if_neg h0]
-    have hsl : slotL j = 768 ∨ 800 ≤ slotL j := by unfold slotL; split <;> omega
+    have hsl : slotL j = 784 ∨ 816 ≤ slotL j := by unfold slotL; split <;> omega
     have hsl' : slotL j < 2 ^ 32 := by unfold slotL; split <;> omega
     exact ⟨(hfr (bufferBias lay.val + slotL j) (by omega) (by omega) (by omega)).trans e.1,
       (hfr (bufferBias lay.val + slotL j + 8) (by omega) (by omega) (by omega)).trans e.2⟩
@@ -965,8 +965,8 @@ theorem layerCostA_low (floors : Layer → Nat) (lay : Layer) (h : lay ≠ 0) :
   fin_cases lay <;> rfl
 /-- Stage 2 (C2 + C3): one head step (L3: the row high-word store; L1/L2: the row high-word store) and one leaf
 setup step (the leaf tweak high-word clear) fewer than stage 1 (1182/1175/1175). -/
-theorem layerCost_vals : layerCost 3 0 = 1176 ∧ layerCost 2 0 = 1167 ∧ layerCost 1 0 = 1167 := by decide +kernel
-theorem layerFuel_vals : layerFuel 3 = 1761 ∧ layerFuel 2 = 1752 ∧ layerFuel 1 = 1752 := by decide +kernel
+theorem layerCost_vals : layerCost 3 0 = 1175 ∧ layerCost 2 0 = 1167 ∧ layerCost 1 0 = 1167 := by decide +kernel
+theorem layerFuel_vals : layerFuel 3 = 1760 ∧ layerFuel 2 = 1752 ∧ layerFuel 1 = 1752 := by decide +kernel
 theorem ckOf_lt (lay : Layer) (hlay : lay ≠ 0) (a : BitVec 256) (ds : List Nat)
     (hds : canonicalDecode lay (ansD a) = some ds) : ckOf lay a < 8 := by
   rw [canonical_decode_lower_v6 lay hlay] at hds
@@ -3658,19 +3658,19 @@ def lFuel : Nat → Nat
   | 0 => 7
   | 1 => topFuel
   | n + 2 => layerFuel (n + 1) + mkFuel (n + 1) + lFuel (n + 1)
-theorem lCyc_4 : lCyc 4 = 12372 := by decide +kernel
-/-- Stage 2: floor-free constant 5303 (stage 1: 5334; C2 −13, C3 −7). Configuration (1)+(2): 5295 (top −9 + 3); d6b 5295; tail+q16 5293. -/
+theorem lCyc_4 : lCyc 4 = 12371 := by decide +kernel
+/-- Stage 2: floor-free constant 5303 (stage 1: 5334; C2 −13, C3 −7). Configuration (1)+(2): 5295 (top −9 + 3); d6b 5295; tail+q16 5293; L3 tp link 5292. -/
 theorem lCycA_4 (floors : T3.Layer → Nat) (hbound : ∀ lay, floors lay ≤ 301) :
-    lCycA floors 4 = 5293 - ((List.finRange 4).map floors).sum := by
+    lCycA floors 4 = 5292 - ((List.finRange 4).map floors).sum := by
   have h0 := hbound 0
   have h1 := hbound 1
   have h2 := hbound 2
   have h3 := hbound 3
-  change (1176 - floors 3) + 151 + ((1167 - floors 2) + 151 +
+  change (1175 - floors 3) + 151 + ((1167 - floors 2) + 151 +
     ((1167 - floors 1) + 163 + (4 + 8 + (1306 - floors 0)))) =
-      5293 - (floors 0 + (floors 1 + (floors 2 + (floors 3 + 0))))
+      5292 - (floors 0 + (floors 1 + (floors 2 + (floors 3 + 0))))
   omega
-theorem lFuel_4 : lFuel 4 = 7732 := by decide +kernel
+theorem lFuel_4 : lFuel 4 = 7731 := by decide +kernel
 theorem layers_good (floors : T3.Layer → Nat) (hbound : ∀ lay, floors lay ≤ 301) (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (hidx : index < 2 ^ 31) (Q : Prop) (hQ : Q) :
     ∀ n, n ≤ 4 → ∀ msg s, RestIn w pk index n msg s →
       GoodQP (HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) s (lFuel n) (lCyc n) Q (lCycA floors n)

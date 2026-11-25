@@ -2286,12 +2286,8 @@ theorem encB_step_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) 
           rw [show (maskE 3).eval u = BitVec.ofNat 64 0x7fc01 by rwa [← h3]]
           rfl
         have e4 : s0.getReg .x4 = BitVec.ofNat 64 (bufferBias lay.val) := by
-          rw [hs0.regs (.x4, .ld (kw (TOPLOAD - 8))) (by simp [specBl, h3]), h3]
-          change u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = _
-          have hd3 : d ≤ 4304 := by rw [if_pos h3] at hdc; rcases hdc with hdc | hdc <;> omega
-          rw [hu, writeHash_frame t a d (TOPLOAD - 8) h12 (by unfold TOPLOAD; omega)
-            (by omega) (Or.inr (by unfold TOPLOAD; omega))]
-          exact (ht.hdr3 h3).2.1.trans rfl
+          rw [hs0.regs (.x4, kw 24480) (by simp [specBl, h3]), h3]
+          rfl
         intro q hq
         simp only [postBl, List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hq
         rcases hq with hq | rfl
@@ -2617,12 +2613,8 @@ theorem encB_step_hi (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (
           rw [show (maskE 3).eval u = BitVec.ofNat 64 0x7fc01 by rwa [← h3]]
           rfl
         have e4 : s0.getReg .x4 = BitVec.ofNat 64 (bufferBias lay.val) := by
-          rw [hs0.regs (.x4, .ld (kw (TOPLOAD - 8))) (by simp [specBlHiG, h3]), h3]
-          change u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = _
-          have hd3 : d ≤ 4304 := by rw [if_pos h3] at hdc; rcases hdc with hdc | hdc <;> omega
-          rw [hu, writeHash_frame t a d (TOPLOAD - 8) h12 (by unfold TOPLOAD; omega)
-            (by omega) (Or.inr (by unfold TOPLOAD; omega))]
-          exact (ht.hdr3 h3).2.1.trans rfl
+          rw [hs0.regs (.x4, kw 24480) (by simp [specBlHiG, h3]), h3]
+          rfl
         intro q hq
         simp only [postBl, List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hq
         rcases hq with hq | rfl
@@ -3027,11 +3019,11 @@ theorem getD_drop1 (L : List Digest) (j : Nat) : (L.drop 1).getD j 0 = L.getD (j
   congr 2; omega
 theorem lowLeaf_hashInput (t : MachineState) (lay : Layer) (hlay : lay ≠ 0) (tree leaf : Nat) (pad : Digest)
     (hi : BitVec 64) (ends : List Digest)
-    (off : Nat) (hoff : off % 8 = 0) (hbound : off + 1472 < 2 ^ 64)
-    (hn : ends.length = 43) (h10 : t.getReg .x10 = BitVec.ofNat 64 (off + 768))
+    (off : Nat) (hoff : off % 8 = 0) (hbound : off + 1488 < 2 ^ 64)
+    (hn : ends.length = 43) (h10 : t.getReg .x10 = BitVec.ofNat 64 (off + 784))
     (h11 : t.getReg .x11 = BitVec.ofNat 64 704) (hS : ∀ j < 43, DigAt t (off + slotL j) (ends.getD j 0))
-    (hT0 : t.getMem (BitVec.ofNat 64 (off + 784)) = leafWord lay tree leaf)
-    (hT1 : t.getMem (BitVec.ofNat 64 (off + 792)) = hi) :
+    (hT0 : t.getMem (BitVec.ofNat 64 (off + 800)) = leafWord lay tree leaf)
+    (hT1 : t.getMem (BitVec.ofNat 64 (off + 808)) = hi) :
     hashInput t = toQ (pad64 (ClaudeWCT.WCT9.leafInputW lay tree leaf pad hi ends)) ∧
       (toQ (pad64 (ClaudeWCT.WCT9.leafInputW lay tree leaf pad hi ends))).blocks = 11 := by
   have hl : (ClaudeWCT.WCT9.leafInputW lay tree leaf pad hi ends).length = 64 * (10 + 1) := by
@@ -3039,19 +3031,19 @@ theorem lowLeaf_hashInput (t : MachineState) (lay : Layer) (hlay : lay ≠ 0) (t
       SphincsSecurity.bytesLE_length, SphincsSecurity.bytesLE_length, List.length_drop, hn] <;> norm_num
   rw [pad64_of_aligned _ (by simp [hl])]
   refine ⟨?_, by rw [blocks_toQ ⟨by simp [hl], by simp [hl]⟩, hl]⟩
-  apply hashInput_toQ t _ 10 (off + 768) hl h10 (by omega) (by omega) (by simpa using h11) (by omega)
+  apply hashInput_toQ t _ 10 (off + 784) hl h10 (by omega) (by omega) (by simpa using h11) (by omega)
   rw [leafInput_low lay hlay, wordsOf_append _ _ (by simp [SphincsSecurity.bytesLE_length]),
     wordsOf_append _ _ (by simp [SphincsSecurity.bytesLE_length]), Verify.wordsOf_append64, wordsOf_bytesLE16,
     wordsOf_flatMap16, show 8 * (10 + 1) = 2 + (2 + 2 * (ends.drop 1).length) by simp [hn],
     readWords_add, readWords_add, readWords_two, readWords_two]
   have e0 := hS 0 (by omega)
-  rw [show slotL 0 = 768 from rfl] at e0
-  rw [show (off + 768) + 8 * 2 = (off + 784) by omega, show (off + 784) + 8 = (off + 792) by omega, show (off + 784) + 8 * 2 = (off + 800) by omega,
-    e0.1, show (off + 768) + 8 = ((off + 768) : Nat) + 8 by omega, e0.2, hT0, hT1,
-    readWords_digs t (ends.drop 1) (off + 800) (fun j hj => by
+  rw [show slotL 0 = 784 from rfl] at e0
+  rw [show (off + 784) + 8 * 2 = (off + 800) by omega, show (off + 800) + 8 = (off + 808) by omega, show (off + 800) + 8 * 2 = (off + 816) by omega,
+    e0.1, show (off + 784) + 8 = ((off + 784) : Nat) + 8 by omega, e0.2, hT0, hT1,
+    readWords_digs t (ends.drop 1) (off + 816) (fun j hj => by
       rw [getD_drop1]
       have := hS (j + 1) (by simp at hj; omega)
-      rwa [show off + slotL (j + 1) = (off + 800) + 16 * j by unfold slotL; simp; omega] at this)]
+      rwa [show off + slotL (j + 1) = (off + 816) + 16 * j by unfold slotL; simp; omega] at this)]
   rfl
 /-- Campaign T51: the top leaf hash input (832 bytes, 13 blocks) read from `15288`: `end_0` at `slotT 0 = 15288`,
 the tweak at 15304 / 15312, `end_j` at `slotT j = 15304 + 16 j` (`j >= 1`). -/
@@ -3136,10 +3128,10 @@ theorem LeafOut.hashInput {w : ClaudeWCT.W9.T3M.WBytes} {pk : Digest} {index : N
     have hv : lay.val ≠ 0 := fun hv => h0 (Fin.ext hv)
     simp only [lfBase, lfBytes, lfSlot, lfBlocks, if_neg hv] at h10 h11 hT0 hT1 hS ⊢
     rw [hc] at hn hS
-    have hb : bufferBase lay.val = bufferBias lay.val + 768 := by
+    have hb : bufferBase lay.val = bufferBias lay.val + 784 := by
       fin_cases lay <;> first | exact absurd rfl h0 | rfl
     have hm : bufferBias lay.val % 8 = 0 := by fin_cases lay <;> decide +kernel
-    have hbd : bufferBias lay.val + 1472 < 2 ^ 64 := by fin_cases lay <;> decide +kernel
+    have hbd : bufferBias lay.val + 1488 < 2 ^ 64 := by fin_cases lay <;> decide +kernel
     rw [hb] at h10 hT0 hT1
     exact lowLeaf_hashInput u lay h0 _ _ _ _ ends (bufferBias lay.val) hm hbd hn h10 h11 hS hT0 hT1
 theorem glob_frame {gk gk' : List (Reg × Word)} {w : ClaudeWCT.W9.T3M.WBytes} {pk : Digest} {s t : MachineState}

@@ -6772,12 +6772,13 @@ def skipJB (tgt : Nat) : Result :=
 def lowerSlot (i : Nat) : Nat :=
   if i = 0 then 2184 else if i % 2 = 1 then 104 * (20 - i / 2) + 16 else 104 * (21 - i / 2) + 40
 def lowerG (i : Nat) : Bool := decide (i % 2 = 1)
-/-- T1 (tp-merge): chain block offsets relative to `x4` (= chain area + 1480 = the frame base + 960). -/
-def offL (i : Nat) : Word := BitVec.ofNat 64 (lowerSlot i) - BitVec.ofNat 64 1480
-def slotL (i : Nat) : Nat := if i = 0 then 768 else 784 + 16 * i
+/-- T1 (tp-merge): chain block offsets relative to `x4` (= chain area + 1464 = the frame base + 944; the L3 head's
+`jalr tp` link, 16 below the old loaded base). -/
+def offL (i : Nat) : Word := BitVec.ofNat 64 (lowerSlot i) - BitVec.ofNat 64 1464
+def slotL (i : Nat) : Nat := if i = 0 then 784 else 800 + 16 * i
 /-- C3: hash destination of a chain's last step. Lower chain 0 writes its last hash 16 bytes below its slot, so the
 slot receives the HIGH half and the leaf tweak's high word above it stays witness memory. -/
-def outL (i : Nat) : Nat := if i = 0 then 752 else slotL i
+def outL (i : Nat) : Nat := if i = 0 then 768 else slotL i
 def hSlot (i d : Nat) : Option Nat := if d = 6 then some (outL i) else none
 def triBase (t dB dC : Nat) : Nat := triBaseTab.getD (64 * t + 8 * dB + dC) 0
 def partLen (d : Nat) : Nat := if d = 7 then 4 else if d = 6 then 5 else 18 - 2 * d
@@ -7984,10 +7985,10 @@ structure LCtx where
   ck : Nat
   ret : Nat
   bufferBound : S6 - 520 + 2248 ≤ Verify.WIT + ClaudeWCT.W9.T3M.leafBufferBase lay
-  /-- T1 (tp-merge): the buffer base register is the frame base + 960. -/
-  tpEq : Verify.WIT + ClaudeWCT.W9.T3M.leafBufferBase lay - 768 = S6 + 960
+  /-- T1 (tp-merge): the buffer base register is the frame base + 944. -/
+  tpEq : Verify.WIT + ClaudeWCT.W9.T3M.leafBufferBase lay - 784 = S6 + 944
 namespace LCtx
-/-- Pairing stage 1: chain `i`'s block (`S6` is the chain area + 520; T1: `x4 = S6 + 960`). -/
+/-- Pairing stage 1: chain `i`'s block (`S6` is the chain area + 520; T1: `x4 = S6 + 944`). -/
 def blk (c : LCtx) (i : Nat) : Nat := c.S6 - 520 + lowerSlot i
 /-- Address of chain `i`'s supplied value (F: block + 48, G: block start). -/
 def vAt (c : LCtx) (i : Nat) : Nat := c.blk i + gVal (lowerG i)
@@ -8003,7 +8004,7 @@ def pad0 (c : LCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.pad0At i 
 def pad1 (c : LCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.pad1At i - Verify.WIT)
 def padHeader (c : LCtx) (i : Nat) : Word := c.w.extractLsb' (8 * (c.blk i - Verify.WIT + 24)) 64
 def val (c : LCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.vAt i - Verify.WIT)
-def bufferOffset (c : LCtx) : Nat := Verify.WIT + ClaudeWCT.W9.T3M.leafBufferBase c.lay - 768
+def bufferOffset (c : LCtx) : Nat := Verify.WIT + ClaudeWCT.W9.T3M.leafBufferBase c.lay - 784
 def bufferSlot (c : LCtx) (i : Nat) : Nat := c.bufferOffset + slotL i
 def bufferSafe (c : LCtx) (i : Nat) : Prop :=
   c.dig i = 7 ∧ (i = 0 ∨ i = 1 ∨ (0 < i ∧ i % 3 ≠ 0 ∧ c.dig (i-1) = 7))
@@ -8271,7 +8272,7 @@ theorem chainWr_self (c : LCtx) (hc : c.ok) {i A : Nat} (hi : i ≤ 42) (h : c.c
   unfold chainWr oAt at h
   cases hg : lowerG i <;> simp [hg] at h ⊢ <;> omega
 theorem slotL_mono (i j : Nat) (h : i ≤ j) : slotL i ≤ slotL j := by unfold slotL; split_ifs <;> omega
-theorem slotL_props (i : Nat) (hi : i ≤ 42) : slotL i % 16 = 0 ∧ 768 ≤ slotL i ∧ slotL i + 32 ≤ 0x5D0 := by
+theorem slotL_props (i : Nat) (hi : i ≤ 42) : slotL i % 16 = 0 ∧ 784 ≤ slotL i ∧ slotL i + 32 ≤ 0x5E0 := by
   unfold slotL; split <;> omega
 theorem bufferSlot_props (c : LCtx) (i : Nat) (hi : i ≤ 42) :
     c.bufferSlot i % 8 = 0 ∧ 15288 ≤ c.bufferSlot i ∧ c.bufferSlot i + 32 ≤ 25984 := by
@@ -8386,7 +8387,7 @@ theorem bufferSlot_gap (c : LCtx) (i j : Nat) (h : i < j) :
 theorem bufferArea_slot (c : LCtx) : c.S6 - 520 + 2248 ≤ c.bufferSlot 0 := by
   have hs : c.bufferSlot 0 = Verify.WIT + ClaudeWCT.W9.T3M.leafBufferBase c.lay := by
     unfold bufferSlot bufferOffset Verify.WIT
-    rw [show slotL 0 = 768 from rfl]
+    rw [show slotL 0 = 784 from rfl]
     have : 11032 ≤ ClaudeWCT.W9.T3M.leafBufferBase c.lay := by
       generalize c.lay = lay; fin_cases lay <;> decide +kernel
     omega
@@ -8434,14 +8435,14 @@ theorem WrIn_next (c : LCtx) (i A : Nat) (hi0 : c.i0 ≤ i) (hi42 : i ≤ 42)
   · exact c.bufferWr_mono i A h
   · exact Or.inr (Or.inl ⟨i, hi0, by omega, h⟩)
 
-theorem bufferOffset_eq (c : LCtx) : c.bufferOffset = c.S6 + 960 := c.tpEq
+theorem bufferOffset_eq (c : LCtx) : c.bufferOffset = c.S6 + 944 := c.tpEq
 theorem base_off (c : LCtx) (hc : c.ok) (i : Nat) (hi : i ≤ 42) (k : Nat) (hk : k ≤ 80) :
     BitVec.ofNat 64 c.bufferOffset + (offL i + BitVec.ofNat 64 k) = BitVec.ofNat 64 (c.blk i + k) := by
   obtain ⟨-, -, -, -, hlo, hhi, -⟩ := hc
   have := lowerSlot_props i hi
   rw [c.bufferOffset_eq]
   unfold offL blk
-  rw [ofNat_add_off _ _ _ _ (by omega) (by omega), show c.S6 + 960 + lowerSlot i - 1480 = c.S6 - 520 + lowerSlot i by
+  rw [ofNat_add_off _ _ _ _ (by omega) (by omega), show c.S6 + 944 + lowerSlot i - 1464 = c.S6 - 520 + lowerSlot i by
     omega]
 theorem base_off0 (c : LCtx) (hc : c.ok) (i : Nat) (hi : i ≤ 42) :
     BitVec.ofNat 64 c.bufferOffset + offL i = BitVec.ofNat 64 (c.blk i) := by
@@ -8449,7 +8450,7 @@ theorem base_off0 (c : LCtx) (hc : c.ok) (i : Nat) (hi : i ≤ 42) :
   have := lowerSlot_props i hi
   rw [c.bufferOffset_eq]
   unfold offL blk
-  rw [ofNat_add_off0 _ _ _ (by omega) (by omega), show c.S6 + 960 + lowerSlot i - 1480 = c.S6 - 520 + lowerSlot i by
+  rw [ofNat_add_off0 _ _ _ (by omega) (by omega), show c.S6 + 944 + lowerSlot i - 1464 = c.S6 - 520 + lowerSlot i by
     omega]
 /-- The hash destination register of an interior step (`gOut`). -/
 theorem oAt_eval (c : LCtx) (hc : c.ok) (i : Nat) (hi : i ≤ 42) (x : Word) (hx : x = BitVec.ofNat 64 (c.blk i)) :

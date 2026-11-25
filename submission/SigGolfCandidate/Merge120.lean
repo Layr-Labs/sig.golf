@@ -3262,7 +3262,7 @@ leaves the right top value at `WIT + 48`, so no copy), top 5, L1/L2 6 (C2/C3, as
 heads lose `addi tp,tp,720`, 7 -> 6). L-hyper (F): the L3 head ORs the marker `2^31` into `s6` (no `ori`), 6. -/
 def stepsA (lay : Nat) : Nat := if lay = 3 then 6 else if lay = 0 then 4 else 6
 def retOff (lay : Nat) : Nat := if lay = 0 then 9 else if lay = 3 then 38 else 41
-/-- T1 (tp-merge): lower frame bases `F` (tp = F + 960); index 0 is a placeholder satisfying the `LCtx` frame
+/-- T1 (tp-merge): lower frame bases `F` (tp = F + 944, the L3 head's `jalr tp` link); index 0 is a placeholder satisfying the `LCtx` frame
 facts (the top layer has no lower frame). -/
 def s6v (lay : Nat) : Nat := [13560,17024,20280,23536].getD lay 0
 def s3v : Nat := 14336
@@ -3292,7 +3292,7 @@ def topPlan (leaf j : Nat) : Nat :=
 def plan (lay r j : Nat) : Nat :=
   if lay = 0 then topPlan r j else ((if lay = 1 then planL1 else planL32).getD r []).getD j 0
 def rowA (lay c : Nat) : Nat := 0x10A0 + mkBase (lay + 1) + 16 * plan (lay + 1) c (hL (lay + 1) - 1)
-def bufferBias (lay : Nat) : Nat := [14336,17984,21240,24496].getD lay 0
+def bufferBias (lay : Nat) : Nat := [14336,17968,21224,24480].getD lay 0
 def bufferBase (lay : Nat) : Nat := [15288,18752,22008,25264].getD lay 0
 def preK (lay : Nat) : List (Reg × Word) :=
   if lay = 3 then [(.x5, 0)] ++ [(.x8, BitVec.ofNat 64 4336), (.x11, 64), (.x26, 6), (.x13, 2), 
@@ -3383,14 +3383,14 @@ def a7HiL : E := .bin .or b1HiE (.bin .srl a6HiE (kw 63))
 def x14Hi (lay : Nat) : E := .bin .and (.bin .sll a6HiE (kw 10)) (maskE lay)
 def tgtHi (lay : Nat) : E := .bin .and (.bin .add (x14Hi lay) (kw 1992)) (.c (~~~1#64))
 /-- M0 (A0, P2c): the lower heads lose `addi t4,s9,-194` and `bltu t5,t4,reject` (two steps, two cycles). -/
-def bSt (lay : Nat) : Nat := if lay = 3 then 27 else if lay = 1 ∨ lay = 2 then 19 else 33
+def bSt (lay : Nat) : Nat := if lay = 3 then 26 else if lay = 1 ∨ lay = 2 then 19 else 33
 /-- The HIGH-b path's extra steps (and cycles): the failed `bge` and the two high loads on layers 1, 2 (SGV1 split
 guard: `ld a7; blt; ld a6; bge; ld a6hi; ld a7hi`), the `jal` to the moved HIGH loads and the two loads on layer 3. -/
 def hiX (lay : Nat) : Nat := if lay = 3 then 3 else 2
 /-- SGV1: the HIGH-a path's extra steps (and cycles) over LOW: none (`ld a7; blt; ld a6hi; ld a7hi`; Z4: on layer 3
 the HIGH loads and the encoding SWAR sit at verify 1357..1381, so HIGH-a falls through instead of jumping back). -/
 def hiA (_lay : Nat) : Nat := 0
-def bCy (lay : Nat) : Nat := if lay = 3 then 30 else if lay = 1 ∨ lay = 2 then 22 else 36
+def bCy (lay : Nat) : Nat := if lay = 3 then 29 else if lay = 1 ∨ lay = 2 then 22 else 36
 def prefixReturn (lay p : Nat) : Nat := p + (if lay = 3 then 37 else 38)
 def s7Sh (lay : Nat) : Nat := if lay = 1 then 12 else 9
 def s23E (lay : Nat) : E := if lay = 3 then .bin .sll (s7E 3) (kw 9) else .bin .sll (.reg .x23) (kw (s7Sh lay))
@@ -3398,14 +3398,14 @@ def specBl (lay _p : Nat) : Spec :=
   ⟨[(.x16, a6E), (.x17, a7E), (.x23, s23E lay), (.x25, s9mE lay), (.x29, t4E lay),
     (.x14, x14l lay)] ++ (if lay = 3 then [
       (.x24, .ld (kw TOPLOAD)), (.x1, .ld (kw (TOPLOAD + 8))), (.x9, .ld (kw (TOPLOAD + 24))),
-      (.x31, treeE 3), (.x27, .bin .srl (maskE 3) (kw 1)), (.x4, .ld (kw (TOPLOAD - 8)))] else []),
+      (.x31, treeE 3), (.x27, .bin .srl (maskE 3) (kw 1)), (.x4, kw 24480)] else []),
    [], 0, false, bSt lay, [a6Br true, a7Br false], some (tgtl lay), bCy lay⟩
 /-- SGV1: a HIGH path (`brs` its guard conditions, `x` its extra steps and cycles over LOW). -/
 def specBlHiG (lay _p : Nat) (brs : List Br) (x : Nat) : Spec :=
   ⟨[(.x16, a6HiE), (.x17, a7HiE), (.x23, s23E lay), (.x25, s9mHiE lay), (.x29, t4HiE lay),
     (.x14, x14Hi lay)] ++ (if lay = 3 then [
       (.x24, .ld (kw TOPLOAD)), (.x1, .ld (kw (TOPLOAD + 8))), (.x9, .ld (kw (TOPLOAD + 24))),
-      (.x31, treeE 3), (.x27, .bin .srl (maskE 3) (kw 1)), (.x4, .ld (kw (TOPLOAD - 8)))] else []),
+      (.x31, treeE 3), (.x27, .bin .srl (maskE 3) (kw 1)), (.x4, kw 24480)] else []),
    [], 0, false, bSt lay + x, brs, some (tgtHi lay), bCy lay + x⟩
 /-- SGV1 HIGH-b (`w1 ≥ 0`, `w0 < 0`). -/
 def specBlHi (lay p : Nat) : Spec := specBlHiG lay p [a6Br false, a7Br false] (hiX lay)
