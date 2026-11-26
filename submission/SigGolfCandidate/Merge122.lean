@@ -271,7 +271,7 @@ theorem leafL_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (la
     simp only [leafK, gkL_low h0, baseK, if_neg h0, List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hp
     rcases hp with ((rfl | rfl) | rfl) | rfl
     · rw [hR .x5 (by simp [chainRegs])]; exact hkL (_, _) (by simp [chainK, baseK])
-    · rw [hR .x18 (by simp [chainRegs])]; exact hkL (_, _) (by simp [chainK, baseK])
+    · rw [hR .x8 (by simp [chainRegs])]; exact hkL (_, _) (by simp [chainK, baseK])
     · rw [hR .x5 (by simp [chainRegs])]; exact hkL (_, _) (by simp [chainK, baseK])
     · rw [hR .x4 (by simp [chainRegs])]
       exact hkL (.x4, _) (by simp [chainK])
@@ -610,11 +610,7 @@ theorem setup_known (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (l
     rcases p with ⟨r, v⟩
     by_cases h18 : r = .x18
     · subst h18
-      have hv : v = 0xFFF := by
-        simp [bK, T3M.bK, layK, baseK] at hp; exact hp
-      subst hv
-      rw [ht.regs (.x18, x18E3) (by simp [specA, T3M.specA])]
-      exact hs.d0 rfl
+      simp [bK, T3M.bK, layK, baseK] at hp
     · exact ht.known _ (by
         simp only [bKS, if_pos (show (3 : Layer).val = 3 from rfl)]
         exact List.mem_filter.mpr ⟨hp, by simpa using h18⟩)
@@ -965,8 +961,8 @@ theorem layerCostA_low (floors : Layer → Nat) (lay : Layer) (h : lay ≠ 0) :
   fin_cases lay <;> rfl
 /-- Stage 2 (C2 + C3): one head step (L3: the row high-word store; L1/L2: the row high-word store) and one leaf
 setup step (the leaf tweak high-word clear) fewer than stage 1 (1182/1175/1175). -/
-theorem layerCost_vals : layerCost 3 0 = 1175 ∧ layerCost 2 0 = 1167 ∧ layerCost 1 0 = 1167 := by decide +kernel
-theorem layerFuel_vals : layerFuel 3 = 1760 ∧ layerFuel 2 = 1752 ∧ layerFuel 1 = 1752 := by decide +kernel
+theorem layerCost_vals : layerCost 3 0 = 1174 ∧ layerCost 2 0 = 1167 ∧ layerCost 1 0 = 1167 := by decide +kernel
+theorem layerFuel_vals : layerFuel 3 = 1759 ∧ layerFuel 2 = 1752 ∧ layerFuel 1 = 1752 := by decide +kernel
 theorem ckOf_lt (lay : Layer) (hlay : lay ≠ 0) (a : BitVec 256) (ds : List Nat)
     (hds : canonicalDecode lay (ansD a) = some ds) : ckOf lay a < 8 := by
   rw [canonical_decode_lower_v6 lay hlay] at hds
@@ -1496,7 +1492,7 @@ theorem layerIn_of_fts (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (idx : Nat) (
     (hidx : idx < 2 ^ 31) (hglob : Glob [(.x5, 0)] w pk u) (hreg : u.getReg .x22 = BitVec.ofNat 64 idx)
     (hpc : u.pc = pcOf 4905) (hleft : DigAt u WIT left) (hright : DigAt u (WIT + 48) right)
     (hwit : Verify.Orig w (fun o => (24 ≤ o ∧ o < 48) ∨ (7664 ≤ o ∧ o < 21728)) u)
-    (hbase8 : u.getReg .x8 = BitVec.ofNat 64 (WIT + 80)) (ha1 : u.getReg .x11 = 64)
+    (hbase8 : u.getReg .x8 = BitVec.ofNat 64 (WIT - 161)) (ha1 : u.getReg .x11 = 64)
     (hs10 : u.getReg .x26 = 6) (hTwo : u.getReg .x13 = 2)
     (hThree : u.getReg .x19 = 3) (hFour : u.getReg .x20 = 4) (hFive : u.getReg .x21 = 5)
     (hCoord : u.getReg .x6 = 0x10000)
@@ -1507,7 +1503,7 @@ theorem layerIn_of_fts (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (idx : Nat) (
     (ha2 : u.getReg .x12 = BitVec.ofNat 64 4240 ∨ u.getReg .x12 = BitVec.ofNat 64 4304)
     (hd0 : u.getMem (BitVec.ofNat 64 (TOPB9 - 304)) = 0xFFF) :
     ∃ t, Steps image u 0 0 t ∧ LayerIn w pk idx 3 (.pair left right) t := by
-  have hpk : preK 3 = [(.x5, 0)] ++ [(.x8, BitVec.ofNat 64 4336), (.x11, 64), (.x26, 6), (.x13, 2),
+  have hpk : preK 3 = [(.x5, 0)] ++ [(.x8, BitVec.ofNat 64 4095), (.x11, 64), (.x26, 6), (.x13, 2),
       (.x2, BitVec.ofNat 64 0xffbde0), (.x19, 3), (.x20, 4), (.x21, 5), (.x6, 0x10000)] := rfl
   have hk : ∀ p ∈ preK 3, u.getReg p.1 = p.2 := by
     intro p hp
@@ -3493,9 +3489,9 @@ theorem top_after_hash (floors : T3.Layer → Nat) (hbound : ∀ lay, floors lay
     (topEntry_bufferOrig w pk index c hc t s0 a hpre he) hD
   have hds := nctx_digits w index v (trPc 0 c)
   have hf := nctx_fit6 w index v (trPc 0 c)
-  have h18 : s0.getReg .x18 = 4095#64 := by
+  have h18 : s0.getReg .x8 = 4095#64 := by
     rw [he.regs.get (by simp [topEntryRegs]), writeHash_getReg]
-    exact hpre.glob.1 (.x18,4095#64) (by simp [BC.bK, T3M.bK, layK, baseK])
+    exact hpre.glob.1 (.x8,4095#64) (by simp [BC.bK, T3M.bK, layK, baseK])
   have hEnc : Nonbinary.NCtx.Encoded0 v s0 := ⟨he.lo, he.hi, he.mask, h18⟩
   have hmask : s0.getMem 0xffbdf0#64 = 522240#64 := hD.mask6
   have hck := nctx_ck w index v (trPc 0 c)
@@ -3658,19 +3654,19 @@ def lFuel : Nat → Nat
   | 0 => 7
   | 1 => topFuel
   | n + 2 => layerFuel (n + 1) + mkFuel (n + 1) + lFuel (n + 1)
-theorem lCyc_4 : lCyc 4 = 12371 := by decide +kernel
+theorem lCyc_4 : lCyc 4 = 12370 := by decide +kernel
 /-- Stage 2: floor-free constant 5303 (stage 1: 5334; C2 −13, C3 −7). Configuration (1)+(2): 5295 (top −9 + 3); d6b 5295; tail+q16 5293; L3 tp link 5292. -/
 theorem lCycA_4 (floors : T3.Layer → Nat) (hbound : ∀ lay, floors lay ≤ 301) :
-    lCycA floors 4 = 5292 - ((List.finRange 4).map floors).sum := by
+    lCycA floors 4 = 5291 - ((List.finRange 4).map floors).sum := by
   have h0 := hbound 0
   have h1 := hbound 1
   have h2 := hbound 2
   have h3 := hbound 3
-  change (1175 - floors 3) + 151 + ((1167 - floors 2) + 151 +
+  change (1174 - floors 3) + 151 + ((1167 - floors 2) + 151 +
     ((1167 - floors 1) + 163 + (4 + 8 + (1306 - floors 0)))) =
-      5292 - (floors 0 + (floors 1 + (floors 2 + (floors 3 + 0))))
+      5291 - (floors 0 + (floors 1 + (floors 2 + (floors 3 + 0))))
   omega
-theorem lFuel_4 : lFuel 4 = 7731 := by decide +kernel
+theorem lFuel_4 : lFuel 4 = 7730 := by decide +kernel
 theorem layers_good (floors : T3.Layer → Nat) (hbound : ∀ lay, floors lay ≤ 301) (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (hidx : index < 2 ^ 31) (Q : Prop) (hQ : Q) :
     ∀ n, n ≤ 4 → ∀ msg s, RestIn w pk index n msg s →
       GoodQP (HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) s (lFuel n) (lCyc n) Q (lCycA floors n)

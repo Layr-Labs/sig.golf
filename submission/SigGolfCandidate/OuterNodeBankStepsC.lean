@@ -19,7 +19,7 @@ theorem lvl_step {im : Image} {j : Nat} (hj : j < 128) (hcode : CodeAt im (pcOf 
   have hhi := hu.baseHi
   unfold MEMORY_BYTES at hhi
   have hkeep : ∀ r : Reg, r ≠ .x3 → r ≠ .x10 → r ≠ .x11 → r ≠ .x12 → s.getReg r = u.getReg r := hs.keep
-  have hx8 : s.getReg .x8 = BitVec.ofNat 64 B := (hkeep .x8 (by decide) (by decide) (by decide) (by decide)).trans hu.s0
+  have hx8 : 241 ≤ B ∧ s.getReg .x8 = BitVec.ofNat 64 (B - 241) := ⟨hu.s0.1, (hkeep .x8 (by decide) (by decide) (by decide) (by decide)).trans hu.s0.2⟩
   obtain ⟨t, hst, hec, h5, h10, h11, h12', hpcT, hother, h3', hin, hP,_,_,_⟩ := OuterNodeBankSetupC.lvl_core hj hcode hu l (by omega) v s hs
   have hbl := blk_bounds j hj l (by omega)
   have hbl1 := blk_bounds j hj (l + 1) (by omega)

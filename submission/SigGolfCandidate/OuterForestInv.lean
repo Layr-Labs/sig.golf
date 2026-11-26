@@ -28,7 +28,7 @@ structure Inv (w : W9Machine.WBytes) (index : Nat) (raw : Fin 9 → Fin 128) (ra
   frame : Frame initial u writes
   /-- Pairing stage 1: `s0` holds the previous coordinate's base (coordinate 8's dispatch derives its base from it;
   after coordinate 8 it is `coordinateBase 8 = 2984`, read by the hand-off). -/
-  x8 : 0 < n → u.getReg .x8 = BitVec.ofNat 64 (2984 + 848 * (9 - n))
+  x8 : 0 < n → u.getReg .x8 = BitVec.ofNat 64 (2743 + 848 * (9 - n))
 
 theorem witness_view {w : W9Machine.WBytes} {index : Nat} {raw : Fin 9 → Fin 128}
     {ranks : Fin 9 → Fin 563} {initial u : MachineState} {k : Fin 9} {prev : Digest×Digest}
@@ -182,7 +182,7 @@ theorem next {image : Image} {w : W9Machine.WBytes} {index : Nat} {raw : Fin 9 �
   · intro addr ha hn
     exact (hfg addr ha hn).trans (hu.frame addr ha hn)
   · intro _
-    rw [ht.keep .x8 (by decide), hp.child.baseReg, SharedDispatch.layout_base]
+    rw [ht.keep .x8 (by decide), hp.child.baseReg.2, SharedDispatch.layout_base]
     simp only [coordinateBase]
     congr 2
     omega

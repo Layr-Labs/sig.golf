@@ -2329,9 +2329,9 @@ structure Encoded0 (V : Digest) (s : MachineState) : Prop where
   lo : ByteDispatch.Source V s
   hi : s.getReg .x17=V.extractLsb' 64 64
   mask5 : s.getReg .x6=520192#64
-  base18 : s.getReg .x18=4095#64
+  base18 : s.getReg .x8=4095#64
 abbrev Encoded6 := Encoded0
-theorem Encoded0.base6 {V : Digest} {s : MachineState} (h : Encoded0 V s) : s.getReg .x18=4095#64 := h.base18
+theorem Encoded0.base6 {V : Digest} {s : MachineState} (h : Encoded0 V s) : s.getReg .x8=4095#64 := h.base18
 theorem setTab_encoded {V : Digest} {b : MachineState} (he : Encoded0 V b) : Encoded6 V (setTab b) := he
 theorem set24_encoded0 {V : Digest} {b : MachineState} (x : Word) (he : Encoded0 V b) : Encoded0 V (set24 b x) := by
   have hs : ByteDispatch.Source V (set24 b x) := by
@@ -2766,7 +2766,7 @@ theorem g0_entry (c : NCtx) (hds : c.DigitsOk) {b : MachineState} (hkn : ∀p∈
     · subst x
       simp only [hr,guardR]
       rw [RegFile.get_set_self _ _ (by decide +kernel),addC_eval,set24_24]
-      have h18 : s.getReg .x18 = 0xFFF := (hR .x18 (by decide +kernel)).trans (hkn (.x18, 0xFFF) (by simp [known]))
+      have h18 : s.getReg .x8 = 0xFFF := (hR .x8 (by decide +kernel)).trans (hkn (.x8, 0xFFF) (by simp [known]))
       simp only [E.eval,h18]
       rw [c.s8v0 hds]
       exact guard_s8 _ (by
@@ -2956,7 +2956,7 @@ def TopOut (c : NCtx) (s0 : MachineState) (acc : List Digest) (s : MachineState)
   (∀ x, x ∉ chainRegs → x ≠ .x24 → x ≠ .x29 → x ≠ .x18 → s.getReg x=s0.getReg x) ∧
   Frame s0 s (c.Wr 51) ∧ acc.length=51 ∧
   (∀ j < acc.length, DigAt s (slot j) (acc.getD j 0)) ∧
-  s.pc = pcOf (ckTail (c.dig 50)) ∧ s.getReg .x24=c.s8v 16 ∧ s.getReg .x29=s0.getReg .x29 ∧ s.getReg .x18=4095#64
+  s.pc = pcOf (ckTail (c.dig 50)) ∧ s.getReg .x24=c.s8v 16 ∧ s.getReg .x29=s0.getReg .x29 ∧ s.getReg .x8=4095#64
 /-- The checksum digit of a context: chain 50's digit is `topT - (data digit sum)` whenever that lies in `0..5`. -/
 def CkOk (c : NCtx) : Prop :=
   ∀ ds, ((List.range 50).map c.dig).sum = ds → topT-5 ≤ ds → ds ≤ topT → c.dig 50 = topT-ds
@@ -3020,7 +3020,7 @@ theorem pair_ck_good (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) (hck : c.CkOk) {s
           · rw [hp]; simp [endPc]
           · rw [hR .x24 (by decide +kernel), hB, set24_24]
           · rw [hR .x29 (by decide +kernel), hB, set24_regs _ _ _ (by decide), setTab_29]
-          · rw [hR .x18 (by decide +kernel), hB, set24_regs _ _ _ (by decide), setTab_18]
+          · rw [hR .x8 (by decide +kernel), hB, set24_regs _ _ _ (by decide), setTab_regs _ _ (by decide) (by decide)]
             exact he.base18))
         t3 hcin
       have e1 : c.chainsCost 50 1=c.chainCost 50 (c.dig 50) := by simp [chainsCost]
@@ -3260,7 +3260,7 @@ def hL (lay : Nat) : Nat := [12,7,6,6].getD lay 0
 /-- Layer head steps before the encoding ecall (stage 2): L3 5 (C3: no row high-word store; the merged singleton
 leaves the right top value at `WIT + 48`, so no copy), top 5, L1/L2 6 (C2/C3, as #866; T1: the L1/L2 transition
 heads lose `addi tp,tp,720`, 7 -> 6). L-hyper (F): the L3 head ORs the marker `2^31` into `s6` (no `ori`), 6. -/
-def stepsA (lay : Nat) : Nat := if lay = 3 then 6 else if lay = 0 then 4 else 6
+def stepsA (lay : Nat) : Nat := if lay = 3 then 5 else if lay = 0 then 4 else 6
 def retOff (lay : Nat) : Nat := if lay = 0 then 9 else if lay = 3 then 38 else 41
 /-- T1 (tp-merge): lower frame bases `F` (tp = F + 944, the L3 head's `jalr tp` link); index 0 is a placeholder satisfying the `LCtx` frame
 facts (the top layer has no lower frame). -/
@@ -3295,7 +3295,7 @@ def rowA (lay c : Nat) : Nat := 0x10A0 + mkBase (lay + 1) + 16 * plan (lay + 1) 
 def bufferBias (lay : Nat) : Nat := [14336,17968,21224,24480].getD lay 0
 def bufferBase (lay : Nat) : Nat := [15288,18752,22008,25264].getD lay 0
 def preK (lay : Nat) : List (Reg × Word) :=
-  if lay = 3 then [(.x5, 0)] ++ [(.x8, BitVec.ofNat 64 4336), (.x11, 64), (.x26, 6), (.x13, 2), 
+  if lay = 3 then [(.x5, 0)] ++ [(.x8, BitVec.ofNat 64 4095), (.x11, 64), (.x26, 6), (.x13, 2), 
     (.x2, BitVec.ofNat 64 0xffbde0), (.x19, 3), (.x20, 4), (.x21, 5), (.x6, 0x10000)]
   else baseK ++ [(.x6, 0x10000), (.x9, 0x7fc01),
     (.x1, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x11, 64),
@@ -3335,7 +3335,7 @@ def l3Writes (_lay : Nat) : List (Addr × E) :=
 /-- C4 (D7): the L3 block reloads `s2` from the stack word the prologue used to read (`TOPB9 - 304`, value 0xFFF). -/
 def x18E3 : E := .ld (kw (TOPB9 - 304))
 def specA (lay p : Nat) : Spec :=
-  ⟨if lay = 3 then [(.x28, t3E3), (.x22, x22E3), (.x12, .reg .x12), (.x18, x18E3)] else [(.x23, s7E lay), (.x31, treeE lay), (.x28, t3E3)],
+  ⟨if lay = 3 then [(.x28, t3E3), (.x22, x22E3), (.x12, .reg .x12)] else [(.x23, s7E lay), (.x31, treeE lay), (.x28, t3E3)],
    l3Writes lay,
    p + stepsA lay, true, stepsA lay, [], none, stepsA lay⟩
 def rejA (lay _p : Nat) : Spec :=
@@ -3428,7 +3428,7 @@ def lfAllowed (lay : Nat) : List Nat := [bufferBase lay+16,bufferBase lay+24]
 /-- Campaign T51: the global register facts kept through layer `lay`'s leaf and merkle code. The T51 g0 body loads
 `s2 = 4095` (the r6 table base), and nothing after it restores main's `s2 = 0xFFF` (the top leaf, merkle and root
 compare never read `s2`), so the top keeps only `t0 = 0`; lower layers keep `baseK`. -/
-def gkL (lay : Nat) : List (Reg × Word) := if lay = 0 then [(.x5, 0), (.x18, 4095)] else baseK
+def gkL (lay : Nat) : List (Reg × Word) := if lay = 0 then [(.x5, 0), (.x8, 4095)] else baseK
 theorem gkL_low {lay : Nat} (h : lay ≠ 0) : gkL lay = baseK := if_neg h
 def leafK (lay : Nat) : List (Reg × Word) :=
   gkL lay ++ (if lay = 0 then [(.x5, 0), (.x6, 520192)] else [(.x5, 0)]) ++ [(.x4,BitVec.ofNat 64 (bufferBias lay))]
@@ -3496,7 +3496,7 @@ def allowed (lay c : Nat) : List Nat :=
   if lay = 3 then [4272, 4304, 4312] else [rowA lay c + 16]
 /-- C4 (D7, adapted from b3cc11b): the L3 encoding block loads `s2` (`x18`) itself, so its run starts without the
 global `x18 = 0xFFF` fact and re-establishes it from the stack word `TOPB9 - 304` (`x18E3`). -/
-def setupGk (lay : Nat) : List (Reg × Word) := if lay = 3 then [(.x5, 0)] else baseK
+def setupGk (lay : Nat) : List (Reg × Word) := if lay = 3 then baseK else baseK
 def bKS (lay c : Nat) : List (Reg × Word) := if lay = 3 then (bK lay c).filter (fun p => p.1 != .x18) else bK lay c
 def setupCheck (lay c : Nat) : Bool :=
   specB (allowed lay c) [] (setupGk lay) (runAt (preK lay) [] (setupPc lay (trPc lay c)) [])
@@ -3518,7 +3518,7 @@ section
 namespace SigGolfCandidate.T3M
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M.Verify
-def keepLfL : List Reg := [.x27, .x1, .x2, .x13, .x19, .x20, .x12, .x21, .x16, .x17, .x8, .x9, .x24, .x22, .x23, .x6, .x25,
+def keepLfL : List Reg := [.x27, .x1, .x2, .x13, .x19, .x20, .x12, .x21, .x16, .x17, .x9, .x24, .x22, .x23, .x6, .x25,
   .x26, .x29, .x31, .x30, .x28, .x14]
 def lfSlotCheck (lay c : Nat) : Bool :=
   specB (lfAllowed lay) [] baseK (runAt (leafK lay) [] (ckSlot c + partLen c) (lfDirs lay)) (specLf lay) [] (postLf lay) keepLfL

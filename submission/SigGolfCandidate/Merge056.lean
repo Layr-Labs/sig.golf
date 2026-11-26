@@ -1315,7 +1315,8 @@ theorem chain_pre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (
           base0; unfold coordinateBase regionAddr; omega
         rw [hb]
         simpa only [W9Machine.OrigW, he] using hw }
-  · change ((result k.val).toState u).getReg .x8 = _
+  · refine ⟨by fin_cases k <;> simp [W9Machine.Frozen.base_eq, W9Machine.SharedLayout.base_eq, coordinateBase], ?_⟩
+    change ((result k.val).toState u).getReg .x8 = _
     have hb := hu.baseReg
     fin_cases k <;> simp [result, Result.toState_getReg, RegFile.get, RegFile.set, RegFile.init,
       addC_eval, E.eval, hb, W9Machine.Frozen.base_eq, W9Machine.SharedLayout.base_eq, coordinateBase]
@@ -1703,7 +1704,7 @@ theorem next (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (k : F
     have hj := hu.jt
     fin_cases k <;> first | exact hcache | exact congrArg₂ (fun x y : Word => x ||| y) hd1 hj | exact congrArg₂ (fun x y : Word => x ||| y) hd2 hj
   · rw [hr .x8 (by decide), show k.val + 1 - 1 = k.val by omega]
-    have hb := hc.baseReg
+    have hb := hc.baseReg.2
     simp only [W9Machine.Frozen.base_eq, W9Machine.SharedLayout.base_eq, coordinateBase] at hb
     rw [hb]
     congr 1

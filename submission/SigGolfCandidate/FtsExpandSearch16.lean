@@ -66,7 +66,8 @@ variable {im : Image} (hS : CodeAt im (pcOf SEARCH16) search16Words) (s : Machin
 include hS
 
 /-- 84000..84006: save `a4 a7 t4 t6`, `t4 := SEL16`, branch to the plain hash (84052) when `s0 < SEL16`. -/
-theorem s0_spec (hpc : s.pc = pcOf 84000) (S0 : Nat) (h8 : s.getReg .x8 = BitVec.ofNat 64 S0) (hS0 : S0 < 2 ^ 64) :
+theorem s0_spec (hpc : s.pc = pcOf 84000) (S0 : Nat) (h8 : s.getReg .x8 = BitVec.ofNat 64 (S0 - 241)) (hS0 : S0 < 2 ^ 64)
+    (hl : 241 ≤ S0) :
     ∃ t, Steps im s 7 7 t ∧ t.pc = (if S0 < SEL16 then pcOf 84052 else pcOf 84007) ∧
       RegsExcept s t [.x29] ∧
       t.getMem (BitVec.ofNat 64 1104) = s.getReg .x14 ∧ t.getMem (BitVec.ofNat 64 1112) = s.getReg .x17 ∧
@@ -75,8 +76,9 @@ theorem s0_spec (hpc : s.pc = pcOf 84000) (S0 : Nat) (h8 : s.getReg .x8 = BitVec
   have hc := code_sl16 hS 84000 84007 (by decide) (by decide) (by decide)
   refine ⟨_, symRun_sound gS0 hc s hpc (by simp [gS0.res, rv_simp]), ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · simp only [Result.toState_pc, gS0.res, rv_simp, h8]
-    rw [show (BitVec.ofNat 64 S0).ult _ = decide (S0 < SEL16) from by
-      simp only [BitVec.ult, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hS0]; unfold SEL16; rfl]
+    rw [show (BitVec.ofNat 64 (S0 - 241)).ult _ = decide (S0 < SEL16) from by
+      simp only [BitVec.ult, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (show S0 - 241 < 2 ^ 64 by omega)]
+      unfold SEL16; apply decide_eq_decide.mpr; omega]
     by_cases h : S0 < SEL16 <;> simp [h]
   · intro r hr; simp at hr; cases r <;> simp_all [gS0.res, rv_simp] <;> rfl
   all_goals try (simp only [Result.toState_getMem, gS0.res]; t3n []; done)
@@ -196,9 +198,9 @@ set_option maxHeartbeats 1000000 in
 clear the saves, return through `a6`. -/
 theorem sf_spec (hpc : s.pc = pcOf 84025) (A D S0 R : Nat)
     (h10 : s.getReg .x10 = BitVec.ofNat 64 A) (h14 : s.getReg .x14 = BitVec.ofNat 64 D)
-    (h12 : s.getReg .x12 = BitVec.ofNat 64 SCR16) (h8 : s.getReg .x8 = BitVec.ofNat 64 S0)
+    (h12 : s.getReg .x12 = BitVec.ofNat 64 SCR16) (h8 : s.getReg .x8 = BitVec.ofNat 64 (S0 - 241))
     (h16 : s.getReg .x16 = pcOf R) (hA : A < 2 ^ 24) (hD : D % 8 = 0) (hD1 : 1136 ≤ D) (hD2 : D + 32 ≤ SCR16)
-    (hS0 : S0 % 8 = 0) (hS1 : 16 ≤ S0) (hS2 : S0 < 2 ^ 14) :
+    (hS0 : S0 % 8 = 0) (hS1 : 241 ≤ S0) (hS2 : S0 < 2 ^ 14) :
     ∃ t, Steps im s 27 27 t ∧ t.pc = pcOf R ∧
       t.getReg .x12 = BitVec.ofNat 64 D ∧ t.getReg .x14 = s.getMem (BitVec.ofNat 64 1104) ∧
       t.getReg .x17 = s.getMem (BitVec.ofNat 64 1112) ∧ t.getReg .x29 = s.getMem (BitVec.ofNat 64 1120) ∧
@@ -328,7 +330,7 @@ selects. -/
 structure Search16In (b ret A D S0 : Nat) (hi : Bool) (pre right : List UInt8) (s : MachineState) : Prop where
   pc : s.pc = pcOf b
   x5 : s.getReg .x5 = 0
-  x8 : s.getReg .x8 = BitVec.ofNat 64 S0
+  x8 : s.getReg .x8 = BitVec.ofNat 64 (S0 - 241)
   x10 : s.getReg .x10 = BitVec.ofNat 64 A
   x11 : s.getReg .x11 = BitVec.ofNat 64 64
   x12 : s.getReg .x12 = BitVec.ofNat 64 D
@@ -344,7 +346,7 @@ structure Search16In (b ret A D S0 : Nat) (hi : Bool) (pre right : List UInt8) (
   hD1 : 1144 ≤ D
   hD2 : D + 32 ≤ SCR
   hS0 : S0 % 8 = 0
-  hS1 : 16 ≤ S0
+  hS1 : 241 ≤ S0
   hS2 : S0 < 2 ^ 14
   hb : b + 5 < 2 ^ 18
   hret : ret < 2 ^ 18
@@ -654,7 +656,7 @@ theorem tramp_search16 (hsel : SEL16 ≤ S0) :
   have hS2 := F.hS2
   obtain ⟨u0, s0, p0, x16, r0, m0, f0⟩ := tramp_head hT F.hb (by decide) s F.pc
   obtain ⟨u1, s1, p1, r1, sv0, sv1, sv2, sv3, f1⟩ :=
-    s0_spec hS u0 p0 S0 (by rw [r0.get (by decide)]; exact F.x8) (by omega)
+    s0_spec hS u0 p0 S0 (by rw [r0.get (by decide)]; exact F.x8) (by omega) F.hS1
   rw [if_neg (by omega)] at p1
   obtain ⟨u2, s2, p2, x12, x14, x17, r2, f2⟩ := s1_spec hS u1 p1
   have hu2 : AtS16 s b A D 84010 0 u2 :=
@@ -700,7 +702,7 @@ theorem blocks64 (inp : List UInt8) (hl : inp.length = 64) : (toQ (pad64 inp)).b
 into `D`. -/
 theorem tramp_plain16 {im : Image} {sk : BitVec 256} {b ret A D S0 : Nat} {inp : List UInt8} {s : MachineState}
     (hS : CodeAt im (pcOf SEARCH16) search16Words) (hT : CodeAt im (pcOf b) (trampWords b SEARCH16 ret))
-    (hpc : s.pc = pcOf b) (h5 : s.getReg .x5 = 0) (h8 : s.getReg .x8 = BitVec.ofNat 64 S0) (hsel : S0 < SEL16)
+    (hpc : s.pc = pcOf b) (h5 : s.getReg .x5 = 0) (h8 : s.getReg .x8 = BitVec.ofNat 64 (S0 - 241)) (hl8 : 241 ≤ S0) (hsel : S0 < SEL16)
     (h10 : s.getReg .x10 = BitVec.ofNat 64 A) (h11 : s.getReg .x11 = BitVec.ofNat 64 64)
     (h12 : s.getReg .x12 = BitVec.ofNat 64 D) (hl : inp.length = 64)
     (hq0 : hashInput s = toQ (pad64 inp)) (hA : A % 8 = 0) (hA1 : 1144 ≤ A)
@@ -709,7 +711,7 @@ theorem tramp_plain16 {im : Image} {sk : BitVec 256} {b ret A D S0 : Nat} {inp :
     TBSim im sk s W_PLAIN16 (publicHash inp) (Plain16Out s ret D) := by
   obtain ⟨u0, s0, p0, x16, r0, m0, f0⟩ := tramp_head hT hb (by decide) s hpc
   obtain ⟨u1, s1, p1, r1, sv0, sv1, sv2, sv3, f1⟩ :=
-    s0_spec hS u0 p0 S0 (by rw [r0.get (by decide)]; exact h8) (by unfold SEL16 at hsel; omega)
+    s0_spec hS u0 p0 S0 (by rw [r0.get (by decide)]; exact h8) (by unfold SEL16 at hsel; omega) hl8
   rw [if_pos hsel] at p1
   obtain ⟨u2, s2, p2, r2, f2, fe⟩ := sp_spec hS u1 p1
   have g : ∀ x, x ≠ .x16 → x ≠ .x29 → u2.getReg x = s.getReg x := fun x a b => by

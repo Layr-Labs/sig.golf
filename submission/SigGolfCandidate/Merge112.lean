@@ -3549,7 +3549,7 @@ def s8R (n p : Nat) : Result :=
   ⟨⟨RegFile.init.set .x24 (addC (.reg .x24) (-BitVec.ofNat 64 n)),[],[]⟩,.c (pcOf (p+1)),.fuel,1,1⟩
 /-- T51 group 0's first cell word `addi s8,s2,-609-kss` (s2 = 0xFFF: s8 = T - kss). -/
 def guardR (k : Nat) : Result :=
-  ⟨⟨RegFile.init.set .x24 (addC (.reg .x18) (-BitVec.ofNat 64 (609+kss 0 k))),[],[]⟩,
+  ⟨⟨RegFile.init.set .x24 (addC (.reg .x8) (-BitVec.ofNat 64 (609+kss 0 k))),[],[]⟩,
     .c (pcOf (cellW 0 k+1)),.fuel,1,1⟩
 def bge9R (p : Nat) : Result :=
   ⟨SymState.init,.ite .ge (.reg .x16) (.c 0) (.c (BitVec.ofNat 64 (0x1000+4*p-4096))) (.c (pcOf (p+1))),.branch,1,1⟩
@@ -3748,7 +3748,7 @@ def ok (c : NCtx) : Prop :=
     c.ret < 209920
 def known (c : NCtx) : List (Reg × Word) :=
   [(.x5, 0), (.x11, 64), (.x9, 0x7fc01), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
-   (.x28, BitVec.ofNat 64 c.pre0), (.x4, BitVec.ofNat 64 c.S3), (.x2, BitVec.ofNat 64 0xffbde0), (.x4, 14336), (.x18, 0xFFF)]
+   (.x28, BitVec.ofNat 64 c.pre0), (.x4, BitVec.ofNat 64 c.S3), (.x2, BitVec.ofNat 64 0xffbde0), (.x4, 14336), (.x8, 0xFFF)]
 /-- Rank of top group `q`: the digit triple in radix `mx q + 1`; group 16 (the r7 pair, chains 48 and 49) has only two
 digits, `d48 + 7 d49`. -/
 def kOf (c : NCtx) (q : Nat) : Nat :=

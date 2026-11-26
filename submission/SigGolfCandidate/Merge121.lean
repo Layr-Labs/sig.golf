@@ -2880,9 +2880,9 @@ namespace SigGolfCandidate.T3M
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M.Verify
 def keepLfAll (lay : Nat) : List Reg :=
-  if lay = 0 then [.x1, .x2, .x7, .x13, .x19, .x20, .x12, .x21, .x16, .x17, .x8, .x9, .x24, .x22, .x23,
+  if lay = 0 then [.x1, .x2, .x7, .x13, .x19, .x20, .x12, .x21, .x16, .x17, .x9, .x24, .x22, .x23,
     .x25, .x26, .x28, .x29, .x31, .x30]
-  else [.x1, .x2, .x13, .x19, .x20, .x12, .x21, .x16, .x17, .x8, .x9, .x24, .x22, .x23,
+  else [.x1, .x2, .x13, .x19, .x20, .x12, .x21, .x16, .x17, .x9, .x24, .x22, .x23,
     .x6, .x26, .x29, .x31, .x30] ++ (if lay = 1 then [] else [.x25, .x28])
 /-- Campaign T51: the 6 final tails at `Nonbinary.ckTail d` (after the checksum chain 50 with digit `d`): main's tail
 without the `bne` (7 words ending in the leaf `jalr`). There is no tail reject: the checksum range was checked by the
@@ -3404,7 +3404,7 @@ theorem prefix_head_spec (s : MachineState) (a : BitVec 256) (high : Bool) (ra d
       ByteDispatch.Source (T3.TopChoice.read high a) t ∧
       t.getReg .x17 = (T3.TopChoice.read high a).extractLsb' 64 64 ∧
       t.getReg .x4 = 14336#64 ∧ t.getReg .x6 = 520192#64 ∧
-      RegsExcept s t [.x16,.x17,.x6,.x8,.x14,.x3] ∧ Frame s t (fun _ => False) := by
+      RegsExcept s t [.x16,.x17,.x6,.x14,.x3] ∧ Frame s t (fun _ => False) := by
   have hsub : ∀ (pre seg post : List (BitVec 32)), prefixWordsOf ra = pre ++ seg ++ post →
       CodeAt Verify.image (pcOf (p + pre.length)) seg := by
     intro pre seg post he
@@ -3434,7 +3434,7 @@ theorem prefix_head_spec (s : MachineState) (a : BitVec 256) (high : Bool) (ra d
   have e0 := symRun_sound (dPro_run ra hra (pcOf p)) hc0 s hpc (by
     simp [dProRes, dProRegs, dProBase.res, rv_simp, h9, accessValid_iff, MEMORY_BYTES])
   let u := (dProRes ra (pcOf p)).toState s
-  have ru : RegsExcept s u [.x6,.x8] := by
+  have ru : RegsExcept s u [.x6] := by
     intro r hr; cases r <;> simp at hr <;> simp [u, dProRes, dProRegs, dProBase.res, rv_simp] <;> rfl
   have fu : Frame s u (fun _ => False) := by
     intro A _ _; simp [u, dProRes, dProRegs, dProBase.res, rv_simp]
@@ -3579,7 +3579,7 @@ open SigGolfCandidate.T3 (Digest)
 set_option maxHeartbeats 800000
 set_option linter.unusedSimpArgs false
 /-- Configuration (1)+(2): the selector also writes `gp` (x3) and `a2` (x12); both are dead after the head. -/
-def topEntryRegs : List Reg := [.x16,.x17,.x29,.x6,.x8,.x14,.x3,.x12]
+def topEntryRegs : List Reg := [.x16,.x17,.x29,.x6,.x14,.x3,.x12]
 structure TopEntry (u : MachineState) (v : Digest) (p : Nat) (s : MachineState) : Prop where
   /-- Campaign T51: the head's dispatch target (the g0 cell of the low byte of `v`). -/
   pc : s.pc = Nonbinary.g0Target v
@@ -3932,7 +3932,7 @@ loads `s2 = 14336`). -/
 theorem topLeafK_of (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (t s0 s : MachineState)
     (a : BitVec 256) (ht : BC.EncPre w pk index 0 c t)
     (he : TopEntry (writeHash t a) (T3.TopChoice.read (ClaudeWCT.W9.T3M.wtopHigh w) a) (trPc 0 c) s0)
-    (hr : RegsExcept s0 s topChainRegs) (_h15 : s.getReg .x9 = 0x7fc01#64) (h18 : s.getReg .x18=4095#64) : KnownOK (leafK 0) s := by
+    (hr : RegsExcept s0 s topChainRegs) (_h15 : s.getReg .x9 = 0x7fc01#64) (h18 : s.getReg .x8=4095#64) : KnownOK (leafK 0) s := by
   intro p hp
   simp only [leafK, gkL, ↓reduceIte, List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil,
     or_false] at hp
@@ -3963,7 +3963,7 @@ theorem topLeafReady_of (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : N
     (he : TopEntry (writeHash t a) (T3.TopChoice.read (ClaudeWCT.W9.T3M.wtopHigh w) a) (trPc 0 c) s0)
     (hp : s.pc = pcOf (Nonbinary.ckTail
       ((nctxOf w index (T3.TopChoice.read (ClaudeWCT.W9.T3M.wtopHigh w) a) (trPc 0 c)).dig 50)))
-    (hr : RegsExcept s0 s topChainRegs) (hf : Frame s0 s topChainWrites) (h15 : s.getReg .x9 = 0x7fc01#64) (h18 : s.getReg .x18=4095#64)
+    (hr : RegsExcept s0 s topChainRegs) (hf : Frame s0 s topChainWrites) (h15 : s.getReg .x9 = 0x7fc01#64) (h18 : s.getReg .x8=4095#64)
     (hlen : ends.length = 51) (hend : ∀j<51, DigAt s (slotT j) (ends.getD j 0)) :
     TopLeafReady w pk index c ends s := by
   have hk := topLeafK_of w pk index c t s0 s a ht he hr h15 h18
@@ -4090,7 +4090,7 @@ def mkK (lay : Nat) : List (Reg × Word) :=
 def mkKc (lay : Nat) : List (Reg × Word) :=
   gkL lay ++ (if lay = 0 then [(.x6, 520192)] else []) ++ [(if lay = 0 then (.x4, BitVec.ofNat 64 s3v) else (.x4, BitVec.ofNat 64 (bufferBias lay))), (.x13, 2),
     (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), (.x5, 0)]
-def mkKeep : List Reg := [.x4, .x1, .x2, .x16, .x17, .x8, .x9, .x24, .x23, .x6, .x25, .x27, .x29, .x31]
+def mkKeep : List Reg := [.x4, .x1, .x2, .x16, .x17, .x9, .x24, .x23, .x6, .x25, .x27, .x29, .x31]
 def mkEntSpec (lay ci sh : Nat) : Spec := let st := 1; ⟨[], [], mkShp lay ci sh + 1, true, st, [], none, st⟩
 def mkEntPost (lay ci sh : Nat) : List (Reg × Word) :=
   mkKc lay ++ [(.x12, BitVec.ofNat 64 (mkCur lay (mkLeafOf lay ci sh) (mkLo lay ci) (sh % 2)))]

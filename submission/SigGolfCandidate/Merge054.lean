@@ -6261,7 +6261,7 @@ structure Pre (L : Layout) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
   indexBound : index < 2 ^ 31
   length : ends.length = 6
   pc : u.pc = pcOf (L.childWord j + 1)
-  baseReg : u.getReg .x8 = BitVec.ofNat 64 (Chain.base L k)
+  baseReg : 241 ≤ Chain.base L k ∧ u.getReg .x8 = BitVec.ofNat 64 (Chain.base L k - 241)
   hashMode : u.getReg .x5 = 0
   hashInput : u.getReg .x10 = BitVec.ofNat 64 (Chain.base L k + 640)
   hashLen : u.getReg .x11 = 128
@@ -6308,7 +6308,7 @@ structure Pre (L : Layout) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
   indexBound : index < 2 ^ 31
   length : ends.length = 6
   pc : u.pc = pcOf (L.childWord j + 1)
-  baseReg : u.getReg .x8 = BitVec.ofNat 64 (Chain.base L k)
+  baseReg : 241 ≤ Chain.base L k ∧ u.getReg .x8 = BitVec.ofNat 64 (Chain.base L k - 241)
   hashMode : u.getReg .x5 = 0
   hashInput : u.getReg .x10 = BitVec.ofNat 64 (Chain.base L k + 640)
   hashLen : u.getReg .x11 = 128
@@ -6397,7 +6397,7 @@ structure Pre (L : Layout) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
     (rank : Fin 666) (u : MachineState) : Prop where
   indexBound : index < 2 ^ 31
   pc : u.pc = pcOf (L.chainWord rank)
-  baseReg : u.getReg .x8 = BitVec.ofNat 64 (base L k)
+  baseReg : 241 ≤ base L k ∧ u.getReg .x8 = BitVec.ofNat 64 (base L k - 241)
   leafWord : u.getReg .x31 = BitVec.ofNat 64 (V3.leafLow index k.val j.val)
   nodeWord : u.getReg .x15 = BitVec.ofNat 64 (V3.nodeLow k.val index)
   hashMode : u.getReg .x5 = 0
@@ -7295,7 +7295,7 @@ theorem merge_w0_toNat (w v : BitVec 64) :
 theorem merge_w0_high (w v : BitVec 64) :
     (StoreKind.merge .w w 0 v).toNat / 2 ^ 32 = w.toNat / 2 ^ 32 % 2 ^ 32 := by
   rw [merge_w0_toNat]; omega
-def baseK : List (Reg × Word) := [(.x5, 0), (.x18, 0xFFF)]
+def baseK : List (Reg × Word) := [(.x5, 0), (.x8, 0xFFF)]
 def pSlots : List Nat := [512,520,536]
 def CTRW : Nat := 0x120
 def PkOK (pk : Digest) (s : MachineState) : Prop :=
@@ -9695,10 +9695,10 @@ section
 namespace W9Machine
 open SigGolfCandidate.T3M SigGolfCandidate.Rv RiscvZkvm.Rv64
 def leafSetupRel : Result :=
-  ⟨⟨(RegFile.init.set .x10 (addC (.reg .x8) 640)).set .x11 (.c 128),
-    [(kAt .x8 640 24, .c 0),
-      (kAt .x8 640 16, .reg .x31)],
-    [.valid (kAt .x8 640 24) 8, .valid (kAt .x8 640 16) 8]⟩,
+  ⟨⟨(RegFile.init.set .x10 (addC (.reg .x8) 881)).set .x11 (.c 128),
+    [(kAt .x8 881 24, .c 0),
+      (kAt .x8 881 16, .reg .x31)],
+    [.valid (kAt .x8 881 24) 8, .valid (kAt .x8 881 16) 8]⟩,
     .bin .and (.bin .add (.reg .x23) (.c 4)) (.c (~~~1#64)), .jump, 5, 5⟩
 inductive ChainPieceKind where
   | head (off dst chain digit : Nat)
@@ -9715,9 +9715,9 @@ structure ChainPiece where
 def ChainPiece.result (p : ChainPiece) : Result :=
   match p.kind with
   | .head off dst chain digit =>
-      headRHRel .x8 (BitVec.ofNat 64 off) (BitVec.ofNat 64 dst) p.pc chain digit
-  | .rung digit dst => rungRRel .x8 digit (dst.map (BitVec.ofNat 64)) p.pc
-  | .copy off dst => copyFHRel .x8 (BitVec.ofNat 64 off) (BitVec.ofNat 64 dst) p.pc
+      headRHRel .x8 (BitVec.ofNat 64 (off + 241)) (BitVec.ofNat 64 (dst + 241)) p.pc chain digit
+  | .rung digit dst => rungRRel .x8 digit (dst.map (fun d => BitVec.ofNat 64 (d + 241))) p.pc
+  | .copy off dst => copyFHRel .x8 (BitVec.ofNat 64 (off + 241)) (BitVec.ofNat 64 (dst + 241)) p.pc
   | .jump target => ⟨SymState.init, .c (pcOf target), .jump, 1, 1⟩
   | .leaf => leafSetupRel
 def ChainPiece.checked (p : ChainPiece) : Bool :=
@@ -9979,13 +9979,14 @@ theorem ChainTrace.read_put (tr : ChainTrace) (off x : Nat) (v : ChainWord) :
   · simp [ChainTrace.read, ChainTrace.put, h, show off ≠ x from Ne.symm h]
 theorem head_trace_mem (value : ChainWord → Word) (tr : ChainTrace) (s : MachineState)
     (B off dst p chain digit : Nat) (ht : TraceMem value B tr s)
-    (hbase : s.getReg .x8 = BitVec.ofNat 64 B) (hB : B + 784 < 2 ^ 64)
+    (hbase : s.getReg .x8 = BitVec.ofNat 64 (B - 241)) (hl8 : 241 ≤ B) (hB : B + 784 < 2 ^ 64)
     (hoff : off + 64 ≤ 784)
     (hh : (packedHeader chain digit).eval s = value (.header chain digit)) :
     TraceMem value B (tr.put (off + 16) (.header chain digit))
-      ((headRHRel .x8 (BitVec.ofNat 64 off) (BitVec.ofNat 64 dst) p chain digit).toState s) := by
+      ((headRHRel .x8 (BitVec.ofNat 64 (off + 241)) (BitVec.ofNat 64 (dst + 241)) p chain digit).toState s) := by
   intro x hx
-  rw [headRHRel_mem s .x8 B off dst p chain digit (B + x) hbase (by omega) (by omega)]
+  rw [headRHRel_mem s .x8 (B - 241) (off + 241) (dst + 241) p chain digit (B + x) hbase (by omega) (by omega),
+    show B - 241 + (off + 241) = B + off by omega]
   simp only [ChainTrace.read_put]
   split_ifs <;> first | exact hh | exact ht x hx | (exfalso; omega)
 end W9Machine
@@ -10107,12 +10108,13 @@ open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify SigGolfCandidate.Rv RiscvZ
 open SigGolfCandidate.Legacy.Riscv
 theorem copy_trace_mem (value : ChainWord → Word) (tr : ChainTrace) (s : MachineState)
     (B off dst p : Nat) (ht : TraceMem value B tr s)
-    (hbase : s.getReg .x8 = BitVec.ofNat 64 B) (hB : B + 784 < 2 ^ 64)
+    (hbase : s.getReg .x8 = BitVec.ofNat 64 (B - 241)) (hl8 : 241 ≤ B) (hB : B + 784 < 2 ^ 64)
     (hoff : off + 64 ≤ 784) (hdst : dst + 16 ≤ 784) :
     TraceMem value B ((tr.put dst (tr.read (off + 48))).put (dst + 8) (tr.read (off + 56)))
-      ((copyFHRel .x8 (BitVec.ofNat 64 off) (BitVec.ofNat 64 dst) p).toState s) := by
+      ((copyFHRel .x8 (BitVec.ofNat 64 (off + 241)) (BitVec.ofNat 64 (dst + 241)) p).toState s) := by
   intro x hx
-  rw [copyFHRel_mem s .x8 B off dst p (B + x) hbase (by omega) (by omega)]
+  rw [copyFHRel_mem s .x8 (B - 241) (off + 241) (dst + 241) p (B + x) hbase (by omega) (by omega),
+    show B - 241 + (dst + 241) = B + dst by omega, show B - 241 + (off + 241) = B + off by omega]
   simp only [ChainTrace.read_put]
   split_ifs <;> first
   | simpa only [Nat.add_assoc] using ht (off + 56) (by omega)
@@ -10876,30 +10878,30 @@ theorem leafSetup_keeps : Keeps leafSetupRel [.x25, .x10, .x11] := by
   rw [RegFile.get_set_ne _ _ (ne_of_not_mem hr (by simp)),
     RegFile.get_set_ne _ _ (ne_of_not_mem hr (by simp))]
 theorem leafSetup_mem (s : MachineState) (B A : Nat)
-    (hbase : s.getReg .x8 = BitVec.ofNat 64 B) (hhi : B + 784 < 2 ^ 64) (hA : A < 2 ^ 64) :
+    (hbase : s.getReg .x8 = BitVec.ofNat 64 (B - 241)) (hl8 : 241 ≤ B) (hhi : B + 784 < 2 ^ 64) (hA : A < 2 ^ 64) :
     (leafSetupRel.toState s).getMem (BitVec.ofNat 64 A) =
       if A = B + 664 then 0 else
       if A = B + 656 then s.getReg .x31 else s.getMem (BitVec.ofNat 64 A) := by
   exact memEval_two s _ _ _ _ (B + 664) (B + 656) A
-    (by change s.getReg .x8 + 664 = _; rw [hbase]; exact ofNat_add_ofNat B 664)
-    (by change s.getReg .x8 + 656 = _; rw [hbase]; exact ofNat_add_ofNat B 656)
+    (by change s.getReg .x8 + 905 = _; rw [hbase]; exact (ofNat_add_ofNat (B - 241) 905).trans (by congr 1; omega))
+    (by change s.getReg .x8 + 897 = _; rw [hbase]; exact (ofNat_add_ofNat (B - 241) 897).trans (by congr 1; omega))
     (by omega) (by omega) hA
 theorem leaf_trace_mem (value : ChainWord → Word) (tr : ChainTrace) (s : MachineState) (B : Nat)
-    (ht : TraceMem value B tr s) (hbase : s.getReg .x8 = BitVec.ofNat 64 B)
+    (ht : TraceMem value B tr s) (hbase : s.getReg .x8 = BitVec.ofNat 64 (B - 241)) (hl8 : 241 ≤ B)
     (hB : B + 784 < 2 ^ 64) (hh : s.getReg .x31 = value .leafHeader)
     (hr : (0 : Word) = value .zero) :
     TraceMem value B (tr.step .leaf) (leafSetupRel.toState s) := by
   intro x hx
-  rw [leafSetup_mem s B (B + x) hbase hB (by omega)]
+  rw [leafSetup_mem s B (B + x) hbase hl8 hB (by omega)]
   simp only [ChainTrace.step, ChainTrace.read_put]
   split_ifs <;> first | omega | exact ht x hx
-theorem leafSetup_regs (s : MachineState) (B : Nat) (hbase : s.getReg .x8 = BitVec.ofNat 64 B) :
+theorem leafSetup_regs (s : MachineState) (B : Nat) (hbase : s.getReg .x8 = BitVec.ofNat 64 (B - 241)) (hl8 : 241 ≤ B) :
     (leafSetupRel.toState s).getReg .x10 = BitVec.ofNat 64 (B + 640) ∧
     (leafSetupRel.toState s).getReg .x11 = 128 ∧
     (leafSetupRel.toState s).pc = (s.getReg .x23 + 4) &&& ~~~1#64 := by
   simp only [leafSetupRel, Result.toState_getReg, Result.toState_pc,
     RegFile.get, RegFile.set, addC_eval, E.eval, BinOp.eval, hbase]
-  exact ⟨ofNat_add_ofNat B 640, trivial, trivial⟩
+  exact ⟨(ofNat_add_ofNat (B - 241) 881).trans (by congr 1; omega), trivial, trivial⟩
 end W9Machine
 end
 section
@@ -10940,17 +10942,17 @@ theorem hKey_relative (s : MachineState) (H chain digit : Nat)
   simp only [hKey, Addr.eval, E.eval, h28, hOff]
   convert ofNat_add_off0 (H + 2048) (64 * chain + 8 * digit) 2048 (by omega) (by omega) using 1 <;> congr 1; omega
 theorem headRHRel_obligations (s : MachineState) (B off dst pc chain digit : Nat)
-    (h8 : s.getReg .x8 = BitVec.ofNat 64 B)
+    (h8 : s.getReg .x8 = BitVec.ofNat 64 (B - 241)) (hl8 : 241 ≤ B)
     (hB : B + 784 ≤ 2 ^ 24)
     (haB : B % 8 = 0) (hao : off % 8 = 0)
     (ho : off + 64 ≤ 784) :
-    ∀ o ∈ (headRHRel .x8 (BitVec.ofNat 64 off) (BitVec.ofNat 64 dst) pc chain digit).st.obl,
+    ∀ o ∈ (headRHRel .x8 (BitVec.ofNat 64 (off + 241)) (BitVec.ofNat 64 (dst + 241)) pc chain digit).st.obl,
       o.holds s := by
   intro o hm
   simp only [headRHRel, List.mem_cons, List.not_mem_nil, or_false] at hm
   rcases hm with rfl
-  change accessValid ((kAt .x8 (BitVec.ofNat 64 off) 16).eval s) 8 = true
-  rw [relative_key s .x8 B off 16 h8]
+  change accessValid ((kAt .x8 (BitVec.ofNat 64 (off + 241)) 16).eval s) 8 = true
+  rw [relative_key s .x8 (B - 241) (off + 241) 16 h8, show B - 241 + (off + 241) + 16 = B + off + 16 by omega]
   exact valid_ofNat _ _ (by omega) (by omega)
 theorem rungRRel_obligations (s : MachineState) (B off digit pc : Nat) (dst : Option Word)
     (h10 : s.getReg .x10 = BitVec.ofNat 64 (B + off))
@@ -10970,15 +10972,15 @@ theorem rungRRel_obligations (s : MachineState) (B off digit pc : Nat) (dst : Op
     rw [he]
     exact valid_ofNat _ _ (by omega) (by omega)
 theorem copyFHRel_obligations (s : MachineState) (B off dst pc : Nat)
-    (h8 : s.getReg .x8 = BitVec.ofNat 64 B) (hB : B + 784 ≤ 2 ^ 24)
+    (h8 : s.getReg .x8 = BitVec.ofNat 64 (B - 241)) (hl8 : 241 ≤ B) (hB : B + 784 ≤ 2 ^ 24)
     (haB : B % 8 = 0) (hao : off % 8 = 0) (had : dst % 8 = 0)
     (ho : off + 64 ≤ 784) (hd : dst + 16 ≤ 784) :
-    ∀ o ∈ (copyFHRel .x8 (BitVec.ofNat 64 off) (BitVec.ofNat 64 dst) pc).st.obl, o.holds s := by
+    ∀ o ∈ (copyFHRel .x8 (BitVec.ofNat 64 (off + 241)) (BitVec.ofNat 64 (dst + 241)) pc).st.obl, o.holds s := by
   intro o hm
   simp only [copyFHRel, List.mem_cons, List.not_mem_nil, or_false] at hm
   rcases hm with rfl | rfl | rfl | rfl
   all_goals
-    simp only [Oblig.holds, relative_key s .x8 B _ _ h8]
+    simp only [Oblig.holds, relative_key s .x8 (B - 241) _ _ h8]
     exact valid_ofNat _ _ (by omega) (by omega)
 end W9Machine
 end
@@ -11007,6 +11009,7 @@ namespace W9Machine.Chain
 variable {P : SigGolfCandidate.Legacy.Hash → Prop}
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
 open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
+set_option maxRecDepth 20000 in
 theorem Inv.rung {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 128} {rank : Fin 666}
     {u s : MachineState} {tr : ChainTrace} {answers : List (BitVec 256)}
     (hu : Pre L w index k j rank u) (hs : Inv L u index k j tr answers s)
@@ -11016,25 +11019,26 @@ theorem Inv.rung {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 12
     (hc : tr.chain < 6) (ho : old < 4) (hd : digit < 4)
     (hh : tr.read (tr.input + 16) = .header tr.chain old) :
     Inv L u index k j (tr.step (.rung digit dst)) (answers ++ [ans])
-      (writeHash ((rungRRel .x8 digit (dst.map (BitVec.ofNat 64)) pc).toState s) ans) := by
+      (writeHash ((rungRRel .x8 digit (dst.map (fun d => BitVec.ofNat 64 (d + 241))) pc).toState s) ans) := by
   have hk := k.isLt
   have hB : base L k + 784 < 2 ^ 64 := by unfold base coordinateBase Layout.shift; omega
-  have hb := (hs.keep .x8 (by decide)).trans hu.baseReg
+  have hl8 := hu.baseReg.1
+  have hb := (hs.keep .x8 (by decide)).trans hu.baseReg.2
   have hp := hs.pointers hn
   have hstep := packedPos_eval s digit hd
     ((congrArg (fun v : Word => v.truncate 8) (hs.keep .x9 (by decide))).trans hu.stepOne)
     ((hs.keep .x13 (by decide)).trans hu.stepTwo)
     ((hs.keep .x19 (by decide)).trans (hu.heaps 3 (by decide) (by decide)))
-  let prepared := (rungRRel .x8 digit (dst.map (BitVec.ofNat 64)) pc).toState s
+  let prepared := (rungRRel .x8 digit (dst.map (fun d => BitVec.ofNat 64 (d + 241))) pc).toState s
   have h12 : prepared.getReg .x12 = BitVec.ofNat 64 (base L k + dst.getD tr.output) := by
     cases dst with
     | none => exact hp.2
     | some d =>
       simp only [prepared, rungRRel, Option.map, Option.getD_some, Result.toState_getReg,
         RegFile.get, RegFile.set, addC_eval, E.eval, hb]
-      exact ofNat_add_ofNat (base L k) d
+      exact (ofNat_add_ofNat (base L k - 241) (d + 241)).trans (by congr 1; omega)
   have hf : Frame s prepared (writes L k) :=
-    (rungRRel_frame s .x8 digit pc (base L k + tr.input) (dst.map (BitVec.ofNat 64))
+    (rungRRel_frame s .x8 digit pc (base L k + tr.input) (dst.map (fun d => BitVec.ofNat 64 (d + 241)))
       hp.1 (by omega) hstep).mono (by intro A hA hw; unfold writes; omega)
   have hhash : Frame prepared (writeHash prepared ans) (writes L k) := by
     intro A hA hnot
@@ -11053,7 +11057,7 @@ theorem Inv.rung {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 12
           | .header chain _ => chain == tr.chain | _ => false) }
     apply hash_trace_append (originalValue L u index k j) answers ans th prepared (base L k)
       ?_ ?_ hs.count h12 hB hdst.2
-    · apply rung_trace_mem _ tr s (base L k) digit pc (dst.map (BitVec.ofNat 64))
+    · apply rung_trace_mem _ tr s (base L k) digit pc (dst.map (fun d => BitVec.ofNat 64 (d + 241)))
         hs.memory hp.1 hB hi.2 hstep
       rw [show base L k + tr.input + 16 = base L k + (tr.input + 16) by omega,
         hs.memory (tr.input + 16) (by omega), hh]
@@ -11062,10 +11066,10 @@ theorem Inv.rung {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 12
   · change (tr.queries ++ [_]).length = (answers ++ [ans]).length
     simp only [List.length_append, List.length_singleton, hs.count]
   · rw [writeHash_getReg]
-    exact ((rungRRel_keeps .x8 digit (dst.map (BitVec.ofNat 64)) pc).reg s (by decide)).trans hs.hashLen
+    exact ((rungRRel_keeps .x8 digit (dst.map (fun d => BitVec.ofNat 64 (d + 241))) pc).reg s (by decide)).trans hs.hashLen
   · intro _
     rw [writeHash_getReg, writeHash_getReg]
-    exact ⟨((rungRRel_keeps .x8 digit (dst.map (BitVec.ofNat 64)) pc).reg s (by decide)).trans hp.1, h12⟩
+    exact ⟨((rungRRel_keeps .x8 digit (dst.map (fun d => BitVec.ofNat 64 (d + 241))) pc).reg s (by decide)).trans hp.1, h12⟩
 end W9Machine.Chain
 end
 section
@@ -11073,6 +11077,7 @@ namespace W9Machine.Chain
 variable {P : SigGolfCandidate.Legacy.Hash → Prop}
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
 open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
+set_option maxRecDepth 20000 in
 theorem Inv.head {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 128} {rank : Fin 666}
     {u s : MachineState} {tr : ChainTrace} {answers : List (BitVec 256)}
     (hu : Pre L w index k j rank u) (hs : Inv L u index k j tr answers s)
@@ -11080,17 +11085,19 @@ theorem Inv.head {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 12
     (hoff : 320 ≤ off ∧ off + 64 ≤ 784) (hdst : 336 ≤ dst ∧ dst + 32 ≤ 784)
     (hc : chain < 6) (hd : digit < 4) :
     Inv L u index k j (tr.step (.head off dst chain digit)) (answers ++ [ans])
-      (writeHash ((headRHRel .x8 (BitVec.ofNat 64 off) (BitVec.ofNat 64 dst)
+      (writeHash ((headRHRel .x8 (BitVec.ofNat 64 (off + 241)) (BitVec.ofNat 64 (dst + 241))
         pc chain digit).toState s) ans) := by
   have hk := k.isLt
   have hB : base L k + 784 < 2 ^ 64 := by unfold base coordinateBase Layout.shift; omega
-  have hb := (hs.keep .x8 (by decide)).trans hu.baseReg
-  have hp := headRHRel_addresses .x8 (BitVec.ofNat 64 off) (BitVec.ofNat 64 dst)
+  have hl8 := hu.baseReg.1
+  have hb := (hs.keep .x8 (by decide)).trans hu.baseReg.2
+  have hp := headRHRel_addresses .x8 (BitVec.ofNat 64 (off + 241)) (BitVec.ofNat 64 (dst + 241))
     pc chain digit s
-  rw [hb, ofNat_add_ofNat, ofNat_add_ofNat] at hp
-  let prepared := (headRHRel .x8 (BitVec.ofNat 64 off) (BitVec.ofNat 64 dst) pc chain digit).toState s
+  rw [hb, ofNat_add_ofNat, ofNat_add_ofNat, show base L k - 241 + (off + 241) = base L k + off by omega,
+    show base L k - 241 + (dst + 241) = base L k + dst by omega] at hp
+  let prepared := (headRHRel .x8 (BitVec.ofNat 64 (off + 241)) (BitVec.ofNat 64 (dst + 241)) pc chain digit).toState s
   have hf : Frame s prepared (writes L k) :=
-    (headRHRel_frame s .x8 (base L k) off dst pc chain digit hb (by omega)).mono
+    (headRHRel_frame s .x8 (base L k - 241) (off + 241) (dst + 241) pc chain digit hb (by omega)).mono
       (by intro A hA hw; unfold writes; omega)
   have hhash : Frame prepared (writeHash prepared ans) (writes L k) := by
     intro A hA hn
@@ -11107,7 +11114,7 @@ theorem Inv.head {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 12
         input := off, output := dst, chain := chain }
     apply hash_trace_append (originalValue L u index k j) answers ans th prepared (base L k)
       ?_ ?_ hs.count hp.2 hB hdst.2
-    · exact head_trace_mem _ tr s (base L k) off dst pc chain digit hs.memory hb hB hoff.2
+    · exact head_trace_mem _ tr s (base L k) off dst pc chain digit hs.memory hb hl8 hB hoff.2
         (hs.headerLoad hu chain digit hc hd)
     · exact tr.available_put _ (.header chain digit) hs.available trivial
   · change (tr.queries ++ [_]).length = (answers ++ [ans]).length
@@ -11124,24 +11131,26 @@ namespace W9Machine.Chain
 variable {P : SigGolfCandidate.Legacy.Hash → Prop}
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
 open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
+set_option maxRecDepth 20000 in
 theorem Inv.copy {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 128} {rank : Fin 666}
     {u s : MachineState} {tr : ChainTrace} {answers : List (BitVec 256)}
     (hu : Pre L w index k j rank u) (hs : Inv L u index k j tr answers s)
     (off dst pc : Nat) (hoff : off + 64 ≤ 784)
     (hdst : 336 ≤ dst ∧ dst + 16 ≤ 784) :
     Inv L u index k j (tr.step (.copy off dst)) answers
-      ((copyFHRel .x8 (BitVec.ofNat 64 off) (BitVec.ofNat 64 dst) pc).toState s) := by
+      ((copyFHRel .x8 (BitVec.ofNat 64 (off + 241)) (BitVec.ofNat 64 (dst + 241)) pc).toState s) := by
   have hk := k.isLt
   have hB : base L k + 784 < 2 ^ 64 := by unfold base coordinateBase Layout.shift; omega
-  have hb := (hs.keep .x8 (by decide)).trans hu.baseReg
-  have hf := (copyFHRel_frame s .x8 (base L k) off dst pc hb (by omega)).mono
-    (show ∀ A, A < 2 ^ 64 → A = base L k + dst ∨ A = base L k + dst + 8 → writes L k A from
+  have hl8 := hu.baseReg.1
+  have hb := (hs.keep .x8 (by decide)).trans hu.baseReg.2
+  have hf := (copyFHRel_frame s .x8 (base L k - 241) (off + 241) (dst + 241) pc hb (by omega)).mono
+    (show ∀ A, A < 2 ^ 64 → A = base L k - 241 + (dst + 241) ∨ A = base L k - 241 + (dst + 241) + 8 → writes L k A from
       by intro A hA hw; unfold writes; omega)
   refine ⟨?_, ?_, ?_, hs.count, tr.available_step _ hs.available, ?_, ?_⟩
   · intro r hr
     exact ((chainPiece_keeps ⟨pc, [], .copy off dst⟩).reg s hr).trans (hs.keep r hr)
   · exact (hs.frame.trans hf).mono (by intro A hA hw; exact hw.elim id id)
-  · exact copy_trace_mem _ tr s (base L k) off dst pc hs.memory hb hB hoff hdst.2
+  · exact copy_trace_mem _ tr s (base L k) off dst pc hs.memory hb hl8 hB hoff hdst.2
   · exact ((copyFHRel_keeps .x8 _ _ pc).reg s (by decide)).trans hs.hashLen
   · intro hn
     exact ⟨((copyFHRel_keeps .x8 _ _ pc).reg s (by decide)).trans (hs.pointers hn).1,
@@ -11218,7 +11227,8 @@ theorem Inv.plainObligations {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9}
     (p : ChainPiece) (hh : p.isHash = false) (hg : pieceGuard tr p.kind = true) :
     ∀ o ∈ p.result.st.obl, o.holds s := by
   have hk := k.isLt
-  have hb := (hs.keep .x8 (by decide)).trans hu.baseReg
+  have hl8 := hu.baseReg.1
+  have hb := (hs.keep .x8 (by decide)).trans hu.baseReg.2
   have hB : base L k + 784 ≤ 2 ^ 24 := by unfold base coordinateBase Layout.shift; omega
   have haB : base L k % 8 = 0 := by unfold base coordinateBase Layout.shift; omega
   cases p with
@@ -11228,22 +11238,22 @@ theorem Inv.plainObligations {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9}
     | rung digit dst => contradiction
     | copy off dst =>
       simp only [pieceGuard, decide_eq_true_eq] at hg
-      exact copyFHRel_obligations s (base L k) off dst pc hb hB haB hg.2.1 hg.2.2.2.2
+      exact copyFHRel_obligations s (base L k) off dst pc hb hl8 hB haB hg.2.1 hg.2.2.2.2
         hg.1 hg.2.2.2.1
     | jump target => intro o ho; contradiction
     | leaf =>
       intro o ho
       simp only [ChainPiece.result, leafSetupRel, List.mem_cons, List.not_mem_nil, or_false] at ho
       rcases ho with rfl | rfl
-      · change accessValid (s.getReg .x8 + 664) 8 = true
+      · change accessValid (s.getReg .x8 + 905) 8 = true
         rw [hb]
-        change accessValid (BitVec.ofNat 64 (base L k) + BitVec.ofNat 64 664) 8 = true
-        rw [ofNat_add_ofNat]
+        change accessValid (BitVec.ofNat 64 (base L k - 241) + BitVec.ofNat 64 905) 8 = true
+        rw [ofNat_add_ofNat, show base L k - 241 + 905 = base L k + 664 by omega]
         exact valid_ofNat _ _ (by omega) (by omega)
-      · change accessValid (s.getReg .x8 + 656) 8 = true
+      · change accessValid (s.getReg .x8 + 897) 8 = true
         rw [hb]
-        change accessValid (BitVec.ofNat 64 (base L k) + BitVec.ofNat 64 656) 8 = true
-        rw [ofNat_add_ofNat]
+        change accessValid (BitVec.ofNat 64 (base L k - 241) + BitVec.ofNat 64 897) 8 = true
+        rw [ofNat_add_ofNat, show base L k - 241 + 897 = base L k + 656 by omega]
         exact valid_ofNat _ _ (by omega) (by omega)
 end W9Machine.Chain
 end
@@ -11309,13 +11319,15 @@ structure PreparedHash (value : ChainWord → Word) (tr : ChainTrace) (p : Chain
   valid : hashArgumentsValid (p.result.toState s) = true
   query : hashInput (p.result.toState s) = toQ (pad64 (wordBytes ((pieceQuery tr p).map value)))
   blocks : (toQ (pad64 (wordBytes ((pieceQuery tr p).map value)))).blocks = 1
+set_option maxRecDepth 20000 in
 theorem Inv.hashReady {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 128} {rank : Fin 666}
     {u s : MachineState} {tr : ChainTrace} {answers : List (BitVec 256)}
     (hu : Pre L w index k j rank u) (hs : Inv L u index k j tr answers s)
     (p : ChainPiece) (hh : p.isHash = true) (hg : pieceGuard tr p.kind = true) :
     PreparedHash (chainValue (originalValue L u index k j) answers) tr p s := by
   have hk := k.isLt
-  have hb := (hs.keep .x8 (by decide)).trans hu.baseReg
+  have hl8 := hu.baseReg.1
+  have hb := (hs.keep .x8 (by decide)).trans hu.baseReg.2
   have h5 := (hs.keep .x5 (by decide)).trans hu.hashMode
   have hB : base L k + 784 ≤ 2 ^ 24 := by unfold base coordinateBase Layout.shift; omega
   have hBig : base L k + 784 < 2 ^ 64 := by omega
@@ -11326,17 +11338,18 @@ theorem Inv.hashReady {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : F
     | head off dst chain digit =>
       simp only [pieceGuard, decide_eq_true_eq] at hg
       obtain ⟨hlo, hhi, halign, hdlo, hdhi, hdalign, hchain, hdigit⟩ := hg
-      have hp := headRHRel_addresses .x8 (BitVec.ofNat 64 off) (BitVec.ofNat 64 dst) pc chain digit s
-      rw [hb, ofNat_add_ofNat, ofNat_add_ofNat] at hp
-      have hlen := ((headRHRel_keeps .x8 (BitVec.ofNat 64 off) (BitVec.ofNat 64 dst) pc chain digit).reg s (by decide)).trans hs.hashLen
-      have hm := head_trace_mem _ tr s (base L k) off dst pc chain digit hs.memory hb hBig hhi
+      have hp := headRHRel_addresses .x8 (BitVec.ofNat 64 (off + 241)) (BitVec.ofNat 64 (dst + 241)) pc chain digit s
+      rw [hb, ofNat_add_ofNat, ofNat_add_ofNat, show base L k - 241 + (off + 241) = base L k + off by omega,
+        show base L k - 241 + (dst + 241) = base L k + dst by omega] at hp
+      have hlen := ((headRHRel_keeps .x8 (BitVec.ofNat 64 (off + 241)) (BitVec.ofNat 64 (dst + 241)) pc chain digit).reg s (by decide)).trans hs.hashLen
+      have hm := head_trace_mem _ tr s (base L k) off dst pc chain digit hs.memory hb hl8 hBig hhi
         (hs.headerLoad hu chain digit hchain hdigit)
       have hq := preparedQuery _ (base L k) tr ⟨pc, words, .head off dst chain digit⟩ _ hh hm
         hp.1 hlen hBig hhi (by change (base L k + off) % 8 = 0; omega)
       refine ⟨?_, rfl, ?_, ?_, hq.1, hq.2⟩
       · exact headRHRel_obligations s (base L k) off dst pc chain digit
-          hb hB haB halign hhi
-      · exact ((headRHRel_keeps .x8 (BitVec.ofNat 64 off) (BitVec.ofNat 64 dst) pc chain digit).reg s (by decide)).trans h5
+          hb hl8 hB haB halign hhi
+      · exact ((headRHRel_keeps .x8 (BitVec.ofNat 64 (off + 241)) (BitVec.ofNat 64 (dst + 241)) pc chain digit).reg s (by decide)).trans h5
       · exact hashArgs_const _ (base L k + off) 64 (base L k + dst) hp.1 hlen hp.2
           (by omega) (by decide) (by omega) (by omega) (by omega)
     | rung digit dst =>
@@ -11347,19 +11360,19 @@ theorem Inv.hashReady {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : F
         ((congrArg (fun v : Word => v.truncate 8) (hs.keep .x9 (by decide))).trans hu.stepOne)
         ((hs.keep .x13 (by decide)).trans hu.stepTwo)
         ((hs.keep .x19 (by decide)).trans (hu.heaps 3 (by decide) (by decide)))
-      let prepared := (rungRRel .x8 digit (dst.map (BitVec.ofNat 64)) pc).toState s
-      have h10 := ((rungRRel_keeps .x8 digit (dst.map (BitVec.ofNat 64)) pc).reg s (by decide)).trans hp.1
-      have hlen := ((rungRRel_keeps .x8 digit (dst.map (BitVec.ofNat 64)) pc).reg s (by decide)).trans hs.hashLen
+      let prepared := (rungRRel .x8 digit (dst.map (fun d => BitVec.ofNat 64 (d + 241))) pc).toState s
+      have h10 := ((rungRRel_keeps .x8 digit (dst.map (fun d => BitVec.ofNat 64 (d + 241))) pc).reg s (by decide)).trans hp.1
+      have hlen := ((rungRRel_keeps .x8 digit (dst.map (fun d => BitVec.ofNat 64 (d + 241))) pc).reg s (by decide)).trans hs.hashLen
       have h12 : prepared.getReg .x12 = BitVec.ofNat 64 (base L k + dst.getD tr.output) := by
         cases dst with
         | none => exact hp.2
         | some d =>
           simp only [prepared, rungRRel, Option.map, Option.getD_some, Result.toState_getReg,
             RegFile.get, RegFile.set, addC_eval, E.eval, hb]
-          exact ofNat_add_ofNat (base L k) d
+          exact (ofNat_add_ofNat (base L k - 241) (d + 241)).trans (by congr 1; omega)
       have hm : TraceMem (chainValue (originalValue L u index k j) answers) (base L k)
           (prepareTrace tr (.rung digit dst)) prepared := by
-        apply rung_trace_mem _ tr s (base L k) digit pc (dst.map (BitVec.ofNat 64))
+        apply rung_trace_mem _ tr s (base L k) digit pc (dst.map (fun d => BitVec.ofNat 64 (d + 241)))
           hs.memory hp.1 hBig hihi hstep
         cases he : tr.read (tr.input + 16) with
         | header chain old =>
@@ -11376,9 +11389,9 @@ theorem Inv.hashReady {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : F
       have hq := preparedQuery _ (base L k) tr ⟨pc, words, .rung digit dst⟩ prepared hh hm
         h10 hlen hBig hihi (by change (base L k + tr.input) % 8 = 0; omega)
       refine ⟨?_, rfl, ?_, ?_, hq.1, hq.2⟩
-      · exact rungRRel_obligations s (base L k) tr.input digit pc (dst.map (BitVec.ofNat 64))
+      · exact rungRRel_obligations s (base L k) tr.input digit pc (dst.map (fun d => BitVec.ofNat 64 (d + 241)))
           hp.1 hB haB hai hihi
-      · exact ((rungRRel_keeps .x8 digit (dst.map (BitVec.ofNat 64)) pc).reg s (by decide)).trans h5
+      · exact ((rungRRel_keeps .x8 digit (dst.map (fun d => BitVec.ofNat 64 (d + 241))) pc).reg s (by decide)).trans h5
       · exact hashArgs_const prepared (base L k + tr.input) 64 (base L k + dst.getD tr.output)
           h10 hlen h12 (by omega) (by decide) (by omega) (by omega) (by omega)
     | copy off dst => contradiction
@@ -11451,15 +11464,16 @@ theorem Inv.leafPost {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fi
     Post L w index k j u ends (leafSetupRel.toState s) := by
   have hk := k.isLt
   have hB : base L k + 784 < 2 ^ 64 := by unfold base coordinateBase Layout.shift; omega
-  have hb := (hs.keep .x8 (by decide)).trans hu.baseReg
+  have hl8 := hu.baseReg.1
+  have hb := (hs.keep .x8 (by decide)).trans hu.baseReg.2
   let prepared := leafSetupRel.toState s
-  have hp := leafSetup_regs s (base L k) hb
+  have hp := leafSetup_regs s (base L k) hb hl8
   have hkeep : ∀ r, r ∉ clobbers → prepared.getReg r = u.getReg r := by
     intro r hr
     exact ((chainPiece_keeps ⟨0, [], .leaf⟩).reg s hr).trans (hs.keep r hr)
   have hfLeaf : Frame s prepared (fun A => A = base L k + 656 ∨ A = base L k + 664) := by
     intro A hA hn
-    rw [leafSetup_mem s (base L k) A hb hB hA,
+    rw [leafSetup_mem s (base L k) A hb hl8 hB hA,
       if_neg (fun h => hn (Or.inr h)), if_neg (fun h => hn (Or.inl h))]
   have hf : Frame u prepared (writes L k) := (hs.frame.trans hfLeaf).mono
     (by intro A hA hw; rcases hw with h | h; exact h; unfold writes; omega)
@@ -11471,10 +11485,10 @@ theorem Inv.leafPost {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fi
     · unfold traceLeafSlot; split_ifs <;> omega
   have hLo : prepared.getMem (BitVec.ofNat 64 (base L k + 656)) =
       BitVec.ofNat 64 (V3.leafLow index k.val j.val) := by
-    rw [leafSetup_mem s (base L k) (base L k + 656) hb hB (by omega), if_neg (by omega), if_pos rfl]
+    rw [leafSetup_mem s (base L k) (base L k + 656) hb hl8 hB (by omega), if_neg (by omega), if_pos rfl]
     exact hs.leafLoad hu
   have hHi : prepared.getMem (BitVec.ofNat 64 (base L k + 664)) = 0 := by
-    rw [leafSetup_mem s (base L k) (base L k + 664) hb hB (by omega), if_pos rfl]
+    rw [leafSetup_mem s (base L k) (base L k + 664) hb hl8 hB (by omega), if_pos rfl]
   have hSlot1 : DigAt prepared (base L k + 640 + 16 * 1)
       (V3.leafFields k.val index j.val (V3.leafPad w k.val) ends 1) := by
     simp only [V3.leafFields, if_neg (show (1 : Nat) ≠ 0 by decide), if_true, ClaudeWCT.WCT9.ftsLeafHeader]
@@ -11512,7 +11526,7 @@ theorem Inv.leafPost {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fi
   refine {
     indexBound := hu.indexBound, length := hlen, pc := ?_,
     hashMode := (hkeep .x5 (by decide)).trans hu.hashMode,
-    baseReg := (hkeep .x8 (by decide)).trans hu.baseReg,
+    baseReg := ⟨hu.baseReg.1, (hkeep .x8 (by decide)).trans hu.baseReg.2⟩,
     hashInput := hp.1, hashLen := hp.2.1,
     nodeWord := (hkeep .x15 (by decide)).trans hu.nodeWord,
     returnPC := (hkeep .x1 (by decide)).trans hu.returnPC,
@@ -11948,7 +11962,7 @@ structure SetupMask (u : MachineState) : Prop where
   rankPadAt : u.getMem (BitVec.ofNat 64 (stackBase7 + 48)) = rankPad
   child : u.getMem (BitVec.ofNat 64 (dataBase7 + 368)) = BitVec.ofNat 64 0xf1b00
   jt : u.getMem (BitVec.ofNat 64 (dataBase7 + 376)) = BitVec.ofNat 64 0xfff01
-  coord : u.getMem (BitVec.ofNat 64 (dataBase7 + 464)) = BitVec.ofNat 64 11120
+  coord : u.getMem (BitVec.ofNat 64 (dataBase7 + 464)) = BitVec.ofNat 64 10879
   gate : u.getMem (BitVec.ofNat 64 (dataBase7 + 352)) = BitVec.ofNat 64 0x1524000000000000
   d0 : u.getMem (BitVec.ofNat 64 dataBase7) = BitVec.ofNat 64 0xfff
 structure ForestData (u : MachineState) : Prop where
@@ -11976,7 +11990,7 @@ structure SetupMask (u : MachineState) : Prop where
   rankPadAt : u.getMem (BitVec.ofNat 64 (stackBase7 + 48)) = BitVec.ofNat 64 0x1801800000c0000
   child : u.getMem (BitVec.ofNat 64 (dataBase7 + 368)) = BitVec.ofNat 64 0xf1b00
   jt : u.getMem (BitVec.ofNat 64 (dataBase7 + 376)) = BitVec.ofNat 64 0xfff01
-  coord : u.getMem (BitVec.ofNat 64 (dataBase7 + 464)) = BitVec.ofNat 64 11120
+  coord : u.getMem (BitVec.ofNat 64 (dataBase7 + 464)) = BitVec.ofNat 64 10879
   gate : u.getMem (BitVec.ofNat 64 (dataBase7 + 352)) = BitVec.ofNat 64 (929 * 2^50)
   d0 : u.getMem (BitVec.ofNat 64 dataBase7) = BitVec.ofNat 64 0xfff
   aTable : u.getMem (BitVec.ofNat 64 (dataBase7 + 56)) = BitVec.ofNat 64 0xe3300

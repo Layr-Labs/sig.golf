@@ -74,7 +74,7 @@ theorem lvl_coreC {im : Image} {j : Nat} (hj : j < 128) (hcode : CopyCodeAt im j
   unfold MEMORY_BYTES at hhi
   have hbl := blk_bounds j hj l (by omega)
   have hkeep : ∀ r : Reg, r ≠ .x3 → r ≠ .x10 → r ≠ .x11 → r ≠ .x12 → s.getReg r = u.getReg r := hs.keep
-  have hx8 : s.getReg .x8 = BitVec.ofNat 64 B := (hkeep .x8 (by decide) (by decide) (by decide) (by decide)).trans hu.s0
+  have hx8 : 241 ≤ B ∧ s.getReg .x8 = BitVec.ofNat 64 (B - 241) := ⟨hu.s0.1, (hkeep .x8 (by decide) (by decide) (by decide) (by decide)).trans hu.s0.2⟩
   have hpc : s.pc = pcOf (copyBase j + (ecIdx j l + 1)) := by rw [hs.pc, Nat.add_assoc]
   obtain ⟨hst, hec⟩ := copyRun_sound hcode (copyRun_lvl j hj l (by omega)) s hpc
     (lvlObl_holds j hj l (by omega) hx8 h8 (by unfold MEMORY_BYTES; omega)) rfl
@@ -211,7 +211,7 @@ theorem lvl_stepC {im : Image} {j : Nat} (hj : j < 128) (hcode : CopyCodeAt im j
   have hhi := hu.baseHi
   unfold MEMORY_BYTES at hhi
   have hkeep : ∀ r : Reg, r ≠ .x3 → r ≠ .x10 → r ≠ .x11 → r ≠ .x12 → s.getReg r = u.getReg r := hs.keep
-  have hx8 : s.getReg .x8 = BitVec.ofNat 64 B := (hkeep .x8 (by decide) (by decide) (by decide) (by decide)).trans hu.s0
+  have hx8 : 241 ≤ B ∧ s.getReg .x8 = BitVec.ofNat 64 (B - 241) := ⟨hu.s0.1, (hkeep .x8 (by decide) (by decide) (by decide) (by decide)).trans hu.s0.2⟩
   obtain ⟨t, hst, hec, h5, h10, h11, h12', hpcT, hother, h3', hin, hP, -, -, -⟩ := lvl_coreC hj hcode hu l (by omega) v s hs
   have hbl := blk_bounds j hj l (by omega)
   have hbl1 := blk_bounds j hj (l + 1) (by omega)
@@ -277,7 +277,7 @@ theorem leafC_tbsim {im : Image} {j : Nat} (hj : j<128) (hcode : CopyCodeAt im j
   have h10 : t.getReg .x10 = BitVec.ofNat 64 (B + leafO) := (hother .x10 (by decide)).trans hu.a0
   have h11 : t.getReg .x11 = BitVec.ofNat 64 (64 * (1 + 1)) := (hother .x11 (by decide)).trans hu.a1
   have h12 : t.getReg .x12 = BitVec.ofNat 64 (B + outO 0 j) := by
-    rw [hreg, RegFile.get_set_self _ _ (by decide), eX8_eval ((hRx _).trans hu.s0)]
+    rw [hreg, RegFile.get_set_self _ _ (by decide), eX8_eval ⟨hu.s0.1, (hRx _).trans hu.s0.2⟩]
   have h5 : t.getReg .x5 = 0 := (hother .x5 (by decide)).trans hu.t0
   have hv : hashArgumentsValid t = true :=
     hashArgs_of t (B + leafO) 128 (B + outO 0 j) h10 h11 h12 (by unfold leafO; omega) (by decide)
@@ -438,7 +438,7 @@ theorem lvl3C_tbsim (v : Digest) (s : MachineState) (hs : MidC j B k index u 3 v
   unfold MEMORY_BYTES at hhi
   have hsl := site_lt j hj
   have hkeep : ∀ r : Reg, r ≠ .x3 → r ≠ .x10 → r ≠ .x11 → r ≠ .x12 → s.getReg r = u.getReg r := hs.keep
-  have hx8 : s.getReg .x8 = BitVec.ofNat 64 B := (hkeep .x8 (by decide) (by decide) (by decide) (by decide)).trans hu.s0
+  have hx8 : 241 ≤ B ∧ s.getReg .x8 = BitVec.ofNat 64 (B - 241) := ⟨hu.s0.1, (hkeep .x8 (by decide) (by decide) (by decide) (by decide)).trans hu.s0.2⟩
   obtain ⟨t, hst, -, h5, h10, h11, h12', hpcT, hother, -, -, hP, hpre1, hhdr, hright⟩ :=
     lvl_coreC hj hcode hu 3 (by decide) v s hs
   have hbl := blk_bounds j hj 3 (by decide)
@@ -475,7 +475,7 @@ theorem lvl3C_tbsim (v : Digest) (s : MachineState) (hs : MidC j B k index u 3 v
       (preC k index j tws sibs v) (rightC j sibs v) t1 :=
     { pc := rfl
       x5 := by rw [r1]; exact h5
-      x8 := by rw [r1, hother .x8 (by decide) (by decide) (by decide) (by decide)]; exact hu.s0
+      x8 := by rw [r1, hother .x8 (by decide) (by decide) (by decide) (by decide)]; exact hu.s0.2
       x10 := by rw [r1]; exact h10
       x11 := by rw [r1]; exact h11
       x12 := by rw [r1]; exact h12
@@ -494,7 +494,7 @@ theorem lvl3C_tbsim (v : Digest) (s : MachineState) (hs : MidC j B k index u 3 v
       hD1 := by omega
       hD2 := by simp only [SCR]; omega
       hS0 := h8
-      hS1 := by omega
+      hS1 := hu.s0.1
       hS2 := hB
       hb := by unfold trampOf cSlot SigGolfCandidate.FtsGrind.TRAMP; omega
       hret := by unfold siteB childBase; omega }
@@ -563,7 +563,7 @@ theorem lvl3C_tbsim (v : Digest) (s : MachineState) (hs : MidC j B k index u 3 v
       base8 := h8
       baseHi := hu.baseHi
       t0 := by rw [virt_getReg]; exact hu.t0
-      s0 := by rw [virt_getReg]; exact hu.s0
+      s0 := ⟨hu.s0.1, by rw [virt_getReg]; exact hu.s0.2⟩
       a0 := by rw [virt_getReg]; exact hu.a0
       a1 := by rw [virt_getReg]; exact hu.a1
       w0 := by rw [virt_getReg]; exact hu.w0
@@ -782,7 +782,7 @@ theorem lvl2C_tbsim (v : Digest) (s : MachineState) (hs : MidC j B k index u 2 v
   have h16 := site16_lt j hj
   have hsl := site_lt j hj
   have hkeep : ∀ r : Reg, r ≠ .x3 → r ≠ .x10 → r ≠ .x11 → r ≠ .x12 → s.getReg r = u.getReg r := hs.keep
-  have hx8 : s.getReg .x8 = BitVec.ofNat 64 B := (hkeep .x8 (by decide) (by decide) (by decide) (by decide)).trans hu.s0
+  have hx8 : 241 ≤ B ∧ s.getReg .x8 = BitVec.ofNat 64 (B - 241) := ⟨hu.s0.1, (hkeep .x8 (by decide) (by decide) (by decide) (by decide)).trans hu.s0.2⟩
   obtain ⟨t, hst, -, h5, h10, h11, h12', hpcT, hother, -, hin, hP, hpre1, hhdr, hright⟩ :=
     lvl_coreC hj hcode hu 2 (by decide) v s hs
   have hbl := blk_bounds j hj 2 (by decide)
@@ -852,7 +852,7 @@ theorem lvl2C_tbsim (v : Digest) (s : MachineState) (hs : MidC j B k index u 2 v
         (pre2C k index j tws sibs v) (right2C j sibs v) t1 :=
       { pc := rfl
         x5 := by rw [r1]; exact h5
-        x8 := by rw [r1, hother .x8 (by decide) (by decide) (by decide) (by decide)]; exact hu.s0
+        x8 := by rw [r1, hother .x8 (by decide) (by decide) (by decide) (by decide)]; exact hu.s0.2
         x10 := by rw [r1]; exact h10
         x11 := by rw [r1]; exact h11
         x12 := by rw [r1]; exact h12
@@ -877,7 +877,7 @@ theorem lvl2C_tbsim (v : Digest) (s : MachineState) (hs : MidC j B k index u 2 v
         hD1 := by omega
         hD2 := by simp only [SigGolfCandidate.FtsGrind.SCR]; omega
         hS0 := h8
-        hS1 := by omega
+        hS1 := hu.s0.1
         hS2 := hB
         hb := hb16
         hret := hret16 }
@@ -908,7 +908,7 @@ theorem lvl2C_tbsim (v : Digest) (s : MachineState) (hs : MidC j B k index u 2 v
     have hl : (nodeIn k index j pads (hpOf j tws) sibs v 2).length = 64 := by
       unfold nodeIn; exact blk4_length _ _ _ _
     have HP := tramp_plain16 (sk := sk) (s := t1) (inp := nodeIn k index j pads (hpOf j tws) sibs v 2) hS16 hT16 rfl
-      (by rw [r1]; exact h5) (by rw [r1, hother .x8 (by decide) (by decide) (by decide) (by decide)]; exact hu.s0)
+      (by rw [r1]; exact h5) (by rw [r1, hother .x8 (by decide) (by decide) (by decide) (by decide)]; exact hu.s0.2) hu.s0.1
       (by omega) (by rw [r1]; exact h10) (by rw [r1]; exact h11) (by rw [r1]; exact h12) hl hin hA (by omega)
       (by omega) (by omega) (by omega) (by omega) hb16 hret16
     refine (TBSim.steps hst (TBSim.steps hjs (TBSim.bind (W₂ := 0) HP (fun a s6 ho => TBSim.pure ?_)))).mono

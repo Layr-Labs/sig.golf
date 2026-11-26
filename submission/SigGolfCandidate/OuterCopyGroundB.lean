@@ -42,7 +42,7 @@ theorem run (v : Digest) (s : MachineState) (hs : MidC j B k index u 3 v s) :
   unfold MEMORY_BYTES at hhi
   have hsl := site_lt j hj
   have hkeep : ∀ r : Reg, r ≠ .x3 → r ≠ .x10 → r ≠ .x11 → r ≠ .x12 → s.getReg r = u.getReg r := hs.keep
-  have hx8 : s.getReg .x8 = BitVec.ofNat 64 B := (hkeep .x8 (by decide) (by decide) (by decide) (by decide)).trans hu.s0
+  have hx8 : 241 ≤ B ∧ s.getReg .x8 = BitVec.ofNat 64 (B - 241) := ⟨hu.s0.1, (hkeep .x8 (by decide) (by decide) (by decide) (by decide)).trans hu.s0.2⟩
   obtain ⟨t, hst, -, h5, h10, h11, h12', hpcT, hother, -, -, hP, hpre1, hhdr, hright⟩ :=
     lvl_coreC hj hcode hu 3 (by decide) v s hs
   have hbl := blk_bounds j hj 3 (by decide)
@@ -79,7 +79,7 @@ theorem run (v : Digest) (s : MachineState) (hs : MidC j B k index u 3 v s) :
       (preC k index j tws sibs v) (rightC j sibs v) t1 :=
     { pc := rfl
       x5 := by rw [r1]; exact h5
-      x8 := by rw [r1, hother .x8 (by decide) (by decide) (by decide) (by decide)]; exact hu.s0
+      x8 := by rw [r1, hother .x8 (by decide) (by decide) (by decide) (by decide)]; exact hu.s0.2
       x10 := by rw [r1]; exact h10
       x11 := by rw [r1]; exact h11
       x12 := by rw [r1]; exact h12
@@ -98,7 +98,7 @@ theorem run (v : Digest) (s : MachineState) (hs : MidC j B k index u 3 v s) :
       hD1 := by omega
       hD2 := by simp only [SCR]; omega
       hS0 := h8
-      hS1 := by omega
+      hS1 := hu.s0.1
       hS2 := hB
       hb := by unfold trampOf cSlot SigGolfCandidate.FtsGrind.TRAMP; omega
       hret := by unfold siteB childBase; omega }
@@ -167,7 +167,7 @@ theorem run (v : Digest) (s : MachineState) (hs : MidC j B k index u 3 v s) :
       base8 := h8
       baseHi := hu.baseHi
       t0 := by rw [virt_getReg]; exact hu.t0
-      s0 := by rw [virt_getReg]; exact hu.s0
+      s0 := ⟨hu.s0.1, by rw [virt_getReg]; exact hu.s0.2⟩
       a0 := by rw [virt_getReg]; exact hu.a0
       a1 := by rw [virt_getReg]; exact hu.a1
       w0 := by rw [virt_getReg]; exact hu.w0

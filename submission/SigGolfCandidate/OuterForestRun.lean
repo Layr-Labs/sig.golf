@@ -21,7 +21,7 @@ theorem forestW_val : forestW=839187 := by decide
 def ForestPost (initial : MachineState) (index : Nat) (raw : Fin 9 → Fin 128) (ranks : Fin 9 → Fin 563)
     (res : (Digest×Digest)×List Nat×List Nat×List Nat) (t : MachineState) : Prop :=
   t.pc=pcOf 46862 ∧ DigAt t 2904 res.1.1 ∧ DigAt t 2952 res.1.2 ∧
-    Frame initial t writes ∧ Fields index raw ranks t ∧ t.getReg .x8=BitVec.ofNat 64 2984 ∧ RecInv raw 9 res.2.1 t ∧
+    Frame initial t writes ∧ Fields index raw ranks t ∧ t.getReg .x8=BitVec.ofNat 64 2743 ∧ RecInv raw 9 res.2.1 t ∧
     RecInv16 raw 9 res.2.2.1 t ∧ OuterForestCompactRecords.Inv 9 res.2.2.2 t
 
  theorem forest_tbsim (image : Image) (sk : BitVec 256)

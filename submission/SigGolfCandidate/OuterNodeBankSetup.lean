@@ -45,7 +45,7 @@ theorem lvl_core {im : Image} {j : Nat} (hj : j < 128) (hcode : CodeAt im (pcOf 
   unfold MEMORY_BYTES at hhi
   have hbl := blk_bounds j hj l hl
   have hkeep : ∀ r : Reg, r ≠ .x3 → r ≠ .x10 → r ≠ .x11 → r ≠ .x12 → s.getReg r = u.getReg r := hs.keep
-  have hx8 : s.getReg .x8 = BitVec.ofNat 64 B := (hkeep .x8 (by decide) (by decide) (by decide) (by decide)).trans hu.s0
+  have hx8 : 241 ≤ B ∧ s.getReg .x8 = BitVec.ofNat 64 (B - 241) := ⟨hu.s0.1, (hkeep .x8 (by decide) (by decide) (by decide) (by decide)).trans hu.s0.2⟩
   have hpc : s.pc = pcOf (childBase j + (ecIdx j l + 1)) := by rw [hs.pc, Nat.add_assoc]
   have hst:=OuterNodeBankPrefix.runB (im:=im) ⟨j,hj⟩ ⟨l,hl⟩ hcode s hs.pc
     (lvlObl_holds j hj l hl hx8 h8 (by unfold MEMORY_BYTES;omega))
@@ -194,8 +194,8 @@ theorem last_setup {im : Image} {j : Nat} (hj : j < 128) (hcode : CodeAt im (pcO
   unfold MEMORY_BYTES at hhi
   have hkeep : ∀ r : Reg, r ≠ .x3 → r ≠ .x10 → r ≠ .x11 → r ≠ .x12 → s.getReg r = u.getReg r := hs.keep
   have h8 := hu.base8
-  have hx8 : s.getReg .x8 = BitVec.ofNat 64 B :=
-    (hkeep .x8 (by decide) (by decide) (by decide) (by decide)).trans hu.s0
+  have hx8 : 241 ≤ B ∧ s.getReg .x8 = BitVec.ofNat 64 (B - 241) :=
+    ⟨hu.s0.1, (hkeep .x8 (by decide) (by decide) (by decide) (by decide)).trans hu.s0.2⟩
   obtain ⟨t, hst, hec, h5, h10, h11, h12', hpcT, hother, -, hin, hP,hleft,hhdr,hright⟩ := lvl_core hj hcode hu 5 (by decide) v s hs
   have hl5 : lvlSt j 5 = 4 := by
     have h6 : ecIdx j 6 = ecIdx j 5 + lvlLen j 5 + (if 5 = 0 then 1 else 0) := rfl
@@ -205,10 +205,13 @@ theorem last_setup {im : Image} {j : Nat} (hj : j < 128) (hcode : CodeAt im (pcO
   have hbl := blk_bounds j hj 5 (by decide)
   have hho := handO_cases j
   have h12 : t.getReg .x12 = BitVec.ofNat 64 (B - handO j) := by
-    rw [h12', show (lvlRegs j 5).get .x12 = addC (.reg .x8) (BitVec.ofNat 64 (2 ^ 64 - handO j)) by
+    rw [h12', show (lvlRegs j 5).get .x12 = addC (.reg .x8) (BitVec.ofNat 64 (2 ^ 64 - handO j + 241)) by
       unfold lvlRegs; rw [skipA2_five]; rfl, addC_eval]
-    simp only [E.eval, hx8]
-    exact ofNat_add_neg B (handO j) (by omega) (by omega) (by omega)
+    simp only [E.eval, hx8.2]
+    have := hx8.1
+    apply BitVec.eq_of_toNat_eq
+    simp only [BitVec.toNat_add, BitVec.toNat_ofNat]
+    omega
   have hv : hashArgumentsValid t = true :=
     hashArgs_of t (B + blkO j 5) 64 (B - handO j) h10 h11 h12 (by omega) (by decide)
       (by omega) (by omega) (by omega)

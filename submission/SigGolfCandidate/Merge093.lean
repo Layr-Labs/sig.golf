@@ -473,12 +473,12 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 set_option autoImplicit false
 set_option maxHeartbeats 1500000
 set_option maxRecDepth 10000
-def setupCode : List (BitVec 32) := [0xfb040e13,0x20eb7,0x260e8e93,0xe3303,0x8e3383,0x6eb023,0x7eb423,0x30e3303,0x38e3383,0x26eb823,0x27ebc23,0x7e37,0xe0e13,0x1eb7,0x800e8e93,0xe3303,0x8e3383,0x6eb023,0x7eb423,0x66e37,0xe0e13,0x8e3303,0x6eb823,0xebc23,0x20eb023,0x20eb423,0x20eb823,0x20ebc23,0x8e37,0x4b8e0e13,0x8eb7,0x5e8e8e93,0x1ac00913]
+def setupCode : List (BitVec 32) := [0xa140e13,0x20eb7,0x260e8e93,0xe3303,0x8e3383,0x6eb023,0x7eb423,0x30e3303,0x38e3383,0x26eb823,0x27ebc23,0x7e37,0xe0e13,0x1eb7,0x800e8e93,0xe3303,0x8e3383,0x6eb023,0x7eb423,0x66e37,0xe0e13,0x8e3303,0x6eb823,0xebc23,0x20eb023,0x20eb423,0x20eb823,0x20ebc23,0x8e37,0x4b8e0e13,0x8eb7,0x5e8e8e93,0x1ac00913]
 sym_block setupRun := symRun {noAlias:=true} setupCode (pcOf 46862) 100
 def tailCode : List (BitVec 32) := [0x22137,0x10113,0x293,0xf04d206f]
 sym_block tailRun := symRun {noAlias:=true} tailCode (pcOf 46901) 20
 
-theorem setup_mem (s : MachineState) (h8 : s.getReg .x8=BitVec.ofNat 64 2984) (A : Nat) (hA : A < 2^64) :
+theorem setup_mem (s : MachineState) (h8 : s.getReg .x8=BitVec.ofNat 64 2743) (A : Nat) (hA : A < 2^64) :
     (setupRun.res.toState s).getMem (BitVec.ofNat 64 A) =
       if A = 2104 then 0#64 else if A = 2096 then 0#64 else if A = 2088 then 0#64 else if A = 2080 then 0#64
       else if A = 2072 then 0#64 else if A = 2064 then s.getMem (BitVec.ofNat 64 417800)
@@ -492,10 +492,12 @@ theorem setup_mem (s : MachineState) (h8 : s.getReg .x8=BitVec.ofNat 64 2984) (A
   have e3 : (18446744073709554576#64 : BitVec 64) = BitVec.ofNat 64 2960 := by decide
   simp only [Result.toState_getMem,setupRun.res]
   t3n [h8]
-  rw [Nat.mod_eq_of_lt (show A<18446744073709551616 by simpa using hA), e0, e1, e2, e3]
+  first
+  | rfl
+  | (simp only [Nat.mod_eq_of_lt (show A<18446744073709551616 by simpa using hA), e0, e1, e2, e3])
 set_option maxRecDepth 100000 in
 theorem setup_steps {im : Image} (hc : CodeAt im (pcOf 46862) setupCode)
-    (s : MachineState) (hp : s.pc=pcOf 46862) (h8 : s.getReg .x8=BitVec.ofNat 64 2984) :
+    (s : MachineState) (hp : s.pc=pcOf 46862) (h8 : s.getReg .x8=BitVec.ofNat 64 2743) :
     ∃t,Steps im s 33 33 t ∧ t.pc=pcOf 46895 ∧
       t.getReg .x28=33976 ∧ t.getReg .x29=34280 ∧ t.getReg .x18=428 ∧
       (∀o,o=0 ∨ o=8 ∨ o=48 ∨ o=56 → t.getMem (BitVec.ofNat 64 (0x20260+o))=s.getMem (BitVec.ofNat 64 (2904+o))) ∧
@@ -547,7 +549,7 @@ structure Code (im : Image) : Prop where
   move : CodeAt im (pcOf 46895) moveCode
   tail : CodeAt im (pcOf 46901) tailCode
 
-theorem steps {im : Image} (hc : Code im) (s : MachineState) (hp : s.pc=pcOf 46862) (h8 : s.getReg .x8=BitVec.ofNat 64 2984) :
+theorem steps {im : Image} (hc : Code im) (s : MachineState) (hp : s.pc=pcOf 46862) (h8 : s.getReg .x8=BitVec.ofNat 64 2743) :
     ∃t,Steps im s 2605 2605 t ∧ t.pc=pcOf 249 ∧ t.getReg .x2=0x22000 ∧ t.getReg .x5=0 ∧
       (∀o,(o=0 ∨ o=8 ∨ o=48 ∨ o=56) → t.getMem (BitVec.ofNat 64 (0x20260+o))=s.getMem (BitVec.ofNat 64 (2904+o))) ∧
       (∀i,i<2 → t.getMem (BitVec.ofNat 64 (2048+8*i))=s.getMem (BitVec.ofNat 64 (0x7000+8*i))) ∧
