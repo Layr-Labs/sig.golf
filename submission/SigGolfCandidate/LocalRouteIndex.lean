@@ -6,9 +6,10 @@ namespace SigGolfCandidate.Research.SharedForest.LocalRoute
 open SigGolfCandidate.T3 ClaudeWCT.WCT9
 open ClaudeWCT.Numerics
 theorem own1_index (index : Nat) : ownSave index 1=LocalRouteUniform.oneSave (index/4096) := by
-  change (46/2^(((index/4096)%128)%8))%2=(46/2^((index/4096)%8))%2
-  have hm : ((index/4096)%128)%8=(index/4096)%8 := by omega
-  rw [hm]
+  show CanonicalPolicy.lowerPathSave 1 (index / 2^12 % 2^7) = _
+  have hm : index / 2^12 % 2^7 % 128 = index / 4096 % 128 := by norm_num [Nat.mod_mod]
+  unfold CanonicalPolicy.lowerPathSave CanonicalPolicy.l1Diff LocalRouteUniform.oneSave LocalRouteUniform.oneDiff
+  simp only [hm, if_true]
 
 theorem own2_index (index : Nat) : ownSave index 2=LocalRouteUniform.pairSave (index/64) := by
   have hm : ((index/64)%64)%4=(index/64)%4 := by omega

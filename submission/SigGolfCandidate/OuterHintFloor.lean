@@ -10,10 +10,7 @@ theorem eq (index : Nat) (hints : BitVec 16) (lay : Layer) :
     OuterSigning.hintFloor index hints lay=SharedForest.hintFloor index hints lay := by
   by_cases h : lay=0
   · subst lay
-    simp only [OuterSigning.hintFloor,SharedForest.hintFloor,if_true,OuterSigning.root_floor,Policy75Safe23.threshold_top]
-    have hn:=OuterSigning.requiredCredit_bounds index
-    have hb:=SharedForest.requiredCredit_bounds index
-    omega
+    simp only [OuterSigning.hintFloor,SharedForest.hintFloor,if_true,OuterSigning.root_floor,OuterSigning.shared_root_floor]
   · simp only [OuterSigning.hintFloor,SharedForest.hintFloor,if_neg h]
 
 #print axioms eq

@@ -6353,7 +6353,7 @@ abbrev Credit := Layer → Bool → List Nat → Nat
 /-- Remaining credit after the canonical search at a leaf. The recursion goes
     from a leaf to its ancestors and never depends on a descendant or an FTS
     digest. Failure of an ancestor propagates to the descendant. -/
-def rootPool (leaf : Nat) : Nat := 73-WCT9.CanonicalPolicy.topPathSave leaf
+def rootPool (leaf : Nat) : Nat := 74-WCT9.CanonicalPolicy.topPathSave leaf
 
 def after (search : Search) (credit : Credit) (L : LeafAddr) : Option Nat :=
   ((if L.lay.val = 0 then some (rootPool L.leaf) else after search credit (parent L)).map
@@ -11724,7 +11724,7 @@ open ClaudeWCT.Numerics.CanonicalCompression
 open SigGolfCandidate.Research.SharedForest
 open ClaudeWCT.Numerics.LocalRoute
 
-theorem shift1 (mask r : Nat) (hm : mask<8) (hr : r<58) :
+theorem shift1 (mask r : Nat) (hm : mask<12) (hr : r<58) :
     (Checks.row1 mask)[r]?.getD 0 = (Checks.row1 (mask%4))[r-mask/4]?.getD 0 := by
   have h := (List.all_eq_true.mp Tables.shift1_checked) mask (List.mem_range.mpr hm)
   have hh := (List.all_eq_true.mp h) r (List.mem_range.mpr hr)
@@ -11830,8 +11830,8 @@ noncomputable def initialValue (pool s1 s2 s3 : Nat) : ENNReal :=
   (Tables.initialAt pool (4*s1+2*s2+s3) : ENNReal)/ClaudeWCT.Numerics.CanonicalCompression.scale
 
 set_option maxHeartbeats 0 in
-theorem root_step (pool s1 s2 s3 : Nat) (hlo : 71 ≤ pool) (hhi : pool ≤ 73)
-    (hs1 : s1 ≤ 1) (hs2 : s2 ≤ 1) (hs3 : s3 ≤ 1) :
+theorem root_step (pool s1 s2 s3 : Nat) (hlo : 72 ≤ pool) (hhi : pool ≤ 74)
+    (hs1 : s1 ≤ 2) (hs2 : s2 ≤ 1) (hs3 : s3 ≤ 1) :
     1 ≤ initialValue pool s1 s2 s3 ∧
     ((ClaudeWCT.Numerics.CanonicalCompression.zNum : ENNReal)/ClaudeWCT.Numerics.CanonicalCompression.zDen) *
       (acceptedWeight (decoder 0 (max 16 (pool-57)))
@@ -11925,9 +11925,9 @@ theorem V_searchPreparedLayers_certified (secret : BitVec 256) (cache : SigGolfC
   let s1 := SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1
   let s2 := SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 2
   let s3 := SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 3
-  have hs1 : s1≤1 := SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave_le_one _ _
-  have hs2 : s2≤1 := SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave_le_one _ _
-  have hs3 : s3≤1 := SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave_le_one _ _
+  have hs1 : s1≤2 := SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave_le_two _ _
+  have hs2 : s2≤1 := SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave_le_one_of _ 2 (by decide)
+  have hs3 : s3≤1 := SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave_le_one_of _ 3 (by decide)
   let E := (LocalRoute.envelope s2 s3 hs2 hs3).mono_z signing_z_ratio
   have hb := SigGolfCandidate.Research.SharedForest.requiredCredit_bounds index
   have hi := LocalRoute.root_step (SigGolfCandidate.Research.SharedForest.requiredCredit index)

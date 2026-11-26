@@ -8628,7 +8628,7 @@ open SigGolfCandidate.T3M
 set_option maxHeartbeats 2000000
 set_option maxRecDepth 100000
 theorem installed22230 : LocalSignResidual.TopFullCode Images.signImage := by
-  refine ⟨⟨?_,?_,?_⟩,?_,?_,?_⟩ <;> sign_slice_fast
+  refine ⟨⟨?_,?_,?_,?_⟩,?_,?_,?_⟩ <;> sign_slice_fast
 theorem installed22448 : LocalSignResidual.LowerFullCode Images.signImage := by
   refine ⟨⟨?_,⟨?_,?_,?_,?_,?_⟩,?_⟩,?_,?_,?_⟩ <;> sign_slice_fast
 end SigGolfCandidate.T3M.Sign.SharedResidual
@@ -9774,7 +9774,7 @@ structure TopTailSteps (im : Image) : Prop where
   residual : ∀ s : MachineState, s.pc=pcOf 22230 → ∀ index r c : Nat, index<2^64 → r<2^32 → c<2^32 →
     s.getMem (0x20550#64)=BitVec.ofNat 64 index →
     s.getMem (0x66008#64)=BitVec.ofNat 64 r → s.getMem (0x66018#64)=BitVec.ofNat 64 c →
-    ∃ t k,Steps im s k k t ∧ k≤21 ∧ t.pc=pcOf 22239 ∧
+    ∃ t k,Steps im s k k t ∧ k≤27 ∧ t.pc=pcOf 22239 ∧
       t.getMem (0x66008#64)=BitVec.ofNat 64 (r-c-LocalRoute.ownSave index 1) ∧
       RegsExcept s t [.x3,.x6,.x7,.x28] ∧ Frame s t (fun A => A=0x66008)
   first : ∀ s : MachineState, s.pc=pcOf 22239 →
@@ -9801,7 +9801,7 @@ theorem top_tail {im : Image} (hc : TopTailSteps im)
     (hidx : s.getMem (0x20550#64)=BitVec.ofNat 64 index)
     (h18 : s.getReg .x18=BitVec.ofNat 64 (route index 0).1) (low : Bool) (ds : List Nat)
     (hcm : s.getMem (0x66018#64)=BitVec.ofNat 64 (CanonicalPolicy.credit 0 low ds)) :
-    ∃ t k,Steps im s k k t ∧ k≤52 ∧ TopTailPost index low ds s t := by
+    ∃ t k,Steps im s k k t ∧ k≤58 ∧ TopTailPost index low ds s t := by
   obtain ⟨a,sa,ap,asaved,ar,af⟩ := hc.save s hp
   have hleaf : (route index 0).1 < 4096 := by
     change index/2^19%4096<4096
@@ -10129,7 +10129,7 @@ theorem top_stage {im : Image} {sk : BitVec 256} (hs : SearchCalls im sk)
     (s : MachineState) (hp : s.pc=pcOf 22182) (hstable : Stable index p forest s)
     (hh : s.getMem (0x66000#64)=0)
     (hc32 : ∃ c<2^32,s.getMem (BitVec.ofNat 64 (ENC+32))=BitVec.ofNat 64 c) :
-    TBSim im sk s (Canonical.csCost 0+78)
+    TBSim im sk s (Canonical.csCost 0+84)
       (CanonicalPolicy.layerCounterSearchAt 0 (ClaudeWCT.WCT9.Policy75Safe23.threshold 0 (requiredCredit index)) (route index 0).2 (route index 0).1
         (.pair (topPair 1 p.one.levels).1 (topPair 1 p.one.levels).2) 0 (searchLimit 0))
       (TopStagePost im index p forest s) := by
@@ -10140,11 +10140,11 @@ theorem top_stage {im : Image} {sk : BitVec 256} (hs : SearchCalls im sk)
     obtain ⟨c,hc,hcv⟩ := hc32
     exact ⟨c,hc,(ha.frame.get (by unfold ENC;omega) (by unfold ENC;omega)).trans hcv⟩
   have H := hs.call (topArgs index (topPair 1 p.one.levels)) a (top_pre index hi _ s a ha hsta.tables hac)
-  have Htail : TBSim im sk a (Canonical.csCost 0+52)
+  have Htail : TBSim im sk a (Canonical.csCost 0+58)
       (CanonicalPolicy.layerCounterSearchAt 0 (ClaudeWCT.WCT9.Policy75Safe23.threshold 0 (requiredCredit index)) (route index 0).2 (route index 0).1
         (.pair (topPair 1 p.one.levels).1 (topPair 1 p.one.levels).2) 0 (searchLimit 0))
       (TopStagePost im index p forest s) := by
-    have hb := TBSim.bind H (f:=fun r=>pure r) (W₂:=52) (Q₂:=TopStagePost im index p forest s) (by
+    have hb := TBSim.bind H (f:=fun r=>pure r) (W₂:=58) (Q₂:=TopStagePost im index p forest s) (by
       intro r u hu
       cases r with
       | none => exact (TBSim.pure (a:=none) (s:=u) (Q:=TopStagePost im index p forest s) hu).mono (by omega) (fun _ _ h=>h)
@@ -10516,7 +10516,7 @@ def PrefixPost (im : Image) (index : Nat) (p : PreparedRoots) (forest : Digest×
   | none,t => SearchError im t
   | some a,t => PrefixReady index p forest a s t
 
-def prefixCost : Nat := Canonical.csCost 0+78+((Canonical.csCost 1+723)+((Canonical.csCost 2+723)+((Canonical.csCost 3+723)+30)))
+def prefixCost : Nat := Canonical.csCost 0+84+((Canonical.csCost 1+723)+((Canonical.csCost 2+723)+((Canonical.csCost 3+723)+30)))
 
 theorem prefix_good {im : Image} {sk : BitVec 256} (hs : SearchCalls im sk)
     (htop : TopSetupSteps im) (htail : TopTailSteps im) (hlower : LowerSetupSteps im)

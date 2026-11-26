@@ -65,7 +65,7 @@ theorem phase1_steps {im : Image} (hc : Code im)
     (hm : s.getMem (417856#64)=BitVec.ofNat 64 C)
     (T : Nat→Nat) (hT : ∀ r,r<58 → T r<24)
     (hbytes : ∀ r,r<58 → s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (T r)) :
-    ∃t n c,n≤27 ∧ c≤30 ∧ Steps im s n c t ∧
+    ∃t n c,n≤33 ∧ c≤36 ∧ Steps im s n c t ∧
       t.pc=(if (R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1)<58 ∧ H/576=T ((R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1)) then pcOf 46949 else pcOf 46979) ∧
       t.getReg .x21=BitVec.ofNat 64 ((R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1)) ∧ RegsExcept s t regs ∧ Frame s t (fun _=>False) := by
   obtain ⟨u,n,hn,su,pu,u21,ru,fu⟩:=LocalRouteResiduals.residual0_steps hc.r0 s hp index R C hi hR hC h21 hm hindex
@@ -167,7 +167,7 @@ theorem validate_steps {im : Image} (hc : Code im)
     (T1 T2 : Nat→Nat) (ht1 : ∀r,r<58→T1 r<24) (ht2 : ∀r,r<42→T2 r<24)
     (hb1 : ∀r,r<58→s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (T1 r))
     (hb2 : ∀r,r<42→s.getByte (BitVec.ofNat 64 (16749520+r))=BitVec.ofNat 8 (T2 r)) :
-    ∃t n c,n≤109 ∧ c≤134 ∧ Steps im s n c t ∧
+    ∃t n c,n≤115 ∧ c≤140 ∧ Steps im s n c t ∧
       t.pc=(if Condition index H C0 C1 C2 T1 T2 then pcOf 42795 else pcOf 354) ∧
       RegsExcept s t [.x6,.x7,.x20,.x21,.x28,.x29] ∧ Frame s t (fun _=>False) := by
   obtain ⟨u,su,pu,u20,u21,ru,fu⟩:=init_steps hc.init hc.poolHelper s hp index H hi hmidx hm
@@ -231,7 +231,7 @@ theorem validate_source_steps {im : Image} (hc : Code im)
     (ht2 : ∀r,r<42→ClaudeWCT.WCT9.Policy75Safe23.threshold 2 r<24)
     (hb1 : ∀r,r<58→s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (ClaudeWCT.WCT9.Policy75Safe23.threshold 1 r))
     (hb2 : ∀r,r<42→s.getByte (BitVec.ofNat 64 (16749520+r))=BitVec.ofNat 8 (ClaudeWCT.WCT9.Policy75Safe23.threshold 2 r)) :
-    ∃t n c,n≤109 ∧ c≤134 ∧ Steps im s n c t ∧
+    ∃t n c,n≤115 ∧ c≤140 ∧ Steps im s n c t ∧
       t.pc=(if OuterSigning.policyHintsValid index hints digits lows then pcOf 42795 else pcOf 354) ∧
       RegsExcept s t [.x6,.x7,.x20,.x21,.x28,.x29] ∧ Frame s t (fun _=>False) := by
   obtain ⟨t,n,c,hn,hc',st,pt,rt,ft⟩:=validate_steps hc s hp index hi hmidx hints.toNat
