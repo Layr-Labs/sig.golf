@@ -5276,7 +5276,7 @@ def keyClass (len : Nat) (h : BitVec 128) : Nat :=
   else if len = 128 then 4
   else if len = 320 then 6
   else if (1 ≤ tweakLow h ∧ tweakLow h < 4096) ∨ tweakLow h = 520192 ∨ tweakLow h = 14336 then 1
-  else if 128 ≤ tweakMarker h ∨ (tweakMarker h < 4 ∧ 250 ≤ tweakTag h ∧ tweakTag h < 256) then 0
+  else if 128 ≤ tweakMarker h ∨ (tweakMarker h < 4 ∧ 130 ≤ tweakTag h ∧ 2 ≤ tweakTag h % 8) then 0
   else 5
 def Pos.cls : Pos → Nat
   | .chain .. => 0
@@ -5369,8 +5369,8 @@ theorem Pos.keyClass_eq {p : Pos} (hb : p.Bounded) : keyClass p.len p.hdr = p.cl
         rw [tweakLow_eq_low, WCT9.ftsChainHeaderP_low, BitVec.toNat_ofNat,
           Nat.mod_eq_of_lt (WCT9.ftsChainLow_lt _ _ _ _ _)]
         exact WCT9.ftsChainLow_ge (by omega) _ _ _ _ (by omega)
-      have hT : 250 ≤ tweakTag (WCT9.ftsChainHeader index coord child t step) ∧
-          tweakTag (WCT9.ftsChainHeader index coord child t step) < 256 := by
+      have hT : 130 ≤ tweakTag (WCT9.ftsChainHeader index coord child t step) ∧
+          2 ≤ tweakTag (WCT9.ftsChainHeader index coord child t step) % 8 := by
         unfold WCT9.ftsChainHeader tweakTag
         rw [Nat.mod_eq_of_lt (by omega : t < 8)] at htag
         omega
@@ -5419,7 +5419,7 @@ theorem Pos.keyClass_eq {p : Pos} (hb : p.Bounded) : keyClass p.len p.hdr = p.cl
       have hge := WCT9.ftsLeafLow_zero_or_ge (show coord < 15 by omega) index 0
       have hlt := WCT9.ftsLeafLow_lt index coord 0
       have hgeN : 4096 ≤ WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) := by
-        rw [WCT9.ftsNodeLowN_eq, Nat.mod_eq_of_lt (show coord + 1 < 16 by omega)]; unfold SigGolfCandidate.T3.ftsBiasN; omega
+        rw [WCT9.ftsNodeLowN_eq, Nat.mod_eq_of_lt (show coord < 16 by omega)]; unfold SigGolfCandidate.T3.ftsBiasN; omega
       have hltN := WCT9.ftsNodeLowN_lt index coord (2 ^ (7 - level - 1) + nd)
       simp only [keyClass, Pos.len, Pos.hdr, Pos.cls]
       unfold tweakLow
@@ -5443,8 +5443,13 @@ theorem Pos.keyClass_eq {p : Pos} (hb : p.Bounded) : keyClass p.len p.hdr = p.cl
         rw [if_neg hn] at hlow htag
         rw [if_pos hk, if_neg hn] at hm
         have hspecial : tweakLow (WCT9.wctNodeHeader coord index (2 ^ (7 - level - 1) + nd)) ≠ 520192 := by
+          -- C31: coordinate 1's two-word node tag is 240 like the top special label; separate by value.
           intro he
-          have := tweakTag_of_low_special he
+          unfold tweakLow at he
+          rw [hlow] at he
+          have hL : WCT9.ftsLeafLow index coord 0 ≠ 520192 := by
+            unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN
+            omega
           omega
         have hspecialOne : tweakLow (WCT9.wctNodeHeader coord index (2 ^ (7 - level - 1) + nd)) ≠ 14336 := by
           intro he
@@ -7677,7 +7682,7 @@ theorem nodeTweak_ne_row (tag lay tree heap : Nat) (ht : tag % 256 ≠ 2)
     omega
   · by_cases hf : tag = 3 ∧ lay < 13
     · obtain ⟨rfl, h13⟩ := hf
-      exact notHyper_of_tag (by rw [nodeTweak_fts_tag (by omega) h13]; split_ifs <;> decide)
+      exact notHyper_of_tag (by rw [nodeTweak_fts_tag (by omega) h13]; split_ifs <;> omega)
     · rw [nodeTweak_other hf]; exact tag_ne_four ht _ _ _ _
 theorem rowTweak_layer {lay lay' : Layer} {tree leaf tree' leaf' : Nat}
     (h : rowTweak lay tree leaf = rowTweak lay' tree' leaf') : lay = lay' := by
@@ -8238,7 +8243,7 @@ theorem ftsChainHeader_ne_header' (index coord selected t step : Nat) :
 
 theorem hdrTag_ftsChain {input : HashInput} {index coord selected t step : Nat}
     (h : SigGolfCandidate.T3M.Extract.hdrBlock input = bytesLE 16 (ftsChainHeader index coord selected t step)) :
-    Security.BPB.hdrTag input = (250+t%8)%256 := by
+    Security.BPB.hdrTag input = (506+t%8-8*(coord%16))%256 := by
   unfold Security.BPB.hdrTag
   rw [h, bytesLE16_first_toNat, show (ftsChainHeader index coord selected t step).toNat % 256 = step % 4
     from ftsChainHeaderP_firstByte _ _ _ _ _ 0, if_neg (by omega)]
@@ -8250,7 +8255,7 @@ theorem hdrTag_ftsChain {input : HashInput} {index coord selected t step : Nat}
   exact ftsChainHeaderP_byte1 _ _ _ _ _ 0
 theorem hdrTag_ftsLeaf {input : HashInput} {index coord selected : Nat}
     (h : SigGolfCandidate.T3M.Extract.hdrBlock input = bytesLE 16 (ftsLeafHeader index coord selected)) :
-    Security.BPB.hdrTag input = 248 := by
+    Security.BPB.hdrTag input = 248 - 8 * (coord % 16) := by
   unfold Security.BPB.hdrTag
   rw [h, bytesLE16_first_toNat, ftsLeafHeader_firstByte, if_neg (by decide)]
   have hb : ((bytesLE 16 (ftsLeafHeader index coord selected)).getD 1 0).toNat =
@@ -8282,9 +8287,9 @@ theorem ftsQuery_nonEnc {index : Nat} {q : Query} (h : FtsQuery index q) : Enc.N
         unfold tweakTag ftsChainHeader
         rw [Nat.mod_eq_of_lt (show t < 8 by omega)] at ht
         omega))
-    · exact Enc.nonEnc_of_hdr input _ hblock (Enc.notHyper_of_tag (by rw [ftsLeafHeader_tweakTag]; decide))
+    · exact Enc.nonEnc_of_hdr input _ hblock (Enc.notHyper_of_tag (by rw [ftsLeafHeader_tweakTag]; omega))
     · exact Enc.nonEnc_of_hdr input _ hblock (Enc.notHyper_of_tag (by
-        rw [wctNodeHeader_tweakTag hk]; split <;> decide))
+        rw [wctNodeHeader_tweakTag hk]; split <;> omega))
     · exact Enc.nonEnc_of_hdr input _ hblock (Enc.tag_ne_four (by decide) _ _ _ _)
   · trivial
   · trivial
@@ -8375,7 +8380,7 @@ end Mask
 section Programs
 variable (index : Nat)
 namespace Enc
-/-- Z6 option F: FTS chains `t < 6` (tag byte `250 + t`); a chain 6 or 7 word can carry the marker format's `0, 0`. -/
+/-- Z6 option F / C31: FTS chains `t < 6` (tag byte `(506 + t - 8 coord) % 256`); a chain 6 or 7 word can carry the marker format's `0, 0`. -/
 theorem respects_chain (coord selected t start count : Nat) (value : Digest) (ht6 : t < 6) :
     Wots.Mask.Respects Wots.Enc.NonEnc (WCT9.chain index coord selected t start count value) := by
   unfold WCT9.chain
@@ -8401,7 +8406,7 @@ theorem respects_leafHash (coord selected : Nat) (ends : List Digest) :
   unfold WCT9.leafHash
   exact Wots.Mask.Respects.shortHash _ (Wots.Enc.nonEnc_of_hdr _ _
     (hdrBlock_pad64_prefix _ _ _ (bytesLE_length _ _))
-    (Wots.Enc.notHyper_of_tag (by rw [ftsLeafHeader_tweakTag]; decide)))
+    (Wots.Enc.notHyper_of_tag (by rw [ftsLeafHeader_tweakTag]; omega)))
 theorem respects_forestPk (pairs : List (Digest × Digest)) :
     Wots.Mask.Respects Wots.Enc.NonEnc (WCT9.forestPk index pairs) := by
   unfold WCT9.forestPk forestInput

@@ -9553,57 +9553,23 @@ section
 set_option autoImplicit false
 namespace W9Machine
 open SigGolfCandidate.T3M SigGolfCandidate.Rv RiscvZkvm.Rv64
-/-- Y6 R-odd: the prefix is `index · 2^33 + child · ftsSelMul coord + (coord + 1) · 2^16`, all three fields disjoint. -/
+/-- C31: the prefix is `index · 2^33 + child · ftsSelMul coord + (2^16 - 2^11 · coord)`. -/
 theorem chainPrefix_value (index coord child : Nat) (hk : coord < 9) (hj : child < 128) :
-    V3.chainPrefix index coord child = index * 2 ^ 33 + child * ClaudeWCT.WCT9.ftsSelMul coord + 65536 * (coord + 1) := by
+    V3.chainPrefix index coord child = index * 2 ^ 33 + child * ClaudeWCT.WCT9.ftsSelMul coord + (65536 - 2048 * coord) := by
   unfold V3.chainPrefix
-  rw [ClaudeWCT.WCT9.ftsSelMul_eq]
-  have hs : ClaudeWCT.WCT9.ftsSelShift coord = 20 ∨ ClaudeWCT.WCT9.ftsSelShift coord = 26 := by
-    unfold ClaudeWCT.WCT9.ftsSelShift; split_ifs <;> simp
-  rcases hs with hs | hs <;> rw [hs]
-  · have hc : (coord + 1) <<< 16 ||| child <<< 20 = (coord + 1) * 2 ^ 16 + child * 2 ^ 20 := by
-      rw [Nat.or_comm, show child <<< 20 = (child <<< 4) <<< 16 by simp only [Nat.shiftLeft_eq]; ring,
-        ← Nat.shiftLeft_or_distrib, ← Nat.shiftLeft_add_eq_or_of_lt (by omega : coord + 1 < 2 ^ 4)]
-      simp only [Nat.shiftLeft_eq]; ring
-    have hi : index <<< 33 ||| ((coord + 1) * 2 ^ 16 + child * 2 ^ 20) =
-        index * 2 ^ 33 + ((coord + 1) * 2 ^ 16 + child * 2 ^ 20) := by
-      rw [← Nat.shiftLeft_add_eq_or_of_lt (by omega : (coord + 1) * 2 ^ 16 + child * 2 ^ 20 < 2 ^ 33),
-        Nat.shiftLeft_eq]
-    rw [Nat.or_assoc, hc, hi]; ring
-  · have hc : (coord + 1) <<< 16 ||| child <<< 26 = (coord + 1) * 2 ^ 16 + child * 2 ^ 26 := by
-      rw [Nat.or_comm, show child <<< 26 = (child <<< 10) <<< 16 by simp only [Nat.shiftLeft_eq]; ring,
-        ← Nat.shiftLeft_or_distrib, ← Nat.shiftLeft_add_eq_or_of_lt (by omega : coord + 1 < 2 ^ 10)]
-      simp only [Nat.shiftLeft_eq]; ring
-    have hi : index <<< 33 ||| ((coord + 1) * 2 ^ 16 + child * 2 ^ 26) =
-        index * 2 ^ 33 + ((coord + 1) * 2 ^ 16 + child * 2 ^ 26) := by
-      rw [← Nat.shiftLeft_add_eq_or_of_lt (by omega : (coord + 1) * 2 ^ 16 + child * 2 ^ 26 < 2 ^ 33),
-        Nat.shiftLeft_eq]
-    rw [Nat.or_assoc, hc, hi]; ring
+  rw [Nat.mod_eq_of_lt (by omega : coord < 16)]
+  ring_nf
 theorem chainLow_add (index coord child chain digit : Nat) (hc : chain < 6) (hd : digit < 4) :
     V3.chainLow index coord child chain digit =
       SigGolfCandidate.T3.ftsBias (V3.chainPrefix index coord child + (256 * chain + digit) + 1) := by
-  have hlo : (chain <<< 8) ||| digit = 256 * chain + digit := by
-    rw [← Nat.shiftLeft_add_eq_or_of_lt (by omega : digit < 2^8), Nat.shiftLeft_eq]
-    omega
-  unfold V3.chainLow
-  -- Y6 R-odd: the prefix is a multiple of 2^16, so the OR with the low 16 bits is addition.
-  have hp0 : V3.chainPrefix index coord child % 2 ^ 16 = 0 := by
-    unfold V3.chainPrefix
-    have hs : 16 ≤ ClaudeWCT.WCT9.ftsSelShift coord := by unfold ClaudeWCT.WCT9.ftsSelShift; split_ifs <;> omega
-    apply Nat.eq_of_testBit_eq; intro i
-    simp only [Nat.testBit_mod_two_pow, Nat.testBit_or, Nat.testBit_shiftLeft, Nat.testBit_zero]
-    by_cases hi : i < 16 <;> simp [hi] <;> omega
-  have hp : V3.chainPrefix index coord child = (V3.chainPrefix index coord child / 2 ^ 16) <<< 16 := by
-    rw [Nat.shiftLeft_eq]; omega
-  rw [hlo, Nat.or_comm (256 * chain + digit), hp,
-    ← Nat.shiftLeft_add_eq_or_of_lt (by omega : 256 * chain + digit < 2 ^ 16), ← hp]
+  rfl
 theorem leafLow_eq (index coord child : Nat) (hi : index < 2 ^ 31) (hk : coord < 9) (hj : child < 128) :
     V3.leafLow index coord child = SigGolfCandidate.T3.ftsBiasN (1537 + V3.chainPrefix index coord child) := by
   rw [chainPrefix_value _ _ _ hk hj]
   unfold V3.leafLow ClaudeWCT.WCT9.ftsLeafLow
-  rw [Nat.mod_eq_of_lt (by omega : coord + 1 < 16), Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hi]
+  rw [Nat.mod_eq_of_lt (by omega : coord < 16), Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hi]
   apply congrArg SigGolfCandidate.T3.ftsBiasN
-  ring
+  ring_nf
 theorem wordBias (n : Nat) :
     BitVec.ofNat 64 (SigGolfCandidate.T3.ftsBias n) =
       BitVec.ofNat 64 n + BitVec.ofNat 64 (2^64-67073) := by
@@ -12005,6 +11971,8 @@ structure Pre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (u : 
   wit : Orig w (fun o => o ≠ 21744) u
   setupMask : SetupMask u
   sp : u.getReg .x2 = BitVec.ofNat 64 stackBase7
+  /-- C31: t1 (x6) is never written before the top layer; the FTS coordinate stride is an `addi`. -/
+  t1zero : u.getReg .x6 = 0
 end W9Drv.SharedGate
 end
 -- ==== merged from W9Machine_WctNestView ====

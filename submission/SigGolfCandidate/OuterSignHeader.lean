@@ -23,17 +23,20 @@ theorem fields {A D coord index heap : Nat} {left right : Digest} {s : MachineSt
   have hlast:=List.cons.inj hwords.2
   exact ⟨by simpa using hwords.1,by simpa only [show A+8*2+8=A+24 by omega] using hlast.1⟩
 
-theorem packed_tag (coord index heap : Nat) (hh : FtsNew heap) :
-    ((ftsNodeWordH coord index heap <<< (48:Nat)) >>> (48:Nat))≠63488#64 := by
+/-- C31: a packed FTS node word has nonzero low 11 bits (`2048 - heap` for heaps `8..127`). -/
+theorem packed_low (coord index heap : Nat) (hh : FtsNew heap) (hc : coord<9) :
+    ftsNodeWordH coord index heap <<< 53≠0#64 := by
   intro he
-  rw [OuterSignFields.low16] at he
   have hn:=congrArg BitVec.toNat he
   have hw:=(ftsNodeWordH coord index heap).isLt
+  simp only [BitVec.toNat_shiftLeft,Nat.shiftLeft_eq_mul_pow,BitVec.toNat_ofNat] at hn
+  rw [show 2^64=2048*2^53 from by decide,Nat.mul_mod_mul_right] at hn
   have hm:=ftsNodeWordH_marker hh coord index
-  have ht : (BitVec.ofNat 64 63488).toNat=63488 := rfl
-  change (BitVec.ofNat 64 ((ftsNodeWordH coord index heap).toNat%65536)).toNat=(BitVec.ofNat 64 63488).toNat at hn
-  rw [BitVec.toNat_ofNat,Nat.mod_eq_of_lt (by omega),ht] at hn
   obtain ⟨hlo,hhi⟩:=hh
+  have h0 : (ftsNodeWordH coord index heap).toNat%2048=0 := by
+    rcases Nat.eq_zero_or_pos ((ftsNodeWordH coord index heap).toNat%2048) with h|h
+    · exact h
+    · exfalso; have : 0<(ftsNodeWordH coord index heap).toNat%2048*2^53 := Nat.mul_pos h (by positivity); omega
   omega
 
 theorem fallback {A D coord index heap : Nat} {left right : Digest} {s : MachineState}
@@ -50,8 +53,8 @@ theorem fallback {A D coord index heap : Nat} {left right : Digest} {s : Machine
       have he : nodeLayer coord-4=coord := by unfold nodeLayer;omega
       rw [he]
     rw [hs,BitVec.extractLsb'_append_eq_right]
-    exact packed_tag coord index heap ⟨hp,hh128⟩
-  · refine Or.inr (Or.inr ?_)
+    exact packed_low coord index heap ⟨hp,hh128⟩ hc
+  · refine Or.inr (Or.inr (Or.inr ?_))
     rw [hf.2]
     have hs : wctNodeHeader coord index heap=BitVec.ofNat 64 (ftsHeapLabel heap)++ftsNodeWord coord index := by
       unfold wctNodeHeader
@@ -61,6 +64,6 @@ theorem fallback {A D coord index heap : Nat} {left right : Digest} {s : Machine
     rw [hs,BitVec.extractLsb'_append_eq_left,BitVec.toNat_ofNat]
     interval_cases heap <;> decide
 #print axioms fields
-#print axioms packed_tag
+#print axioms packed_low
 #print axioms fallback
 end OuterSignHeader

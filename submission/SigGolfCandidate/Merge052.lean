@@ -1182,11 +1182,11 @@ set_option autoImplicit false
 namespace W9Machine.V3
 open OracleComp SigGolfCandidate.T3 SigGolfCandidate.T3M
 open SphincsSecurity (bytesLE)
-/-- Campaign S2 (as S1): the coordinate nibble carries `coord + 1` (every FTS word is `≥ 2^16`). -/
+/-- C31: the coordinate field is `2^16 - 2^11 · coordinate` (the verifier steps it with `addi a5,a5,-2048`). -/
 def chainPrefix (index coord child : Nat) : Nat :=
-  (index <<< 33) ||| ((coord + 1) <<< 16) ||| (child <<< ClaudeWCT.WCT9.ftsSelShift coord)
+  index * 2 ^ 33 + (2 ^ 16 - 2 ^ 11 * (coord % 16)) + child * ClaudeWCT.WCT9.ftsSelMul coord
 def chainLow (index coord child chain step : Nat) : Nat :=
-  SigGolfCandidate.T3.ftsBias (((chain <<< 8) ||| step ||| chainPrefix index coord child) + 1)
+  SigGolfCandidate.T3.ftsBias (chainPrefix index coord child + (256 * chain + step) + 1)
 abbrev HeaderPad := BitVec 64
 /-- Witness stack: F chains (0, 2, 4, 5) hash `a | header | c | value`, G chains (1, 3) hash
 `value | header | a | c`. -/

@@ -12,24 +12,40 @@ theorem low16 (w : BitVec 64) : (w <<< 48) >>> 48=BitVec.ofNat 64 (w.toNat%65536
   rw [show 2^64=65536*2^48 from by decide,Nat.mul_mod_mul_right]
   omega
 
-theorem fts_tag (coord index : Nat) (hc : 1≤coord) (hc9 : coord<9) (hi : index<2^31) :
-    ((ftsNodeWord coord index <<< 48) >>> 48)=63488#64 := by
-  rw [low16,OuterHeaderFields.low16 coord index hc hc9 hi]
+/-- C31: a two-word FTS node word has zero low 11 bits. -/
+theorem fts_low11 (coord index : Nat) (hc9 : coord<9) : ftsNodeWord coord index <<< 53=0#64 := by
+  apply BitVec.eq_of_toNat_eq
+  have h:=OuterHeaderFields.low11 coord index hc9
+  have hw:=(ftsNodeWord coord index).isLt
+  simp only [BitVec.toNat_shiftLeft,Nat.shiftLeft_eq_mul_pow,BitVec.toNat_ofNat]
+  rw [show 2^64=2048*2^53 from by decide,Nat.mul_mod_mul_right]
+  simp [h]
 
-theorem coordinate (coord index : Nat) (hc : 1≤coord) (hc9 : coord<9) (hi : index<2^31) :
-    ((ftsNodeWord coord index >>> 16) &&& 15#64)=7#64 ↔ coord=8 := by
-  have h:=OuterNodeRecordHeader.nibble coord index hc hc9 hi
+/-- C31: bits 11..15 of a two-word FTS node word are `31 - coordinate`. -/
+theorem fts_field (coord index : Nat) (hc9 : coord<9) :
+    (ftsNodeWord coord index <<< 48) >>> 59=BitVec.ofNat 64 (31-coord) := by
+  have h:=OuterHeaderFields.coordField coord index hc9
+  apply BitVec.eq_of_toNat_eq
+  simp only [BitVec.toNat_ushiftRight,BitVec.toNat_shiftLeft,Nat.shiftRight_eq_div_pow,Nat.shiftLeft_eq_mul_pow,BitVec.toNat_ofNat]
+  have hw:=(ftsNodeWord coord index).isLt
+  rw [Nat.mod_eq_of_lt (show 31-coord<2^64 by omega)]
+  rw [show 2^64=65536*2^48 from by decide,Nat.mul_mod_mul_right]
+  rw [show 2^59=2048*2^48 from by decide,Nat.mul_div_mul_right _ _ (by positivity)]
+  omega
+
+theorem coordinate (coord : Nat) (hc9 : coord<9) :
+    BitVec.ofNat 64 (31-coord)=23#64 ↔ coord=8 := by
   constructor
   · intro he
     have hn:=congrArg BitVec.toNat he
-    rw [h] at hn
-    change coord-1=7 at hn
+    rw [BitVec.toNat_ofNat,Nat.mod_eq_of_lt (by omega)] at hn
+    change 31-coord=23 at hn
     omega
   · intro he
-    apply BitVec.eq_of_toNat_eq
-    rw [h,he]
+    subst he
     rfl
 
-#print axioms fts_tag
+#print axioms fts_low11
+#print axioms fts_field
 #print axioms coordinate
 end OuterSignFields

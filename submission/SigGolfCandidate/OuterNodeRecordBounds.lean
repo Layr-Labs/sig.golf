@@ -8,7 +8,7 @@ open SigGolfCandidate.T3M OuterNodeMachinePost
 
 theorem bounds (s : MachineState) : 2^22 ≤ (recordAddr s).toNat ∧ (recordAddr s).toNat < 2^23 ∧
     (recordAddr s).toNat % 8=0 := by
-  let n : Word := (s.getMem (s.getReg .x10+16#64) >>> 16) &&& 15#64
+  let n : Word := (s.getMem (s.getReg .x10+16#64) >>> 11) &&& 15#64
   have hn : n.toNat<16 := by
     dsimp only [n]
     rw [BitVec.toNat_and]

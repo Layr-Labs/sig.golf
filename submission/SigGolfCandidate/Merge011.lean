@@ -85,7 +85,7 @@ theorem ftsSelMul_mul_facts (coord s : Nat) :
 /-- FTS chain word. C4: coordinate nibble `coord + 1` (every FTS word is `≥ 2 ^ 16`, above every top label). Y6 R-odd:
 child weight `ftsSelMul coord`, instance at bit 33. -/
 def ftsChainLow (index coord selected chain step : Nat) : Nat :=
-  SigGolfCandidate.T3.ftsBias (chain % 8 * 2 ^ 8 + step % 4 + (coord + 1) % 16 * 2 ^ 16 + ftsSelMul coord * (selected % 128) +
+  SigGolfCandidate.T3.ftsBias (chain % 8 * 2 ^ 8 + step % 4 + (2 ^ 16 - 2 ^ 11 * (coord % 16)) + ftsSelMul coord * (selected % 128) +
     index % 2 ^ 31 * 2 ^ 33 + 1)
 def ftsChainHeaderP (index coord selected chain step : Nat) (high : BitVec 64) : BitVec 128 :=
   high ++ BitVec.ofNat 64 (ftsChainLow index coord selected chain step)
@@ -108,16 +108,16 @@ def chain (index coord selected i start count : Nat) (value : Digest) : M Digest
     (fun value step => projHash (ftsChainHigh i step) (ftsChainInputW index coord selected i step value)) value
 /-- FTS leaf word. C4: coordinate nibble `coord + 1`. -/
 def ftsLeafLow (index coord selected : Nat) : Nat :=
-  SigGolfCandidate.T3.ftsBiasN (1 + 6 * 2 ^ 8 + (coord + 1) % 16 * 2 ^ 16 + ftsSelMul coord * (selected % 128) + index % 2 ^ 31 * 2 ^ 33)
+  SigGolfCandidate.T3.ftsBiasN (1 + 6 * 2 ^ 8 + (2 ^ 16 - 2 ^ 11 * (coord % 16)) + ftsSelMul coord * (selected % 128) + index % 2 ^ 31 * 2 ^ 33)
 /-- Y6 R-odd: with child 0 (FTS node words) the child weight drops out. -/
 theorem ftsLeafLow_zero (index coord : Nat) :
     ftsLeafLow index coord 0 =
-      SigGolfCandidate.T3.ftsBiasN (1 + 6 * 2 ^ 8 + (coord + 1) % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 33) := by
+      SigGolfCandidate.T3.ftsBiasN (1 + 6 * 2 ^ 8 + (2 ^ 16 - 2 ^ 11 * (coord % 16)) + index % 2 ^ 31 * 2 ^ 33) := by
   unfold ftsLeafLow; simp
 theorem ftsChainLow_ge {coord : Nat} (hc : coord < 15) (index selected chain step : Nat) (hchain : chain < 6) :
     4096 ≤ ftsChainLow index coord selected chain step := by
   unfold ftsChainLow
-  rw [Nat.mod_eq_of_lt (show coord + 1 < 16 by omega)]
+  rw [Nat.mod_eq_of_lt (show coord < 16 by omega)]
   have := Nat.mod_lt selected (show 0 < 128 by decide)
   have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
   rcases ftsSelMul_cases coord with hm | hm <;> rw [hm] <;>
@@ -127,7 +127,7 @@ theorem ftsChainLow_ge {coord : Nat} (hc : coord < 15) (index selected chain ste
 theorem ftsLeafLow_zero_or_ge {coord : Nat} (hc : coord < 15) (index selected : Nat) :
     ftsLeafLow index coord selected = 0 ∨ 4096 ≤ ftsLeafLow index coord selected := by
   unfold ftsLeafLow
-  rw [Nat.mod_eq_of_lt (show coord + 1 < 16 by omega)]
+  rw [Nat.mod_eq_of_lt (show coord < 16 by omega)]
   have := Nat.mod_lt selected (show 0 < 128 by decide)
   have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
   rcases ftsSelMul_cases coord with hm | hm <;> rw [hm] <;>
@@ -2067,20 +2067,20 @@ theorem nodeTweak_ftsN {lay : Nat} (h4 : 4 ≤ lay) (h13 : lay < 13) (tree : Nat
   unfold nodeTweak
   rw [if_neg (show ¬ (3 = 3 ∧ lay < 4) by omega), if_pos (show (3 = 3 ∧ lay < 13) by omega), if_pos (show (8 ≤ heap ∧ heap < 128) from hn)]
 theorem ftsNodeWordH_toNat (coord index heap : Nat) :
-    (ftsNodeWordH coord index heap).toNat = ftsBiasN (1537 - heap + (coord + 1) % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 33) := by
+    (ftsNodeWordH coord index heap).toNat = ftsBiasN (1537 - heap + (2 ^ 16 - 2 ^ 11 * (coord % 16)) + index % 2 ^ 31 * 2 ^ 33) := by
   unfold ftsNodeWordH
   rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (ftsBiasN_lt _)]
 
 theorem ftsNodeWordH_lt (coord index heap : Nat) : (ftsNodeWordH coord index heap).toNat < 2 ^ 64 := by
   rw [ftsNodeWordH_toNat]; unfold ftsBiasN
-  have := Nat.mod_lt (coord + 1) (show 0 < 16 by decide)
+  have := Nat.mod_lt coord (show 0 < 16 by decide)
   have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
   omega
 /-- C4: every FTS word is `≥ 2 ^ 16` for coordinates `< 15` (coordinate nibble `coord + 1`). -/
 theorem ftsNodeWordH_zero_or_ge {coord : Nat} (hc : coord < 15) (index heap : Nat) :
     (ftsNodeWordH coord index heap).toNat = 0 ∨ 4096 ≤ (ftsNodeWordH coord index heap).toNat := by
   rw [ftsNodeWordH_toNat]
-  rw [Nat.mod_eq_of_lt (show coord + 1 < 16 by omega)]
+  rw [Nat.mod_eq_of_lt (show coord < 16 by omega)]
   rw [ftsBiasN_eq _ (by omega)]
   split_ifs <;> omega
 
@@ -2089,8 +2089,9 @@ theorem ftsNodeWordH_marker {heap : Nat} (hn : FtsNew heap) (coord index : Nat) 
   obtain ⟨h8, h128⟩ := hn
   rw [ftsNodeWordH_toNat]; unfold ftsBiasN; omega
 theorem ftsNodeWordH_tag {heap : Nat} (hn : FtsNew heap) (coord index : Nat) :
-    (ftsNodeWordH coord index heap).toNat / 256 % 256 = 247 := by
+    (ftsNodeWordH coord index heap).toNat / 256 % 256 = 247 - 8 * (coord % 16) := by
   obtain ⟨h8, h128⟩ := hn
+  have := Nat.mod_lt coord (show 0 < 16 by decide)
   rw [ftsNodeWordH_toNat]; unfold ftsBiasN; omega
 theorem ftsNodeWordH_injective {coord index heap coord' index' heap' : Nat} (hc : coord < 16) (hi : index < 2 ^ 31)
     (hn : FtsNew heap) (hc' : coord' < 16) (hi' : index' < 2 ^ 31) (hn' : FtsNew heap')
@@ -2107,25 +2108,26 @@ theorem nodeTweak_other {tag lay : Nat} (h : ¬ (tag = 3 ∧ lay < 13)) (tree he
   unfold nodeTweak
   rw [if_neg (show ¬ (tag = 3 ∧ lay < 4) by omega), if_neg h]
 theorem ftsNodeWord_toNat (coord index : Nat) :
-    (ftsNodeWord coord index).toNat = ftsBiasN (1 + 6 * 2 ^ 8 + (coord + 1) % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 33) := by
+    (ftsNodeWord coord index).toNat = ftsBiasN (1 + 6 * 2 ^ 8 + (2 ^ 16 - 2 ^ 11 * (coord % 16)) + index % 2 ^ 31 * 2 ^ 33) := by
   unfold ftsNodeWord
   rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (ftsBiasN_lt _)]
 
 theorem ftsNodeWord_zero_or_ge {coord : Nat} (hc : coord < 15) (index : Nat) :
     (ftsNodeWord coord index).toNat = 0 ∨ 4096 ≤ (ftsNodeWord coord index).toNat := by
   rw [ftsNodeWord_toNat]
-  rw [Nat.mod_eq_of_lt (show coord + 1 < 16 by omega)]
+  rw [Nat.mod_eq_of_lt (show coord < 16 by omega)]
   rw [ftsBiasN_eq _ (by omega)]
   split_ifs <;> omega
 
 theorem ftsNodeWord_lt (coord index : Nat) : (ftsNodeWord coord index).toNat < 2 ^ 64 := by
   rw [ftsNodeWord_toNat]; unfold ftsBiasN
-  have := Nat.mod_lt (coord + 1) (show 0 < 16 by decide)
+  have := Nat.mod_lt coord (show 0 < 16 by decide)
   have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
   omega
 theorem ftsNodeWord_marker (coord index : Nat) : (ftsNodeWord coord index).toNat % 256 = 0 := by
   rw [ftsNodeWord_toNat]; unfold ftsBiasN; omega
-theorem ftsNodeWord_tag (coord index : Nat) : (ftsNodeWord coord index).toNat / 256 % 256 = 248 := by
+theorem ftsNodeWord_tag (coord index : Nat) : (ftsNodeWord coord index).toNat / 256 % 256 = 248 - 8 * (coord % 16) := by
+  have := Nat.mod_lt coord (show 0 < 16 by decide)
   rw [ftsNodeWord_toNat]; unfold ftsBiasN; omega
 theorem ftsNodeWord_injective {coord index coord' index' : Nat} (hc : coord < 16) (hi : index < 2 ^ 31)
     (hc' : coord' < 16) (hi' : index' < 2 ^ 31) (h : ftsNodeWord coord index = ftsNodeWord coord' index') :
@@ -2140,12 +2142,15 @@ theorem nodeTweak_fts_marker {lay : Nat} (h4 : 4 ≤ lay) (h13 : lay < 13) (tree
   · rw [if_pos hn, nodeTweak_ftsN h4 h13 tree hn, append64_marker, ftsNodeWordH_marker hn]
   · rw [if_neg hn, nodeTweak_fts h4 h13 tree hn, append64_marker, ftsNodeWord_marker]
 theorem nodeTweak_fts_tag {lay : Nat} (h4 : 4 ≤ lay) (h13 : lay < 13) (tree heap : Nat) :
-    tweakTag (nodeTweak 3 lay tree heap) = if FtsNew heap then 247 else 248 := by
+    tweakTag (nodeTweak 3 lay tree heap) = (if FtsNew heap then 247 else 248) - 8 * (lay - 4) := by
   by_cases hn : FtsNew heap
-  · rw [if_pos hn, nodeTweak_ftsN h4 h13 tree hn, append64_tag, ftsNodeWordH_tag hn]
-  · rw [if_neg hn, nodeTweak_fts h4 h13 tree hn, append64_tag, ftsNodeWord_tag]
+  · rw [if_pos hn, nodeTweak_ftsN h4 h13 tree hn, append64_tag, ftsNodeWordH_tag hn,
+      Nat.mod_eq_of_lt (show lay - 4 < 16 by omega)]
+  · rw [if_neg hn, nodeTweak_fts h4 h13 tree hn, append64_tag, ftsNodeWord_tag,
+      Nat.mod_eq_of_lt (show lay - 4 < 16 by omega)]
+/-- C31: FTS node tags are `247 - 8 c` (packed) or `248 - 8 c` (two-word) for the coordinate `c = lay - 4 < 9`. -/
 theorem nodeTweak_fts_tag_ne {lay : Nat} (h4 : 4 ≤ lay) (h13 : lay < 13) (tree heap : Nat) {t : Nat}
-    (h5 : t ≠ 247) (h6 : t ≠ 248) : tweakTag (nodeTweak 3 lay tree heap) ≠ t := by
+    (h : t < 183 ∨ 248 < t ∨ (t % 8 ≠ 0 ∧ t % 8 ≠ 7)) : tweakTag (nodeTweak 3 lay tree heap) ≠ t := by
   rw [nodeTweak_fts_tag h4 h13]; by_cases hn : FtsNew heap
   · rw [if_pos hn]; omega
   · rw [if_neg hn]; omega
@@ -2464,26 +2469,26 @@ theorem nodeTweak_fts_ne_hyper {lay lay' : Nat} (h4 : 4 ≤ lay) (h13 : lay < 13
     · have := topNodeWord_pos heap'; omega
     · rcases topNodeWord_small_or_special heap' with hs | hs | hs
       · omega
+      · rw [hs, nodeTweak_fts_low h4 h13] at hl
+        split_ifs at hl
+        · rw [ftsNodeWordH_toNat] at hl; unfold ftsBiasN at hl; omega
+        · rw [ftsNodeWord_toNat] at hl; unfold ftsBiasN at hl; omega
       · have ht := congrArg tweakTag he
         rw [nodeTweak_top_tag, hs] at ht
-        have hn := nodeTweak_fts_tag_ne h4 h13 tree heap (t := 240) (by decide) (by decide)
+        have hn := nodeTweak_fts_tag_ne h4 h13 tree heap (t := 56) (by decide)
         exact hn (by simpa using ht)
-      · have ht := congrArg tweakTag he
-        rw [nodeTweak_top_tag, hs] at ht
-        have hn := nodeTweak_fts_tag_ne h4 h13 tree heap (t := 56) (by decide) (by decide)
-        exact hn (by simpa using ht)
-  · exact ne_of_tweakTag (by rw [nodeTweak_lower_tag h0 hl']; exact nodeTweak_fts_tag_ne h4 h13 _ _ (by decide) (by decide))
+  · exact ne_of_tweakTag (by rw [nodeTweak_lower_tag h0 hl']; exact nodeTweak_fts_tag_ne h4 h13 _ _ (by decide))
 
 theorem nodeTweak_fts_ne_leafTweak {lay : Nat} (h4 : 4 ≤ lay) (h13 : lay < 13) (tree heap : Nat)
     (lay' : Layer) (tree' leaf' : Nat) : nodeTweak 3 lay tree heap ≠ leafTweak lay' tree' leaf' :=
   ne_of_tweakTag (by
     have := leafTweak_tag lay' tree' leaf'
-    exact fun he => nodeTweak_fts_tag_ne h4 h13 tree heap (t := tweakTag (leafTweak lay' tree' leaf')) (by omega) (by omega) he)
+    exact fun he => nodeTweak_fts_tag_ne h4 h13 tree heap (t := tweakTag (leafTweak lay' tree' leaf')) (by omega) he)
 theorem nodeTweak_fts_ne_rowTweak {lay : Nat} (h4 : 4 ≤ lay) (h13 : lay < 13) (tree heap : Nat)
     (lay' : Layer) (tree' leaf' : Nat) : nodeTweak 3 lay tree heap ≠ rowTweak lay' tree' leaf' :=
   ne_of_tweakTag (by
     have := rowTweak_tag lay' tree' leaf'
-    exact fun he => nodeTweak_fts_tag_ne h4 h13 tree heap (t := tweakTag (rowTweak lay' tree' leaf')) (by omega) (by omega) he)
+    exact fun he => nodeTweak_fts_tag_ne h4 h13 tree heap (t := tweakTag (rowTweak lay' tree' leaf')) (by omega) he)
 theorem nodeTweak_fts_ne_header {lay : Nat} (h4 : 4 ≤ lay) (h13 : lay < 13) (tree heap : Nat) {tag : Nat}
     (ht : tag % 256 ≠ 254) (lay' tree' position index : Nat) :
     nodeTweak 3 lay tree heap ≠ header tag lay' tree' position index := by

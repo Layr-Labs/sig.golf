@@ -7606,12 +7606,13 @@ theorem ftsChainHeaderP_firstByte (index coord selected chain step : Nat) (high 
   rw [ftsChainHeaderP_toNat, ← ftsChainLow_byte0 index coord selected chain step]
   omega
 theorem ftsChainHeaderP_byte1 (index coord selected chain step : Nat) (high : BitVec 64) :
-    (ftsChainHeaderP index coord selected chain step high).toNat / 2 ^ 8 % 256 = (250 + chain % 8) % 256 := by
+    (ftsChainHeaderP index coord selected chain step high).toNat / 2 ^ 8 % 256 =
+      (506 + chain % 8 - 8 * (coord % 16)) % 256 := by
   rw [ftsChainHeaderP_toNat]
   have := ftsChainLow_tag index coord selected chain step
   omega
 theorem ftsChainHeaderP_ne_header (index coord selected chain step : Nat) (high : BitVec 64)
-    (tag lay tree position idx : Nat) (ht : tag % 256 < 248) (hchain : chain < 6) :
+    (tag lay tree position idx : Nat) (ht : tag % 256 < 130) (hchain : chain < 6) :
     ftsChainHeaderP index coord selected chain step high ≠ header tag lay tree position idx := by
   intro h
   have hc := ftsChainHeaderP_byte1 index coord selected chain step high
@@ -7692,9 +7693,10 @@ theorem wctNodeHeader_ne_chainHeader (coord index heap : Nat) (lay : Layer) (tre
     have hw := (chainHeader_low_bytes lay tree leaf i st).2
     rw [← h, wctNodeHeader_low hn.1, if_pos hn.2, BitVec.toNat_ofNat,
       Nat.mod_eq_of_lt (ftsNodeLowN_lt ..)] at hw
-    have : ftsNodeLowN index coord heap / 256 % 256 = 247 := by
+    have : ftsNodeLowN index coord heap / 256 % 256 = 247 - 8 * coord := by
       obtain ⟨h8, h128⟩ := hn.2
-      rw [ftsNodeLowN_eq]; unfold SigGolfCandidate.T3.ftsBiasN; omega
+      have hk9 := hn.1
+      rw [ftsNodeLowN_eq, Nat.mod_eq_of_lt (show coord < 16 by omega)]; unfold SigGolfCandidate.T3.ftsBiasN; omega
     omega
   · have hc := chainHeader_firstByte lay tree leaf i st
     rw [← h, wctNodeHeader_firstByte] at hc
@@ -7714,10 +7716,10 @@ theorem wctNodeHeader_low_ne_chainHeader {coord : Nat} (hk : coord < 9) (index h
   have h2lt := ftsLeafLow_lt index coord 0
   have h3 : ftsLeafLow index coord 0 % 256 = 0 := by rw [ftsLeafLow_zero]; unfold SigGolfCandidate.T3.ftsBiasN; omega
   split at hw
-  · have : ftsNodeLowN index coord heap / 256 % 256 = 247 := by
+  · have : ftsNodeLowN index coord heap / 256 % 256 = 247 - 8 * coord := by
       rename_i hn
       obtain ⟨h8, h128⟩ := hn
-      rw [ftsNodeLowN_eq]; unfold SigGolfCandidate.T3.ftsBiasN; omega
+      rw [ftsNodeLowN_eq, Nat.mod_eq_of_lt (show coord < 16 by omega)]; unfold SigGolfCandidate.T3.ftsBiasN; omega
     omega
   · omega
 theorem wctNodeHeader_ne_header {coord : Nat} (hk : coord < 9) (index heap tag lay tree position idx : Nat)
@@ -7755,7 +7757,8 @@ theorem wctNodeHeader_ne_ftsChainHeaderP (coord index heap : Nat) (i k j t s : N
 
 theorem ftsLeafHeader_tweakMarker (index coord selected : Nat) : tweakMarker (ftsLeafHeader index coord selected) = 0 :=
   ftsLeafHeader_firstByte index coord selected
-theorem ftsLeafHeader_tweakTag (index coord selected : Nat) : tweakTag (ftsLeafHeader index coord selected) = 248 := by
+theorem ftsLeafHeader_tweakTag (index coord selected : Nat) :
+    tweakTag (ftsLeafHeader index coord selected) = 248 - 8 * (coord % 16) := by
   unfold tweakTag; have := ftsLeafHeader_byte1 index coord selected; norm_num at this ⊢; omega
 theorem wctNodeHeader_tweakMarker (coord index heap : Nat) :
     tweakMarker (wctNodeHeader coord index heap) = if coord < 9 then (if FtsNew heap then 256 - heap else 0) else 1 :=
@@ -7763,7 +7766,7 @@ theorem wctNodeHeader_tweakMarker (coord index heap : Nat) :
 theorem wctNodeHeader_tweakMarker_ne_digest (coord index heap : Nat) : tweakMarker (wctNodeHeader coord index heap) ≠ 128 :=
   wctNodeHeader_firstByte_ne_digest coord index heap
 theorem wctNodeHeader_tweakTag {coord : Nat} (hk : coord < 9) (index heap : Nat) :
-    tweakTag (wctNodeHeader coord index heap) = if FtsNew heap then 247 else 248 := by
+    tweakTag (wctNodeHeader coord index heap) = (if FtsNew heap then 247 else 248) - 8 * coord := by
   unfold tweakTag; have := wctNodeHeader_byte1 hk index heap
   by_cases hn : FtsNew heap
   · rw [if_pos hn] at this ⊢; norm_num at this ⊢; omega

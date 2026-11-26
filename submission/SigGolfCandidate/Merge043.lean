@@ -5757,12 +5757,13 @@ theorem decodeProbe_of_hdrBlock {x : HashInput} {h : BitVec 128} (hx : hdrBlock 
   rw [this] at hb
   omega
 theorem ftsChainHeader_byte1 (index coord selected i step : Nat) (hi : i < 6) :
-    248 ≤ (ftsChainHeader index coord selected i step).toNat / 256 % 256 := by
+    130 ≤ (ftsChainHeader index coord selected i step).toNat / 256 % 256 ∧
+      2 ≤ (ftsChainHeader index coord selected i step).toNat / 256 % 256 % 8 := by
   rw [ftsChainHeader_toNat, ftsChainLow_tag, Nat.mod_eq_of_lt (by omega : i < 8)]
   omega
-/-- Tags below 248 are outside the repacked FTS chain domain. -/
+/-- C31: tags below 130 (or with tag % 8 below 2) are outside the FTS chain domain. -/
 theorem decodeProbe_of_hdrBlock_tag {x : HashInput} {h : BitVec 128} (hx : hdrBlock x = bytesLE 16 h)
-    (ht : h.toNat / 256 % 256 < 248) : decodeProbe x = none := by
+    (ht : h.toNat / 256 % 256 < 130) : decodeProbe x = none := by
   rw [decodeProbe_eq_none]
   intro a p c he
   rw [he, hdrBlock_probeInput] at hx

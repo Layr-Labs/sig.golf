@@ -4957,7 +4957,7 @@ theorem notEnc_ftsLeaf (index coord selected : Nat) (pad : Digest) (ends : List 
   unfold leafInputP
   rw [List.append_assoc (bytesLE 16 _ ++ _)]
   exact nonEnc_of_hdr _ _ (hdrBlock_pad64_prefix _ _ _ (bytesLE_length _ _))
-    (notHyper_of_tag (by rw [ftsLeafHeader_tweakTag]; decide))
+    (notHyper_of_tag (by rw [ftsLeafHeader_tweakTag]; omega))
 
 /-- C1: the paired leaf of heap `heap` (either half) makes the same non-encoding query. -/
 theorem notEnc_ftsLeafH (heap index coord selected : Nat) (pad : Digest) (ends : List Digest) :
@@ -4968,7 +4968,7 @@ theorem notEnc_topLow (coord index heap : Nat) (hcoord : coord < 9) (left pad ri
     AllQueriesSatisfy (shortHash (wctTopInput coord index heap left pad right)) NotEncS := by
   apply notEnc_shortHash _ (by simp [wctTopInput, bytesLE_length])
   apply nonEnc_of_hdr _ (wctNodeHeader coord index heap) ?_
-    (notHyper_of_tag (by rw [wctNodeHeader_tweakTag hcoord]; split <;> decide))
+    (notHyper_of_tag (by rw [wctNodeHeader_tweakTag hcoord]; split <;> omega))
   unfold wctTopInput
   rw [List.append_assoc (bytesLE 16 left ++ bytesLE 16 _)]
   exact hdrBlock_pad64_prefix _ _ _ (bytesLE_length _ _)

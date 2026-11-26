@@ -11879,7 +11879,7 @@ section
 namespace SigGolfCandidate.T3M.Extract
 open SigGolfCandidate.T3
 def ftsChainMark (hdr : HashInput) : Prop :=
-  (hdr.getD 0 0).toNat < 4 ∧ 250 ≤ (hdr.getD 1 0).toNat ∧ (hdr.getD 1 0).toNat < 256
+  (hdr.getD 0 0).toNat < 4 ∧ 130 ≤ (hdr.getD 1 0).toNat ∧ 2 ≤ (hdr.getD 1 0).toNat % 8
 instance (hdr : HashInput) : Decidable (ftsChainMark hdr) := inferInstanceAs (Decidable (_ ∧ _ ∧ _))
 def headerMarked (hdr : HashInput) : Prop :=
   (128 ≤ (hdr.getD 0 0).toNat ∨ ftsChainMark hdr) ∧

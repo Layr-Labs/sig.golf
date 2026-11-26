@@ -27,7 +27,7 @@ theorem clear_scatter_finish {im:Image} (hz:SharedZero.ClearCode im)
     ∃v,Steps im s 4984 5161 v ∧ v.pc=pcOf 49400 ∧ v.getReg .x5=1 ∧
       ClaudeWCT.W9.Machine.Expand.SharedCompactMain.Phase1 output witness v ∧
       (∀ A, (0x66700 ≤ A ∧ A < 0x66760 ∨ 0x700000 ≤ A ∧ A < 0x700160 ∨ 0x7e1750 ≤ A ∧ A < 0x7e4c60 ∨
-        0x7eb870 ≤ A ∧ A < 0x7f8000) → v.getMem (BitVec.ofNat 64 A)=s.getMem (BitVec.ofNat 64 A)) := by
+        0x7eb870 ≤ A ∧ A < 0x800000) → v.getMem (BitVec.ofNat 64 A)=s.getMem (BitVec.ofNat 64 A)) := by
   obtain ⟨t,st,tp,tzero,tctr,tmode,tdigest,tr,tf⟩:=SharedZero.final_clear hz s hp
   have tin:SharedCompact.ForestAt t b:=hin.frame tf (by intros A hA hB hw;omega)
   have tplan:SharedScatter.PlanAt t:=hplan.frame tf (by intros A hA hB hw;omega)
@@ -73,7 +73,7 @@ theorem finish_steps {im : Image} (hcompact : CompactCodeAt im)
     ∃v,Steps im s 70972 71149 v ∧ v.pc=pcOf 49400 ∧ v.getReg .x5=1 ∧
       ClaudeWCT.W9.Machine.Expand.SharedCompactMain.Phase1 output witness v ∧
       (∀ A, (0x66700 ≤ A ∧ A < 0x66760 ∨ 0x700000 ≤ A ∧ A < 0x700160 ∨ 0x7e1750 ≤ A ∧ A < 0x7e4c60 ∨
-        0x7eb870 ≤ A ∧ A < 0x7f8000) → v.getMem (BitVec.ofNat 64 A)=s.getMem (BitVec.ofNat 64 A)) := by
+        0x7eb870 ≤ A ∧ A < 0x800000) → v.getMem (BitVec.ofNat 64 A)=s.getMem (BitVec.ofNat 64 A)) := by
   obtain ⟨t,st,pt,main,ctr,keep⟩:=compact_main_steps hcompact output (Paired.mainWitness witness) s hpc hout hp hlp htp hmain
   have tin : SharedCompact.ForestAt t b := by
     intro k hk

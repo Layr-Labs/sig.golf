@@ -3296,18 +3296,18 @@ def bufferBias (lay : Nat) : Nat := [14336,17968,21224,24480].getD lay 0
 def bufferBase (lay : Nat) : Nat := [15288,18752,22008,25264].getD lay 0
 def preK (lay : Nat) : List (Reg × Word) :=
   if lay = 3 then [(.x5, 0)] ++ [(.x8, BitVec.ofNat 64 4095), (.x11, 64), (.x26, 6), (.x13, 2), 
-    (.x2, BitVec.ofNat 64 0xffbde0), (.x19, 3), (.x20, 4), (.x21, 5), (.x6, 0x10000)]
-  else baseK ++ [(.x6, 0x10000), (.x9, 0x7fc01),
+    (.x2, BitVec.ofNat 64 0xffbde0), (.x19, 3), (.x20, 4), (.x21, 5), (.x6, 0)]
+  else baseK ++ [(.x6, 0), (.x9, 0x7fc01),
     (.x1, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x11, 64),
     (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), 
     (.x5, 0), (.x2, BitVec.ofNat 64 0xffbde0), (.x27, 0x3fe00), (.x4, BitVec.ofNat 64 (bufferBias (lay+1)))]
 def layK (lay : Nat) : List (Reg × Word) :=
-  baseK ++ [(.x6, 0x10000), (.x11, 64),
+  baseK ++ [(.x6, 0), (.x11, 64),
     (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), 
     (.x2, BitVec.ofNat 64 0xffbde0)] ++
     (if lay = 3 then [] else [(.x9, 0x7fc01), (.x1, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x5, 0), (.x27, 0x3fe00), (.x4, BitVec.ofNat 64 (bufferBias lay))])
 def chainK (lay : Nat) : List (Reg × Word) :=
-  baseK ++ [(.x6, 0x10000), (.x9, 0x7fc01),
+  baseK ++ [(.x6, 0), (.x9, 0x7fc01),
     (.x1, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x11, 64),
     (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), 
     (.x5, 0), (.x27, 0x3fe00), (.x4, BitVec.ofNat 64 (bufferBias lay))]

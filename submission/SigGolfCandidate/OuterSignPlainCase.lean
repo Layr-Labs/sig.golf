@@ -42,13 +42,13 @@ theorem fallback {sk : BitVec 256} {tb ret heap A D : Nat} {pre mid right : List
     (sv0 : u.getMem (BitVec.ofNat 64 1104)=s.getReg .x14) (sv1 : u.getMem (BitVec.ofNat 64 1112)=s.getReg .x17)
     (sv4 : u.getMem (BitVec.ofNat 64 1136)=s.getReg .x16)
     (hf : Frame s u (fun X=>X=1104 ∨ X=1112 ∨ X=1136)) :
-    TBSim OuterImages.signImage sk u 35 ((fun a=>(0,a)) <$> publicHash (pre++mid++right))
+    TBSim OuterImages.signImage sk u 37 ((fun a=>(0,a)) <$> publicHash (pre++mid++right))
       (OuterSignInterface.Out s ret heap D (2-signR tb)) := by
   have FI:=OuterSignInput.plain F hr hf hA hAi hD hDi
   have H:=OuterSignFallbackCall.run (sk:=sk) FI hbad hp
   have H':=TBSim.bind (W₂:=9) H (fun a t ht=>OuterSignPlainFinish.finish (r:=(0,a)) hT F hD hng ht hr h16 sv0 sv1 sv4 hf)
   rw [map_eq_bind_pure_comp]
-  change TBSim OuterImages.signImage sk u 35 (publicHash (pre++mid++right) >>= fun a=>pure (0,a)) (OuterSignInterface.Out s ret heap D (2-signR tb))
+  change TBSim OuterImages.signImage sk u 37 (publicHash (pre++mid++right) >>= fun a=>pure (0,a)) (OuterSignInterface.Out s ret heap D (2-signR tb))
   exact H'
 #print axioms canonical
 #print axioms fallback
