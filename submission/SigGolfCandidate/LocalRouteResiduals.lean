@@ -18,7 +18,8 @@ def sub0Code : List (BitVec 32) := [0x406a8ab3]
 sym_block sub0 := symRun {noAlias:=true} sub0Code (pcOf 46939) 10
 structure Code0 (im : Image) : Prop where
   pre : CodeAt im (pcOf 46933) pre0Code
-  helper : CodeAt im (pcOf 88060) LocalRouteMachineHelpers.expand1Code
+  helperJump : CodeAt im (pcOf 88060) LocalRouteMachineHelpers.expand1JumpCode
+  helper : CodeAt im (pcOf 88106) LocalRouteMachineHelpers.expand1Code
   test : CodeAt im (pcOf 46936) test0Code
   zero : CodeAt im (pcOf 46937) zero0Code
   sub : CodeAt im (pcOf 46939) sub0Code
@@ -28,7 +29,7 @@ theorem first0_steps {im : Image} (hc : Code0 im)
     (hi : index<2^64) (hR : R≤75) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417856#64=BitVec.ofNat 64 C)
     (hindex : s.getMem 0x20550#64=BitVec.ofNat 64 index) :
-    ∃ t, Steps im s 16 16 t ∧
+    ∃ t, Steps im s 22 22 t ∧
       t.pc=(if guardedCredit R C (lowerPathSave 1 (index/2^12))<R then pcOf 46939 else pcOf 46937) ∧
       t.getReg .x6=BitVec.ofNat 64 (guardedCredit R C (lowerPathSave 1 (index/2^12))) ∧
       RegsExcept s t [.x6,.x7,.x28] ∧ Frame s t (fun _=>False) := by
@@ -41,7 +42,7 @@ theorem first0_steps {im : Image} (hc : Code0 im)
   have ui : u.getMem 0x20550#64=BitVec.ofNat 64 index := by simpa [u,pre0.res,rv_simp] using hindex
   have ru : RegsExcept s u [.x28] := by intro r hr;cases r <;> simp at hr <;> rfl
   have fu : Frame s u (fun _=>False) := by intro A ha hn;rfl
-  obtain ⟨v,sv,pv,v6,rv,fv⟩ := LocalRouteMachineHelpers.expand1_steps hc.helper u pu index C R
+  obtain ⟨v,sv,pv,v6,rv,fv⟩ := LocalRouteMachineHelpers.expand1_steps hc.helperJump hc.helper u pu index C R
     hi hC (by omega) u28 u21 um ui
   let t := test0.res.toState v
   have st : Steps im v 1 1 t := symRun_sound test0 hc.test v pv (by simp [test0.res,rv_simp])
@@ -52,7 +53,7 @@ theorem first0_steps {im : Image} (hc : Code0 im)
   refine ⟨t,(su.trans sv).trans st,?_,ht6,((ru.trans rv).trans rt).mono (by decide),((fu.trans fv).trans ft).mono (by simp)⟩
   have v21 : v.getReg .x21=BitVec.ofNat 64 R := (rv .x21 (by decide)).trans u21
   have hcG : guardedCredit R C (lowerPathSave 1 (index/2^12))<2^64 :=
-    guardedCredit_lt R C _ _ (by omega) hC (lowerPathSave_le_one _ _)
+    guardedCredit_lt R C _ _ (by omega) hC (lowerPathSave_le_two _ _)
   simp only [t,Result.toState_pc,test0.res,rv_simp,v21,v6]
   simp only [BitVec.ult_eq_decide,BitVec.toNat_ofNat,Nat.mod_eq_of_lt hcG,
     Nat.mod_eq_of_lt (show R<2^64 by omega),decide_eq_true_eq]
@@ -102,7 +103,7 @@ theorem first1_steps {im : Image} (hc : Code1 im)
   refine ⟨t,(su.trans sv).trans st,?_,ht6,((ru.trans rv).trans rt).mono (by decide),((fu.trans fv).trans ft).mono (by simp)⟩
   have v21 : v.getReg .x21=BitVec.ofNat 64 R := (rv .x21 (by decide)).trans u21
   have hcG : guardedCredit R C (lowerPathSave 2 (index/2^6))<2^64 :=
-    guardedCredit_lt R C _ _ (by omega) hC (lowerPathSave_le_one _ _)
+    guardedCredit_lt R C _ _ (by omega) hC (lowerPathSave_le_two _ _)
   simp only [t,Result.toState_pc,test1.res,rv_simp,v21,v6]
   simp only [BitVec.ult_eq_decide,BitVec.toNat_ofNat,Nat.mod_eq_of_lt hcG,
     Nat.mod_eq_of_lt (show R<2^64 by omega),decide_eq_true_eq]
@@ -152,7 +153,7 @@ theorem first2_steps {im : Image} (hc : Code2 im)
   refine ⟨t,(su.trans sv).trans st,?_,ht6,((ru.trans rv).trans rt).mono (by decide),((fu.trans fv).trans ft).mono (by simp)⟩
   have v21 : v.getReg .x21=BitVec.ofNat 64 R := (rv .x21 (by decide)).trans u21
   have hcG : guardedCredit R C (lowerPathSave 3 (index/2^0))<2^64 :=
-    guardedCredit_lt R C _ _ (by omega) hC (lowerPathSave_le_one _ _)
+    guardedCredit_lt R C _ _ (by omega) hC (lowerPathSave_le_two _ _)
   simp only [t,Result.toState_pc,test2.res,rv_simp,v21,v6]
   simp only [BitVec.ult_eq_decide,BitVec.toNat_ofNat,Nat.mod_eq_of_lt hcG,
     Nat.mod_eq_of_lt (show R<2^64 by omega),decide_eq_true_eq]
@@ -163,7 +164,7 @@ theorem residual0_steps {im : Image} (hc : Code0 im)
     (hi : index<2^64) (hR : R≤75) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417856#64=BitVec.ofNat 64 C)
     (hindex : s.getMem 0x20550#64=BitVec.ofNat 64 index) :
-    ∃ t n, n≤18 ∧ Steps im s n n t ∧ t.pc=pcOf 46940 ∧
+    ∃ t n, n≤24 ∧ Steps im s n n t ∧ t.pc=pcOf 46940 ∧
       t.getReg .x21=BitVec.ofNat 64 (R-C-lowerPathSave 1 (index/2^12)) ∧
       RegsExcept s t [.x6,.x7,.x21,.x28] ∧ Frame s t (fun _=>False) := by
   let G := guardedCredit R C (lowerPathSave 1 (index/2^12))
@@ -180,14 +181,14 @@ theorem residual0_steps {im : Image} (hc : Code0 im)
       exact BitVec.ofNat_sub_ofNat_of_le R G (by omega) (by omega)
     have rt : RegsExcept u t [.x21] := by intro r hr;cases r <;> simp at hr <;> rfl
     have ft : Frame u t (fun _=>False) := by intro A ha hn;rfl
-    refine ⟨t,16+1,by omega,su.trans st,rfl,?_,(ru.trans rt).mono (by decide),(fu.trans ft).mono (by simp)⟩
+    refine ⟨t,22+1,by omega,su.trans st,rfl,?_,(ru.trans rt).mono (by decide),(fu.trans ft).mono (by simp)⟩
     simpa only [hg] using t21
   · rw [if_neg h] at pu
     let t := zero0.res.toState u
     have st : Steps im u 2 2 t := symRun_sound zero0 hc.zero u pu (by simp [zero0.res,rv_simp])
     have rt : RegsExcept u t [.x21] := by intro r hr;cases r <;> simp at hr <;> rfl
     have ft : Frame u t (fun _=>False) := by intro A ha hn;rfl
-    refine ⟨t,16+2,by omega,su.trans st,rfl,?_,(ru.trans rt).mono (by decide),(fu.trans ft).mono (by simp)⟩
+    refine ⟨t,22+2,by omega,su.trans st,rfl,?_,(ru.trans rt).mono (by decide),(fu.trans ft).mono (by simp)⟩
     have hz : R-G=0 := by omega
     rw [←hg,hz]
     rfl

@@ -8,18 +8,34 @@ open ClaudeWCT.WCT9 SigGolfCandidate.Research.SharedForest
 abbrev Signature := SigGolfCandidate.Research.SharedForest.Signature
 abbrev Witness := SigGolfCandidate.Research.SharedForest.Witness
 
-def rootPool (leaf : Nat) : Nat := 73-CanonicalPolicy.topPathSave leaf
+def rootPool (leaf : Nat) : Nat := 74-CanonicalPolicy.topPathSave leaf
 def requiredCredit (index : Nat) : Nat := rootPool (route index 0).1
 
-theorem rootPool_bounds (leaf : Nat) : 71≤rootPool leaf ∧ rootPool leaf≤73 := by
+theorem rootPool_bounds (leaf : Nat) : 72≤rootPool leaf ∧ rootPool leaf≤74 := by
   unfold rootPool CanonicalPolicy.topPathSave CanonicalPolicy.topPairSave
   split_ifs <;> omega
 
-theorem requiredCredit_bounds (index : Nat) : 71≤requiredCredit index ∧ requiredCredit index≤73 := rootPool_bounds _
-theorem root_floor (index : Nat) : Policy75Safe23.threshold 0 (requiredCredit index)=16 := by
+theorem requiredCredit_bounds (index : Nat) : 72≤requiredCredit index ∧ requiredCredit index≤74 := rootPool_bounds _
+/-- Leaf-dependent top floor: 17 when the top path has no saved updates (pool 74), else 16. -/
+def rootFloor (index : Nat) : Nat := if CanonicalPolicy.topPathSave (route index 0).1 = 0 then 17 else 16
+theorem rootFloor_bounds (index : Nat) : 16≤rootFloor index ∧ rootFloor index≤17 := by
+  unfold rootFloor; split_ifs <;> omega
+theorem topPathSave_le_two (leaf : Nat) : CanonicalPolicy.topPathSave leaf ≤ 2 := by
+  unfold CanonicalPolicy.topPathSave CanonicalPolicy.topPairSave
+  split_ifs <;> omega
+theorem root_floor (index : Nat) : Policy75Safe23.threshold 0 (requiredCredit index)=rootFloor index := by
   rw [Policy75Safe23.threshold_top]
-  have h:=requiredCredit_bounds index
-  omega
+  have h := topPathSave_le_two (route index 0).1
+  unfold rootFloor requiredCredit rootPool
+  split_ifs <;> omega
+theorem shared_root_floor (index : Nat) :
+    Policy75Safe23.threshold 0 (SigGolfCandidate.Research.SharedForest.requiredCredit index)=rootFloor index := by
+  rw [Policy75Safe23.threshold_top]
+  have h := topPathSave_le_two (route index 0).1
+  unfold rootFloor SigGolfCandidate.Research.SharedForest.requiredCredit SigGolfCandidate.Research.SharedForest.LocalRoute.pool
+  split_ifs <;> omega
+theorem requiredCredit_eq (index : Nat) :
+    requiredCredit index=SigGolfCandidate.Research.SharedForest.requiredCredit index := rfl
 
 def searchPreparedLayers (cache : SigGolfCandidate.T3.Cache) (index : Nat) (prepared : PreparedRoots)
     (forest : PairRoot) : M (Option CanonicalLayers) := do

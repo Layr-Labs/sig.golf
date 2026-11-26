@@ -11478,18 +11478,21 @@ open SigGolfCandidate.T3 ClaudeWCT.WCT9
 
 def ownSave (index lay : Nat) : Nat := CanonicalPolicy.lowerPathSave lay (route index (Fin.ofNat 4 lay)).1
 
-def pool (index : Nat) : Nat := 73-CanonicalPolicy.topPathSave (route index 0).1
+def pool (index : Nat) : Nat := 74-CanonicalPolicy.topPathSave (route index 0).1
 
 def r1 (index c0 : Nat) : Nat := pool index-c0-ownSave index 1
 def r2 (index c0 c1 : Nat) : Nat := r1 index c0-c1-ownSave index 2
 def r3 (index c0 c1 c2 : Nat) : Nat := r2 index c0 c1-c2-ownSave index 3
 
-theorem pool_bounds (index : Nat) : 71≤pool index ∧ pool index≤73 := by
+theorem pool_bounds (index : Nat) : 72≤pool index ∧ pool index≤74 := by
   unfold pool CanonicalPolicy.topPathSave CanonicalPolicy.topPairSave
   split_ifs <;> omega
 
-theorem ownSave_le_one (index lay : Nat) : ownSave index lay≤1 :=
-  CanonicalPolicy.lowerPathSave_le_one _ _
+theorem ownSave_le_two (index lay : Nat) : ownSave index lay≤2 :=
+  CanonicalPolicy.lowerPathSave_le_two _ _
+
+theorem ownSave_le_one_of (index lay : Nat) (h : lay ≠ 1) : ownSave index lay≤1 :=
+  CanonicalPolicy.lowerPathSave_le_one_of _ _ h
 
 end SigGolfCandidate.Research.SharedForest.LocalRoute
 
@@ -11500,7 +11503,7 @@ open SigGolfCandidate.T3.Correctness
 /-- Canonical root credit depends only on the top WOTS leaf's own address. -/
 def requiredCredit (index : Nat) : Nat := LocalRoute.pool index
 
-theorem requiredCredit_bounds (index : Nat) : 71 ≤ requiredCredit index ∧ requiredCredit index ≤ 73 :=
+theorem requiredCredit_bounds (index : Nat) : 72 ≤ requiredCredit index ∧ requiredCredit index ≤ 74 :=
   LocalRoute.pool_bounds index
 
 /-- The next lower floor credits only that key's own public leaf address. -/
@@ -14319,7 +14322,7 @@ theorem residual_credit_pool (index c0 c1 c2 c3 : Nat)
     (h1 : Policy75Safe23.threshold 1 (r1 index c0)≤c1)
     (h2 : Policy75Safe23.threshold 2 (r2 index c0 c1)≤c2)
     (h3 : Policy75Safe23.threshold 3 (r3 index c0 c1 c2)≤c3) :
-    73 ≤ c0+c1+c2+c3+CanonicalPolicy.topPathSave (route index 0).1+
+    74 ≤ c0+c1+c2+c3+CanonicalPolicy.topPathSave (route index 0).1+
       ownSave index 1+ownSave index 2+ownSave index 3 := by
   have hp := pool_bounds index
   rw [Policy75Safe23.threshold_top] at h0
@@ -14382,9 +14385,9 @@ theorem policyHints_credit_sum {index : Nat} (hints : BitVec 16) (digits : List 
       CanonicalPolicy.credit lay (lows.getD lay.val true) (digits.getD lay.val [])).sum := by
   have h := policyHints_credit_sum_required hints digits lows hh hc
   have hb := requiredCredit_bounds index
-  have hs1 := LocalRoute.ownSave_le_one index 1
-  have hs2 := LocalRoute.ownSave_le_one index 2
-  have hs3 := LocalRoute.ownSave_le_one index 3
+  have hs1 := LocalRoute.ownSave_le_two index 1
+  have hs2 := LocalRoute.ownSave_le_one_of index 2 (by decide)
+  have hs3 := LocalRoute.ownSave_le_one_of index 3 (by decide)
   omega
 
 end SigGolfCandidate.Research.SharedForest

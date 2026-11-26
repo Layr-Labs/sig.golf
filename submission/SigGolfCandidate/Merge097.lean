@@ -4720,14 +4720,23 @@ theorem queryPathSave_source (index : Nat) (hi : index<2^31) (lay : Layer)
     rfl
   · simp only [queryPathSave,if_neg hl]
     rw [SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave_layer]
-    apply ClaudeWCT.WCT9.CanonicalPolicy.lowerPathSave_mod8
-    have hh := TopRouteQueryLeaf.qLeaf_mod8_of_header
-      (pad64 (ClaudeWCT.WCT9.layerEncodingInput lay (route index lay).2 (route index lay).1 msg c))
-      (pad64_aligned' _ (encInput_pos lay _ _ msg c)) lay
-      ((route index lay).2*2^height lay+(route index lay).1)
-      (by fin_cases lay <;> simp [SigGolfCandidate.T3.route, SigGolfCandidate.T3.height, SigGolfCandidate.T3.hyperW] <;> omega) 1 (by rw [encInput_hdr];rfl)
-    rw [hh]
-    fin_cases lay <;> norm_num [height] <;> omega
+    by_cases hl1 : lay.val = 1
+    · apply ClaudeWCT.WCT9.CanonicalPolicy.lowerPathSave_mod128
+      have hh := TopRouteQueryLeaf.qLeaf_mod128_of_header
+        (pad64 (ClaudeWCT.WCT9.layerEncodingInput lay (route index lay).2 (route index lay).1 msg c))
+        (pad64_aligned' _ (encInput_pos lay _ _ msg c)) lay
+        ((route index lay).2*2^height lay+(route index lay).1)
+        (by fin_cases lay <;> simp [SigGolfCandidate.T3.route, SigGolfCandidate.T3.height, SigGolfCandidate.T3.hyperW] <;> omega) 1 (by rw [encInput_hdr];rfl)
+      rw [hh]
+      fin_cases lay <;> simp at hl1 <;> norm_num [height] <;> omega
+    · apply ClaudeWCT.WCT9.CanonicalPolicy.lowerPathSave_mod8_of _ _ _ hl1
+      have hh := TopRouteQueryLeaf.qLeaf_mod8_of_header
+        (pad64 (ClaudeWCT.WCT9.layerEncodingInput lay (route index lay).2 (route index lay).1 msg c))
+        (pad64_aligned' _ (encInput_pos lay _ _ msg c)) lay
+        ((route index lay).2*2^height lay+(route index lay).1)
+        (by fin_cases lay <;> simp [SigGolfCandidate.T3.route, SigGolfCandidate.T3.height, SigGolfCandidate.T3.hyperW] <;> omega) 1 (by rw [encInput_hdr];rfl)
+      rw [hh]
+      fin_cases lay <;> norm_num [height] <;> omega
 
 theorem okHashBy_accepted_credit (floors : Layer → Nat) (high : Bool) (hash : Hash) (lay : Layer)
     (floor tree leaf : Nat) (msg : ClaudeWCT.WCT9.LayerMsg) (c : BitVec 32)

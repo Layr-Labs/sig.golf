@@ -3427,7 +3427,7 @@ theorem prefix_head_spec (s : MachineState) (a : BitVec 256) (high : Bool) (ra d
       simp [dProWordsOf, dHint, dHead, dLow]
     rwa [hl] at h
   have hhint : (extractByte (s.getMem 15304#64) 0).getLsbD 7 = high := hhint
-  have hal : 16168 ≤ ra ∧ ra ≤ 16360 := by
+  have hal : 16168 ≤ ra ∧ ra ≤ 16376 := by
     simp only [aVals, List.mem_cons, List.not_mem_nil, or_false] at hra; omega
   -- `ld t1,232(s1); addi s0,a0,K`
   have hm : s.getMem (s.getReg .x2 + 536#64) = 520192#64 := by rw [h9]; exact hmask
@@ -3640,7 +3640,7 @@ theorem topTransition (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat
       TopEntry (writeHash t a) (T3.TopChoice.read (ClaudeWCT.W9.T3M.wtopHigh w) a) (trPc 0 c) s := by
   have hc' : c < 128 := by have := BC.nCopy_eq; omega
   have ha := topRowA_mem c hc'
-  have hal : 16168 ≤ topRowA c ∧ topRowA c ≤ 16360 ∧ topRowA c % 8 = 0 := by
+  have hal : 16168 ≤ topRowA c ∧ topRowA c ≤ 16376 ∧ topRowA c % 8 = 0 := by
     simp only [Nonbinary.aVals, List.mem_cons, List.not_mem_nil, or_false] at ha; omega
   obtain ⟨d, h12, hd⟩ := ht.dst (by decide +kernel)
   change (d + 16 = topRowA c ∧ WIT + BC.bufferTop 0 + 16 ≤ topRowA c) ∨ d = topRowA c + 48 at hd
@@ -3766,7 +3766,7 @@ theorem topEntry_orig (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat
     Verify.Orig w (fun o => 7664 ≤ o ∧ o < layerEnd 0) s := by
   have hc' : c < 128 := by have := BC.nCopy_eq; omega
   have ha := topRowA_mem c hc'
-  have hal : 16104 ≤ topRowA c ∧ topRowA c ≤ 16360 := by
+  have hal : 16104 ≤ topRowA c ∧ topRowA c ≤ 16376 := by
     simp only [Nonbinary.aVals, List.mem_cons, List.not_mem_nil, or_false] at ha; omega
   obtain ⟨d, h12, hd⟩ := ht.dst (by decide +kernel)
   change (d + 16 = topRowA c ∧ WIT + BC.bufferTop 0 + 16 ≤ topRowA c) ∨ d = topRowA c + 48 at hd
@@ -3786,7 +3786,7 @@ theorem topEntry_bufferOrig (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c
     Verify.Orig w (fun o => BC.bufferStart 0 ≤ o ∧ o < BC.bufferTop 0) s := by
   have hc' : c < 128 := by have := BC.nCopy_eq; omega
   have ha := topRowA_mem c hc'
-  have hal : 16104 ≤ topRowA c ∧ topRowA c ≤ 16360 := by
+  have hal : 16104 ≤ topRowA c ∧ topRowA c ≤ 16376 := by
     simp only [Nonbinary.aVals, List.mem_cons, List.not_mem_nil, or_false] at ha; omega
   obtain ⟨d, h12, hd⟩ := ht.dst (by decide +kernel)
   change (d + 16 = topRowA c ∧ WIT + BC.bufferTop 0 + 16 ≤ topRowA c) ∨ d = topRowA c + 48 at hd
@@ -3969,7 +3969,7 @@ theorem topLeafReady_of (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : N
   have hk := topLeafK_of w pk index c t s0 s a ht he hr h15 h18
   have hc' : c < 128 := by have := BC.nCopy_eq; omega
   have ha := topRowA_mem c hc'
-  have hal : 16104 ≤ topRowA c ∧ topRowA c ≤ 16360 ∧ topRowA c % 8 = 0 := by
+  have hal : 16104 ≤ topRowA c ∧ topRowA c ≤ 16376 ∧ topRowA c % 8 = 0 := by
     simp only [Nonbinary.aVals, List.mem_cons, List.not_mem_nil, or_false] at ha; omega
   obtain ⟨d,h12,hd⟩ := ht.dst (by decide +kernel)
   change (d + 16 = topRowA c ∧ WIT + BC.bufferTop 0 + 16 ≤ topRowA c) ∨ d = topRowA c + 48 at hd
@@ -4060,10 +4060,12 @@ def mkWords (lay l : Nat) : Nat :=
 def mkOff (lay ci : Nat) : Nat → Nat
   | 0 => 0
   | kk + 1 => mkOff lay ci kk + mkWords lay (mkLo lay ci + kk)
+/-- L1 replan: bit `kk` of row `sh` marks the omitted `addi a2` before fold `kk` (the fold's answer lands where the
+next window reads it). -/
+def l1SkipMask : List Nat := [0,1,2,2,4,5,5,4,8,9,9,8,8,9,9,8,16,17,17,16,4,5,5,4,4,5,5,4,16,17,17,16,16,17,17,16,4,5,5,4,8,9,9,8,8,9,9,8,8,9,9,8,4,5,5,4,4,5,5,4,32,33,33,32,32,33,33,32,4,5,5,4,8,9,9,8,8,9,9,8,16,17,17,16,4,5,5,4,4,5,5,4,16,17,17,16,16,17,17,16,4,5,5,4,8,9,9,8,8,9,9,8,8,9,9,8,4,5,5,4,4,5,5,4,2,2,1,0]
 /-- Compact a top chunk after omitting its redundant first-node destination setup. -/
 def lowerSkipAt (lay sh kk : Nat) : Nat :=
-  if lay = 1 then
-    if (kk = 0 ∧ sh % 4 = 1) ∨ (kk = 1 ∧ (sh % 8 = 2 ∨ sh % 8 = 3)) then 1 else 0
+  if lay = 1 then (l1SkipMask.getD (sh % 128) 0 / 2 ^ kk) % 2
   else if (lay = 2 ∨ lay = 3) ∧ kk = 0 ∧ (sh % 4 = 1 ∨ sh % 4 = 2) then 1 else 0
 def mkPairSkip (lay sh kk : Nat) : Nat :=
   if lay = 0 ∧ kk = 0 then ClaudeWCT.WCT9.CanonicalPolicy.topPairSave sh else lowerSkipAt lay sh kk
