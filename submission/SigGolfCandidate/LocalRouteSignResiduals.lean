@@ -13,7 +13,8 @@ def topTestCode : List (BitVec 32) := [0x63e663]
 sym_block topTest := symRun {noAlias:=true} topTestCode (pcOf 22234) 10
 structure TopCode (im : Image) : Prop where
   pre : CodeAt im (pcOf 22230) topPreCode
-  helper : CodeAt im (pcOf 26019) LocalRouteMachineHelpers.signTopCode
+  helperJump : CodeAt im (pcOf 26019) LocalRouteMachineHelpers.signTopJumpCode
+  helper : CodeAt im (pcOf 1981) LocalRouteMachineHelpers.signTopCode
   test : CodeAt im (pcOf 22234) topTestCode
 
 theorem readTop_steps {im : Image} (hc : TopCode im)
@@ -21,7 +22,7 @@ theorem readTop_steps {im : Image} (hc : TopCode im)
     (hi : index<2^64) (hr : r<2^32) (hc' : c<2^32)
     (hrm : s.getMem (0x66008#64)=BitVec.ofNat 64 r) (hcm : s.getMem (0x66018#64)=BitVec.ofNat 64 c)
     (hmidx : s.getMem (0x20550#64)=BitVec.ofNat 64 index) :
-    ∃ t, Steps im s 18 18 t ∧
+    ∃ t, Steps im s 24 24 t ∧
       t.pc=(if guardedCredit r c (lowerPathSave 1 (index/4096))<r then pcOf 22237 else pcOf 22235) ∧
       t.getReg .x6=BitVec.ofNat 64 r ∧
       t.getReg .x7=BitVec.ofNat 64 (guardedCredit r c (lowerPathSave 1 (index/4096))) ∧
@@ -35,7 +36,7 @@ theorem readTop_steps {im : Image} (hc : TopCode im)
   have ui : u.getMem (0x20550#64)=BitVec.ofNat 64 index := by simpa [u,topPre.res,rv_simp] using hmidx
   have ru : RegsExcept s u [.x6,.x28] := by intro q hq;cases q <;> simp at hq <;> rfl
   have fu : Frame s u (fun _=>False) := by intro A ha hn;rfl
-  obtain ⟨v,sv,pv,v7,v28,rv,fv⟩:=LocalRouteMachineHelpers.signTop_steps hc.helper u pu index c r hi (by omega) (by omega) u6 u28 um ui
+  obtain ⟨v,sv,pv,v7,v28,rv,fv⟩:=LocalRouteMachineHelpers.signTop_steps hc.helperJump hc.helper u pu index c r hi (by omega) (by omega) u6 u28 um ui
   simp only [Nat.reducePow] at v7
   have v6 : v.getReg .x6=BitVec.ofNat 64 r := (rv.get (by decide)).trans u6
   let t:=topTest.res.toState v
@@ -45,7 +46,7 @@ theorem readTop_steps {im : Image} (hc : TopCode im)
   refine ⟨t,(su.trans sv).trans st,?_,(rt.get (by decide)).trans v6,(rt.get (by decide)).trans v7,
     (rt.get (by decide)).trans v28,((ru.trans rv).trans rt).mono (by decide),((fu.trans fv).trans ft).mono (by simp)⟩
   have hg : guardedCredit r c (lowerPathSave 1 (index/4096))<2^64 :=
-    guardedCredit_lt r c _ _ (by omega) (by omega) (lowerPathSave_le_one _ _)
+    guardedCredit_lt r c _ _ (by omega) (by omega) (lowerPathSave_le_two _ _)
   simp only [t,Result.toState_pc,topTest.res,rv_simp,v6,v7]
   simp only [BitVec.ult_eq_decide,BitVec.toNat_ofNat,Nat.mod_eq_of_lt hg,
     Nat.mod_eq_of_lt (show r<2^64 by omega),decide_eq_true_eq]
@@ -168,7 +169,7 @@ theorem residualTop_steps {im : Image} (hc : TopFullCode im)
     (hi : index<2^64) (hr : r<2^32) (hc' : c<2^32)
     (hrm : s.getMem (0x66008#64)=BitVec.ofNat 64 r) (hcm : s.getMem (0x66018#64)=BitVec.ofNat 64 c)
     (hmidx : s.getMem (0x20550#64)=BitVec.ofNat 64 index) :
-    ∃ t k, Steps im s k k t ∧ k≤21 ∧ t.pc=pcOf 22239 ∧
+    ∃ t k, Steps im s k k t ∧ k≤27 ∧ t.pc=pcOf 22239 ∧
       t.getMem (0x66008#64)=BitVec.ofNat 64 (r-c-lowerPathSave 1 (index/4096)) ∧
       RegsExcept s t [.x3,.x6,.x7,.x28] ∧ Frame s t (fun A=>A=0x66008) := by
   let G:=guardedCredit r c (lowerPathSave 1 (index/4096))
@@ -176,13 +177,13 @@ theorem residualTop_steps {im : Image} (hc : TopFullCode im)
   by_cases hcr : G<r
   · obtain ⟨b,ab,bp,b6,br,bf⟩:=sub22230_steps hc.sub a (by simpa [G,hcr] using ap) r G hr (by omega) a6 a7
     obtain ⟨t,bt,tp,tv,tr,tf⟩:=store22230_steps hc.store b bp _ b6 ((br.get (by decide)).trans a28)
-    refine ⟨t,20,sa.trans (ab.trans bt),by decide,tp,?_,((ar.trans br).trans tr).mono (by simp),((af.trans bf).trans tf).mono (by tauto)⟩
+    refine ⟨t,26,sa.trans (ab.trans bt),by decide,tp,?_,((ar.trans br).trans tr).mono (by simp),((af.trans bf).trans tf).mono (by tauto)⟩
     simpa only [G,residual_guardedCredit] using tv
   · obtain ⟨b,ab,bp,b6,br,bf⟩:=zero22230_steps hc.zero a (by simpa [G,hcr] using ap)
     obtain ⟨t,bt,tp,tv,tr,tf⟩:=store22230_steps hc.store b bp _ b6 ((br.get (by decide)).trans a28)
     have hz : r-c-lowerPathSave 1 (index/4096)=0 := by
       rw [←residual_guardedCredit]; exact Nat.sub_eq_zero_of_le (by omega)
-    exact ⟨t,21,sa.trans (ab.trans bt),by decide,tp,by simpa [hz] using tv,
+    exact ⟨t,27,sa.trans (ab.trans bt),by decide,tp,by simpa [hz] using tv,
       ((ar.trans br).trans tr).mono (by simp),((af.trans bf).trans tf).mono (by tauto)⟩
 #print axioms residualTop_steps
 
@@ -246,7 +247,7 @@ theorem readLower_steps {im : Image} (hc : LowerCode im)
   refine ⟨t,4+n+1,by omega,(su.trans sv).trans st,?_,(rt.get (by decide)).trans v6,(rt.get (by decide)).trans v7,
     (rt.get (by decide)).trans v28,((ru.trans rv).trans rt).mono (by decide),((fu.trans fv).trans ft).mono (by simp)⟩
   have hg : guardedCredit r c (lowerSaved index lay)<2^64:=
-    guardedCredit_lt r c _ _ (by omega) (by omega) (lowerPathSave_le_one _ _)
+    guardedCredit_lt r c _ _ (by omega) (by omega) (lowerPathSave_le_two _ _)
   simp only [t,Result.toState_pc,lowerTest.res,rv_simp,v6,v7]
   simp only [BitVec.ult_eq_decide,BitVec.toNat_ofNat,Nat.mod_eq_of_lt hg,
     Nat.mod_eq_of_lt (show r<2^64 by omega),decide_eq_true_eq]

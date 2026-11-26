@@ -16,9 +16,11 @@ theorem hintFloor_eq (index : Nat) (hints : BitVec 16) (lay : Layer) :
   unfold hintFloor OuterLifted.SigGolfCandidate.Research.SharedForest.hintFloor
   by_cases h : lay=0
   · subst lay
-    rw [if_pos rfl,if_pos rfl,OuterSigning.root_floor,Policy75Safe23.threshold_top]
-    have hb:=requiredCredit_bounds index
-    omega
+    rw [if_pos rfl,if_pos rfl]
+    first
+    | rfl
+    | (rw [OuterSigning.root_floor]; exact (OuterSigning.shared_root_floor index).symm)
+    | (rw [OuterSigning.shared_root_floor, OuterSigning.root_floor])
   · rw [if_neg h,if_neg h]
 
 theorem valid_eq (index : Nat) (hints : BitVec 16) (ds : List (List Nat)) (ls : List Bool) :

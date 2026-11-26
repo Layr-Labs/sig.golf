@@ -7,10 +7,8 @@ namespace OuterPreparedFacts
 open OracleComp OracleSpec SigGolfCandidate.T3 SigGolfCandidate.T3.Correctness
 open ClaudeWCT.WCT9 SigGolfCandidate.Research.SharedForest
 
-theorem old_root_floor (index : Nat) : Policy75Safe23.threshold 0 (SigGolfCandidate.Research.SharedForest.requiredCredit index)=16 := by
-  rw [Policy75Safe23.threshold_top]
-  have h:=SigGolfCandidate.Research.SharedForest.requiredCredit_bounds index
-  omega
+theorem old_root_floor (index : Nat) : Policy75Safe23.threshold 0 (SigGolfCandidate.Research.SharedForest.requiredCredit index)=OuterSigning.rootFloor index :=
+  OuterSigning.shared_root_floor index
 
 def preparedResidual1 (index : Nat) (result : CanonicalLayers) : Nat :=
   routeResidual index ((OuterSigning.requiredCredit index)) 0 (result.lows.getD 0 true) (result.digits.getD 0 [])

@@ -107,8 +107,8 @@ theorem V_layers (secret : BitVec 256) (z : ENNReal) (hz : 1 ≤ z)
 noncomputable def initialValue (pool s1 s2 s3 : Nat) : ENNReal :=
   (OuterRootNumerics.initialAt pool (4*s1+2*s2+s3) : ENNReal)/ClaudeWCT.Numerics.CanonicalCompression.scale
 
-theorem root_step (pool s1 s2 s3 : Nat) (hlo : 71 ≤ pool) (hhi : pool ≤ 73)
-    (hs1 : s1 ≤ 1) (hs2 : s2 ≤ 1) (hs3 : s3 ≤ 1) :
+theorem root_step (pool s1 s2 s3 : Nat) (hlo : 72 ≤ pool) (hhi : pool ≤ 74)
+    (hs1 : s1 ≤ 2) (hs2 : s2 ≤ 1) (hs3 : s3 ≤ 1) :
     1 ≤ initialValue pool s1 s2 s3 ∧
     ((ClaudeWCT.Numerics.CanonicalCompression.zNum : ENNReal)/ClaudeWCT.Numerics.CanonicalCompression.zDen) *
       (acceptedWeight (decoder 0 (max 16 (pool-57)))
@@ -152,9 +152,9 @@ theorem V_layers_certified (secret : BitVec 256) (cache : SigGolfCandidate.T3.Ca
   let s1 := SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1
   let s2 := SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 2
   let s3 := SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 3
-  have hs1 : s1≤1 := SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave_le_one _ _
-  have hs2 : s2≤1 := SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave_le_one _ _
-  have hs3 : s3≤1 := SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave_le_one _ _
+  have hs1 : s1≤2 := SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave_le_two _ _
+  have hs2 : s2≤1 := SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave_le_one_of _ 2 (by decide)
+  have hs3 : s3≤1 := SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave_le_one_of _ 3 (by decide)
   let E := (ClaudeWCT.W9.T3.CanonicalSearch.LocalRoute.envelope s2 s3 hs2 hs3).mono_z signing_z_ratio
   have hb := OuterSigning.requiredCredit_bounds index
   have hi := root_step (OuterSigning.requiredCredit index)
