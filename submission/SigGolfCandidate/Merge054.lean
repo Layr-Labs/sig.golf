@@ -50,11 +50,12 @@ set_option maxRecDepth 10000
 theorem tweakLow_top {heap : Nat} (h1 : 1 ≤ heap) (h2 : heap < 4096) : tweakLow (nodeTweak 3 0 0 heap) = topNodeWord heap := by
   rw [nodeTweak_top_low]
 
+/-- C40: every top word is below `856065` except heap 9's register label ra. -/
 theorem ne_top_of_low {hdr : BitVec 128} {heap : Nat} (h1 : 1 ≤ heap) (h2 : heap < 4096)
-    (hl : 856065 ≤ tweakLow hdr) : hdr ≠ nodeTweak 3 0 0 heap := by
+    (hl : 856065 ≤ tweakLow hdr) (hra : tweakLow hdr ≠ 8198552921648689607) : hdr ≠ nodeTweak 3 0 0 heap := by
   rintro rfl
-  rw [tweakLow_top h1 h2] at hl
-  have := topNodeWord_lt heap
+  rw [tweakLow_top h1 h2] at hl hra
+  have := topNodeWord_small_or_ra heap
   omega
 
 theorem tweakTag_top {heap : Nat} (h1 : 1 ≤ heap) (h2 : heap < 4096) :
@@ -92,12 +93,34 @@ theorem chainHeader_low_ge (lay : Layer) (tree leaf i step : Nat) :
   have : (856065 : Nat) ≤ 193 * 2 ^ 56 := by norm_num
   omega
 
+/-- C40: a chain word (below `2 ^ 56`, or in the legacy band) is never ra. -/
+theorem chainHeader_low_ne_ra (lay : Layer) (tree leaf i step : Nat) :
+    tweakLow (chainHeader lay tree leaf i step) ≠ 8198552921648689607 := by
+  have hb := chainHeaderLow_band lay tree leaf i step
+  have hf := chainHeaderFlaggedLow_toNat lay tree leaf i step
+  have hl : tweakLow (chainHeader lay tree leaf i step) = (chainHeaderFlaggedLow lay tree leaf i step).toNat := by
+    unfold tweakLow
+    rw [← chainHeader_low, BitVec.extractLsb'_toNat]
+    simp
+  rw [hl, hf]
+  split_ifs <;> omega
+
 theorem leafTweak_low_ge (lay : Layer) (tree leaf : Nat) : 856065 ≤ tweakLow (leafTweak lay tree leaf) := by
   unfold leafTweak tweakLow
   rw [BitVec.toNat_append]
   simp only [BitVec.toNat_ofNat, Nat.zero_mod, Nat.zero_shiftLeft, Nat.zero_or]
   rw [Nat.mod_eq_of_lt (BitVec.isLt _)]
   have := hyperWord_ge lay.val (tree * 2 ^ height lay + leaf)
+  omega
+
+/-- C40: a leaf tweak's low word (a hyper word: a multiple of `2 ^ 16` or in the legacy band) is never ra. -/
+theorem leafTweak_low_ne_ra (lay : Layer) (tree leaf : Nat) :
+    tweakLow (leafTweak lay tree leaf) ≠ 8198552921648689607 := by
+  unfold leafTweak tweakLow
+  rw [BitVec.toNat_append]
+  simp only [BitVec.toNat_ofNat, Nat.zero_mod, Nat.zero_shiftLeft, Nat.zero_or]
+  rw [Nat.mod_eq_of_lt (BitVec.isLt _)]
+  have := hyperWord_mod_or_ge lay.val (tree * 2 ^ height lay + leaf)
   omega
 
 theorem topTrial_ne_heap {a b : Nat} (n m : Nat) (l r l' r' : Digest) (ha1 : 1 ≤ a) (ha2 : a < 4096)
@@ -134,7 +157,7 @@ theorem gav_chain (lay : Layer) (tree leaf i start count : Nat) (value : Digest)
     simpa only [chainInput, List.append_assoc] using
       queryHeader_padded zero16 (zero16 ++ bytesLE 16 value) (by simp [zero16])
         (chainHeader lay tree leaf i step)
-  exact topQ_ne hh (ne_top_of_low (by omega) h4 (chainHeader_low_ge ..)) ht
+  exact topQ_ne hh (ne_top_of_low (by omega) h4 (chainHeader_low_ge ..) (chainHeader_low_ne_ra _ _ _ _ _)) ht
 
 /-- Witness stack: top chains (G `value | header | 0 | 0`, F `chainInput`) carry the chain header in bytes `16..32`. -/
 theorem gav_topChain (leaf i start count : Nat) (value : Digest) :
@@ -150,13 +173,13 @@ theorem gav_topChain (leaf i start count : Nat) (value : Digest) :
         queryHeader_padded (bytesLE 16 value) (zero16 ++ zero16) (bytesLE_length ..) (chainHeader 0 0 leaf i step)
     · simpa only [chainInput, List.append_assoc] using
         queryHeader_padded zero16 (zero16 ++ bytesLE 16 value) (by simp [zero16]) (chainHeader 0 0 leaf i step)
-  exact topQ_ne hh (ne_top_of_low (by omega) h4 (chainHeader_low_ge ..)) ht
+  exact topQ_ne hh (ne_top_of_low (by omega) h4 (chainHeader_low_ge ..) (chainHeader_low_ne_ra _ _ _ _ _)) ht
 
 theorem gav_leafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
     Avoids secret target (leafHash lay tree leaf ends) := by
   unfold leafHash
   apply avoids_shortHash_of_ne
-  exact topQ_ne (queryHeader_leafInput ..) (ne_top_of_low (by omega) h4 (leafTweak_low_ge ..)) ht
+  exact topQ_ne (queryHeader_leafInput ..) (ne_top_of_low (by omega) h4 (leafTweak_low_ge ..) (leafTweak_low_ne_ra _ _ _)) ht
 
 theorem gav_topPairsFrom (first start : Nat) (init : List Digest) :
     Avoids secret target (topPairsFrom first start init) := by
@@ -930,7 +953,8 @@ def keygenCode_2 : List (BitVec 32) := bv_list% 32 [16255027,64509715,19429427,1
 def keygenCode_3 : List (BitVec 32) := bv_list% 32 [0x7e3423,0x83dff06f] ++ bv_list% 32 [0x3000f13,0xefe9cc63,0x600a93,0x3200f13,0xefe9c663,0x500a93,0xee4ff06f] ++ List.replicate 3 19 ++ bv_list% 32 [0x141f13,0x1e40433,0x840433,0x803f33,0x1f0f13,0x1cf1f13,0x8f1f33,0x1e36333,0x640413,0x345413,0xe08ff06f,0x141f13,0x1e40433,0x840433,0x803f33,0x1f0f13,0x1cf1f13,0x8f1f33,0x1e36333,0x640413,0x345413,0xcf5ff06f] ++ List.replicate 222 19
 def keygenCode_4 : List (BitVec 32) := bv_list% 32 [0xb1c63,0x63023,0x63423,0x63823,0x63c23,0xcc4ff06f,0x73,0xcbcff06f] ++ bv_list% 32 [0x900713,0x2381813,0xb79ff06f] ++ List.replicate 82 19 ++ bv_list% 32 [3148435,2579093091,4197011,2555375727,787347,267645715,8590099,8639379,6546355,7735,4043181587,29618995,4395795,4445075,29619123,6546355,15927,859704851,29618995,2298643,2347923,29619123,6546355,24119,1432227347,29618995,1250067,1299347,29619123,6546355,50566035,2706370671] ++ bv_list% 32 [0x397f13,0x40f1263,0x21c37,0x295f13,0x1f7e93,0x1f00713,0x2ef0733,0x1d70733,0x175713,0x2071713,0x176713,0xe8c63,0x1f0c3203,0x4c3023,0x1f8c3203,0x4c3423,0x10c0c13,0xf70ff06f,0x993,0x8067,0x397f13,0x6f1f13,0x1e686b3,0x713,0x793,0x215b7,0x1f058513,0xfbcff06f]
 def keygenCode : List (BitVec 32) :=
-  [keygenCode_0, keygenCode_1, keygenCode_2, keygenCode_3, keygenCode_4].foldl (· ++ ·) [] ++ bv_list% 32 [0x1830333,0xfff30193,0x11b193,0x33b7,0x7ff38393,0x403001b3,0x71f1b3,0x330333,0xff930193,0x19663,0x7f337,0x968ff06f,0x13,0x960ff06f]
+  [keygenCode_0, keygenCode_1, keygenCode_2, keygenCode_3, keygenCode_4].foldl (· ++ ·) [] ++ bv_list% 32 [0x1830333,0xfff30193,0x11b193,0x33b7,0x7ff38393,0x403001b3,0x71f1b3,0x330333,0xff930193,0x19663,0x7f337,0x968ff06f,0x80006f,0x960ff06f]
+    ++ bv_list% 32 [0xff830193,0x19863,0x40337,0xe0030313,0x94cff06f,0xff730193,0x2019463,0x71c72337,0xc7130313,0xb31313,0x63830313,0xb31313,0x71c30313,0xa31313,0x1c730313,0x920ff06f,0xff630193,0x19863,0x3337,0xf2030313,0x90cff06f,0xff530193,0x19863,0x3337,0xfd030313,0x8f8ff06f,0xff430193,0x19863,0x3337,0xef030313,0x8e4ff06f,0xff330193,0x19863,0x3337,0xec030313,0x8d0ff06f,0xff230193,0x19863,0x3337,0xf8030313,0x8bcff06f,0xff130193,0x19863,0x3337,0xf5030313,0x8a8ff06f,0x8a4ff06f]  -- C40: label remap of heaps 8..15 (1191..1237)
 def keygenData : List (BitVec 8) := [
 ]
 def keygenImage : Riscv.Image := ⟨keygenCode, keygenData⟩
@@ -2056,10 +2080,13 @@ theorem topTweak_ne_ground (heap' : Nat) {lay tree heap : Nat} (hh : heap < 128)
     nodeTweak 3 0 0 heap' ≠ ClaudeWCT.WCT9.lowerTweak lay tree heap := by
   intro he
   have hl := nodeTweak_top_low 0 heap'
-  have := topNodeWord_lt heap'
+  -- C40: the top word is `< 856065` or ra (in `[2 ^ 48, 193 * 2 ^ 56)`); a lower word is `≥ 2 ^ 28` and below
+  -- `2 ^ 48` or in the legacy band.
+  have := topNodeWord_small_or_ra heap'
+  have hb := ClaudeWCT.WCT9.lowerTweak_band hh lay tree
   unfold tweakLow at hl
-  exact ClaudeWCT.WCT9.lowerTweak_ne_of_low_lt hh lay tree (x := nodeTweak 3 0 0 heap')
-    (by rw [hl]; omega) he.symm
+  rw [he] at hl
+  omega
 
 theorem chainHeader_ne_ground (l : Layer) (t lf i step : Nat) (hs : step < 7) {lay tree heap : Nat}
     (hh : heap < 128) : chainHeader l t lf i step ≠ ClaudeWCT.WCT9.lowerTweak lay tree heap :=
@@ -5465,7 +5492,8 @@ theorem merkleInputW_sameHeader {lay tree h leaf step : Nat} (hh : 2 ^ (h - step
     intro hp ht
     generalize 2 ^ (h - step - 1) + leaf / 2 ^ (step + 1) = heap at hh ht
     rw [topLow_bytesLE_iff, tweakLow_eq_low, BitVec.extractLsb'_append_eq_right, WCT9.merkleWord_lower h0] at ht
-    have := (WCT9.lowerNodeWord_band hh (lay - 1) tree).2.2.1
+    have := (WCT9.lowerNodeWord_band hh (lay - 1) tree).2.2
+    unfold SigGolfCandidate.T3.TopNine at ht
     omega
   rw [hdrKey_of_len64 (merkleInputW_length ..) (by rw [hdrBlock_merkleInputW]; exact hn _),
     hdrKey_of_len64 (merkleInputW_length ..) (by rw [hdrBlock_merkleInputW]; exact hn _),

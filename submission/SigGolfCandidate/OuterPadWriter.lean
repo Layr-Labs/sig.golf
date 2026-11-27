@@ -11,6 +11,7 @@ open ClaudeWCT.W9.Machine.Expand.PadWriter
 variable (s : MachineState)
 theorem code_P1 : CodeAt OuterImages.expandImage (pcOf 44961) cP1  := OuterImageTransfers.code (b:=44961) (by decide +kernel) ClaudeWCT.W9.Machine.Expand.PadWriter.code_P1
 theorem code_S1 : CodeAt OuterImages.expandImage (pcOf 44974) cS1  := OuterImageTransfers.code (b:=44974) (by decide +kernel) ClaudeWCT.W9.Machine.Expand.PadWriter.code_S1
+theorem code_S1b : CodeAt OuterImages.expandImage (pcOf 45017) cS1b  := OuterImageTransfers.code (b:=45017) (by decide +kernel) ClaudeWCT.W9.Machine.Expand.PadWriter.code_S1b
 theorem code_S2 : CodeAt OuterImages.expandImage (pcOf 45000) cS2  := OuterImageTransfers.code (b:=45000) (by decide +kernel) ClaudeWCT.W9.Machine.Expand.PadWriter.code_S2
 theorem code_J45015 : CodeAt OuterImages.expandImage (pcOf 45015) cJ45015  := OuterImageTransfers.code (b:=45015) (by decide +kernel) ClaudeWCT.W9.Machine.Expand.PadWriter.code_J45015
 theorem code_hook : CodeAt OuterImages.expandImage (pcOf 54174) cHook  := OuterImageTransfers.code (b:=54174) (by decide +kernel) ClaudeWCT.W9.Machine.Expand.PadWriter.code_hook
@@ -21,7 +22,7 @@ theorem code_row (r : Nat) (hr : r < 128) : CodeAt OuterImages.expandImage (pcOf
   dsimp only at h
   exact OuterImageTransfers.code (b:=44193+6*r) h (ClaudeWCT.W9.Machine.Expand.PadWriter.code_row r hr)
 theorem row_spec (r : Nat) (hr : r < 128) (v : MachineState) (hpc : v.pc = pcOf (44193 + 6 * r)) :
-    ∃ w, Steps OuterImages.expandImage v 6 6 w ∧ w.pc = pcOf (if r < 64 then 44974 else 45000) ∧
+    ∃ w, Steps OuterImages.expandImage v 6 6 w ∧ w.pc = pcOf (if r < 64 then s1Pc r else 45000) ∧
       w.getReg .x11 = BitVec.ofNat 64 (offR r 0) ∧ w.getReg .x12 = BitVec.ofNat 64 (offR r 1) ∧
       w.getReg .x13 = BitVec.ofNat 64 (offR r 2) ∧ w.getReg .x15 = BitVec.ofNat 64 (offR r 3) ∧
       w.getReg .x16 = BitVec.ofNat 64 (offR r 4) ∧
@@ -61,7 +62,7 @@ theorem s1_spec (u : MachineState) (hpc : u.pc = pcOf 44974) (a1 a2 a3 a5 a6 : N
       ∀ A, v.getMem A = upd (upd (upd (upd (upd (upd u.getMem (a1 + 11920) (u.getMem (nonceAddr 0)))
         (a2 + 11920) (u.getMem (nonceAddr 1))) (a3 + 11920) (u.getMem (nonceAddr 2)))
         (a5 + 11920) (u.getMem (nonceAddr 3))) (a6 + 11920) (u.getMem (nonceAddr 4)))
-        (11920 + 368) (u.getMem (nonceAddr 5)) A := by
+        (11920 + 640) (u.getMem (nonceAddr 5)) A := by
   refine ⟨_, symRun_sound eS1 code_S1 u hpc ?_, ?_, ?_, ?_, ?_, ?_⟩
   · simp only [rv_simp, accessValid_iff, MEMORY_BYTES, ne_eq, BitVec.toNat_eq, BitVec.toNat_add, BitVec.toNat_sub,
       BitVec.toNat_ofNat, eS1.res, h11, h12, h13, h15, h16, h28, h30] <;> (try and_intros) <;> first | trivial | omega
@@ -76,6 +77,54 @@ theorem s1_spec (u : MachineState) (hpc : u.pc = pcOf 44974) (a1 a2 a3 a5 a6 : N
     simp only [Result.toState_getMem, eS1.res, memEval_cons, memEval_nil, Addr.eval, E.eval, BinOp.eval,
       RegFile.get, h11, h12, h13, h15, h16, h28, h30, BitVec.add_zero, BitVec.ofNat_add_ofNat, upd, nonceAddr]
 
+theorem s1b_spec (u : MachineState) (hpc : u.pc = pcOf 45017) (a1 a2 a3 a5 a6 : Nat)
+    (b1 : a1 % 8 = 0 ∧ a1 ≤ 640) (b2 : a2 % 8 = 0 ∧ a2 ≤ 640) (b3 : a3 % 8 = 0 ∧ a3 ≤ 640)
+    (b5 : a5 % 8 = 0 ∧ a5 ≤ 640) (b6 : a6 % 8 = 0 ∧ a6 ≤ 640) (L : Word)
+    (h11 : u.getReg .x11 = BitVec.ofNat 64 a1) (h12 : u.getReg .x12 = BitVec.ofNat 64 a2)
+    (h13 : u.getReg .x13 = BitVec.ofNat 64 a3) (h15 : u.getReg .x15 = BitVec.ofNat 64 a5)
+    (h16 : u.getReg .x16 = BitVec.ofNat 64 a6) (h28 : u.getReg .x28 = BitVec.ofNat 64 0x66700)
+    (h29 : u.getReg .x29 = L) (h30 : u.getReg .x30 = BitVec.ofNat 64 11920) :
+    ∃ v, Steps OuterImages.expandImage u 26 26 v ∧ v.pc = pcOf (44193 + 6 * (64 + L.toNat / 64 % 64)) ∧
+      v.getReg .x28 = BitVec.ofNat 64 0x66700 ∧ v.getReg .x30 = BitVec.ofNat 64 11920 ∧
+      RegsExcept u v [.x6, .x11, .x12, .x13, .x14, .x15, .x16, .x17] ∧
+      ∀ A, v.getMem A = upd (upd (upd (upd (upd (upd u.getMem (a1 + 11920) (u.getMem (nonceAddr 0)))
+        (a2 + 11920) (u.getMem (nonceAddr 1))) (a3 + 11920) (u.getMem (nonceAddr 2)))
+        (a5 + 11920) (u.getMem (nonceAddr 3))) (a6 + 11920) (u.getMem (nonceAddr 4)))
+        (11920 + 576) (u.getMem (nonceAddr 5)) A := by
+  refine ⟨_, symRun_sound eS1b code_S1b u hpc ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · simp only [rv_simp, accessValid_iff, MEMORY_BYTES, ne_eq, BitVec.toNat_eq, BitVec.toNat_add, BitVec.toNat_sub,
+      BitVec.toNat_ofNat, eS1b.res, h11, h12, h13, h15, h16, h28, h30] <;> (try and_intros) <;> first | trivial | omega
+  · rw [Result.toState_pc]
+    show gT 182404 ((u.getReg .x29 >>> 6) &&& 63#64) = _
+    rw [and63, srl6, h29, gB_eq _ (Nat.mod_lt _ (by decide))]
+  · exact h28
+  · exact h30
+  · intro x hx
+    cases x <;> first | (exfalso; simp at hx; done) | (simp only [rv_simp, eS1b.res]; done) | rfl
+  · intro A
+    simp only [Result.toState_getMem, eS1b.res, memEval_cons, memEval_nil, Addr.eval, E.eval, BinOp.eval,
+      RegFile.get, h11, h12, h13, h15, h16, h28, h30, BitVec.add_zero, BitVec.ofNat_add_ofNat, upd, nonceAddr]
+
+/-- C39: the line-A nonce block of row `rA` (44974 or its copy 45017). -/
+theorem s1x_spec (rA : Nat) (u : MachineState) (hpc : u.pc = pcOf (s1Pc rA)) (a1 a2 a3 a5 a6 : Nat)
+    (b1 : a1 % 8 = 0 ∧ a1 ≤ 640) (b2 : a2 % 8 = 0 ∧ a2 ≤ 640) (b3 : a3 % 8 = 0 ∧ a3 ≤ 640)
+    (b5 : a5 % 8 = 0 ∧ a5 ≤ 640) (b6 : a6 % 8 = 0 ∧ a6 ≤ 640) (L : Word)
+    (h11 : u.getReg .x11 = BitVec.ofNat 64 a1) (h12 : u.getReg .x12 = BitVec.ofNat 64 a2)
+    (h13 : u.getReg .x13 = BitVec.ofNat 64 a3) (h15 : u.getReg .x15 = BitVec.ofNat 64 a5)
+    (h16 : u.getReg .x16 = BitVec.ofNat 64 a6) (h28 : u.getReg .x28 = BitVec.ofNat 64 0x66700)
+    (h29 : u.getReg .x29 = L) (h30 : u.getReg .x30 = BitVec.ofNat 64 11920) :
+    ∃ v, Steps OuterImages.expandImage u 26 26 v ∧ v.pc = pcOf (44193 + 6 * (64 + L.toNat / 64 % 64)) ∧
+      v.getReg .x28 = BitVec.ofNat 64 0x66700 ∧ v.getReg .x30 = BitVec.ofNat 64 11920 ∧
+      RegsExcept u v [.x6, .x11, .x12, .x13, .x14, .x15, .x16, .x17] ∧
+      ∀ A, v.getMem A = upd (upd (upd (upd (upd (upd u.getMem (a1 + 11920) (u.getMem (nonceAddr 0)))
+        (a2 + 11920) (u.getMem (nonceAddr 1))) (a3 + 11920) (u.getMem (nonceAddr 2)))
+        (a5 + 11920) (u.getMem (nonceAddr 3))) (a6 + 11920) (u.getMem (nonceAddr 4)))
+        (11920 + off5 rA) (u.getMem (nonceAddr 5)) A := by
+  unfold s1Pc at hpc
+  unfold off5
+  split_ifs at hpc ⊢
+  · exact s1_spec u hpc a1 a2 a3 a5 a6 b1 b2 b3 b5 b6 L h11 h12 h13 h15 h16 h28 h29 h30
+  · exact s1b_spec u hpc a1 a2 a3 a5 a6 b1 b2 b3 b5 b6 L h11 h12 h13 h15 h16 h28 h29 h30
 
 theorem s2_spec (u : MachineState) (hpc : u.pc = pcOf 45000) (a1 a2 a3 a5 a6 : Nat)
     (b1 : a1 % 8 = 0 ∧ a1 ≤ 640) (b2 : a2 % 8 = 0 ∧ a2 ≤ 640) (b3 : a3 % 8 = 0 ∧ a3 ≤ 640)
@@ -504,7 +553,7 @@ theorem pad_pre (s : MachineState) (hpc : s.pc = pcOf 44961) :
   rw [if_pos (Nat.mod_lt _ (by decide))] at vp
   have bA := fun i (hi : i < 5) => offR_bounds _ hA i hi
   have rv' := ru.trans rv
-  obtain ⟨w, sw, wp, w28, w30, rw', mw⟩ := s1_spec v vp _ _ _ _ _
+  obtain ⟨w, sw, wp, w28, w30, rw', mw⟩ := s1x_spec (leafW s.getMem % 64) v vp _ _ _ _ _
     ⟨(bA 0 (by decide)).1, (bA 0 (by decide)).2.2⟩ ⟨(bA 1 (by decide)).1, (bA 1 (by decide)).2.2⟩
     ⟨(bA 2 (by decide)).1, (bA 2 (by decide)).2.2⟩ ⟨(bA 3 (by decide)).1, (bA 3 (by decide)).2.2⟩
     ⟨(bA 4 (by decide)).1, (bA 4 (by decide)).2.2⟩ (s.getMem (BitVec.ofNat 64 0x66758))
@@ -531,6 +580,7 @@ theorem pad_pre (s : MachineState) (hpc : s.pc = pcOf 44961) :
     have b2 := (offR_bounds _ hA 2 (by decide)).2.2
     have b3 := (offR_bounds _ hA 3 (by decide)).2.2
     have b4 := (offR_bounds _ hA 4 (by decide)).2.2
+    have b5 := off5_le (leafW s.getMem % 64)
     have hn : ∀ k, k < 11 → w.getMem (nonceAddr k) = s.getMem (nonceAddr k) := by
       intro k hk
       rw [mw, upd_nonce _ _ _ _ (by omega) hk, upd_nonce _ _ _ _ (by omega) hk, upd_nonce _ _ _ _ (by omega) hk,
@@ -539,7 +589,7 @@ theorem pad_pre (s : MachineState) (hpc : s.pc = pcOf 44961) :
         (s.getMem (nonceAddr 0))) (offA (leafW s.getMem % 64) 1 + 11920) (s.getMem (nonceAddr 1)))
         (offA (leafW s.getMem % 64) 2 + 11920) (s.getMem (nonceAddr 2)))
         (offA (leafW s.getMem % 64) 3 + 11920) (s.getMem (nonceAddr 3)))
-        (offA (leafW s.getMem % 64) 4 + 11920) (s.getMem (nonceAddr 4))) (11920 + 368)
+        (offA (leafW s.getMem % 64) 4 + 11920) (s.getMem (nonceAddr 4))) (11920 + off5 (leafW s.getMem % 64))
         (s.getMem (nonceAddr 5)) := by
       funext B
       rw [mw, hv']

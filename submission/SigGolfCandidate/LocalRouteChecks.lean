@@ -32,11 +32,11 @@ theorem check3_at (mask r : Nat) (hm : mask<1) (hr : r<24) :
   have h := (List.all_eq_true.mp checks3) mask (List.mem_range.mpr hm)
   exact (List.all_eq_true.mp h) r (List.mem_range.mpr hr)
 #print axioms check3_at
-theorem root_checks : (List.range 3).all (fun p => (List.range 12).all (fun mask =>
+theorem root_checks : (List.range 4).all (fun p => (List.range 12).all (fun mask =>
     ClaudeWCT.Numerics.CanonicalCompression.recurrenceCheck ClaudeWCT.Numerics.CanonicalCompression.topDen ClaudeWCT.Numerics.TopZero.topAcceptedHistogram (max 16 ((72+p)-57)) (72+p)
       (row1 mask) (Tables.initialAt (72+p) mask))) = true := by decide +kernel
 
-theorem root_check_at (pool mask : Nat) (hlo : 72≤pool) (hhi : pool≤74) (hm : mask<12) :
+theorem root_check_at (pool mask : Nat) (hlo : 72≤pool) (hhi : pool≤75) (hm : mask<12) :
     ClaudeWCT.Numerics.CanonicalCompression.recurrenceCheck ClaudeWCT.Numerics.CanonicalCompression.topDen ClaudeWCT.Numerics.TopZero.topAcceptedHistogram (max 16 (pool-57)) pool
       (row1 mask) (Tables.initialAt pool mask) = true := by
   have h := (List.all_eq_true.mp root_checks) (pool-72) (List.mem_range.mpr (by omega))

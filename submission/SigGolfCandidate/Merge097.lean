@@ -1116,7 +1116,7 @@ theorem topPlanB_free (r : Nat) (hr : r < 64) (k : Nat) (hk : k < 6) (k' : Nat) 
   have hs2 : s = 2 := by omega
   subst hs2
   exact ⟨topPlanB_inj6 r hr k hk k' hk' (by omega), rfl⟩
-theorem topPlanB_bounds6 : ∀ r, r < 64 → ∀ k, k < 6 → (topPlanB.getD r []).getD k 0 ≤ 16 := by decide
+theorem topPlanB_bounds6 : ∀ r, r < 64 → ∀ k, k < 6 → (topPlanB.getD r []).getD k 0 ≤ 17 := by decide
 
 theorem slot_free (leaf j j' s : Nat) (hj : j < 12) (hj' : j' < 11) (hs : s < 4)
     (h : topPlanSlot leaf j + s = topPlanSlot leaf j' + 2) : j = j' ∧ s = 2 := by

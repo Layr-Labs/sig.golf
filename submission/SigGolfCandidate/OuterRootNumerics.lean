@@ -27,7 +27,7 @@ def initialAt (pool mask : Nat) : Nat := Tables.initialAt pool mask
 theorem root_checks72 : (List.range 12).all (fun mask => ClaudeWCT.Numerics.CanonicalCompression.recurrenceCheck ClaudeWCT.Numerics.CanonicalCompression.topDen
     ClaudeWCT.Numerics.TopZero.topAcceptedHistogram 16 72 (Checks.row1 mask) (initial72 mask))=true := by decide +kernel
 
-theorem root_check_at (pool mask : Nat) (hlo : 72≤pool) (hhi : pool≤74) (hm : mask<12) :
+theorem root_check_at (pool mask : Nat) (hlo : 72≤pool) (hhi : pool≤75) (hm : mask<12) :
     ClaudeWCT.Numerics.CanonicalCompression.recurrenceCheck ClaudeWCT.Numerics.CanonicalCompression.topDen ClaudeWCT.Numerics.TopZero.topAcceptedHistogram (max 16 (pool-57)) pool
       (Checks.row1 mask) (initialAt pool mask)=true :=
   Checks.root_check_at pool mask hlo hhi hm

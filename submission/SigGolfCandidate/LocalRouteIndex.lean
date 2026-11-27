@@ -19,11 +19,14 @@ theorem own3_index (index : Nat) : ownSave index 3=LocalRouteUniform.pairSave in
 
 theorem root_index (index : Nat) :
     CanonicalPolicy.topPathSave (route index 0).1 =
-      LocalRouteUniform.pairSave (index/524288)+LocalRouteUniform.pairSave (index/33554432) := by
-  have h1 : ((index/524288)%4096)%4=(index/524288)%4 := by omega
-  have h2 : (((index/524288)%4096)/64)%4=(index/33554432)%4 := by omega
+      LocalRouteUniform.saveA (index/524288)+LocalRouteUniform.saveB (index/33554432) := by
+  have h1 : ((index/524288)%4096)%64=(index/524288)%64 := by omega
+  have h3 : (((index/524288)%4096)/64)%64=(index/33554432)%64 := by omega
+  have ht : CanonicalPolicy.topSaveATab=LocalRouteUniform.saveATab := rfl
+  have htB : CanonicalPolicy.topSaveBTab=LocalRouteUniform.saveBTab := rfl
   change CanonicalPolicy.topPathSave ((index/524288)%4096)=_
-  simp only [CanonicalPolicy.topPathSave,CanonicalPolicy.topPairSave,LocalRouteUniform.pairSave,h1,h2]
+  simp only [CanonicalPolicy.topPathSave,CanonicalPolicy.topSaveA,CanonicalPolicy.topSaveB,
+    LocalRouteUniform.saveA,LocalRouteUniform.saveB,ht,htB,h1,h3]
 
 theorem index_initial_matches (index : Nat) :
     ClaudeWCT.Numerics.LocalRoute.Tables.indexInitial index =

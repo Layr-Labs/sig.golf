@@ -2310,7 +2310,7 @@ theorem sub120_spec {image : Image} {b : Nat} (h : SubAt image b) (s : MachineSt
     (hdis : NODE + 64 ≤ arena + 32 * k ∨ arena + 32 * k + 32 ≤ NODE)
     (h2 : s.getReg .x2 = BitVec.ofNat 64 arena) (h24 : s.getReg .x24 = BitVec.ofNat 64 k)
     (h9 : s.getReg .x9 = BitVec.ofNat 64 tree) (h21 : s.getReg .x21 = BitVec.ofNat 64 h0) :
-    ∃ t, Steps image s 32 32 t ∧ t.pc = pcOf (b + 140) ∧
+    ∃ t n, n ≤ 50 ∧ Steps image s n n t ∧ t.pc = pcOf (b + 140) ∧
       t.getReg .x29 = BitVec.ofNat 64 (k % 2) ∧ t.getReg .x30 = BitVec.ofNat 64 (NODE + 48) ∧
       t.getMem (BitVec.ofNat 64 NODE) = s.getMem (BitVec.ofNat 64 (arena + 32 * k)) ∧
       t.getMem (BitVec.ofNat 64 (NODE + 8)) = s.getMem (BitVec.ofNat 64 (arena + 32 * k + 8)) ∧
@@ -2322,21 +2322,13 @@ theorem sub120_spec {image : Image} {b : Nat} (h : SubAt image b) (s : MachineSt
       Frame s t (fun X => X = NODE ∨ X = NODE + 8 ∨ X = NODE + 16 ∨ X = NODE + 24 ∨ X = NODE + 48 ∨
         X = NODE + 56) := by
   obtain ⟨rfl, rfl⟩ := h.2.2.2.2
-  let nz : Bool := decide (KeygenLabel.rawWord s ≠ 7#64)
-  have hbr : (KeygenLabel.rawWord s ≠ 7#64) ↔ nz = true := by simp [nz]
-  have ho (q : Bool) : Oblig.all s (KeygenLabel.result q).st.obl := by
-    cases q
-    · change Oblig.all s KeygenLabel.frozenEq.res.st.obl
-      simp only [KeygenLabel.frozenEq.res]
-      t3n [h2, h24]
-      simp only [NODE] at hdis
-      omega
-    · change Oblig.all s KeygenLabel.frozenNe.res.st.obl
-      simp only [KeygenLabel.frozenNe.res]
-      t3n [h2, h24]
-      simp only [NODE] at hdis
-      omega
-  let t := (KeygenLabel.result nz).toState s
+  let c : Nat := KeygenLabel.cls (KeygenLabel.rawWord s)
+  have ho : Oblig.all s KeygenLabel.frozen0.res.st.obl := by
+    simp only [KeygenLabel.frozen0.res]
+    t3n [h2, h24]
+    simp only [NODE] at hdis
+    omega
+  let t := (KeygenLabel.result c).toState s
   have hraw : KeygenLabel.rawWord s =
       (s.getReg .x21 ||| (BitVec.ofNat 64 tree <<< 32)) + BitVec.ofNat 64 k := by
     simp only [KeygenLabel.rawWord, h9, h24]
@@ -2345,31 +2337,31 @@ theorem sub120_spec {image : Image} {b : Nat} (h : SubAt image b) (s : MachineSt
     rw [ofNat_shl, ofNat_add_ofNat, ofNat_add_ofNat]
     congr 1
     omega
-  refine ⟨t, KeygenLabel.steps KeygenLabel.look_ok nz s hpc ((Oblig.all_iff s _).mp (ho nz)) hbr,
-    KeygenLabel.post_pc nz s, ?_, KeygenLabel.post_pointer nz s, ?_, ?_, ?_,
-    KeygenLabel.post_high nz s, ?_, ?_, KeygenLabel.post_regs nz s, ?_⟩
+  obtain ⟨n, hn, hst⟩ := KeygenLabel.steps KeygenLabel.look_ok c s hpc ((Oblig.all_iff s _).mp ho) rfl
+  refine ⟨t, n, hn, hst,
+    KeygenLabel.post_pc c s, ?_, KeygenLabel.post_pointer c s, ?_, ?_, ?_,
+    KeygenLabel.post_high c s, ?_, ?_, KeygenLabel.post_regs c s, ?_⟩
   · rw [KeygenLabel.post_half, h24]
     exact ofNat_and1 k
   · simpa only [NODE, h2, h24, ofNat_shl, ofNat_add_ofNat, Nat.reducePow,
-      Nat.mul_comm, Nat.add_comm] using KeygenLabel.post_left_lo nz s
-  · have he := KeygenLabel.post_left_hi nz s
+      Nat.mul_comm, Nat.add_comm] using KeygenLabel.post_left_lo c s
+  · have he := KeygenLabel.post_left_hi c s
     change t.getMem (BitVec.ofNat 64 (NODE + 8)) =
       s.getMem (((s.getReg .x24 <<< 5) + s.getReg .x2) + BitVec.ofNat 64 8) at he
     rw [h2, h24, addr] at he
     exact he
-  · rw [KeygenLabel.post_low, ← hraw]
-    by_cases hx : KeygenLabel.rawWord s = 7#64 <;> simp [nz, hx, KeygenLabel.remapWord]
-  · have he := KeygenLabel.post_right_lo nz s
+  · exact (KeygenLabel.post_low c s rfl).trans (by rw [hraw])
+  · have he := KeygenLabel.post_right_lo c s
     change t.getMem (BitVec.ofNat 64 (NODE + 48)) =
       s.getMem (((s.getReg .x24 <<< 5) + s.getReg .x2) + BitVec.ofNat 64 16) at he
     rw [h2, h24, addr] at he
     exact he
-  · have he := KeygenLabel.post_right_hi nz s
+  · have he := KeygenLabel.post_right_hi c s
     change t.getMem (BitVec.ofNat 64 (NODE + 56)) =
       s.getMem (((s.getReg .x24 <<< 5) + s.getReg .x2) + BitVec.ofNat 64 24) at he
     rw [h2, h24, addr] at he
     exact he
-  · simpa only [NODE, Nat.reduceAdd] using KeygenLabel.post_frame nz s
+  · simpa only [NODE, Nat.reduceAdd] using KeygenLabel.post_frame c s
 theorem sub214_spec {image : Image} {b : Nat} (h : SubAt image b) (s : MachineState)
     (hpc : s.pc = pcOf (b + 1004)) (k : Nat) (hk : k < 2 ^ 12) (h24 : s.getReg .x24 = BitVec.ofNat 64 k) :
     ∃ t, Steps image s 28 28 t ∧ t.pc = pcOf (b + 140) ∧
@@ -2452,20 +2444,7 @@ theorem lowerNodeWord_nodeLo {lay : Nat} (h0 : lay ≠ 0) (tree heap : Nat) :
 /-- C4: the top node tweak is the one-word label `0#64 ++ heap` (`nodeLo 0 tree = 0`). -/
 theorem nodeTweak_3_top (tree heap : Nat) (h1 : 1 ≤ heap) (h2 : heap < 4096) :
     T3.nodeTweak 3 0 tree heap = 0#64 ++ KeygenLabel.remapWord (BitVec.ofNat 64 (nodeLo 0 tree + heap)) := by
-  rw [T3.nodeTweak_top, T3.topNodeWord_eq h1 h2]
-  by_cases ho : heap = 1
-  · subst heap
-    simp [nodeLo, KeygenLabel.remapWord]
-  · by_cases h7 : heap = 7
-    · subst heap
-      simp [nodeLo, KeygenLabel.remapWord]
-    · have hn1 : BitVec.ofNat 64 heap ≠ 1#64 := by
-        intro he
-        exact ho ((ofNat_inj (by omega) (by decide)).mp he)
-      have hn7 : BitVec.ofNat 64 heap ≠ 7#64 := by
-        intro he
-        exact h7 ((ofNat_inj (by omega) (by decide)).mp he)
-      simp [ho, h7, nodeLo, KeygenLabel.remapWord, hn1, hn7]
+  rw [T3.nodeTweak_top, show nodeLo 0 tree + heap = heap by simp [nodeLo], KeygenLabel.remapWord_ofNat heap h1 h2]
 /-- The tree node block from `b + 120` to the hash call (C4: no reversed labels, one-word label). -/
 theorem sub120_full {image : Image} {b : Nat} (h : SubAt image b) (s : MachineState)
     (hpc : s.pc = pcOf (b + 120)) (arena k tree h0 : Nat)
@@ -2473,7 +2452,7 @@ theorem sub120_full {image : Image} {b : Nat} (h : SubAt image b) (s : MachineSt
     (hdis : NODE + 64 ≤ arena + 32 * k ∨ arena + 32 * k + 32 ≤ NODE)
     (h2 : s.getReg .x2 = BitVec.ofNat 64 arena) (h24 : s.getReg .x24 = BitVec.ofNat 64 k)
     (h9 : s.getReg .x9 = BitVec.ofNat 64 tree) (h21 : s.getReg .x21 = BitVec.ofNat 64 h0) :
-    ∃ t, Steps image s 38 38 t ∧ t.pc = pcOf (b + 146) ∧
+    ∃ t n, n ≤ 56 ∧ Steps image s n n t ∧ t.pc = pcOf (b + 146) ∧
       t.getReg .x10 = BitVec.ofNat 64 NODE ∧ t.getReg .x11 = BitVec.ofNat 64 64 ∧
       t.getReg .x12 = BitVec.ofNat 64 NOUT ∧ t.getReg .x29 = BitVec.ofNat 64 (k % 2 * 2 ^ 4) ∧
       t.getMem (BitVec.ofNat 64 NODE) = s.getMem (BitVec.ofNat 64 (arena + 32 * k)) ∧
@@ -2485,12 +2464,12 @@ theorem sub120_full {image : Image} {b : Nat} (h : SubAt image b) (s : MachineSt
       RegsExcept s t [.x3, .x6, .x7, .x28, .x29, .x30, .x10, .x11, .x12, .x29] ∧
       Frame s t (fun X => X = NODE ∨ X = NODE + 8 ∨ X = NODE + 16 ∨ X = NODE + 24 ∨ X = NODE + 48 ∨
         X = NODE + 56) := by
-  obtain ⟨t1, st1, t1pc, t1x29, t1x30, m0, m8, m16, m24, m48, m56, t1r, t1f⟩ :=
+  obtain ⟨t1, n1, hn1, st1, t1pc, t1x29, t1x30, m0, m8, m16, m24, m48, m56, t1r, t1f⟩ :=
     sub120_spec h s hpc arena k tree h0 ha8 hk htree hdis h2 h24 h9 h21
   obtain ⟨t, stt, tpc, tx10, tx11, tx12, tx29, tr, tf⟩ := sub140_spec h t1 t1pc (k % 2) t1x29
   have g : ∀ X, X < 2 ^ 64 → t.getMem (BitVec.ofNat 64 X) = t1.getMem (BitVec.ofNat 64 X) :=
     fun X hX => tf.get hX (fun h => h)
-  refine ⟨t, (st1.trans stt).of_eq (by omega) (by omega), tpc, tx10, tx11, tx12, tx29, ?_, ?_, ?_, ?_, ?_, ?_,
+  refine ⟨t, n1 + 6, by omega, st1.trans stt, tpc, tx10, tx11, tx12, tx29, ?_, ?_, ?_, ?_, ?_, ?_,
     t1r.trans tr, (t1f.trans tf).mono (fun X _ hX => by rcases hX with hX | hX; exact hX; exact hX.elim)⟩
   · rw [g NODE (by decide), m0]
   · rw [g (NODE + 8) (by decide), m8]

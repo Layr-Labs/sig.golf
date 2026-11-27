@@ -9835,10 +9835,24 @@ theorem decodeProbe_of_hdrBlock_low {x : HashInput} {h : BitVec 128} (hx : Guess
   have hl := WCT9.ftsChainLow_lt a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val p.val
   rw [← hh, WCT9.ftsChainHeader_toNat, Nat.mod_eq_of_lt (by omega)] at ht
   omega
+/-- C40: a header whose low word is below `2 ^ 20 - 2 ^ 15` is outside the translated FTS chain domain (every
+translated FTS chain word is at least `2 ^ 20 - 2 ^ 15`, `Extract.ftsChainLow_ge20`). -/
+theorem decodeProbe_of_hdrBlock_low20 {x : HashInput} {h : BitVec 128} (hx : Guess.hdrBlock x = bytesLE 16 h)
+    (ht : h.toNat % 2 ^ 64 < 2 ^ 20 - 2 ^ 15) : Guess.decodeProbe x = none := by
+  rw [Guess.decodeProbe_eq_none]
+  intro a p c he
+  rw [he, Guess.hdrBlock_probeInput] at hx
+  have hh := bytesLE_injective hx
+  have hb := ClaudeWCT.W9.T3M.Extract.ftsChainLow_ge20 (show a.2.1.val < 15 by have := a.2.1.isLt; omega)
+    a.1.val a.2.2.1.val a.2.2.2.val p.val a.2.2.2.isLt
+  have hl := WCT9.ftsChainLow_lt a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val p.val
+  rw [← hh, WCT9.ftsChainHeader_toNat, Nat.mod_eq_of_lt (by omega)] at ht
+  omega
 /-- Probe separation (C31): chain tags are at least 130 with tag % 8 in 2..7, step bytes occupy 0 through 3,
-and every translated FTS word is at least 4096. -/
+and every translated FTS word is at least `2 ^ 20 - 2 ^ 15` (C40; the C31 text used 4096). -/
 theorem shortHash_free' (a : Digest) {h : BitVec 128} (rest : HashInput)
-    (ht : (h.toNat / 256 % 256 < 130 ∨ h.toNat / 256 % 256 % 8 < 2) ∨ 4 ≤ h.toNat % 256 ∨ h.toNat % 2 ^ 64 < 4096) :
+    (ht : (h.toNat / 256 % 256 < 130 ∨ h.toNat / 256 % 256 % 8 < 2) ∨ 4 ≤ h.toNat % 256 ∨
+      h.toNat % 2 ^ 64 < 2 ^ 20 - 2 ^ 15) :
     AllQueriesSatisfy (shortHash (bytesLE 16 a ++ bytesLE 16 h ++ rest)) WFree := by
   rcases ht with ht | ht | ht
   · exact shortHash_free a rest ht
@@ -9847,10 +9861,11 @@ theorem shortHash_free' (a : Digest) {h : BitVec 128} (rest : HashInput)
       (Guess.decodeProbe_of_hdrBlock (hdrBlock_pad64_prefix a h rest) ht)) fun _ => pure_allowed _ _
   · unfold shortHash publicHash
     exact bind_allowed WFree ((allQueriesSatisfy_query_iff _ _).mpr
-      (decodeProbe_of_hdrBlock_low (hdrBlock_pad64_prefix a h rest) ht)) fun _ => pure_allowed _ _
+      (decodeProbe_of_hdrBlock_low20 (hdrBlock_pad64_prefix a h rest) ht)) fun _ => pure_allowed _ _
 /-- C4: `shortHash_free'` for a hash keeping either half. -/
 theorem projHash_free' (high : Bool) (a : Digest) {h : BitVec 128} (rest : HashInput)
-    (ht : (h.toNat / 256 % 256 < 130 ∨ h.toNat / 256 % 256 % 8 < 2) ∨ 4 ≤ h.toNat % 256 ∨ h.toNat % 2 ^ 64 < 4096) :
+    (ht : (h.toNat / 256 % 256 < 130 ∨ h.toNat / 256 % 256 % 8 < 2) ∨ 4 ≤ h.toNat % 256 ∨
+      h.toNat % 2 ^ 64 < 2 ^ 20 - 2 ^ 15) :
     AllQueriesSatisfy (projHash high (bytesLE 16 a ++ bytesLE 16 h ++ rest)) WFree := by
   have hs := shortHash_free' a rest ht
   unfold shortHash publicHash at hs
@@ -9863,16 +9878,14 @@ set_option debug.skipKernelTC true in
 theorem nodeTweak_probe_safeS (tag lay tree heap : Nat) (htag : tag % 256 < 130) :
     ((nodeTweak tag lay tree heap).toNat / 256 % 256 < 130 ∨ (nodeTweak tag lay tree heap).toNat / 256 % 256 % 8 < 2) ∨
     4 ≤ (nodeTweak tag lay tree heap).toNat % 256 ∨
-      (nodeTweak tag lay tree heap).toNat % 2 ^ 64 < 4096 := by
+      (nodeTweak tag lay tree heap).toNat % 2 ^ 64 < 2 ^ 20 - 2 ^ 15 := by
   by_cases ht : tag = 3 ∧ lay = 0
   · obtain ⟨rfl, rfl⟩ := ht
     have hl := nodeTweak_top_low tree heap
     unfold tweakLow topNodeWord at hl
     dsimp only at hl
-    split_ifs at hl
-    · left; omega
-    · left; omega
-    · right; right; omega
+    -- C40: heap 9's label ra has marker 0xc7; every other top label is below 2^20 - 2^15 or has tag < 130 / tag % 8 < 2
+    split_ifs at hl <;> first | (left; omega) | (right; left; omega) | (right; right; omega)
   · by_cases hlow : tag = 3 ∧ lay < 4
     · obtain ⟨rfl,h4⟩ := hlow
       have hg := nodeTweak_lower_tag (by omega : lay ≠ 0) h4 tree heap
@@ -29040,60 +29053,30 @@ set_option maxHeartbeats 0
 set_option maxRecDepth 1000000
 set_option exponentiation.threshold 10000000
 set_option Elab.async false
-def poolWord (n : Nat) : Word :=
-  let d := (BitVec.ofNat 64 n >>> 1) ^^^ BitVec.ofNat 64 n
-  74#64 - ((d &&& 1#64) + ((d >>> 6) &&& 1#64))
-theorem pool_checked : ∀ n : Fin 4096, poolWord n.val = BitVec.ofNat 64 (LocalRouteMachineHelpers.poolForLeaf n.val) := by decide +kernel
-def signCode : List (BitVec 32) := [0x195313,0x1234333,0x137e13,0x635313,0x137313,0x1c30333,0x40600333,0x4a30313,0x66e37,0x6e3423,0x4691306f]
-sym_block sign := symRun {noAlias:=true} signCode (pcOf 1970) 12
-theorem sign_steps {im : Image} (hc : CodeAt im (pcOf 1970) signCode)
+/-- C39: the sign root pool: `1970: jal 26415` and the relocated 46-word block at 26415 (`save_code`,
+`pool = 75 - save` stored at `0x66008`). -/
+abbrev signCode : List (BitVec 32) := SigGolfCandidate.Route16Machine.signPoolCode
+abbrev signTailCode : List (BitVec 32) := SigGolfCandidate.Route16Machine.signPoolTailCode
+def SignAt (im : Image) : Prop := CodeAt im (pcOf 1970) signCode ∧ CodeAt im (pcOf 26415) signTailCode
+theorem sign_steps {im : Image} (hc : SignAt im)
     (s : MachineState) (hp : s.pc=pcOf 1970) (leaf : Nat) (hl : leaf<4096)
     (h18 : s.getReg .x18=BitVec.ofNat 64 leaf) :
-    ∃ t, Steps im s 11 11 t ∧ t.pc=pcOf 22230 ∧
+    ∃ t, Steps im s 47 47 t ∧ t.pc=pcOf 22230 ∧
       t.getMem 0x66008=BitVec.ofNat 64 (LocalRouteMachineHelpers.poolForLeaf leaf) ∧
-      RegsExcept s t [.x6,.x28] ∧ Frame s t (fun A=>A=0x66008) := by
-  let t := sign.res.toState s
-  refine ⟨t, symRun_sound sign hc s hp (by simp [sign.res,rv_simp]), rfl, ?_, ?_, ?_⟩
-  · simpa [t,sign.res,rv_simp,poolWord,h18,BitVec.sub_eq_add_neg,BitVec.neg_add,
-      BitVec.add_assoc,BitVec.add_comm] using pool_checked ⟨leaf,hl⟩
-  · intro r hr; cases r <;> simp at hr <;> rfl
-  · intro A ha hn
-    dsimp only [t]
-    simp only [Result.toState_getMem,sign.res]; t3n []
-    change A ≠ 417800 at hn
-    norm_num at ha
-    rw [Nat.mod_eq_of_lt ha, if_neg hn]
-def expandIndexCode : List (BitVec 32) := [0x20e37,0x550e3a83,0x13ada93,0x1ada13,0x15a4ab3,0x1afa13,0x6ada93,0x1afa93,0x14a8ab3,0x41500ab3,0x4aa8a93,0x66e37,0xe3a03,0xc51f806f]
-sym_block expandIndex := symRun {noAlias:=true} expandIndexCode (pcOf 54324) 20
-theorem root_word (index : Nat) (hi : index<2^31) :
-    BitVec.ofNat 64 index >>> 19 = BitVec.ofNat 64 (index/2^19) := by
-  apply BitVec.eq_of_toNat_eq
-  simp only [BitVec.toNat_ushiftRight,BitVec.toNat_ofNat,Nat.shiftRight_eq_div_pow]
-  rw [Nat.mod_eq_of_lt (show index<2^64 by omega),Nat.mod_eq_of_lt (show index/2^19<2^64 by omega)]
-theorem expandIndex_steps {im : Image} (hc : CodeAt im (pcOf 54324) expandIndexCode)
+      RegsExcept s t [.x6,.x28] ∧ Frame s t (fun A=>A=0x66008) :=
+  SigGolfCandidate.Route16Machine.signPool_steps hc.1 hc.2 s hp leaf hl h18
+/-- C39: the expand root pool: `54324: jal 88400` and the relocated 49-word block at 88400 (root leaf
+`index/2^19`, `save_code`, `pool = 75 - save` in `x21`, `x20 = mem[0x66000]`). -/
+abbrev expandIndexCode : List (BitVec 32) := SigGolfCandidate.Route16Machine.expandPoolCode
+abbrev expandTailCode : List (BitVec 32) := SigGolfCandidate.Route16Machine.expandPoolTailCode
+def ExpandAt (im : Image) : Prop := CodeAt im (pcOf 54324) expandIndexCode ∧ CodeAt im (pcOf 88400) expandTailCode
+theorem expandIndex_steps {im : Image} (hc : ExpandAt im)
     (s : MachineState) (hp : s.pc=pcOf 54324) (index H : Nat) (hi : index<2^31)
     (hmidx : s.getMem 0x20550=BitVec.ofNat 64 index) (hm : s.getMem 0x66000=BitVec.ofNat 64 H) :
-    ∃ t, Steps im s 14 14 t ∧ t.pc=pcOf 46933 ∧
+    ∃ t, Steps im s 50 50 t ∧ t.pc=pcOf 46933 ∧
       t.getReg .x21=BitVec.ofNat 64 (LocalRouteMachineHelpers.poolForLeaf (index/2^19)) ∧
-      t.getReg .x20=BitVec.ofNat 64 H ∧ RegsExcept s t [.x20,.x21,.x28] ∧ Frame s t (fun _=>False) := by
-  let t := expandIndex.res.toState s
-  refine ⟨t,symRun_sound expandIndex hc s hp (by simp [expandIndex.res,rv_simp]),rfl,?_,?_,?_,?_⟩
-  · have hh : index/2^19<4096 := by omega
-    have hs (x : Word) : x >>> 20 = (x >>> 19) >>> 1 := by
-      apply BitVec.eq_of_toNat_eq
-      simp only [BitVec.toNat_ushiftRight,Nat.shiftRight_eq_div_pow]
-      omega
-    dsimp only [t]
-    simp only [Result.toState_getReg,expandIndex.res,rv_simp]
-    have haddr : s.getMem (132432#64) = BitVec.ofNat 64 index := hmidx
-    rw [haddr]
-    simp only [BitVec.toNat_ofNat,Nat.reduceMod]
-    rw [root_word index hi]
-    simpa [poolWord,BitVec.xor_comm,BitVec.sub_eq_add_neg,BitVec.neg_add,
-      BitVec.add_assoc,BitVec.add_comm] using pool_checked ⟨index/2^19,hh⟩
-  · simpa [t,expandIndex.res,rv_simp] using hm
-  · intro r hr; cases r <;> simp at hr <;> rfl
-  · intro A ha hn; rfl
+      t.getReg .x20=BitVec.ofNat 64 H ∧ RegsExcept s t [.x20,.x21,.x28] ∧ Frame s t (fun _=>False) :=
+  SigGolfCandidate.Route16Machine.expandPool_steps hc.1 hc.2 s hp index H hi hmidx hm
 end TopRoutePool
 namespace TopRouteGuardV2
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
@@ -29101,7 +29084,7 @@ open SigGolfCandidate.T3M
 def prepCode : List (BitVec 32) := [0x7e52006f]
 structure Code (im : Image) : Prop where
   prep : CodeAt im (pcOf 54310) prepCode
-  helper : CodeAt im (pcOf 88095) LocalRouteMachineHelpers.expandRootCode
+  helper : LocalRouteMachineHelpers.ExpandRootAt im
   test : CodeAt im (pcOf 54317) TopRouteGuard.testCode
   reject : CodeAt im (pcOf 54318) [0xc21cb06f]
   accept : CodeAt im (pcOf 54319) [0x5852206f]
@@ -29109,7 +29092,7 @@ theorem prep_steps {im : Image} (hc : Code im)
     (s : MachineState) (hp : s.pc=pcOf 54310) (leaf credit : Nat)
     (hleaf : leaf<4096) (h18 : s.getReg .x18=BitVec.ofNat 64 leaf)
     (hm : s.getMem 417856=BitVec.ofNat 64 credit) :
-    ∃ t, Steps im s 12 12 t ∧ t.pc=pcOf 54317 ∧
+    ∃ t, Steps im s 50 50 t ∧ t.pc=pcOf 54317 ∧
       t.getReg .x29=BitVec.ofNat 64 (LocalRouteMachineHelpers.rootFloor leaf) ∧
       t.getReg .x30=BitVec.ofNat 64 credit ∧
       RegsExcept s t [.x29,.x30] ∧ Frame s t (fun _=>False) := by
@@ -29128,7 +29111,7 @@ theorem guard_steps {im : Image} (hc : Code im)
     (hleaf : leaf<4096) (hcredit : credit<2^64)
     (h18 : s.getReg .x18=BitVec.ofNat 64 leaf)
     (hm : s.getMem 0x66040=BitVec.ofNat 64 credit) :
-    ∃ t, Steps im s 14 14 t ∧
+    ∃ t, Steps im s 52 52 t ∧
       t.pc=(if credit < LocalRouteMachineHelpers.rootFloor leaf then pcOf 822 else pcOf 90000) ∧
       RegsExcept s t [.x29,.x30] ∧ Frame s t (fun _=>False) := by
   let floor := LocalRouteMachineHelpers.rootFloor leaf
@@ -29165,7 +29148,7 @@ open SigGolfCandidate.T3M
 def prepCode : List (BitVec 32) := [0x7e01706f]
 structure Code (im : Image) : Prop where
   prep : CodeAt im (pcOf 1952) prepCode
-  helper : CodeAt im (pcOf 26008) LocalRouteMachineHelpers.guardCode
+  helper : LocalRouteMachineHelpers.GuardAt im
   test : CodeAt im (pcOf 1959) TopRouteGuardSign.testCode
   reject : CodeAt im (pcOf 1960) [0x92cff06f]
   accept : CodeAt im (pcOf 1961) [0x3611706f]
@@ -29173,7 +29156,7 @@ theorem prep_steps {im : Image} (hc : Code im)
     (s : MachineState) (hp : s.pc=pcOf 1952) (leaf credit : Nat)
     (hleaf : leaf<4096) (h18 : s.getReg .x18=BitVec.ofNat 64 leaf)
     (hm : s.getMem 417816=BitVec.ofNat 64 credit) :
-    ∃ t, Steps im s 12 12 t ∧ t.pc=pcOf 1959 ∧
+    ∃ t, Steps im s 50 50 t ∧ t.pc=pcOf 1959 ∧
       t.getReg .x29=BitVec.ofNat 64 (LocalRouteMachineHelpers.rootFloor leaf) ∧
       t.getReg .x30=BitVec.ofNat 64 credit ∧
       RegsExcept s t [.x29,.x30] ∧ Frame s t (fun _=>False) := by
@@ -29192,7 +29175,7 @@ theorem guard_steps {im : Image} (hc : Code im)
     (hleaf : leaf<4096) (hcredit : credit<2^64)
     (h18 : s.getReg .x18=BitVec.ofNat 64 leaf)
     (hm : s.getMem 0x66018=BitVec.ofNat 64 credit) :
-    ∃ t, Steps im s 14 14 t ∧
+    ∃ t, Steps im s 52 52 t ∧
       t.pc=(if credit < LocalRouteMachineHelpers.rootFloor leaf then pcOf 1011 else pcOf 26241) ∧
       RegsExcept s t [.x29,.x30] ∧ Frame s t (fun _=>False) := by
   let floor := LocalRouteMachineHelpers.rootFloor leaf
@@ -31218,7 +31201,7 @@ structure Code (image : Image) : Prop where
   t51UJ : CodeAt image (pcOf 21342) T51.uJumpS
   t51UB : CodeAt image (pcOf 26361) T51.uCodeB
   guardPrep : CodeAt image (pcOf 1952) TopRouteGuardSignV2.prepCode
-  guardHelper : CodeAt image (pcOf 26008) LocalRouteMachineHelpers.guardCode
+  guardHelper : LocalRouteMachineHelpers.GuardAt image
   guardTest : CodeAt image (pcOf 1959) TopRouteGuardSign.testCode
   guardReject : CodeAt image (pcOf 1960) [0x92cff06f]
   guardAccept : CodeAt image (pcOf 1961) [0x3611706f]

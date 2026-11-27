@@ -8,30 +8,32 @@ open ClaudeWCT.WCT9 SigGolfCandidate.Research.SharedForest
 abbrev Signature := SigGolfCandidate.Research.SharedForest.Signature
 abbrev Witness := SigGolfCandidate.Research.SharedForest.Witness
 
-def rootPool (leaf : Nat) : Nat := 74-CanonicalPolicy.topPathSave leaf
+def rootPool (leaf : Nat) : Nat := 75-CanonicalPolicy.topPathSave leaf
 def requiredCredit (index : Nat) : Nat := rootPool (route index 0).1
 
-theorem rootPool_bounds (leaf : Nat) : 72≤rootPool leaf ∧ rootPool leaf≤74 := by
-  unfold rootPool CanonicalPolicy.topPathSave CanonicalPolicy.topPairSave
-  split_ifs <;> omega
+theorem rootPool_bounds (leaf : Nat) : 72≤rootPool leaf ∧ rootPool leaf≤75 := by
+  have := CanonicalPolicy.topPathSave_le_three leaf
+  unfold rootPool
+  omega
 
-theorem requiredCredit_bounds (index : Nat) : 72≤requiredCredit index ∧ requiredCredit index≤74 := rootPool_bounds _
+theorem requiredCredit_bounds (index : Nat) : 72≤requiredCredit index ∧ requiredCredit index≤75 := rootPool_bounds _
 
-/-- The top floor `max 16 (pool-57)` is 17 exactly when the top path saves nothing (pool 74). -/
+/-- The top floor `max 16 (pool-57)`: 18 when the top path saves nothing (pool 75), 17 when it saves one
+(pool 74), 16 otherwise (pools 73, 72). -/
 theorem rootPool_floor (leaf : Nat) :
-    Policy75Safe23.threshold 0 (rootPool leaf)=if CanonicalPolicy.topPathSave leaf=0 then 17 else 16 := by
-  have h : CanonicalPolicy.topPathSave leaf≤2 := by
-    unfold CanonicalPolicy.topPathSave CanonicalPolicy.topPairSave
-    split_ifs <;> omega
+    Policy75Safe23.threshold 0 (rootPool leaf)=
+      if CanonicalPolicy.topPathSave leaf=0 then 18 else if CanonicalPolicy.topPathSave leaf=1 then 17 else 16 := by
+  have h := CanonicalPolicy.topPathSave_le_three leaf
   rw [Policy75Safe23.threshold_top]
   unfold rootPool
   split_ifs <;> omega
 
 theorem root_floor (index : Nat) : Policy75Safe23.threshold 0 (requiredCredit index)=
-    if CanonicalPolicy.topPathSave (route index 0).1=0 then 17 else 16 := rootPool_floor _
+    if CanonicalPolicy.topPathSave (route index 0).1=0 then 18
+    else if CanonicalPolicy.topPathSave (route index 0).1=1 then 17 else 16 := rootPool_floor _
 
 theorem root_floor_bounds (index : Nat) :
-    16≤Policy75Safe23.threshold 0 (requiredCredit index) ∧ Policy75Safe23.threshold 0 (requiredCredit index)≤17 := by
+    16≤Policy75Safe23.threshold 0 (requiredCredit index) ∧ Policy75Safe23.threshold 0 (requiredCredit index)≤18 := by
   rw [root_floor]
   split_ifs <;> omega
 

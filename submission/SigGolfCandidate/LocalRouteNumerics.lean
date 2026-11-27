@@ -166,10 +166,34 @@ def initial74_10 : Nat := 366663436031327008582954033220413635181
 theorem initial74_10_checked : recurrenceCheck topDen topAcceptedHistogram 17 74 row1_10 initial74_10 = true := by decide +kernel
 def initial74_11 : Nat := 366472678312844046337365537318468294833
 theorem initial74_11_checked : recurrenceCheck topDen topAcceptedHistogram 17 74 row1_11 initial74_11 = true := by decide +kernel
-/-- Index-uniform mean: top save weights 1/2/1 (pools 74/73/72), layer-1 save weights 2/66/60 of 128,
-layer-2/3 saves uniform; `2048 = 4*128*4`. -/
-def meanInitial : Nat := 366565019930298825979914583357882936574
-theorem mean_checked : 2*(initial72_0 + 2*initial73_0 + initial74_0) + 2*(initial72_1 + 2*initial73_1 + initial74_1) + 2*(initial72_2 + 2*initial73_2 + initial74_2) + 2*(initial72_3 + 2*initial73_3 + initial74_3) + 66*(initial72_4 + 2*initial73_4 + initial74_4) + 66*(initial72_5 + 2*initial73_5 + initial74_5) + 66*(initial72_6 + 2*initial73_6 + initial74_6) + 66*(initial72_7 + 2*initial73_7 + initial74_7) + 60*(initial72_8 + 2*initial73_8 + initial74_8) + 60*(initial72_9 + 2*initial73_9 + initial74_9) + 60*(initial72_10 + 2*initial73_10 + initial74_10) + 60*(initial72_11 + 2*initial73_11 + initial74_11) ≤ 2048*meanInitial := by decide +kernel
+def initial75_0 : Nat := 367927633952987796222653419799755582785
+theorem initial75_0_checked : recurrenceCheck topDen topAcceptedHistogram 18 75 row1_0 initial75_0 = true := by decide +kernel
+def initial75_1 : Nat := 367565909404877993177419580596850384550
+theorem initial75_1_checked : recurrenceCheck topDen topAcceptedHistogram 18 75 row1_1 initial75_1 = true := by decide +kernel
+def initial75_2 : Nat := 367564454492867864685566657600198061380
+theorem initial75_2_checked : recurrenceCheck topDen topAcceptedHistogram 18 75 row1_2 initial75_2 = true := by decide +kernel
+def initial75_3 : Nat := 367266520357595642552317902872453500151
+theorem initial75_3_checked : recurrenceCheck topDen topAcceptedHistogram 18 75 row1_3 initial75_3 = true := by decide +kernel
+def initial75_4 : Nat := 367548663128034504235957191676610303698
+theorem initial75_4_checked : recurrenceCheck topDen topAcceptedHistogram 18 75 row1_4 initial75_4 = true := by decide +kernel
+def initial75_5 : Nat := 367237685436578754289904422124946794264
+theorem initial75_5_checked : recurrenceCheck topDen topAcceptedHistogram 18 75 row1_5 initial75_5 = true := by decide +kernel
+def initial75_6 : Nat := 367236642900568746947175675875061362538
+theorem initial75_6_checked : recurrenceCheck topDen topAcceptedHistogram 18 75 row1_6 initial75_6 = true := by decide +kernel
+def initial75_7 : Nat := 366981959507750954504202687373150114760
+theorem initial75_7_checked : recurrenceCheck topDen topAcceptedHistogram 18 75 row1_7 initial75_7 = true := by decide +kernel
+def initial75_8 : Nat := 367223255352493352726623499705491624547
+theorem initial75_8_checked : recurrenceCheck topDen topAcceptedHistogram 18 75 row1_8 initial75_8 = true := by decide +kernel
+def initial75_9 : Nat := 366957226294879358355532466502133471688
+theorem initial75_9_checked : recurrenceCheck topDen topAcceptedHistogram 18 75 row1_9 initial75_9 = true := by decide +kernel
+def initial75_10 : Nat := 366956513183339237443231443284428220981
+theorem initial75_10_checked : recurrenceCheck topDen topAcceptedHistogram 18 75 row1_10 initial75_10 = true := by decide +kernel
+def initial75_11 : Nat := 366740384410876769099231957994891226397
+theorem initial75_11_checked : recurrenceCheck topDen topAcceptedHistogram 18 75 row1_11 initial75_11 = true := by decide +kernel
+/-- Index-uniform mean: top save 3/2/1/0 (pools 72/73/74/75) weights 924/1996/1044/132 of 4096,
+layer-1 save weights 2/66/60 of 128, layer-2/3 saves uniform; `2097152 = 4096*128*4`. -/
+def meanInitial : Nat := 366589692020265915139043659476968878971
+theorem mean_checked : 2*(924*initial72_0 + 1996*initial73_0 + 1044*initial74_0 + 132*initial75_0) + 2*(924*initial72_1 + 1996*initial73_1 + 1044*initial74_1 + 132*initial75_1) + 2*(924*initial72_2 + 1996*initial73_2 + 1044*initial74_2 + 132*initial75_2) + 2*(924*initial72_3 + 1996*initial73_3 + 1044*initial74_3 + 132*initial75_3) + 66*(924*initial72_4 + 1996*initial73_4 + 1044*initial74_4 + 132*initial75_4) + 66*(924*initial72_5 + 1996*initial73_5 + 1044*initial74_5 + 132*initial75_5) + 66*(924*initial72_6 + 1996*initial73_6 + 1044*initial74_6 + 132*initial75_6) + 66*(924*initial72_7 + 1996*initial73_7 + 1044*initial74_7 + 132*initial75_7) + 60*(924*initial72_8 + 1996*initial73_8 + 1044*initial74_8 + 132*initial75_8) + 60*(924*initial72_9 + 1996*initial73_9 + 1044*initial74_9 + 132*initial75_9) + 60*(924*initial72_10 + 1996*initial73_10 + 1044*initial74_10 + 132*initial75_10) + 60*(924*initial72_11 + 1996*initial73_11 + 1044*initial74_11 + 132*initial75_11) ≤ 2097152*meanInitial := by decide +kernel
 theorem moment_checked : mulUp (mulUp (mulUp fixedBoundU16 groundBound) ftsBound) meanInitial < 2*scale := by decide +kernel
 #print axioms moment_checked
 end Tables
@@ -178,22 +202,22 @@ end ClaudeWCT.Numerics.LocalRoute
 namespace ClaudeWCT.Numerics.LocalRoute.Tables
 open scoped BigOperators
 open Finset
-def initialArray : Array Nat := #[initial72_0,initial72_1,initial72_2,initial72_3,initial72_4,initial72_5,initial72_6,initial72_7,initial72_8,initial72_9,initial72_10,initial72_11,initial73_0,initial73_1,initial73_2,initial73_3,initial73_4,initial73_5,initial73_6,initial73_7,initial73_8,initial73_9,initial73_10,initial73_11,initial74_0,initial74_1,initial74_2,initial74_3,initial74_4,initial74_5,initial74_6,initial74_7,initial74_8,initial74_9,initial74_10,initial74_11]
+def initialArray : Array Nat := #[initial72_0,initial72_1,initial72_2,initial72_3,initial72_4,initial72_5,initial72_6,initial72_7,initial72_8,initial72_9,initial72_10,initial72_11,initial73_0,initial73_1,initial73_2,initial73_3,initial73_4,initial73_5,initial73_6,initial73_7,initial73_8,initial73_9,initial73_10,initial73_11,initial74_0,initial74_1,initial74_2,initial74_3,initial74_4,initial74_5,initial74_6,initial74_7,initial74_8,initial74_9,initial74_10,initial74_11,initial75_0,initial75_1,initial75_2,initial75_3,initial75_4,initial75_5,initial75_6,initial75_7,initial75_8,initial75_9,initial75_10,initial75_11]
 def initialAt (pool mask : Nat) : Nat := initialArray[(pool-72)*12+mask]?.getD 0
 
-def initialF (rootSave s1 s2 s3 : Nat) : Nat := initialAt (74-rootSave) (4*s1+2*s2+s3)
+def initialF (rootSave s1 s2 s3 : Nat) : Nat := initialAt (75-rootSave) (4*s1+2*s2+s3)
 def indexInitial (index : Nat) : Nat := LocalRouteUniform.evalIndex initialF index
 
 theorem cases_checked :
-    (∑ a : Fin 2, ∑ b : Fin 2, ∑ d : Fin 2, ∑ e : Fin 2,
-      LocalRouteUniform.weighted initialF (a.val+b.val) d.val e.val) ≤ 2048*meanInitial := by decide +kernel
+    (∑ d : Fin 2, ∑ e : Fin 2, LocalRouteUniform.topWeighted initialF d.val e.val) ≤ 2097152*meanInitial := by
+  decide +kernel
 
 theorem index_initial_sum : (∑ i : Fin (2^31), indexInitial i.val) ≤ 2^31*meanInitial := by
   unfold indexInitial
   rw [LocalRouteUniform.index_uniform]
   calc
-    2^20 * (∑ a : Fin 2, ∑ b : Fin 2, ∑ d : Fin 2, ∑ e : Fin 2,
-        LocalRouteUniform.weighted initialF (a.val+b.val) d.val e.val) ≤ 2^20 * (2048*meanInitial) :=
+    2^10 * (∑ d : Fin 2, ∑ e : Fin 2, LocalRouteUniform.topWeighted initialF d.val e.val) ≤
+        2^10 * (2097152*meanInitial) :=
       Nat.mul_le_mul_left _ cases_checked
     _ = 2^31*meanInitial := by ring
 #print axioms index_initial_sum

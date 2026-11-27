@@ -5779,11 +5779,11 @@ theorem range3_steps {im : Image} (hc : CodeAt im (pcOf 46973) range3Code)
   · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
   · intro A hA hn;rfl
 theorem init_steps {im : Image} (hc : CodeAt im (pcOf 46929) initCode)
-    (hg : CodeAt im (pcOf 54324) TopRoutePool.expandIndexCode)
+    (hg : TopRoutePool.ExpandAt im)
     (s : MachineState) (hp : s.pc=pcOf 46929) (index H : Nat) (hi : index<2^31)
     (hmidx : s.getMem (0x20550#64)=BitVec.ofNat 64 index)
     (hm : s.getMem (0x66000#64)=BitVec.ofNat 64 H) :
-    ∃t,Steps im s 15 15 t ∧ t.pc=pcOf 46933 ∧ t.getReg .x20=BitVec.ofNat 64 H ∧
+    ∃t,Steps im s 51 51 t ∧ t.pc=pcOf 46933 ∧ t.getReg .x20=BitVec.ofNat 64 H ∧
       t.getReg .x21=BitVec.ofNat 64 (SigGolfCandidate.Research.SharedForest.requiredCredit index) ∧
       RegsExcept s t [.x20,.x21,.x28] ∧ Frame s t (fun _=>False) := by
   obtain ⟨u,su,pu,ru,fu⟩ := SigGolfCandidate.T3M.Search.T51.jump_hook (k:=46929) (t:=54324)
@@ -6062,7 +6062,7 @@ set_option maxHeartbeats 2000000
 set_option maxRecDepth 20000
 structure Code (im : Image) : Prop where
   init : CodeAt im (pcOf 46929) initCode
-  poolHelper : CodeAt im (pcOf 54324) TopRoutePool.expandIndexCode
+  poolHelper : TopRoutePool.ExpandAt im
   r0 : LocalRouteResiduals.Code0 im
   r1 : LocalRouteResiduals.Code1 im
   r2 : LocalRouteResiduals.Code2 im
@@ -6201,7 +6201,7 @@ theorem validate_steps {im : Image} (hc : Code im)
     (T1 T2 : Nat→Nat) (ht1 : ∀r,r<58→T1 r<24) (ht2 : ∀r,r<42→T2 r<24)
     (hb1 : ∀r,r<58→s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (T1 r))
     (hb2 : ∀r,r<42→s.getByte (BitVec.ofNat 64 (16749520+r))=BitVec.ofNat 8 (T2 r)) :
-    ∃t n c,n≤115 ∧ c≤140 ∧ Steps im s n c t ∧
+    ∃t n c,n≤151 ∧ c≤176 ∧ Steps im s n c t ∧
       t.pc=(if Condition index H C0 C1 C2 T1 T2 then pcOf 42795 else pcOf 354) ∧
       RegsExcept s t [.x6,.x7,.x20,.x21,.x28,.x29] ∧ Frame s t (fun _=>False) := by
   obtain ⟨u,su,pu,u20,u21,ru,fu⟩:=init_steps hc.init hc.poolHelper s hp index H hi hmidx hm
@@ -6226,28 +6226,28 @@ theorem validate_steps {im : Image} (hc : Code im)
       by_cases h3 : (SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1-C1-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 2-C2-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 3<24 ∧ H%24=ClaudeWCT.WCT9.Policy75Safe23.lowerThreeFloor ((SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1-C1-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 2-C2-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 3)
       · rw [if_pos h3] at px
         -- Y5: the L3 check at 87812 jumps to 42795 directly (word 46978 is not visited on success).
-        refine ⟨x,15+n1+n2+n3,15+c1+c2+c3,by omega,by omega,((su.trans sv).trans sw).trans sx,?_,?_,?_⟩
+        refine ⟨x,51+n1+n2+n3,51+c1+c2+c3,by omega,by omega,((su.trans sv).trans sw).trans sx,?_,?_,?_⟩
         · have hcond : Condition index H C0 C1 C2 T1 T2 := by exact ⟨h1.1,h2.1,h3.1,h1.2,h2.2,h3.2⟩
           simpa only [if_pos hcond] using px
         · exact (((ru.trans rv).trans rw_).trans rx).mono (by decide)
         · exact (((fu.trans fv).trans fw).trans fx).mono (by simp)
       · rw [if_neg h3] at px
         obtain ⟨t,st,pt,rt,ft⟩:=bad_steps hc.bad x px
-        refine ⟨t,15+n1+n2+n3+1,15+c1+c2+c3+1,by omega,by omega,(((su.trans sv).trans sw).trans sx).trans st,?_,?_,?_⟩
+        refine ⟨t,51+n1+n2+n3+1,51+c1+c2+c3+1,by omega,by omega,(((su.trans sv).trans sw).trans sx).trans st,?_,?_,?_⟩
         · have hcond : ¬Condition index H C0 C1 C2 T1 T2 := by intro h;exact h3 ⟨h.2.2.1,h.2.2.2.2.2⟩
           simpa [hcond] using pt
         · exact ((((ru.trans rv).trans rw_).trans rx).trans rt).mono (by decide)
         · exact ((((fu.trans fv).trans fw).trans fx).trans ft).mono (by simp)
     · rw [if_neg h2] at pw
       obtain ⟨t,st,pt,rt,ft⟩:=bad_steps hc.bad w pw
-      refine ⟨t,15+n1+n2+1,15+c1+c2+1,by omega,by omega,((su.trans sv).trans sw).trans st,?_,?_,?_⟩
+      refine ⟨t,51+n1+n2+1,51+c1+c2+1,by omega,by omega,((su.trans sv).trans sw).trans st,?_,?_,?_⟩
       · have hcond : ¬Condition index H C0 C1 C2 T1 T2 := by intro h;exact h2 ⟨h.2.1,h.2.2.2.2.1⟩
         simpa [hcond] using pt
       · exact (((ru.trans rv).trans rw_).trans rt).mono (by decide)
       · exact (((fu.trans fv).trans fw).trans ft).mono (by simp)
   · rw [if_neg h1] at pv
     obtain ⟨t,st,pt,rt,ft⟩:=bad_steps hc.bad v pv
-    refine ⟨t,15+n1+1,15+c1+1,by omega,by omega,(su.trans sv).trans st,?_,?_,?_⟩
+    refine ⟨t,51+n1+1,51+c1+1,by omega,by omega,(su.trans sv).trans st,?_,?_,?_⟩
     · have hcond : ¬Condition index H C0 C1 C2 T1 T2 := by intro h;exact h1 ⟨h.1,h.2.2.2.1⟩
       simpa [hcond] using pt
     · exact ((ru.trans rv).trans rt).mono (by decide)
@@ -6262,7 +6262,7 @@ set_option Elab.async false
 theorem code_of_driver {im : Image}
     (hc : CodeAt im (pcOf 45056) Images.expandSharedDriver)
     (hy : CodeAt im (pcOf 84000) Images.expandY5Code)
-    (hp : CodeAt im (pcOf 54324) TopRoutePool.expandIndexCode)
+    (hp : TopRoutePool.ExpandAt im)
     (hh0 : CodeAt im (pcOf 88106) LocalRouteMachineHelpers.expand1Code)
     (hh1 : CodeAt im (pcOf 88072) LocalRouteMachineHelpers.expand2Code)
     (hh2 : CodeAt im (pcOf 88084) LocalRouteMachineHelpers.expand3Code)
@@ -6305,8 +6305,8 @@ theorem code_of_driver {im : Image}
   · exact codeAt_sub 3813 hy (by decide) (by decide +kernel)
   · exact SharedCounterHooks.code_slice (off:=1922) hc (by decide +kernel) (by decide +kernel)
   · exact SharedCounterHooks.code_slice (off:=1923) hc (by decide +kernel) (by decide +kernel)
-theorem installed_poolHelper : CodeAt Images.expandImage (pcOf 54324) TopRoutePool.expandIndexCode := by
-  apply codeAt_t51_at <;> decide +kernel
+theorem installed_poolHelper : TopRoutePool.ExpandAt Images.expandImage :=
+  And.intro (by apply codeAt_t51_at <;> decide +kernel) (by apply codeAt_expand_lastR <;> decide +kernel)
 theorem installed_code : Code Images.expandImage := code_of_driver codeAt_expand_shared_driver ClaudeWCT.W9.Machine.Expand.PrePass.codeAt_y5 installed_poolHelper
   (by apply codeAt_expand_lastR <;> decide +kernel)
   (by apply codeAt_expand_lastR <;> decide +kernel)
@@ -6348,7 +6348,7 @@ theorem validate_source_steps {im : Image} (hc : Code im)
     (ht2 : ∀r,r<42→ClaudeWCT.WCT9.Policy75Safe23.threshold 2 r<24)
     (hb1 : ∀r,r<58→s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (ClaudeWCT.WCT9.Policy75Safe23.threshold 1 r))
     (hb2 : ∀r,r<42→s.getByte (BitVec.ofNat 64 (16749520+r))=BitVec.ofNat 8 (ClaudeWCT.WCT9.Policy75Safe23.threshold 2 r)) :
-    ∃t n c,n≤115 ∧ c≤140 ∧ Steps im s n c t ∧
+    ∃t n c,n≤151 ∧ c≤176 ∧ Steps im s n c t ∧
       t.pc=(if SharedForest.policyHintsValid index hints digits lows then pcOf 42795 else pcOf 354) ∧
       RegsExcept s t [.x6,.x7,.x20,.x21,.x28,.x29] ∧ Frame s t (fun _=>False) := by
   obtain ⟨t,n,c,hn,hc',st,pt,rt,ft⟩:=validate_steps hc s hp index hi hmidx hints.toNat

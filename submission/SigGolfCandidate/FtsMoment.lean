@@ -804,13 +804,16 @@ theorem topTweak_ne_fts (heap' : Nat) {coord index heap : Nat} (hp : FP coord in
   have ht := congrArg tweakTag he
   rw [nodeTweak_top_tag, ClaudeWCT.WCT9.wctNodeHeader_tweakTag hp.1, if_pos hn] at ht
   have hc9 := hp.1
-  rcases topNodeWord_small_or_special heap' with hs | hs | hs
+  rcases topNodeWord_small_or_special heap' with hs | hs | hs | hs
   · omega
   · rw [hs] at ht
     norm_num at ht
     omega
   · rw [hs] at ht
     norm_num at ht
+    omega
+  · -- C40: the height-9 labels have tags 254, 113 (ra), 46 or 47; packed FTS node tags are `247 - 8 coord`.
+    have := TopNine.cases hs
     omega
 
 section FAvoid

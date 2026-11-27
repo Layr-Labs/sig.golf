@@ -142,7 +142,7 @@ def hiOff (_lay : Nat) : Nat := 16
 def slotOff (_lay : T3.Layer) (c : Nat) : Nat := if c = 0 then 0 else 16 * c + 16
 def hpK (lay : T3.Layer) : Nat := if lay = 0 then 26 else 24
 def slK (_lay : T3.Layer) (i : Nat) : Nat := if i = 0 then 5 else 6
-def hdrK (lay : Nat) : Nat := if lay = 0 then 31 else 38
+def hdrK (lay : Nat) : Nat := if lay = 0 then 50 else 38
 section blocks
 variable (s : MachineState)
 theorem lbu_word1027 : decodeInstruction (0x000e4a03 : BitVec 32) = some (.base (.LBU .x20 .x28 0)) := rfl
@@ -169,9 +169,9 @@ theorem eb_hdrT_pc (t : MachineState) : (eb_hdrT.res.toState t).pc = pcOf 1129 :
   simp [Result.toState_pc, eb_hdrT.res, E.eval]
 /-- the node tweak words written at `NODE + 16` / `NODE + 24`: `WCT9.merkleTweak` (C2 packed word for lower layers). -/
 theorem merkleTweak_words_top (tree heap : Nat) (h1 : 1 ≤ heap) (hh : heap < 4096) :
-    (ClaudeWCT.WCT9.merkleTweak 0 tree heap).extractLsb' 0 64 = BitVec.ofNat 64 (if heap = 1 then 14336 else if heap = 7 then 520192 else heap) ∧
+    (ClaudeWCT.WCT9.merkleTweak 0 tree heap).extractLsb' 0 64 = BitVec.ofNat 64 (T3.topNodeWord heap) ∧
     (ClaudeWCT.WCT9.merkleTweak 0 tree heap).extractLsb' 64 64 = 0 := by
-  rw [ClaudeWCT.WCT9.merkleTweak_top_low, ClaudeWCT.WCT9.merkleTweak_top_high, T3.topNodeWord_eq h1 hh]
+  rw [ClaudeWCT.WCT9.merkleTweak_top_low, ClaudeWCT.WCT9.merkleTweak_top_high]
   exact ⟨rfl, rfl⟩
 end blocks
 end SigGolfCandidate.T3M.Expand
@@ -460,6 +460,7 @@ class Code (im : Image) : Prop where
   e_lcC_at : CodeAt im (pcOf 43466) e_lcC
   e_lcD_at : CodeAt im (pcOf 1105) e_lcD
   e_hdrRemap_at : CodeAt im (pcOf 231593) ExpandLabel.remapCode
+  e_hdrChain_at : CodeAt im (pcOf 88600) ExpandLabel.chain
 variable {im : Image} [Code im]
 variable [BCBlocks.Code im] [PackedBlocks.Code im]
 variable (s : MachineState)
@@ -1509,7 +1510,7 @@ theorem rl1119_spec (hpc : s.pc = pcOf 1119) (lay tree leaf hh j : Nat) (hlay : 
     (h18 : s.getReg .x18 = BitVec.ofNat 64 leaf) (h15 : s.getReg .x15 = BitVec.ofNat 64 hh)
     (h20 : s.getReg .x20 = BitVec.ofNat 64 j)
     (h28 : s.getReg .x28 = BitVec.ofNat 64 (hh - j - 1)) :
-    ∃ t, Steps im s (hdrK lay) (hdrK lay) t ∧ t.pc = pcOf 1138 ∧
+    ∃ t n, n ≤ hdrK lay ∧ Steps im s n n t ∧ t.pc = pcOf 1138 ∧
       t.getMem (BitVec.ofNat 64 (NODE + 16)) =
         (ClaudeWCT.WCT9.merkleTweak lay tree (2 ^ (hh - j - 1) + leaf / 2 ^ (j + 1))).extractLsb' 0 64 ∧
       t.getMem (BitVec.ofNat 64 (NODE + 24)) =
@@ -1554,7 +1555,7 @@ theorem rl1119_spec (hpc : s.pc = pcOf 1119) (lay tree leaf hh j : Nat) (hlay : 
     · ex_regs eb_hdrB.res
     · intro A _ _; simp [eb_hdrB.res, rv_simp]
   have g13 : t2.getReg .x13 = BitVec.ofNat 64 heap := by rw [r2.get (by decide), x13]
-  obtain ⟨t3, s3, p3, y6, y7, r3, f3⟩ : ∃ t, Steps im t2 (if lay = 0 then 13 else 20) (if lay = 0 then 13 else 20) t ∧
+  obtain ⟨t3, n3, hn3, s3, p3, y6, y7, r3, f3⟩ : ∃ t n, n ≤ (if lay = 0 then 32 else 20) ∧ Steps im t2 n n t ∧
       t.pc = pcOf 1129 ∧ t.getReg .x6 = (ClaudeWCT.WCT9.merkleTweak lay tree heap).extractLsb' 0 64 ∧
       t.getReg .x7 = (ClaudeWCT.WCT9.merkleTweak lay tree heap).extractLsb' 64 64 ∧
       RegsExcept t2 t [.x3, .x6, .x7, .x30] ∧ Frame t2 t (fun _ => False) := by
@@ -1576,8 +1577,7 @@ theorem rl1119_spec (hpc : s.pc = pcOf 1119) (lay tree leaf hh j : Nat) (hlay : 
         generalize leaf / 2 ^ (j + 1) = Y at hq ⊢
         omega
       obtain ⟨wlo, whi⟩ := merkleTweak_words_top tree heap hheap1 hheap2
-      let nz : Bool := decide (t2.getReg .x6 ≠ 7#64)
-      have hbr : (t2.getReg .x6 ≠ 7#64) ↔ nz = true := by simp [nz]
+      let c : Nat := ExpandLabel.cls (t2.getReg .x6)
       have hwin : ExpandLabel.window <+: im.code.drop 1125 := by
         have h := (Code.e_hdrWindow_at (im := im)).2.2.2
         change ExpandLabel.window <+: im.code.drop 1125 at h
@@ -1588,16 +1588,18 @@ theorem rl1119_spec (hpc : s.pc = pcOf 1119) (lay tree leaf hh j : Nat) (hlay : 
         exact h
       have hpad : ExpandLabel.remapCode <+: im.code.drop 231593 := by
         exact (Code.e_hdrRemap_at (im := im)).2.2.2
-      have ho : ∀ o ∈ (ExpandLabel.result nz).st.obl, o.holds t2 := by
-        cases nz <;> simp [ExpandLabel.result, ExpandLabel.frozenEq.res, ExpandLabel.frozenNe.res]
-      refine ⟨_, (ExpandLabel.steps (ExpandLabel.look_ok hwin hjump hpad) nz t2 p2 ho hbr).of_eq
-        (by simp) (by simp), ExpandLabel.post_pc nz t2, ?_, ?_, ?_, ?_⟩
+      have hchain : ExpandLabel.chain <+: im.code.drop 88600 := by
+        have h := (Code.e_hdrChain_at (im := im)).2.2.2
+        change ExpandLabel.chain <+: im.code.drop 88600 at h
+        exact h
+      obtain ⟨n, hn, hst⟩ := ExpandLabel.steps (ExpandLabel.look_ok hwin hjump hpad hchain) c t2 p2 rfl
+      refine ⟨_, n, by simpa using hn, hst, ExpandLabel.post_pc c t2, ?_, ?_, ?_, ?_⟩
       · rw [wlo]
-        exact ExpandLabel.post_word_ofNat t2 heap hheap' x6
+        exact ExpandLabel.post_word_ofNat t2 heap hheap1 hheap2 x6
       · rw [whi, ExpandLabel.post_seven]
         rfl
-      · exact (ExpandLabel.post_regs nz t2).mono (by decide)
-      · exact ExpandLabel.post_frame nz t2
+      · exact (ExpandLabel.post_regs c t2).mono (by decide)
+      · exact ExpandLabel.post_frame c t2
     · rw [if_neg h0] at p2
       have g8' : t2.getReg .x8 = BitVec.ofNat 64 lay := by rw [r2.get (by decide), g8]
       have g9' : t2.getReg .x9 = BitVec.ofNat 64 tree := by rw [r2.get (by decide), g9]
@@ -1621,8 +1623,8 @@ theorem rl1119_spec (hpc : s.pc = pcOf 1119) (lay tree leaf hh j : Nat) (hlay : 
             exact LH.restNE_eval t2 (lay - 1) (by omega) (by rw [g8']; congr 1; omega)
           · cases r <;> simp_all [rv_simp, eb_hdrC.res] <;> rfl
         · intro A _ _; simp [eb_hdrC.res, rv_simp]
-      refine ⟨_, (su.trans (symRun_sound eb_hdrT (Code.e_hdrT_at (im := im)) u pu (by simp [eb_hdrT.res, rv_simp]))).of_eq
-        (by simp [h0, eb_hdrT.res]) (by simp [h0, eb_hdrT.res]), ?_, ?_, ?_, ?_, ?_⟩
+      refine ⟨_, 20, by simp [h0], (su.trans (symRun_sound eb_hdrT (Code.e_hdrT_at (im := im)) u pu (by simp [eb_hdrT.res, rv_simp]))).of_eq
+        (by simp [eb_hdrT.res]) (by simp [eb_hdrT.res]), ?_, ?_, ?_, ?_, ?_⟩
       · exact eb_hdrT_pc u
       · rw [ClaudeWCT.WCT9.merkleTweak_lower h0, ClaudeWCT.WCT9.lowerTweak_low, eb_hdrT_x6, uor, u13]
         rewrite [← ClaudeWCT.WCT9.lowerNodeWord, Keygen.lowerNodeWord_nodeLo h0]
@@ -1654,10 +1656,11 @@ theorem rl1119_spec (hpc : s.pc = pcOf 1119) (lay tree leaf hh j : Nat) (hlay : 
       simp only [Result.toState_getMem, eb_hdrE.res]
       t3n []
       rw [if_neg (by omega), if_neg (by omega)]
-  refine ⟨t4, (((s1.trans s2).trans s3).trans s4).of_eq (by unfold hdrK; split_ifs <;> simp_all)
-    (by unfold hdrK; split_ifs <;> simp_all), p4, m16, m24, x10, x11, x12,
+  refine ⟨t4, _, ?_, ((s1.trans s2).trans s3).trans s4, p4, m16, m24, x10, x11, x12,
     (((r1.trans r2).trans r3).trans r4).mono (by decide),
     (((f1.trans f2).trans f3).trans f4).mono (fun A _ h => by simp_all)⟩
+  unfold hdrK
+  split_ifs at hn3 ⊢ <;> omega
 
 theorem rl1143_spec (hpc : s.pc = pcOf 1143) (ret : Nat) (h1 : s.getReg .x1 = pcOf ret) :
     ∃ t, Steps im s 9 9 t ∧ t.pc = pcOf ret ∧
@@ -3216,12 +3219,22 @@ structure PassOut (t : MachineState) (a : BitVec 256) (w : MachineState) : Prop 
 section pass
 variable {im : Image} [Code im] {sk : BitVec 256}
 
+/-- C40: the `b1` tag test failing means the label's tag byte is 7. -/
+theorem tag_of_bne {Tw : Nat} (hTw : Tw < 2 ^ 64)
+    (hb : ¬ (BitVec.ofNat 64 Tw >>> 8 &&& 255#64 != 7#64) = true) : Tw / 256 % 256 = 7 := by
+  have h7 : BitVec.ofNat 64 Tw >>> 8 &&& 255#64 = 7#64 := by simpa using hb
+  have := congrArg BitVec.toNat h7
+  rw [BitVec.toNat_and, BitVec.toNat_ushiftRight, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hTw,
+    Nat.shiftRight_eq_div_pow] at this
+  have e : (255#64).toNat = 2 ^ 8 - 1 := rfl
+  rw [e, Nat.and_two_pow_sub_one_eq_mod] at this
+  simpa using this
 theorem stub_pass_pub {β : Type} {t : MachineState} {input : List UInt8} {W : Nat}
     {f : SigGolfCandidate.T3.HashOutput → SigGolfCandidate.T3.M β} {Q : β → MachineState → Prop} (hpc : t.pc = pcOf 1138)
     (h5 : t.getReg .x5 = 0) (h12 : t.getReg .x12 = BitVec.ofNat 64 NOUT) (h10 : t.getReg .x10 = BitVec.ofNat 64 NODE)
     (h11 : t.getReg .x11 = BitVec.ofNat 64 64) (hlen : input.length = 64)
     (hw : t.readWords (BitVec.ofNat 64 NODE) 8 = wordsOf input) (Tw : Nat) (hTw : Tw < 2 ^ 64)
-    (hT : t.getMem (BitVec.ofNat 64 (NODE + 16)) = BitVec.ofNat 64 Tw) (htop : Tw < 2 ^ 28)
+    (hT : t.getMem (BitVec.ofNat 64 (NODE + 16)) = BitVec.ofNat 64 Tw) (htop : Tw / 256 % 256 = 7 → Tw < 2 ^ 28)
     (h : ∀ a w, PassOut t a w → TBSim im sk w W (f a) Q) :
     TBSim im sk t (25 + 8 * (toQ (pad64 input)).blocks + W) (SigGolfCandidate.T3.publicHash input >>= f) Q := by
   obtain ⟨t1, s1, p1, r1, f1⟩ := j1138_spec (im := im) t hpc
@@ -3258,7 +3271,7 @@ theorem stub_pass_pub {β : Type} {t : MachineState} {input : List UInt8} {W : N
       have hne : BitVec.ofNat 64 Tw >>> 28 = 0#64 := by
         apply BitVec.eq_of_toNat_eq
         rw [BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hTw]
-        exact Nat.div_eq_of_lt htop
+        exact Nat.div_eq_of_lt (htop (tag_of_bne hTw hb))
       rw [x31, if_pos hne] at p4
       exact ⟨v2, 3, s4, le_rfl, p4, r4, f4⟩
   obtain ⟨w, s5, p5, x7w, x28w, x29w, x30w, x31w, msave, r5, f5⟩ := dn_spec (im := im) v2 p4
@@ -3291,7 +3304,7 @@ theorem stub_pass {β : Type} {t : MachineState} {input : List UInt8} {W : Nat} 
     (h5 : t.getReg .x5 = 0) (h12 : t.getReg .x12 = BitVec.ofNat 64 NOUT) (h10 : t.getReg .x10 = BitVec.ofNat 64 NODE)
     (h11 : t.getReg .x11 = BitVec.ofNat 64 64) (hlen : input.length = 64)
     (hw : t.readWords (BitVec.ofNat 64 NODE) 8 = wordsOf input) (Tw : Nat) (hTw : Tw < 2 ^ 64)
-    (hT : t.getMem (BitVec.ofNat 64 (NODE + 16)) = BitVec.ofNat 64 Tw) (htop : Tw < 2 ^ 28)
+    (hT : t.getMem (BitVec.ofNat 64 (NODE + 16)) = BitVec.ofNat 64 Tw) (htop : Tw / 256 % 256 = 7 → Tw < 2 ^ 28)
     (h : ∀ a w, PassOut t a w → TBSim im sk w W (f (ClaudeWCT.WCT9.halfOf high a)) Q) :
     TBSim im sk t (25 + 8 * (toQ (pad64 input)).blocks + W) (ClaudeWCT.WCT9.halfHash high input >>= f) Q := by
   rw [ClaudeWCT.WCT9.halfHash_eq, bind_assoc]

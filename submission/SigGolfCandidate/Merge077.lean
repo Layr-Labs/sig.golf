@@ -543,20 +543,13 @@ theorem ne_nonce_words (n : Nat) (hn : n < 2 ^ 64) : wordsOf (nonceBytes n) = [B
     rfl
 theorem ne_topNodeInput_length (heap n : Nat) (l r : Digest) : (topNodeInput heap n l r).length = 64 := by
   simp [topNodeInput, nonceBytes, bytesLE_length]
-theorem ne_remapWord_nat (heap : Nat) (hh : heap < 2^64) :
-    KeygenLabel.remapWord (BitVec.ofNat 64 heap) =
-      BitVec.ofNat 64 (if heap = 1 then 14336 else if heap = 7 then 520192 else heap) := by
-  by_cases h1 : heap=1
-  · simp [KeygenLabel.remapWord,h1]
-  by_cases h7 : heap=7
-  · simp [KeygenLabel.remapWord,h7]
-  · have hn1 : BitVec.ofNat 64 heap ≠ 1#64 := fun he => h1 ((ofNat_inj hh (by decide)).mp he)
-    have hn7 : BitVec.ofNat 64 heap ≠ 7#64 := fun he => h7 ((ofNat_inj hh (by decide)).mp he)
-    simp [KeygenLabel.remapWord,h1,h7,hn1,hn7]
+theorem ne_remapWord_nat (heap : Nat) (h1 : 1 ≤ heap) (h2 : heap < 4096) :
+    KeygenLabel.remapWord (BitVec.ofNat 64 heap) = BitVec.ofNat 64 (T3.topNodeWord heap) :=
+  KeygenLabel.remapWord_ofNat heap h1 h2
 
 theorem ne_wordsOf_topNodeInput (heap n : Nat) (h1 : 1 ≤ heap) (h2 : heap < 4096) (hn : n < 2 ^ 64) (l r : Digest) :
     wordsOf (topNodeInput heap n l r) =
-      [l.extractLsb' 0 64, l.extractLsb' 64 64, BitVec.ofNat 64 (if heap = 1 then 14336 else if heap = 7 then 520192 else heap), 0, BitVec.ofNat 64 n, 0,
+      [l.extractLsb' 0 64, l.extractLsb' 64 64, BitVec.ofNat 64 (T3.topNodeWord heap), 0, BitVec.ofNat 64 n, 0,
         r.extractLsb' 0 64, r.extractLsb' 64 64] := by
   unfold topNodeInput
   rw [wordsOf_append _ _ (by simp [bytesLE_length, nonceBytes]), wordsOf_append _ _ (by simp [bytesLE_length]),
@@ -565,7 +558,7 @@ theorem ne_wordsOf_topNodeInput (heap n : Nat) (h1 : 1 ≤ heap) (h2 : heap < 40
   have hhi : (0#64 ++ KeygenLabel.remapWord (BitVec.ofNat 64 (Keygen.nodeLo 0 0 + heap))).extractLsb' 64 64 = 0#64 :=
     BitVec.extractLsb'_append_eq_left
   rw [hhi]
-  simp [Keygen.nodeLo, ne_remapWord_nat heap (by omega : heap < 2^64)]
+  simp [Keygen.nodeLo, ne_remapWord_nat heap h1 h2]
 theorem ne_topNodeInput_blocks (heap n : Nat) (l r : Digest) :
     (toQ (pad64 (topNodeInput heap n l r))).blocks = 1 := by
   rw [pad64_of_aligned _ (by rw [ne_topNodeInput_length]),
@@ -574,7 +567,7 @@ theorem ne_hashInput_topNode (t : MachineState) (heap n : Nat) (h1 : 1 ≤ heap)
     (l r : Digest) (h10 : t.getReg .x10 = BitVec.ofNat 64 NODE) (h11 : t.getReg .x11 = BitVec.ofNat 64 64)
     (w0 : t.getMem (BitVec.ofNat 64 NODE) = l.extractLsb' 0 64)
     (w8 : t.getMem (BitVec.ofNat 64 (NODE + 8)) = l.extractLsb' 64 64)
-    (w16 : t.getMem (BitVec.ofNat 64 (NODE + 16)) = BitVec.ofNat 64 (if heap = 1 then 14336 else if heap = 7 then 520192 else heap))
+    (w16 : t.getMem (BitVec.ofNat 64 (NODE + 16)) = BitVec.ofNat 64 (T3.topNodeWord heap))
     (w24 : t.getMem (BitVec.ofNat 64 (NODE + 24)) = 0)
     (w32 : t.getMem (BitVec.ofNat 64 (NODE + 32)) = BitVec.ofNat 64 n)
     (w40 : t.getMem (BitVec.ofNat 64 (NODE + 40)) = 0)
@@ -705,7 +698,7 @@ structure NFacts (t2 : MachineState) (heap leaf j P M : Nat) (l r : Digest) : Pr
   x24 : t2.getReg .x24 = BitVec.ofNat 64 M
   w0 : t2.getMem (BitVec.ofNat 64 NODE) = l.extractLsb' 0 64
   w8 : t2.getMem (BitVec.ofNat 64 (NODE + 8)) = l.extractLsb' 64 64
-  w16 : t2.getMem (BitVec.ofNat 64 (NODE + 16)) = BitVec.ofNat 64 (if heap = 1 then 14336 else if heap = 7 then 520192 else heap)
+  w16 : t2.getMem (BitVec.ofNat 64 (NODE + 16)) = BitVec.ofNat 64 (T3.topNodeWord heap)
   w24 : t2.getMem (BitVec.ofNat 64 (NODE + 24)) = 0
   w32 : t2.getMem (BitVec.ofNat 64 (NODE + 32)) = 0
   w40 : t2.getMem (BitVec.ofNat 64 (NODE + 40)) = 0
@@ -1171,14 +1164,14 @@ theorem frame_readWordsL {s t : MachineState} {W : Nat → Prop} (h : Frame s t 
       readWords_one, readWords_one, h.get (by omega) (hW m (by omega))]
 /-- img-v6 (topfold-v6): cycles of one top node below the root at level `j` (height `j + 1`): the node step with
 the nonce search, at most `topNonceCap (j + 1) - 1` failed trials of 22 cycles each. -/
-def topNodeW (j : Nat) : Nat := 161 + 22 * (T3.topNonceCap (j + 1) - 1)
+def topNodeW (j : Nat) : Nat := 173 + 22 * (T3.topNonceCap (j + 1) - 1)
 /-- U16b: cycles of lower fold `j` of layer `lay` (heap class `2 ^ (height lay - j - 1)`): the node step with the grind
 stub (`Grind.stubW`: 72 off the ground, `118 + 16 (cap - 1)` on a ground heap). -/
 def lowFoldW (lay : Layer) (j : Nat) : Nat := 80 + SharedRecover.Grind.stubW lay.val (2 ^ (height lay - j - 1))
 /-- Cycles of the node climb (img-v6: the hook 1139 adds 4 (lower) / 6 (top root) cycles per plain node, 81 total;
 the 11 top nodes below the root take `topNodeW`). -/
 def climbW (lay : Layer) : Nat :=
-  if lay = 0 then ((List.range' 0 11).map topNodeW).sum + 113 else ((List.range' 0 (height lay - 1)).map (lowFoldW lay)).sum + 81
+  if lay = 0 then ((List.range' 0 11).map topNodeW).sum + 125 else ((List.range' 0 (height lay - 1)).map (lowFoldW lay)).sum + 81
 def rlCost (lay : Layer) : Nat := hpK lay + chainCount lay * 507 + 10 + 8 * leafBlocks' lay + 13 + climbW lay
 /-- The top layer's 11 node nonces at `0x66700 + 8 k` and the leaf at `0x66758` (read by the pad writer). -/
 def NoncesAt (t : MachineState) (nonces : List Nat) (leaf : Nat) : Prop :=
@@ -1246,7 +1239,7 @@ theorem rl1117_continue (s : MachineState) (hpc : s.pc = pcOf 1117)
     (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) (h9 : s.getReg .x9 = BitVec.ofNat 64 tree)
     (h18 : s.getReg .x18 = BitVec.ofNat 64 leaf) (h15 : s.getReg .x15 = BitVec.ofNat 64 hh)
     (h20 : s.getReg .x20 = BitVec.ofNat 64 j) :
-    ∃ t k, Steps im s k k t ∧ k ≤ 44 ∧ t.pc = pcOf 1138 ∧
+    ∃ t k, Steps im s k k t ∧ k ≤ (if lay = 0 then 56 else 44) ∧ t.pc = pcOf 1138 ∧
       t.getMem (BitVec.ofNat 64 (NODE + 16)) =
         (ClaudeWCT.WCT9.merkleTweak lay tree (2 ^ (hh - j - 1) + leaf / 2 ^ (j + 1))).extractLsb' 0 64 ∧
       t.getMem (BitVec.ofNat 64 (NODE + 24)) =
@@ -1267,12 +1260,12 @@ theorem rl1117_continue (s : MachineState) (hpc : s.pc = pcOf 1117)
       omega
     · right; rw [h8, hc]; rfl
   obtain ⟨u, k, su, hk, up, u28, ur, uf⟩ := BCBlocks.continue_spec (im := im) s hpc hcont
-  obtain ⟨t, ut, tp, m16, m24, t10, t11, t12, tr, tf⟩ := rl1119_spec (im := im) u up lay tree leaf hh j
+  obtain ⟨t, n, hn, ut, tp, m16, m24, t10, t11, t12, tr, tf⟩ := rl1119_spec (im := im) u up lay tree leaf hh j
     hlay htree htrH hl hj hh' htopl
     (by rw [ur.get (by decide)]; exact h8) (by rw [ur.get (by decide)]; exact h9)
     (by rw [ur.get (by decide)]; exact h18) (by rw [ur.get (by decide)]; exact h15)
     (by rw [ur.get (by decide)]; exact h20) (u28.trans he)
-  refine ⟨t, k + hdrK lay, su.trans ut, by unfold hdrK; split_ifs <;> omega, tp, m16, m24, t10, t11, t12, ?_, ?_⟩
+  refine ⟨t, k + n, su.trans ut, by unfold hdrK at hn; split_ifs at hn ⊢ <;> omega, tp, m16, m24, t10, t11, t12, ?_, ?_⟩
   · exact (ur.trans tr).mono (by decide)
   · exact (uf.trans tf).mono (by intro A hA h; simpa using h)
 
@@ -1387,7 +1380,7 @@ theorem rl_mk_step {tc : MachineState} {sig : Signature} {lay : Layer} {tree lea
     (cpath : DigAt tc (P + 16 * chainCount lay + 16 * j) (lpath sig lay j))
     (cn32 : tc.getMem (BitVec.ofNat 64 (NODE + 32)) = 0) (cn40 : tc.getMem (BitVec.ofNat 64 (NODE + 40)) = 0)
     (hI : MkInv tc sig lay leaf P WM j value u) (hskip : lay ≠ 0 ∨ 11 ≤ j) (htop : lay = 0) :
-    TBSim im sk u 113 (let other := (sig.layers lay).path ⟨j, hj⟩
+    TBSim im sk u 125 (let other := (sig.layers lay).path ⟨j, hj⟩
         let pair := if leaf / 2 ^ j % 2 = 0 then (value, other) else (other, value)
         ClaudeWCT.WCT9.lowerNodeHash lay.val tree (2 ^ (height lay - j - 1) + leaf / 2 ^ (j + 1)) pair.1 pair.2)
       (fun v' u' => MkInv tc sig lay leaf P WM (j + 1) v' u' ∧
@@ -1464,6 +1457,7 @@ theorem rl_mk_step {tc : MachineState} {sig : Signature} {lay : Layer} {tree lea
     (by rw [g3 _ (by decide)]; exact c8) (by rw [g3 _ (by decide)]; exact c9)
     (by rw [g3 _ (by decide)]; exact c18) (by rw [g3 _ (by decide)]; exact c15)
     (by rw [r3.get (by decide), ru2.get (by decide)]; exact hI.x20)
+  rw [if_pos (show lay.val = 0 by rw [htop]; rfl)] at hk4
   set heap := 2 ^ (height lay - j - 1) + leaf / 2 ^ (j + 1) with hheap
   have hheap' : heap < 2 ^ 32 := by
     have : 2 ^ (height lay - j - 1) ≤ 2 ^ 12 := Nat.pow_le_pow_right (by norm_num) (by omega)
@@ -1517,9 +1511,10 @@ theorem rl_mk_step {tc : MachineState} {sig : Signature} {lay : Layer} {tree lea
     generalize leaf / 2 ^ (j + 1) = Y at hq ⊢
     omega
   obtain ⟨w16, -⟩ := merkleTweak_words_top tree heap hheap1 hheap2
-  have hT : t4.getMem (BitVec.ofNat 64 (NODE + 16)) = BitVec.ofNat 64 (if heap = 1 then 14336 else if heap = 7 then 520192 else heap) := by rw [h16, hl0]; exact w16
+  have hT : t4.getMem (BitVec.ofNat 64 (NODE + 16)) = BitVec.ofNat 64 (T3.topNodeWord heap) := by rw [h16, hl0]; exact w16
   refine (TBSim.steps (s1.trans (s2.trans (s3.trans s4))) (Grind.stub_pass (im := im) (sk := sk) _ p4 h5 h12 h10 h11
-    (block4_length _ _ _) hblk4 (if heap = 1 then 14336 else if heap = 7 then 520192 else heap) (by split_ifs <;> omega) hT (by split_ifs <;> omega) (W := 10) (fun a ws hws => ?_))).mono ?_ (fun _ _ h => h)
+    (block4_length _ _ _) hblk4 (T3.topNodeWord heap) (lt_trans (T3.topNodeWord_lt heap) (by norm_num)) hT
+    (fun h => by have := T3.topNodeWord_small_or_ra heap; omega) (W := 10) (fun a ws hws => ?_))).mono ?_ (fun _ _ h => h)
   rotate_left
   · rw [pad64_of_aligned _ (by rw [block4_length]), blocks_toQ ⟨by rw [block4_length]; omega,
       by rw [block4_length]⟩, block4_length]; omega
@@ -1737,6 +1732,7 @@ theorem rl_mk_stepL {tc : MachineState} {sig : Signature} {lay : Layer} {tree le
     (by rw [g3 _ (by decide)]; exact c8) (by rw [g3 _ (by decide)]; exact c9)
     (by rw [g3 _ (by decide)]; exact c18) (by rw [g3 _ (by decide)]; exact c15)
     (by rw [r3.get (by decide), ru2.get (by decide)]; exact hI.x20)
+  rw [if_neg (show lay.val ≠ 0 from fun h => hlow (Fin.ext h))] at hk4
   set heap := 2 ^ (height lay - j - 1) + leaf / 2 ^ (j + 1) with hheap
   have hheap' : heap < 2 ^ 32 := by
     have : 2 ^ (height lay - j - 1) ≤ 2 ^ 12 := Nat.pow_le_pow_right (by norm_num) (by omega)
@@ -2038,6 +2034,7 @@ theorem rl_mk_stepN {tc : MachineState} {sig : Signature} {lay : Layer} {tree le
     (by rw [g3 _ (by decide)]; exact c8) (by rw [g3 _ (by decide)]; exact c9)
     (by rw [g3 _ (by decide)]; exact c18) (by rw [g3 _ (by decide)]; exact c15)
     (by rw [r3.get (by decide), ru2.get (by decide)]; exact hI.x20)
+  rw [if_pos (show lay.val = 0 by rw [htop]; rfl)] at hk4
   set heap := 2 ^ (height lay - j - 1) + leaf / 2 ^ (j + 1) with hheap
   have hheap' : heap < 2 ^ 32 := by
     have : 2 ^ (height lay - j - 1) ≤ 2 ^ 12 := Nat.pow_le_pow_right (by norm_num) (by omega)
@@ -2134,10 +2131,11 @@ theorem rl_mk_stepN {tc : MachineState} {sig : Signature} {lay : Layer} {tree le
     · (simp only [hL, hR, hb, ↓reduceIte, hheap]) <;> rfl
     · (simp only [hL, hR, hb, ↓reduceIte, hheap]) <;> rfl
   rw [hprog]
-  have hT : t4.getMem (BitVec.ofNat 64 (NODE + 16)) = BitVec.ofNat 64 (if heap = 1 then 14336 else if heap = 7 then 520192 else heap) := by rw [h16, hl0]; exact w16
+  have hT : t4.getMem (BitVec.ofNat 64 (NODE + 16)) = BitVec.ofNat 64 (T3.topNodeWord heap) := by rw [h16, hl0]; exact w16
   have hwN : t4.readWords (BitVec.ofNat 64 NODE) 8 = wordsOf (topNodeInput heap 0 L R) := by rw [hin]; exact hblk4
   refine (TBSim.steps (s1.trans (s2.trans (s3.trans s4))) (Grind.stub_pass_pub (im := im) (sk := sk) p4 h5 h12 h10 h11
-    (ne_topNodeInput_length _ _ _ _) hwN (if heap = 1 then 14336 else if heap = 7 then 520192 else heap) (by split_ifs <;> omega) hT (by split_ifs <;> omega)
+    (ne_topNodeInput_length _ _ _ _) hwN (T3.topNodeWord heap) (lt_trans (T3.topNodeWord_lt heap) (by norm_num)) hT
+    (fun h => by have := T3.topNodeWord_small_or_ra heap; omega)
     (W := 38 + (22 * (topNonceCap (j + 1) - 1) + 20))
     (fun a ws hws => (nonce_run (im := im) sk F a ws hws).mono le_rfl (fun res w hw => ?_)))).mono
     (by rw [ne_topNodeInput_blocks] <;> unfold topNodeW <;> omega) (fun _ _ h => h)
@@ -2370,7 +2368,7 @@ theorem recoverTop_tbsim {s0 : MachineState} {sig : Signature} {index : Nat} {la
     ((List.finRange (height lay)).take 11) 0 (ClaudeWCT.WCT9.halfOf (T3.leafHalfHigh lay leaf) a, []) v4 hmap
     (by rw [hlen11]) ⟨hM0, rfl, fun k hk => absurd hk (by omega), fun h => absurd h (by omega)⟩
   rw [hlen11] at hfold
-  refine (TBSim.steps sv4 (TBSim.bind (W₂ := 113 + 10) hfold (fun vn w0 hw0 => ?_))).mono
+  refine (TBSim.steps sv4 (TBSim.bind (W₂ := 125 + 10) hfold (fun vn w0 hw0 => ?_))).mono
     (by unfold climbW; rw [if_pos htop]; omega) (fun _ _ h => h)
   obtain ⟨hw0, hlen0, hn0, hlf0⟩ := hw0
   refine (TBSim.bind (W₂ := 10) (rl_mk_step (im := im) hT11 (Or.inr htop) htree (fun h => absurd (by rw [htop]; rfl) h) hleaf hpre.hP hpre.hP' hpre.hP8 hpre.hWM8 hpre.hWM

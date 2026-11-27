@@ -4144,10 +4144,16 @@ theorem hashHitAt_of_low {answers : Answers} {pos : Pos} {honest actual : HashIn
 def hdrBlock (input : HashInput) : HashInput := (input.drop 16).take 16
 /-- C4: a header block whose low word `W` (its first 8 bytes) satisfies `1 ≤ W < 4096`. Among 64-byte positions
 only the top folds have such a label (`T3.topNodeWord`, in `[1, 4096)`): the digest has `W = 0`, every FTS word is
-`≥ 4096` (coordinate nibble `coord + 1`), WOTS chain and lower fold words carry type byte 193. -/
-def TopLow (b : HashInput) : Prop := (1 ≤ readLE (b.take 8) ∧ readLE (b.take 8) < 4096) ∨ readLE (b.take 8) = 520192 ∨ readLE (b.take 8) = 14336
+`≥ 4096` (coordinate nibble `coord + 1`), WOTS chain and lower fold words carry type byte 193. C40: also the eight
+height-9 register labels `TopNine` (heaps 8..15). -/
+instance topNine_decidable (w : Nat) : Decidable (SigGolfCandidate.T3.TopNine w) :=
+  inferInstanceAs (Decidable (w = 261632 ∨ w = 8198552921648689607 ∨ w = 12064 ∨ w = 12240 ∨ w = 12016 ∨ w = 11968 ∨
+    w = 12160 ∨ w = 12112))
+def TopLow (b : HashInput) : Prop := (1 ≤ readLE (b.take 8) ∧ readLE (b.take 8) < 4096) ∨ readLE (b.take 8) = 520192 ∨
+  readLE (b.take 8) = 14336 ∨ SigGolfCandidate.T3.TopNine (readLE (b.take 8))
 instance (b : HashInput) : Decidable (TopLow b) :=
-  inferInstanceAs (Decidable ((1 ≤ readLE (b.take 8) ∧ readLE (b.take 8) < 4096) ∨ readLE (b.take 8) = 520192 ∨ readLE (b.take 8) = 14336))
+  inferInstanceAs (Decidable ((1 ≤ readLE (b.take 8) ∧ readLE (b.take 8) < 4096) ∨ readLE (b.take 8) = 520192 ∨
+    readLE (b.take 8) = 14336 ∨ SigGolfCandidate.T3.TopNine (readLE (b.take 8))))
 /-- C3 (FULL, S2-2) + C4: the decoding key of an input's header block. Leaf-length inputs (704 or 832 bytes) and
 64-byte inputs with a top label (`TopLow`) are keyed by the low tweak word only (their high word is a witness pad);
 every other input by its canonical header. -/
@@ -4739,7 +4745,8 @@ theorem readLE_take8 (h : BitVec 128) : readLE ((bytesLE 16 h).take 8) = tweakLo
     (BitVec.extractLsb'_append_extractLsb' (w := 64) (len := 64) (x := h)).symm
   conv_lhs => rw [he, SigGolfCandidate.T3M.Extract.bytesLE_header_words, List.take_left' (bytesLE_length 8 _)]
   rw [SigGolfCandidate.T3M.readLE_bytesLE, tweakLow_eq_low]
-theorem topLow_bytesLE_iff (h : BitVec 128) : TopLow (bytesLE 16 h) ↔ (1 ≤ tweakLow h ∧ tweakLow h < 4096) ∨ tweakLow h = 520192 ∨ tweakLow h = 14336 := by
+theorem topLow_bytesLE_iff (h : BitVec 128) : TopLow (bytesLE 16 h) ↔ (1 ≤ tweakLow h ∧ tweakLow h < 4096) ∨
+    tweakLow h = 520192 ∨ tweakLow h = 14336 ∨ SigGolfCandidate.T3.TopNine (tweakLow h) := by
   unfold TopLow; rw [readLE_take8]
 end ClaudeWCT.W9.T3M.Extract
 end
@@ -5270,14 +5277,49 @@ theorem tweakTag_of_low_one {h : BitVec 128} (he : tweakLow h = 14336) : tweakTa
   unfold tweakTag
   norm_num only [Nat.reducePow] at he ⊢
   omega
+/-- C40: the tag byte of a tweak is byte 1 of its low word. -/
+theorem tweakTag_eq_lowTag (h : BitVec 128) : tweakTag h = tweakLow h / 256 % 256 := by
+  unfold tweakTag tweakLow; omega
+/-- C40: the height-9 top labels are below `2 ^ 18` with tag 254 (`0x3fe00`) or 46/47 (window pointers), or ra
+(tag 113, between `113 * 2 ^ 56` and `114 * 2 ^ 56`). -/
+theorem TopNine.tag {w : Nat} (h : SigGolfCandidate.T3.TopNine w) :
+    (w < 2 ^ 18 ∧ (w / 256 % 256 = 254 ∨ w / 256 % 256 = 46 ∨ w / 256 % 256 = 47)) ∨ w = 8198552921648689607 := by
+  unfold SigGolfCandidate.T3.TopNine at h; omega
+/-- C40: an FTS chain word (chain `< 6`) is at least `2 ^ 20 - 2 ^ 15` (above every small top label). -/
+theorem ftsChainLow_ge20 {coord : Nat} (hc : coord < 15) (index selected chain step : Nat) (hchain : chain < 6) :
+    2 ^ 20 - 2 ^ 15 ≤ WCT9.ftsChainLow index coord selected chain step := by
+  unfold WCT9.ftsChainLow
+  rw [Nat.mod_eq_of_lt (show coord < 16 by omega)]
+  have := Nat.mod_lt selected (show 0 < 128 by decide)
+  have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
+  rcases WCT9.ftsSelMul_cases coord with hm | hm <;> rw [hm] <;>
+  rw [SigGolfCandidate.T3.ftsBias_eq _ (by omega)] <;>
+  rw [Nat.mod_eq_of_lt (show chain < 8 by omega)] <;> split_ifs <;> omega
+/-- C40: a tweak with tag byte `≥ 130`, other than 254 or with low word `≥ 2 ^ 18`, is no height-9 top label. -/
+theorem not_topNine_of_tag {h : BitVec 128} (ht : 130 ≤ tweakTag h) (hl : tweakTag h ≠ 254 ∨ 2 ^ 18 ≤ tweakLow h) :
+    ¬ SigGolfCandidate.T3.TopNine (tweakLow h) := by
+  intro hn
+  have := TopNine.tag hn
+  rw [tweakTag_eq_lowTag] at ht hl
+  omega
 
 def keyClass (len : Nat) (h : BitVec 128) : Nat :=
   if len = 832 ∨ len = 704 then 2
   else if len = 128 then 4
   else if len = 320 then 6
-  else if (1 ≤ tweakLow h ∧ tweakLow h < 4096) ∨ tweakLow h = 520192 ∨ tweakLow h = 14336 then 1
+  else if (1 ≤ tweakLow h ∧ tweakLow h < 4096) ∨ tweakLow h = 520192 ∨ tweakLow h = 14336 ∨
+    SigGolfCandidate.T3.TopNine (tweakLow h) then 1
   else if 128 ≤ tweakMarker h ∨ (tweakMarker h < 4 ∧ 130 ≤ tweakTag h ∧ 2 ≤ tweakTag h % 8) then 0
   else 5
+/-- C40: off the height-9 labels the key class is decided by the old top test. -/
+theorem keyClass_of_not_topNine (len : Nat) {h : BitVec 128} (hN : ¬ SigGolfCandidate.T3.TopNine (tweakLow h)) :
+    keyClass len h = if len = 832 ∨ len = 704 then 2
+      else if len = 128 then 4
+      else if len = 320 then 6
+      else if (1 ≤ tweakLow h ∧ tweakLow h < 4096) ∨ tweakLow h = 520192 ∨ tweakLow h = 14336 then 1
+      else if 128 ≤ tweakMarker h ∨ (tweakMarker h < 4 ∧ 130 ≤ tweakTag h ∧ 2 ≤ tweakTag h % 8) then 0
+      else 5 := by
+  unfold keyClass; simp only [hN, or_false]
 def Pos.cls : Pos → Nat
   | .chain .. => 0
   | .wctChain .. => 0
@@ -5353,12 +5395,19 @@ theorem top_heap_bounds {level nd : Nat} (hlev : level < height (0 : Layer))
 theorem Pos.keyClass_eq {p : Pos} (hb : p.Bounded) : keyClass p.len p.hdr = p.cls := by
   cases p with
   | chain lay tree lf i step =>
-      have hL : 2 ^ 28 ≤ tweakLow (chainHeader lay tree lf i step) := by
+      have hL : 2 ^ 28 ≤ tweakLow (chainHeader lay tree lf i step) ∧
+          (tweakLow (chainHeader lay tree lf i step) < 2 ^ 56 ∨
+            193 * 2 ^ 56 ≤ tweakLow (chainHeader lay tree lf i step)) := by
         rw [tweakLow_eq_low, chainHeader_low, chainHeaderFlaggedLow_toNat]
         have := chainHeaderLow_band lay tree lf i step
-        omega
+        split_ifs <;> omega
+      -- C40: a chain word is `≥ 2 ^ 28` and below `2 ^ 56` or in the legacy band; ra lies in between.
+      have hN : ¬ SigGolfCandidate.T3.TopNine (tweakLow (chainHeader lay tree lf i step)) := by
+        intro hn; have := TopNine.tag hn; omega
       have hm := chainHeader_firstByte lay tree lf i step
-      simp only [keyClass, Pos.len, Pos.hdr, Pos.cls, tweakMarker]
+      simp only [Pos.len, Pos.hdr, Pos.cls]
+      rw [keyClass_of_not_topNine _ hN]
+      simp only [tweakMarker]
       split_ifs <;> omega
   | wctChain index coord child t step =>
       obtain ⟨-, hk, -, ht, -⟩ := hb
@@ -5382,7 +5431,16 @@ theorem Pos.keyClass_eq {p : Pos} (hb : p.Bounded) : keyClass p.len p.hdr = p.cl
         intro he
         have := tweakTag_of_low_one he
         omega
-      simp only [keyClass, Pos.len, Pos.hdr, Pos.cls, WCT9.ftsChainHeader] at hm hL hT hspecial hspecialOne ⊢
+      -- C40: an FTS chain word is `≥ 2 ^ 20 - 2 ^ 15` with tag `≥ 130`.
+      have hN : ¬ SigGolfCandidate.T3.TopNine (tweakLow (WCT9.ftsChainHeader index coord child t step)) := by
+        refine not_topNine_of_tag hT.1 (Or.inr ?_)
+        unfold WCT9.ftsChainHeader
+        rw [tweakLow_eq_low, WCT9.ftsChainHeaderP_low, BitVec.toNat_ofNat,
+          Nat.mod_eq_of_lt (WCT9.ftsChainLow_lt _ _ _ _ _)]
+        exact le_trans (by norm_num) (ftsChainLow_ge20 (by omega) _ _ _ _ (by omega))
+      simp only [Pos.len, Pos.hdr, Pos.cls]
+      rw [keyClass_of_not_topNine _ hN]
+      simp only [WCT9.ftsChainHeader] at hm hL hT hspecial hspecialOne ⊢
       split_ifs <;> omega
   | leaf lay tree lf =>
       simp only [keyClass, Pos.len, Pos.cls]
@@ -5394,17 +5452,21 @@ theorem Pos.keyClass_eq {p : Pos} (hb : p.Bounded) : keyClass p.len p.hdr = p.cl
         have hl : tweakLow (WCT9.merkleTweak 0 tree (2 ^ (height (0 : Layer) - level - 1) + nd)) =
             topNodeWord (2 ^ (height (0 : Layer) - level - 1) + nd) := by
           rw [tweakLow_eq_low, WCT9.merkleTweak_top_low, topNodeWord_toNat64]
-        have h1 := topNodeWord_pos (2 ^ (height (0 : Layer) - level - 1) + nd)
-        have h2 := topNodeWord_small_or_special (2 ^ (height (0 : Layer) - level - 1) + nd)
+        have h2 := (topNodeWord_small_or_special (2 ^ (height (0 : Layer) - level - 1) + nd)).imp
+          (fun hb => And.intro (topNodeWord_pos (2 ^ (height (0 : Layer) - level - 1) + nd)) hb) id
         show keyClass 64 (WCT9.merkleTweak 0 tree (2 ^ (height (0 : Layer) - level - 1) + nd)) = 1
         unfold keyClass
-        rw [hl, if_neg (by decide), if_neg (by decide), if_neg (by decide), if_pos (by omega)]
+        rw [hl, if_neg (by decide), if_neg (by decide), if_neg (by decide), if_pos h2]
       · have hh := node_heap_lt128 hnd (height_le7 h0)
         have hm := WCT9.lowerTweak_marker hh lay.val tree
         have hL := WCT9.lowerTweak_low_ge hh lay.val tree
+        have hB := WCT9.lowerTweak_band hh lay.val tree
         show keyClass 64 (WCT9.merkleTweak lay.val tree (2 ^ (height lay - level - 1) + nd)) = (if lay = 0 then 1 else 0)
         rw [if_neg h0, merkleTweak_layer_lower h0]
-        unfold keyClass
+        -- C40: a lower node word is `≥ 2 ^ 28` and below `2 ^ 48` or in the legacy band; ra lies in between.
+        have hN : ¬ SigGolfCandidate.T3.TopNine (tweakLow (WCT9.lowerTweak lay.val tree (2 ^ (height lay - level - 1) + nd))) := by
+          intro hn; have := TopNine.tag hn; unfold tweakLow at this; omega
+        rw [keyClass_of_not_topNine _ hN]
         rw [if_neg (by decide), if_neg (by decide), if_neg (by decide)]
         unfold tweakLow
         rw [if_neg (by omega), if_pos (by omega)]
@@ -5421,7 +5483,11 @@ theorem Pos.keyClass_eq {p : Pos} (hb : p.Bounded) : keyClass p.len p.hdr = p.cl
       have hgeN : 4096 ≤ WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) := by
         rw [WCT9.ftsNodeLowN_eq, Nat.mod_eq_of_lt (show coord < 16 by omega)]; unfold SigGolfCandidate.T3.ftsBiasN; omega
       have hltN := WCT9.ftsNodeLowN_lt index coord (2 ^ (7 - level - 1) + nd)
-      simp only [keyClass, Pos.len, Pos.hdr, Pos.cls]
+      -- C40: FTS node tags are `(247 or 248) - 8 coord` in `[183, 248]`, never a height-9 label's (254, 113, 46, 47).
+      have hN : ¬ SigGolfCandidate.T3.TopNine (tweakLow (WCT9.wctNodeHeader coord index (2 ^ (7 - level - 1) + nd))) := by
+        refine not_topNine_of_tag ?_ (Or.inl ?_) <;> rw [htag] <;> split_ifs <;> omega
+      simp only [Pos.len, Pos.hdr, Pos.cls]
+      rw [keyClass_of_not_topNine _ hN]
       unfold tweakLow
       by_cases hl4 : level < 4
       · have hn := hiff.mpr hl4
@@ -5862,10 +5928,15 @@ theorem rowTweak_low_ne_hdr (lay : Layer) (tree leaf : Nat) {p : Pos} (hb : p.Bo
   have hy := hyperWord_ge lay.val (tree * 2 ^ height lay + leaf)
   have hm : tweakMarker p.hdr ≤ 1 := by rw [← low_tweakMarker, ← h, low_tweakMarker]; exact rowTweak_marker ..
   have ht : tweakTag p.hdr ≤ 2 := by rw [← low_tweakTag, ← h, low_tweakTag]; exact rowTweak_tag ..
+  -- C40: a hyper word is a multiple of `2 ^ 16` or in the legacy band, so it is no (height-9) top label.
+  have hN : ¬ ((1 ≤ tweakLow p.hdr ∧ tweakLow p.hdr < 4096) ∨ tweakLow p.hdr = 520192 ∨ tweakLow p.hdr = 14336 ∨
+      SigGolfCandidate.T3.TopNine (tweakLow p.hdr)) := by
+    have := hyperWord_mod_or_ge lay.val (tree * 2 ^ height lay + leaf)
+    rw [hL]; unfold SigGolfCandidate.T3.TopNine; omega
   have hk := Pos.keyClass_eq hb
   rw [h64] at hk
   unfold keyClass at hk
-  rw [if_neg (by decide), if_neg (by decide), if_neg (by decide), if_neg (by rw [hL]; omega),
+  rw [if_neg (by decide), if_neg (by decide), if_neg (by decide), if_neg hN,
     if_neg (by omega)] at hk
   cases p with
   | wctNode index coord level nd =>
@@ -6358,7 +6429,7 @@ abbrev Credit := Layer → Bool → List Nat → Nat
 /-- Remaining credit after the canonical search at a leaf. The recursion goes
     from a leaf to its ancestors and never depends on a descendant or an FTS
     digest. Failure of an ancestor propagates to the descendant. -/
-def rootPool (leaf : Nat) : Nat := 74-WCT9.CanonicalPolicy.topPathSave leaf
+def rootPool (leaf : Nat) : Nat := 75-WCT9.CanonicalPolicy.topPathSave leaf
 
 def after (search : Search) (credit : Credit) (L : LeafAddr) : Option Nat :=
   ((if L.lay.val = 0 then some (rootPool L.leaf) else after search credit (parent L)).map
@@ -7675,10 +7746,12 @@ theorem nodeTweak_ne_row (tag lay tree heap : Nat) (ht : tag % 256 ≠ 2)
     intro l r he
     have hv := congrArg BitVec.toNat he
     have hl := nodeTweak_top_low tree heap
-    have hlt := topNodeWord_lt heap
+    -- C40: the top word is `< 856065` or ra (not a multiple of `2 ^ 16`, below `193 * 2 ^ 56`).
+    have hlt := topNodeWord_small_or_ra heap
     unfold tweakLow at hl
     rw [BitVec.extractLsb'_toNat, Nat.shiftRight_zero] at hv
     have := hyperWord_ge l r
+    have := hyperWord_mod_or_ge l r
     omega
   · by_cases hf : tag = 3 ∧ lay < 13
     · obtain ⟨rfl, h13⟩ := hf
@@ -8910,7 +8983,7 @@ theorem merkleTweak_ne_chainHeader {lay tree heap : Nat} (hh : lay = 0 ∨ heap 
     have hl := congrArg (fun x : BitVec 128 => (x.extractLsb' 0 64).toNat) he
     have hb := WCT9.chainHeader_low_band l tr leaf i step
     have ht := nodeTweak_top_low tree heap
-    have := topNodeWord_lt heap
+    have := topNodeWord_small_or_ra heap
     unfold tweakLow at ht
     have hn : ((nodeTweak 3 0 tree heap).extractLsb' 0 64).toNat = topNodeWord heap := by
       rw [BitVec.extractLsb'_toNat, Nat.shiftRight_zero]; exact ht
@@ -11835,7 +11908,7 @@ noncomputable def initialValue (pool s1 s2 s3 : Nat) : ENNReal :=
   (Tables.initialAt pool (4*s1+2*s2+s3) : ENNReal)/ClaudeWCT.Numerics.CanonicalCompression.scale
 
 set_option maxHeartbeats 0 in
-theorem root_step (pool s1 s2 s3 : Nat) (hlo : 72 ≤ pool) (hhi : pool ≤ 74)
+theorem root_step (pool s1 s2 s3 : Nat) (hlo : 72 ≤ pool) (hhi : pool ≤ 75)
     (hs1 : s1 ≤ 2) (hs2 : s2 ≤ 1) (hs3 : s3 ≤ 1) :
     1 ≤ initialValue pool s1 s2 s3 ∧
     ((ClaudeWCT.Numerics.CanonicalCompression.zNum : ENNReal)/ClaudeWCT.Numerics.CanonicalCompression.zDen) *
@@ -13841,7 +13914,10 @@ theorem topQ_ne {input target : HashInput} {hdr : BitVec 128} {heap : Nat}
   exact hn (bytesLE_injective (h.symm.trans ht))
 
 theorem topNodeWord_eq {heap : Nat} (h1 : 1 ≤ heap) (h2 : heap < 4096) :
-    topNodeWord heap = if heap = 1 then 14336 else if heap = 7 then 520192 else heap := SigGolfCandidate.T3.topNodeWord_eq h1 h2
+    topNodeWord heap = if heap = 1 then 14336 else if heap = 7 then 520192
+      else if heap = 8 then 261632 else if heap = 9 then 8198552921648689607 else if heap = 10 then 12064
+      else if heap = 11 then 12240 else if heap = 12 then 12016 else if heap = 13 then 11968 else if heap = 14 then 12160
+      else if heap = 15 then 12112 else heap := SigGolfCandidate.T3.topNodeWord_eq h1 h2
 
 theorem tweakMarker_top {heap : Nat} (h1 : 1 ≤ heap) (h2 : heap < 4096) :
     tweakMarker (nodeTweak 3 0 0 heap) = topNodeWord heap % 256 := by

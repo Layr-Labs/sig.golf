@@ -120,7 +120,10 @@ theorem posOf_row_none {x : HashInput} {lay : Layer} {tree leaf : Nat} {hi : Bit
   -- C4: the row tweak's low word carries type byte 193, so it is no top label.
   have hT : ¬ Extract.TopLow (Extract.hdrBlock x) := by
     rw [hx, Extract.topLow_bytesLE_iff, append64_lowNat, hlow]
-    have := hyperWord_ge lay.val (tree * 2 ^ height lay + leaf); omega
+    have := hyperWord_ge lay.val (tree * 2 ^ height lay + leaf)
+    -- C40: a hyper word is a multiple of `2 ^ 16` or in the legacy band, never ra.
+    have := hyperWord_mod_or_ge lay.val (tree * 2 ^ height lay + leaf)
+    unfold SigGolfCandidate.T3.TopNine; omega
   rw [Extract.hdrKey_of_len64 hlen hT, hx, SigGolfCandidate.T3M.Extract.canonicalHeader_marker_ne _ hm ht] at he
   have hlo := congrArg (BitVec.extractLsb' 0 64) (bytesLE_injective he)
   rw [BitVec.extractLsb'_append_eq_right] at hlo
@@ -147,7 +150,8 @@ theorem posOf_digest (rho : Digest) (message : Message) (counter : BitVec 32) :
   have hT : ¬ Extract.TopLow (Extract.hdrBlock
       (pad64 (bytesLE 16 rho ++ bytesLE 16 (digestHeader counter) ++ bytesLE 32 message))) := by
     rw [Extract.hdrBlock_pad64 _ (by simp only [List.length_append, bytesLE_length]; omega),
-      Extract.hdrBlock_prefix, Extract.topLow_bytesLE_iff, digestHeader_lowNat]; omega
+      Extract.hdrBlock_prefix, Extract.topLow_bytesLE_iff, digestHeader_lowNat]
+    unfold SigGolfCandidate.T3.TopNine; omega
   rw [Extract.hdrKey_of_len64 hlen hT,
     Extract.hdrBlock_pad64 _ (by simp only [List.length_append, bytesLE_length]; omega),
     Extract.hdrBlock_prefix,
@@ -223,6 +227,8 @@ theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Dig
     rw [WCT9.chainInputW_padded, Extract.hdrBlock, WCT9.chainInputW_header, Extract.topLow_bytesLE_iff, Extract.tweakLow_eq_low,
       chainHeader_low, chainHeaderFlaggedLow_toNat]
     have := chainHeaderLow_band lay tree leaf i step
+    -- C40: a chain word is below `2 ^ 56` or in the legacy band, never ra.
+    unfold SigGolfCandidate.T3.TopNine
     split_ifs <;> omega
   rw [Extract.hdrKey_of_len64 hlen hT, WCT9.chainInputW_padded, Extract.hdrBlock, WCT9.chainInputW_header] at he
   have hn := congrArg (List.take 8) he
@@ -250,7 +256,7 @@ theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Dig
         rw [show ((0 : Layer).val) = 0 from rfl, WCT9.merkleTweak_top_low, topNodeWord_toNat64, chainHeader_low,
           chainHeaderFlaggedLow_toNat] at hv
         have := chainHeaderLow_band lay tree leaf i step
-        have := topNodeWord_lt (2 ^ (height (0 : Layer) - level - 1) + nd)
+        have := topNodeWord_small_or_ra (2 ^ (height (0 : Layer) - level - 1) + nd)
         split_ifs at hv <;> omega
       · -- C2: a lower node word has bit 55 clear (layer byte `lay' - 1 ≤ 2`), an off-graph chain header has it set.
         obtain ⟨-, -, -, -, hnd⟩ := hb
@@ -958,7 +964,10 @@ theorem posOf_row_none {x : HashInput} {lay : Layer} {tree leaf : Nat} {hi : Bit
   -- C4: the row tweak's low word carries type byte 193, so it is no top label.
   have hT : ¬ Extract.TopLow (Extract.hdrBlock x) := by
     rw [hx, Extract.topLow_bytesLE_iff, append64_lowNat, hlow]
-    have := hyperWord_ge lay.val (tree * 2 ^ height lay + leaf); omega
+    have := hyperWord_ge lay.val (tree * 2 ^ height lay + leaf)
+    -- C40: a hyper word is a multiple of `2 ^ 16` or in the legacy band, never ra.
+    have := hyperWord_mod_or_ge lay.val (tree * 2 ^ height lay + leaf)
+    unfold SigGolfCandidate.T3.TopNine; omega
   rw [Extract.hdrKey_of_len64 hlen hT, hx, SigGolfCandidate.T3M.Extract.canonicalHeader_marker_ne _ hm ht] at he
   have hlo := congrArg (BitVec.extractLsb' 0 64) (bytesLE_injective he)
   rw [BitVec.extractLsb'_append_eq_right] at hlo
@@ -985,7 +994,8 @@ theorem posOf_digest (rho : Digest) (message : Message) (counter : BitVec 32) :
   have hT : ¬ Extract.TopLow (Extract.hdrBlock
       (pad64 (bytesLE 16 rho ++ bytesLE 16 (digestHeader counter) ++ bytesLE 32 message))) := by
     rw [Extract.hdrBlock_pad64 _ (by simp only [List.length_append, bytesLE_length]; omega),
-      Extract.hdrBlock_prefix, Extract.topLow_bytesLE_iff, digestHeader_lowNat]; omega
+      Extract.hdrBlock_prefix, Extract.topLow_bytesLE_iff, digestHeader_lowNat]
+    unfold SigGolfCandidate.T3.TopNine; omega
   rw [Extract.hdrKey_of_len64 hlen hT,
     Extract.hdrBlock_pad64 _ (by simp only [List.length_append, bytesLE_length]; omega),
     Extract.hdrBlock_prefix,
@@ -1061,6 +1071,8 @@ theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Dig
     rw [WCT9.chainInputW_padded, Extract.hdrBlock, WCT9.chainInputW_header, Extract.topLow_bytesLE_iff, Extract.tweakLow_eq_low,
       chainHeader_low, chainHeaderFlaggedLow_toNat]
     have := chainHeaderLow_band lay tree leaf i step
+    -- C40: a chain word is below `2 ^ 56` or in the legacy band, never ra.
+    unfold SigGolfCandidate.T3.TopNine
     split_ifs <;> omega
   rw [Extract.hdrKey_of_len64 hlen hT, WCT9.chainInputW_padded, Extract.hdrBlock, WCT9.chainInputW_header] at he
   have hn := congrArg (List.take 8) he
@@ -1088,7 +1100,7 @@ theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Dig
         rw [show ((0 : Layer).val) = 0 from rfl, WCT9.merkleTweak_top_low, topNodeWord_toNat64, chainHeader_low,
           chainHeaderFlaggedLow_toNat] at hv
         have := chainHeaderLow_band lay tree leaf i step
-        have := topNodeWord_lt (2 ^ (height (0 : Layer) - level - 1) + nd)
+        have := topNodeWord_small_or_ra (2 ^ (height (0 : Layer) - level - 1) + nd)
         split_ifs at hv <;> omega
       · -- C2: a lower node word has bit 55 clear (layer byte `lay' - 1 ≤ 2`), an off-graph chain header has it set.
         obtain ⟨-, -, -, -, hnd⟩ := hb

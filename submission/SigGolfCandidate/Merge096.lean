@@ -8543,7 +8543,7 @@ def thCode : List (BitVec 32) := bv_list% 32 [0xfff40313,0x30e63,0xffe40313,0xc0
 /-- The img-v6 threshold routine `th` (appended, 24851..24970): `t4 := threshold(s0, s4)`; L1 cascade at 24859
 (residual < 58), L2 at 24908 (residual < 42), L3 at 24855 (residual < 24; Y5: the floor routine `l3` at 25964..25971,
 `t4 := lowerThreeFloor residual`), failure 24969 (`jal 22490`), result 24970 (`jal 22363`). -/
-def l3Code : List (BitVec 32) := bv_list% 32 [0xa0e93,0x900313,0x6a7a63,0x900e93,0x700313,0x6a7463,0x600e93,0x2380006f,0x66f37,0xf3f03,0x21100593,0x2bf5633,0x2bf7f33,0x1700593,0x2bf56b3,0x2bf7733,0x300793,0xa63e13,0x41c787b3,0xc63e13,0x41c787b3,0xe63e13,0x41c787b3,0x500593,0xa6be13,0x41c585b3,0xc6be13,0x41c585b3,0xe6be13,0x41c585b3,0x106be13,0x41c585b3,0x126be13,0x41c585b3,0xff870713,0xf73e13,0x3c70733,0x600e13,0x3c787b3,0xb787b3,0xf00e13,0x3c787b3,0xe78f33,0xdb9ff06f,0x195e93,0x12eceb3,0x41efe93,0x1ebe93,0x10e8e93,0x13,0x13,0x13,0x66f37,0x18f3f03,0x815e806f,0x18e3383,0x20e37,0x550e3e03,0xce5e13,0x7e7e13,0x2e00193,0x1c1de33,0x1e7e13,0x63b1b3,0x3e7e33,0x1c383b3,0x66e37,0xcacfc06f,0x18e3383,0x100193,0x340863,0x200193,0x2340c63,0xffcfc06f,0x20e37,0x550e3e03,0x6e5e13,0x3e7e13,0x1e5193,0x3e4e33,0x1e7e13,0x63b1b3,0x3e7e33,0x1c383b3,0x66e37,0xfccfc06f,0x20e37,0x550e3e03,0x3e7e13,0x1e5193,0x3e4e33,0x1e7e13,0x63b1b3,0x3e7e33,0x1c383b3,0x66e37,0xfa0fc06f,0xa80006f,0x13,0x13,0x69e463,0x80006f,0xb00e706f,0xfd0e706f,0xffae0e13,0x1e3e13,0x3fe1e13,0xfff00a13,0x1a5a13,0x700a93,0x35a5a33,0x135e93,0x235f13,0x1eefeb3,0xfff34f13,0x1eefeb3,0x14efeb3,0x1de6e33,0x13de93,0x23df13,0x1eefeb3,0xfff3cf13,0x1eefeb3,0x14efeb3,0x1e9e93,0x1de6e33,0xfffe0e93,0x1de7e33,0xffd40f13,0x663,0xfffe0e93,0x1de7e33,0xfffe0e93,0x1de7e33,0xfffe0e93,0x1de7e33,0xe0463,0xdadfa06f,0xff4e706f,0x143313,0x31a63,0x343313,0x31a63,0x360337,0xf51ff06f,0x200337,0xf49ff06f,0x1c0337,0xf41ff06f,0xaec313,0x133313,0x6e8eb3,0xe19fe06f]
+def l3Code : List (BitVec 32) := bv_list% 32 [0xa0e93,0x900313,0x6a7a63,0x900e93,0x700313,0x6a7463,0x600e93,0x2380006f,0x66f37,0xf3f03,0x21100593,0x2bf5633,0x2bf7f33,0x1700593,0x2bf56b3,0x2bf7733,0x300793,0xa63e13,0x41c787b3,0xc63e13,0x41c787b3,0xe63e13,0x41c787b3,0x500593,0xa6be13,0x41c585b3,0xc6be13,0x41c585b3,0xe6be13,0x41c585b3,0x106be13,0x41c585b3,0x126be13,0x41c585b3,0xff870713,0xf73e13,0x3c70733,0x600e13,0x3c787b3,0xb787b3,0xf00e13,0x3c787b3,0xe78f33,0xdb9ff06f,0x7140006f,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x18e3383,0x20e37,0x550e3e03,0xce5e13,0x7e7e13,0x2e00193,0x1c1de33,0x1e7e13,0x63b1b3,0x3e7e33,0x1c383b3,0x66e37,0xcacfc06f,0x18e3383,0x100193,0x340863,0x200193,0x2340c63,0xffcfc06f,0x20e37,0x550e3e03,0x6e5e13,0x3e7e13,0x1e5193,0x3e4e33,0x1e7e13,0x63b1b3,0x3e7e33,0x1c383b3,0x66e37,0xfccfc06f,0x20e37,0x550e3e03,0x3e7e13,0x1e5193,0x3e4e33,0x1e7e13,0x63b1b3,0x3e7e33,0x1c383b3,0x66e37,0xfa0fc06f,0xa80006f,0x13,0x13,0x69e463,0x80006f,0xb00e706f,0xfd0e706f,0xffae0e13,0x1e3e13,0x3fe1e13,0xfff00a13,0x1a5a13,0x700a93,0x35a5a33,0x135e93,0x235f13,0x1eefeb3,0xfff34f13,0x1eefeb3,0x14efeb3,0x1de6e33,0x13de93,0x23df13,0x1eefeb3,0xfff3cf13,0x1eefeb3,0x14efeb3,0x1e9e93,0x1de6e33,0xfffe0e93,0x1de7e33,0xffd40f13,0x663,0xfffe0e93,0x1de7e33,0xfffe0e93,0x1de7e33,0xfffe0e93,0x1de7e33,0xe0463,0xdadfa06f,0xff4e706f,0x143313,0x31a63,0x343313,0x31a63,0x360337,0xf51ff06f,0x200337,0xf49ff06f,0x1c0337,0xf41ff06f,0xaec313,0x133313,0x6e8eb3,0xe19fe06f]
 def lookT (n : Nat) : Option (BitVec 32) :=
   if 25964 ≤ n then l3Code[n-25964]? else if 24851 ≤ n then thCode[n-24851]? else none
 def ends1 : List Nat := [0, 0, 0, 0, 0, 0, 48, 48, 48, 48, 48, 53, 53, 53, 56]
@@ -8976,10 +8976,10 @@ def topProduceCode : List (BitVec 32) := bv_list% 32 [0x413,0x493,0xc00793,0x330
 sym_block topProduce := symRun { noAlias := true } topProduceCode (pcOf 22478) 100
 
 theorem initResidual_steps {im : Image} (hc : CodeAt im (pcOf 22226) initResidualCode)
-    (hg : CodeAt im (pcOf 1970) TopRoutePool.signCode)
+    (hg : TopRoutePool.SignAt im)
     (s : MachineState) (hp : s.pc=pcOf 22226) (leaf : Nat) (hl : leaf<4096)
     (h18 : s.getReg .x18=BitVec.ofNat 64 leaf) :
-    ∃ t,Steps im s 12 12 t ∧ t.pc=pcOf 22230 ∧
+    ∃ t,Steps im s 48 48 t ∧ t.pc=pcOf 22230 ∧
       t.getMem (0x66008#64)=BitVec.ofNat 64 (LocalRouteMachineHelpers.poolForLeaf leaf) ∧
       RegsExcept s t [.x6,.x28] ∧ Frame s t (fun A => A=0x66008) := by
   obtain ⟨u,su,pu,ru,fu⟩ := SigGolfCandidate.T3M.Search.T51.jump_hook (k:=22226) (t:=1970)
@@ -9399,7 +9399,7 @@ set_option maxRecDepth 100000
 theorem installed_hooks : CanonicalHooks.Code Images.signImage := by
   constructor
   · constructor <;> sign_slice_fast
-  all_goals sign_slice_fast
+  all_goals first | sign_slice_fast | (refine And.intro ?_ ?_ <;> sign_slice_fast)
 
 
 end SigGolfCandidate.T3M.Sign.SharedSearchCode
@@ -9410,8 +9410,8 @@ set_option maxHeartbeats 2000000
 set_option maxRecDepth 100000
 theorem installed_initResidual : CodeAt Images.signImage (pcOf 22226) initResidualCode := by
   sign_slice_fast
-theorem installed_poolHelper : CodeAt Images.signImage (pcOf 1970) TopRoutePool.signCode := by
-  sign_slice_fast
+theorem installed_poolHelper : TopRoutePool.SignAt Images.signImage := by
+  refine And.intro ?_ ?_ <;> sign_slice_fast
 theorem installed_firstLayer : CodeAt Images.signImage (pcOf 22239) firstLayerCode := by
   sign_slice_fast
 theorem installed_nextLayer : CodeAt Images.signImage (pcOf 22457) nextLayerCode := by
@@ -9768,7 +9768,7 @@ structure TopTailSteps (im : Image) : Prop where
       RegsExcept s t [.x6,.x28,.x29] ∧ Frame s t (fun A => 0x66100≤A ∧ A<0x66100+56)
   init : ∀ s : MachineState, s.pc=pcOf 22226 → ∀ leaf : Nat, leaf<4096 →
     s.getReg .x18=BitVec.ofNat 64 leaf →
-    ∃ t,Steps im s 12 12 t ∧ t.pc=pcOf 22230 ∧
+    ∃ t,Steps im s 48 48 t ∧ t.pc=pcOf 22230 ∧
       t.getMem (0x66008#64)=BitVec.ofNat 64 (LocalRouteMachineHelpers.poolForLeaf leaf) ∧
       RegsExcept s t [.x6,.x28] ∧ Frame s t (fun A => A=0x66008)
   residual : ∀ s : MachineState, s.pc=pcOf 22230 → ∀ index r c : Nat, index<2^64 → r<2^32 → c<2^32 →
@@ -9801,7 +9801,7 @@ theorem top_tail {im : Image} (hc : TopTailSteps im)
     (hidx : s.getMem (0x20550#64)=BitVec.ofNat 64 index)
     (h18 : s.getReg .x18=BitVec.ofNat 64 (route index 0).1) (low : Bool) (ds : List Nat)
     (hcm : s.getMem (0x66018#64)=BitVec.ofNat 64 (CanonicalPolicy.credit 0 low ds)) :
-    ∃ t k,Steps im s k k t ∧ k≤58 ∧ TopTailPost index low ds s t := by
+    ∃ t k,Steps im s k k t ∧ k≤94 ∧ TopTailPost index low ds s t := by
   obtain ⟨a,sa,ap,asaved,ar,af⟩ := hc.save s hp
   have hleaf : (route index 0).1 < 4096 := by
     change index/2^19%4096<4096
@@ -9814,7 +9814,7 @@ theorem top_tail {im : Image} (hc : TopTailSteps im)
   obtain ⟨c,k,bc,hk,cp,crm,cr,cf⟩ := hc.residual b bp index (requiredCredit index) (CanonicalPolicy.credit 0 low ds) hi (by omega) (credit_small _ _ _)
     ((bf.get (by decide) (by simp)).trans ((af.get (by decide) (by omega)).trans hidx)) brm bcm
   obtain ⟨t,ct,tp,t8,tr,tf⟩ := hc.first c cp
-  refine ⟨t,18+12+k+1,((sa.trans ab).trans bc).trans ct,by omega,?_,t8,?_,?_,?_,?_⟩
+  refine ⟨t,18+48+k+1,((sa.trans ab).trans bc).trans ct,by omega,?_,t8,?_,?_,?_,?_⟩
   · exact tp
   · exact (tf.get (by decide) (by simp)).trans crm
   · intro i hi
@@ -10129,7 +10129,7 @@ theorem top_stage {im : Image} {sk : BitVec 256} (hs : SearchCalls im sk)
     (s : MachineState) (hp : s.pc=pcOf 22182) (hstable : Stable index p forest s)
     (hh : s.getMem (0x66000#64)=0)
     (hc32 : ∃ c<2^32,s.getMem (BitVec.ofNat 64 (ENC+32))=BitVec.ofNat 64 c) :
-    TBSim im sk s (Canonical.csCost 0+84)
+    TBSim im sk s (Canonical.csCost 0+120)
       (CanonicalPolicy.layerCounterSearchAt 0 (ClaudeWCT.WCT9.Policy75Safe23.threshold 0 (requiredCredit index)) (route index 0).2 (route index 0).1
         (.pair (topPair 1 p.one.levels).1 (topPair 1 p.one.levels).2) 0 (searchLimit 0))
       (TopStagePost im index p forest s) := by
@@ -10140,11 +10140,11 @@ theorem top_stage {im : Image} {sk : BitVec 256} (hs : SearchCalls im sk)
     obtain ⟨c,hc,hcv⟩ := hc32
     exact ⟨c,hc,(ha.frame.get (by unfold ENC;omega) (by unfold ENC;omega)).trans hcv⟩
   have H := hs.call (topArgs index (topPair 1 p.one.levels)) a (top_pre index hi _ s a ha hsta.tables hac)
-  have Htail : TBSim im sk a (Canonical.csCost 0+58)
+  have Htail : TBSim im sk a (Canonical.csCost 0+94)
       (CanonicalPolicy.layerCounterSearchAt 0 (ClaudeWCT.WCT9.Policy75Safe23.threshold 0 (requiredCredit index)) (route index 0).2 (route index 0).1
         (.pair (topPair 1 p.one.levels).1 (topPair 1 p.one.levels).2) 0 (searchLimit 0))
       (TopStagePost im index p forest s) := by
-    have hb := TBSim.bind H (f:=fun r=>pure r) (W₂:=58) (Q₂:=TopStagePost im index p forest s) (by
+    have hb := TBSim.bind H (f:=fun r=>pure r) (W₂:=94) (Q₂:=TopStagePost im index p forest s) (by
       intro r u hu
       cases r with
       | none => exact (TBSim.pure (a:=none) (s:=u) (Q:=TopStagePost im index p forest s) hu).mono (by omega) (fun _ _ h=>h)
@@ -10516,7 +10516,7 @@ def PrefixPost (im : Image) (index : Nat) (p : PreparedRoots) (forest : Digest×
   | none,t => SearchError im t
   | some a,t => PrefixReady index p forest a s t
 
-def prefixCost : Nat := Canonical.csCost 0+84+((Canonical.csCost 1+723)+((Canonical.csCost 2+723)+((Canonical.csCost 3+723)+30)))
+def prefixCost : Nat := Canonical.csCost 0+120+((Canonical.csCost 1+723)+((Canonical.csCost 2+723)+((Canonical.csCost 3+723)+30)))
 
 theorem prefix_good {im : Image} {sk : BitVec 256} (hs : SearchCalls im sk)
     (htop : TopSetupSteps im) (htail : TopTailSteps im) (hlower : LowerSetupSteps im)

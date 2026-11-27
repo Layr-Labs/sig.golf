@@ -2881,7 +2881,7 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 open SigGolfCandidate.T3M.Verify
 def keepLfAll (lay : Nat) : List Reg :=
   if lay = 0 then [.x1, .x2, .x7, .x13, .x19, .x20, .x12, .x21, .x16, .x17, .x9, .x24, .x22, .x23,
-    .x25, .x26, .x28, .x29, .x31, .x30]
+    .x25, .x26, .x28, .x29, .x31, .x30, .x27]
   else [.x1, .x2, .x13, .x19, .x20, .x12, .x21, .x16, .x17, .x9, .x24, .x22, .x23,
     .x6, .x26, .x29, .x31, .x30] ++ (if lay = 1 then [] else [.x25, .x28])
 /-- Campaign T51: the 6 final tails at `Nonbinary.ckTail d` (after the checksum chain 50 with digit `d`): main's tail
@@ -3094,7 +3094,7 @@ def lfKeepK (lay : Nat) : List (Reg × Word) :=
   [(.x9, 0x7fc01), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
    (if lay = 0 then (.x4, BitVec.ofNat 64 s3v) else (.x4, BitVec.ofNat 64 (bufferBias lay))),
    (.x2, BitVec.ofNat 64 0xffbde0)] ++
-  (if lay = 0 then [] else [(.x1, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x6, 0), (.x27, 0x3fe00)])
+  (if lay = 0 then [(.x1, BitVec.ofNat 64 M1c), (.x27, 0x3fe00)] else [(.x1, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x6, 0), (.x27, 0x3fe00)])
 def lfK (lay : Nat) : List (Reg × Word) := postLf lay ++ lfKeepK lay
 structure LeafOut (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay : Layer) (ends : List Digest)
     (u : MachineState) : Prop where
@@ -3949,7 +3949,7 @@ theorem topLeafKeepK_of (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : N
     (hr : RegsExcept s0 s topChainRegs) : KnownOK (lfKeepK 0) s := by
   intro p hp
   simp [lfKeepK] at hp
-  rcases hp with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
+  rcases hp with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
   all_goals rw [hr.get (by simp [topChainRegs])]
   all_goals try exact he.s3
   all_goals try exact he.ra
@@ -4050,8 +4050,9 @@ def mkShp (lay ci sh : Nat) : Nat :=
   if lay = 3 then 133764 + 128 * sh else if lay = 2 then 141956 + 128 * sh
   else if lay = 1 then l1Shape.getD sh 0 else if ci = 0 then 142032 + 128 * sh else finalShape.getD sh 0
 /-- C2: every lower fold writes its packed tweak word from an immediate (`addi gp,t3,K; sd gp,16(a0)`), so it costs
-like the old register-heap levels; the top tree keeps register heaps on its last three levels only. -/
-def mkReg (lay l : Nat) : Bool := decide (lay ≠ 0 ∨ hL lay ≤ l + 3)
+like the old register-heap levels; the top tree keeps register heaps on its last four levels only (C40: the
+height-9 labels come from s11, ra or the fold's own window/answer pointer). -/
+def mkReg (lay l : Nat) : Bool := decide (lay ≠ 0 ∨ hL lay ≤ l + 4)
 /-- Words of the level-`l` block (its ecall included). C4 top: one label store per level (`srli gp,s7,6+l; sd gp,16(a0)`
 in the lower copy, `addi gp,zero,heap; sd gp,16(a0)` or `sd REG,16(a0)` in the upper copy); the last level (11) counts
 a virtual `addi a2` (`mkMove 0 11 = 0`). -/
@@ -4067,10 +4068,22 @@ def l1SkipMask : List Nat := [0,1,2,2,4,5,5,4,8,9,9,8,8,9,9,8,16,17,17,16,4,5,5,
 def lowerSkipAt (lay sh kk : Nat) : Nat :=
   if lay = 1 then l1SkipMask.getD (sh % 128) 0 / 2 ^ kk % 2
   else if (lay = 2 ∨ lay = 3) ∧ kk = 0 ∧ (sh % 4 = 1 ∨ sh % 4 = 2) then 1 else 0
-def mkPairSkip (lay sh kk : Nat) : Nat :=
-  if lay = 0 ∧ kk = 0 then ClaudeWCT.WCT9.CanonicalPolicy.topPairSave sh else lowerSkipAt lay sh kk
+/-- C39 (top replan): bit `kk` of row `r` is set when the level-`kk` fold of line A (top levels 0..5, lower copy `r`)
+omits its `addi a2`. -/
+def topSkipA : List Nat := [0,1,1,2,2,5,5,4,4,5,5,2,2,9,9,8,8,9,9,2,2,9,9,8,4,5,5,2,2,17,17,16,0,17,17,16,16,17,17,16,16,17,17,16,16,17,17,16,0,1,1,2,2,1,1,0,0,1,1,2,2,2,1,0]
+/-- C39: the same for line B (top levels 6..11, upper copy `r`). -/
+def topSkipB : List Nat := [0,1,1,2,0,1,1,4,0,1,1,2,0,1,1,8,0,1,1,2,0,2,1,0,0,1,1,0,0,1,1,0,0,1,1,2,0,1,1,4,0,1,1,2,0,1,1,8,0,1,1,0,0,1,1,0,0,1,1,2,0,1,1,0]
+def mkPairSkip (lay ci sh kk : Nat) : Nat :=
+  if lay = 0 then (if ci = 0 then topSkipA else topSkipB).getD (sh % 64) 0 / 2 ^ kk % 2 else lowerSkipAt lay sh kk
+theorem mkPairSkip_top5 (ci sh : Nat) : mkPairSkip 0 ci sh 5 = 0 := by
+  have h : ∀ c < 2, ∀ r < 64, (if c = 0 then topSkipA else topSkipB).getD r 0 / 2 ^ 5 % 2 = 0 := by decide +kernel
+  unfold mkPairSkip
+  rw [if_pos rfl]
+  by_cases hc : ci = 0
+  · simpa [hc] using h 0 (by decide) (sh % 64) (Nat.mod_lt _ (by decide))
+  · simpa [hc] using h 1 (by decide) (sh % 64) (Nat.mod_lt _ (by decide))
 def mkOffOpt (lay ci sh kk : Nat) : Nat :=
-  mkOff lay ci kk - ((List.range kk).map (mkPairSkip lay sh)).sum
+  mkOff lay ci kk - ((List.range kk).map (mkPairSkip lay ci sh)).sum
 /-- C4: every layer (the top included) places its windows by the plan (`plan 0` = the two-line top plan). -/
 def mkBo (lay leaf l : Nat) : Nat := mkBase lay + 16 * plan lay leaf l
 def mkBlk (lay leaf l : Nat) : Nat := 0x10A0 + mkBo lay leaf l
@@ -4086,11 +4099,11 @@ def mkDst (lay leaf : Nat) : Nat := if lay = 0 then mkCur 0 leaf 11 (leaf / 2048
 def mkMove (lay level : Nat) : Nat := if lay = 0 ∧ level = 11 then 0 else 1
 def mkHeap (lay ci sh l : Nat) : Nat := (2 ^ hL lay + sh * 2 ^ mkLo lay ci) / 2 ^ (l + 1)
 def mkK (lay : Nat) : List (Reg × Word) :=
-  gkL lay ++ (if lay = 0 then [(.x6, 520192)] else []) ++ [(if lay = 0 then (.x4, BitVec.ofNat 64 s3v) else (.x4, BitVec.ofNat 64 (bufferBias lay))), (.x13, 2),
+  gkL lay ++ (if lay = 0 then [(.x6, 520192), (.x1, BitVec.ofNat 64 M1c), (.x27, 0x3fe00)] else []) ++ [(if lay = 0 then (.x4, BitVec.ofNat 64 s3v) else (.x4, BitVec.ofNat 64 (bufferBias lay))), (.x13, 2),
     (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), (.x5, 0)] ++
     (if lay = 0 then [] else [(.x2, BitVec.ofNat 64 0xffbde0)])
 def mkKc (lay : Nat) : List (Reg × Word) :=
-  gkL lay ++ (if lay = 0 then [(.x6, 520192)] else []) ++ [(if lay = 0 then (.x4, BitVec.ofNat 64 s3v) else (.x4, BitVec.ofNat 64 (bufferBias lay))), (.x13, 2),
+  gkL lay ++ (if lay = 0 then [(.x6, 520192), (.x1, BitVec.ofNat 64 M1c), (.x27, 0x3fe00)] else []) ++ [(if lay = 0 then (.x4, BitVec.ofNat 64 s3v) else (.x4, BitVec.ofNat 64 (bufferBias lay))), (.x13, 2),
     (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), (.x5, 0)]
 def mkKeep : List Reg := [.x4, .x1, .x2, .x16, .x17, .x9, .x24, .x23, .x6, .x25, .x27, .x29, .x31]
 def mkEntSpec (lay ci sh : Nat) : Spec := let st := 1; ⟨[], [], mkShp lay ci sh + 1, true, st, [], none, st⟩
@@ -4098,7 +4111,7 @@ def mkEntPost (lay ci sh : Nat) : List (Reg × Word) :=
   mkKc lay ++ [(.x12, BitVec.ofNat 64 (mkCur lay (mkLeafOf lay ci sh) (mkLo lay ci) (sh % 2)))]
 def mkEntKeep : List Reg := mkKeep ++ [.x10, .x11, .x14, .x4, .x28]
 def mkEntK (lay ci : Nat) : List (Reg × Word) :=
-  mkKc lay ++ (if lay = 0 ∧ ci = 1 then [(.x10, BitVec.ofNat 64 (mkBlk 0 0 5))] else [])
+  mkKc lay ++ (if lay = 0 ∧ ci = 1 then [(.x12, BitVec.ofNat 64 12512)] else [])
 def mkEntCheck (lay ci sh : Nat) : Bool :=
   mkSpecB [] [] (gkL lay) (mkEntK lay ci) [] (mkTabW lay ci sh) [] (mkEntSpec lay ci sh) [] (mkEntPost lay ci sh) mkEntKeep
 def mkHeapE (lay ci sh l : Nat) : E :=
@@ -4112,7 +4125,7 @@ def mkK7 : Nat := 1920
 /-- C2: lower levels write only the packed tweak word `hyperWord + mkK7 + heap`; its high word is witness memory.
 C4: a top level writes only its one-word label, the heap. -/
 def mkLabE (lay ci sh l : Nat) : E :=
-  if lay = 0 then (if mkHeap lay ci sh l = 1 then kw 14336 else if mkHeap lay ci sh l = 7 then kw 520192 else mkHeapE lay ci sh l) else addC (mkHdrE lay l) (BitVec.ofNat 64 (mkK7 + mkHeap lay ci sh l))
+  if lay = 0 then (if mkHeap lay ci sh l < 64 then kw (T3.topNodeWord (mkHeap lay ci sh l)) else mkHeapE lay ci sh l) else addC (mkHdrE lay l) (BitVec.ofNat 64 (mkK7 + mkHeap lay ci sh l))
 def mkLvlMem (lay ci sh l : Nat) : List (Addr × E) :=
   [(⟨none, BitVec.ofNat 64 (mkBlk lay (mkLeafOf lay ci sh) l + 16)⟩, mkLabE lay ci sh l)]
 def mkLvlRegs (lay l : Nat) : List (Reg × E) := if l = 0 ∧ lay ≠ 0 then [(.x28, t3E (lay - 1))] else []
@@ -4129,8 +4142,8 @@ def mkNextA2 (lay ci sh kk : Nat) : Nat :=
 def mkLvlSpecN (lay ci sh kk : Nat) : Spec :=
   ⟨mkLvlRegs lay (mkLo lay ci + kk), mkLvlMem lay ci sh (mkLo lay ci + kk),
     mkShp lay ci sh + mkOffOpt lay ci sh (kk + 1) + mkMove lay (mkLo lay ci + kk), true,
-    mkBody lay (mkLo lay ci + kk) + mkMove lay (mkLo lay ci + kk) - mkPairSkip lay sh kk, [], none,
-    mkBody lay (mkLo lay ci + kk) + mkMove lay (mkLo lay ci + kk) - mkPairSkip lay sh kk⟩
+    mkBody lay (mkLo lay ci + kk) + mkMove lay (mkLo lay ci + kk) - mkPairSkip lay ci sh kk, [], none,
+    mkBody lay (mkLo lay ci + kk) + mkMove lay (mkLo lay ci + kk) - mkPairSkip lay ci sh kk⟩
 def mkLvlSpecD (lay ci sh kk : Nat) : Spec :=
   ⟨mkLvlRegs lay (mkLo lay ci + kk), mkLvlMem lay ci sh (mkLo lay ci + kk), 0, false,
     mkBody lay (mkLo lay ci + kk) + 1, [], some (mkDispTgt sh),
@@ -4140,7 +4153,8 @@ def mkLvlPostN (lay ci sh kk : Nat) : List (Reg × Word) :=
   mkKc lay ++ [(.x11, 64), (.x10, BitVec.ofNat 64 (mkBlk lay (mkLeafOf lay ci sh) (mkLo lay ci + kk))),
     (.x12, BitVec.ofNat 64 (mkNextA2 lay ci sh kk))]
 def mkLvlPostD (lay ci sh kk : Nat) : List (Reg × Word) :=
-  mkKc lay ++ [(.x11, 64), (.x10, BitVec.ofNat 64 (mkBlk lay (mkLeafOf lay ci sh) (mkLo lay ci + kk)))]
+  mkKc lay ++ [(.x11, 64), (.x10, BitVec.ofNat 64 (mkBlk lay (mkLeafOf lay ci sh) (mkLo lay ci + kk))),
+    (.x12, BitVec.ofNat 64 (mkCur lay (mkLeafOf lay ci sh) (mkLo lay ci + kk) (sh / 2 ^ kk % 2)))]
 def mkLvlKN (lay ci sh kk : Nat) : List (Reg × Word) :=
   mkLvlK lay (mkLo lay ci + kk) ++
     [(.x12, BitVec.ofNat 64 (mkCur lay (mkLeafOf lay ci sh) (mkLo lay ci + kk) (sh / 2 ^ kk % 2)))]
@@ -4158,7 +4172,7 @@ def mkBlockCheck (lay ci sh : Nat) : Bool :=
   mkEntCheck lay ci sh && (List.range (mkBits lay ci)).all (mkLvlCheck lay ci sh)
 def mkChunkCheck (lay ci lo n : Nat) : Bool := (List.range' lo n).all (mkBlockCheck lay ci)
 /-- Root comparison in the relocated final chunk; it reads the root written by upper copy `c`. -/
-def cmpPc (c : Nat) : Nat := finalShape.getD c 0 + 28 - ClaudeWCT.WCT9.CanonicalPolicy.topPairSave c
+def cmpPc (c : Nat) : Nat := finalShape.getD c 0 + 27 - ClaudeWCT.WCT9.CanonicalPolicy.topSaveB c
 def cmpDst (c : Nat) : Nat := 11920 + 16 * topRootSlot.getD c 0
 def cmpK (c : Nat) : List (Reg × Word) := gkL 0 ++ [(.x12, BitVec.ofNat 64 (cmpDst c))]
 def cmpBr1 (c : Nat) (d : Bool) : Br := ⟨.ne, .ld (kw (cmpDst c)), .ld (kw 160), d⟩
@@ -4399,24 +4413,28 @@ private def pA (r j : Nat) := (topPlanA.getD r []).getD j 0
 private def pB (r j : Nat) := (topPlanB.getD r []).getD j 0
 private def bit (r j : Nat) := r / 2^j % 2
 private theorem checkA : ∀ r < 64,
-    (∀ j < 6, 21 ≤ pA r j ∧ pA r j ≤ 38) ∧
+    (∀ j < 6, 20 ≤ pA r j ∧ pA r j ≤ 38) ∧
     (∀ i < 6, ∀ j < 6, i ≤ j → ∀ s ∈ need (pA r j) (bit r j), s ∉ writes (pA r i) (bit r i)) ∧
-    (∀ i < 6, ∀ j < 6, i < j → ∀ s ∈ need (pA r j) (bit r j), s ≠ pA r i + 1) := by
+    (∀ i < 6, ∀ j < 6, i < j → ∀ s ∈ need (pA r j) (bit r j), s ≠ pA r i + 1) ∧
+    (∀ j < 6, ∀ s ∈ writes (pA r j) (bit r j), 20 ≤ s) := by
   have h : ∀ r : Fin 64,
-    (∀ j : Fin 6, 21 ≤ pA r j ∧ pA r j ≤ 38) ∧
+    (∀ j : Fin 6, 20 ≤ pA r j ∧ pA r j ≤ 38) ∧
     (∀ i : Fin 6, ∀ j : Fin 6, i ≤ j → ∀ s ∈ need (pA r j) (bit r j), s ∉ writes (pA r i) (bit r i)) ∧
-    (∀ i : Fin 6, ∀ j : Fin 6, i < j → ∀ s ∈ need (pA r j) (bit r j), s ≠ pA r i + 1) := by
+    (∀ i : Fin 6, ∀ j : Fin 6, i < j → ∀ s ∈ need (pA r j) (bit r j), s ≠ pA r i + 1) ∧
+    (∀ j : Fin 6, ∀ s ∈ writes (pA r j) (bit r j), 20 ≤ s) := by
     simp only [need, List.mem_cons, List.not_mem_nil, or_false, forall_eq_or_imp, forall_eq]
     decide +kernel
   simpa only [Fin.forall_iff, Fin.mk_le_mk, Fin.mk_lt_mk] using h
 private theorem checkB : ∀ r < 64,
-    (∀ j < 6, pB r j ≤ 16) ∧
+    (∀ j < 6, pB r j ≤ 17) ∧
     (∀ i < 6, ∀ j < 6, i ≤ j → ∀ s ∈ need (pB r j) (bit r j), s ∉ writes (pB r i) (bit r i)) ∧
-    (∀ i < 6, ∀ j < 6, i < j → ∀ s ∈ need (pB r j) (bit r j), s ≠ pB r i + 1) := by
+    (∀ i < 6, ∀ j < 6, i < j → ∀ s ∈ need (pB r j) (bit r j), s ≠ pB r i + 1) ∧
+    (∀ j < 6, ∀ s ∈ need (pB r j) (bit r j), s ≤ 19) := by
   have h : ∀ r : Fin 64,
-    (∀ j : Fin 6, pB r j ≤ 16) ∧
+    (∀ j : Fin 6, pB r j ≤ 17) ∧
     (∀ i : Fin 6, ∀ j : Fin 6, i ≤ j → ∀ s ∈ need (pB r j) (bit r j), s ∉ writes (pB r i) (bit r i)) ∧
-    (∀ i : Fin 6, ∀ j : Fin 6, i < j → ∀ s ∈ need (pB r j) (bit r j), s ≠ pB r i + 1) := by
+    (∀ i : Fin 6, ∀ j : Fin 6, i < j → ∀ s ∈ need (pB r j) (bit r j), s ≠ pB r i + 1) ∧
+    (∀ j : Fin 6, ∀ s ∈ need (pB r j) (bit r j), s ≤ 19) := by
     simp only [need, List.mem_cons, List.not_mem_nil, or_false, forall_eq_or_imp, forall_eq]
     decide +kernel
   simpa only [Fin.forall_iff, Fin.mk_le_mk, Fin.mk_lt_mk] using h
@@ -4451,25 +4469,26 @@ private theorem separation (r i j s : Nat) (hi : i<12) (hj : j<12) (hij : i≤j)
     · rw [plan_low r j hb, bit_low r j hb] at hs
       rw [plan_low r i ha, bit_low r i ha]
       exact ⟨(checkA _ (Nat.mod_lt _ (by decide))).2.1 i ha j hb hij s hs,
-        fun h => (checkA _ (Nat.mod_lt _ (by decide))).2.2 i ha j hb h s hs⟩
+        fun h => (checkA _ (Nat.mod_lt _ (by decide))).2.2.1 i ha j hb h s hs⟩
     · have hsmall : s≤19 := by
-        have hbnd := (need_bounds _ _ _ hs).2
-        rw [plan_high r j (by omega)] at hbnd
-        have := (checkB (r/64%64) (Nat.mod_lt _ (by decide))).1 (j-6) (by omega)
-        omega
-      have hlarge : 21≤plan 0 r i := by
+        rw [plan_high r j (by omega), bit_high' r j (by omega) hj] at hs
+        exact (checkB _ (Nat.mod_lt _ (by decide))).2.2.2 (j-6) (by omega) s hs
+      have hlarge : 20≤plan 0 r i := by
         rw [plan_low r i ha]
         exact ((checkA _ (Nat.mod_lt _ (by decide))).1 i ha).1
+      have hw20 : ∀ x ∈ writes (plan 0 r i) (bit r i), 20 ≤ x := by
+        rw [plan_low r i ha, bit_low r i ha]
+        exact (checkA _ (Nat.mod_lt _ (by decide))).2.2.2 i ha
       constructor
       · intro hw
-        simp only [writes] at hw
-        split at hw <;> simp only [List.mem_cons, List.not_mem_nil, or_false] at hw <;> omega
+        have := hw20 s hw
+        omega
       · omega
   · have hb : 6≤j := by omega
     rw [plan_high r j hb, bit_high' r j hb hj] at hs
     rw [plan_high r i (by omega), bit_high' r i (by omega) hi]
     exact ⟨(checkB _ (Nat.mod_lt _ (by decide))).2.1 (i-6) (by omega) (j-6) (by omega) (by omega) s hs,
-      fun h => (checkB _ (Nat.mod_lt _ (by decide))).2.2 (i-6) (by omega) (j-6) (by omega) (by omega) s hs⟩
+      fun h => (checkB _ (Nat.mod_lt _ (by decide))).2.2.1 (i-6) (by omega) (j-6) (by omega) (by omega) s hs⟩
 private theorem need_mem (r k s : Nat) (hs : s∈mkKS 0 r k ++ mkKH 0 r k) :
     ∃ j, j<12 ∧ k≤j ∧ s∈need (plan 0 r j) (bit r j) := by
   simp only [List.mem_append, mkKS, mkKH, List.mem_flatMap, List.mem_map,

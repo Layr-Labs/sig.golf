@@ -41,7 +41,7 @@ def signImage : SigGolfCandidate.Legacy.Riscv.Image := ⟨signCode,Images.signDa
 def expandImage : SigGolfCandidate.Legacy.Riscv.Image := ⟨expandCode,Images.expandData⟩
 def images : ClaudeWCT.W9.T3M.Images := ⟨signImage,expandImage,Images.verifyImage⟩
 
-theorem sign_length : signCode.length=26415 := by
+theorem sign_length : signCode.length=26509 := by
   simp only [signCode,List.length_append,List.length_mapIdx,List.length_take,List.length_drop,Images.signCode_length]
   decide +kernel
 

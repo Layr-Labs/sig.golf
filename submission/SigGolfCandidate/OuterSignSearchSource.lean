@@ -31,7 +31,8 @@ theorem top_pre (index : Nat) (hi : index<2^31) (pair : Digest×Digest)
     omega
   refine ⟨h.pc,h.ret,ht.x5,h.x8,?_,?_,h.x17,h.x26,h.x27,?_,?_,?_,Or.inl hr,
     h.left.1,h.left.2,hc,ht.z40,h.right.1,h.right.2,ht.table,ht.cf,ht.reward,ht.zt,
-    hf,(by intro;dsimp only [topArgs];rw [Policy75Safe23.threshold_top];simp only [LocalRouteMachineHelpers.rootFloor,LocalRouteMachineHelpers.poolForLeaf,OuterSigning.requiredCredit,OuterSigning.rootPool]),?_,fun _ => ht.t51⟩
+    hf,(by intro;dsimp only [topArgs];rw [LocalRouteMachineHelpers.rootFloor_eq,SigGolfCandidate.Route16Guard.floor_eq_threshold,
+      Policy75Safe23.threshold_top];simp only [OuterSigning.requiredCredit,OuterSigning.rootPool]),?_,fun _ => ht.t51⟩
   · simpa [topArgs,hr] using h.x9
   · simpa only [topArgs,hl] using h.x18
   · change (route index 0).2<2^32;rw [hr];decide
@@ -48,7 +49,7 @@ structure TopTailSteps (im : Image) : Prop where
       RegsExcept s t [.x6,.x28,.x29] ∧ Frame s t (fun A => 0x66100≤A ∧ A<0x66100+56)
   init : ∀ s : MachineState, s.pc=pcOf 22226 → ∀ leaf : Nat, leaf<4096 →
     s.getReg .x18=BitVec.ofNat 64 leaf →
-    ∃ t,Steps im s 12 12 t ∧ t.pc=pcOf 22230 ∧
+    ∃ t,Steps im s 48 48 t ∧ t.pc=pcOf 22230 ∧
       t.getMem (0x66008#64)=BitVec.ofNat 64 (OuterSigning.rootPool leaf) ∧
       RegsExcept s t [.x6,.x28] ∧ Frame s t (fun A => A=0x66008)
   residual : ∀ s : MachineState, s.pc=pcOf 22230 → ∀ index r c : Nat, index<2^64 → r<2^32 → c<2^32 →
@@ -78,7 +79,7 @@ theorem top_tail {im : Image} (hc : TopTailSteps im)
     (hidx : s.getMem (0x20550#64)=BitVec.ofNat 64 index)
     (h18 : s.getReg .x18=BitVec.ofNat 64 (route index 0).1) (low : Bool) (ds : List Nat)
     (hcm : s.getMem (0x66018#64)=BitVec.ofNat 64 (CanonicalPolicy.credit 0 low ds)) :
-    ∃ t k,Steps im s k k t ∧ k≤58 ∧ TopTailPost index low ds s t := by
+    ∃ t k,Steps im s k k t ∧ k≤94 ∧ TopTailPost index low ds s t := by
   obtain ⟨a,sa,ap,asaved,ar,af⟩ := hc.save s hp
   have hleaf : (route index 0).1 < 4096 := by
     change index/2^19%4096<4096
@@ -91,7 +92,7 @@ theorem top_tail {im : Image} (hc : TopTailSteps im)
   obtain ⟨c,k,bc,hk,cp,crm,cr,cf⟩ := hc.residual b bp index (OuterSigning.requiredCredit index) (CanonicalPolicy.credit 0 low ds) hi (by omega) (credit_small _ _ _)
     ((bf.get (by decide) (by simp)).trans ((af.get (by decide) (by omega)).trans hidx)) brm bcm
   obtain ⟨t,ct,tp,t8,tr,tf⟩ := hc.first c cp
-  refine ⟨t,18+12+k+1,((sa.trans ab).trans bc).trans ct,by omega,?_,t8,?_,?_,?_,?_⟩
+  refine ⟨t,18+48+k+1,((sa.trans ab).trans bc).trans ct,by omega,?_,t8,?_,?_,?_,?_⟩
   · exact tp
   · exact (tf.get (by decide) (by simp)).trans crm
   · intro i hi
@@ -145,7 +146,7 @@ theorem top_stage {im : Image} {sk : BitVec 256} (hs : SearchCalls im sk)
     (s : MachineState) (hp : s.pc=pcOf 22182) (hstable : Stable index p forest s)
     (hh : s.getMem (0x66000#64)=0)
     (hc32 : ∃ c<2^32,s.getMem (BitVec.ofNat 64 (SigGolfCandidate.T3M.Sign.ENC+32))=BitVec.ofNat 64 c) :
-    TBSim im sk s (Canonical.csCost 0+84)
+    TBSim im sk s (Canonical.csCost 0+120)
       (CanonicalPolicy.layerCounterSearchAt 0 (ClaudeWCT.WCT9.Policy75Safe23.threshold 0 (OuterSigning.requiredCredit index)) (route index 0).2 (route index 0).1
         (.pair (ClaudeWCT.WCT9.topPair 1 p.one.levels).1 (ClaudeWCT.WCT9.topPair 1 p.one.levels).2) 0 (searchLimit 0))
       (TopStagePost im index p forest s) := by
@@ -156,11 +157,11 @@ theorem top_stage {im : Image} {sk : BitVec 256} (hs : SearchCalls im sk)
     obtain ⟨c,hc,hcv⟩ := hc32
     exact ⟨c,hc,(ha.frame.get (by unfold SigGolfCandidate.T3M.Sign.ENC;omega) (by unfold SigGolfCandidate.T3M.Sign.ENC;omega)).trans hcv⟩
   have H := hs.call (topArgs index (ClaudeWCT.WCT9.topPair 1 p.one.levels)) a (top_pre index hi _ s a ha hsta.tables hac)
-  have Htail : TBSim im sk a (Canonical.csCost 0+58)
+  have Htail : TBSim im sk a (Canonical.csCost 0+94)
       (CanonicalPolicy.layerCounterSearchAt 0 (ClaudeWCT.WCT9.Policy75Safe23.threshold 0 (OuterSigning.requiredCredit index)) (route index 0).2 (route index 0).1
         (.pair (ClaudeWCT.WCT9.topPair 1 p.one.levels).1 (ClaudeWCT.WCT9.topPair 1 p.one.levels).2) 0 (searchLimit 0))
       (TopStagePost im index p forest s) := by
-    have hb := TBSim.bind H (f:=fun r=>pure r) (W₂:=58) (Q₂:=TopStagePost im index p forest s) (by
+    have hb := TBSim.bind H (f:=fun r=>pure r) (W₂:=94) (Q₂:=TopStagePost im index p forest s) (by
       intro r u hu
       cases r with
       | none => exact (TBSim.pure (a:=none) (s:=u) (Q:=TopStagePost im index p forest s) hu).mono (by omega) (fun _ _ h=>h)

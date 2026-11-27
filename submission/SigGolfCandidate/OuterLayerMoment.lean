@@ -114,7 +114,7 @@ theorem shift1_12 (mask r : Nat) (hm : mask<12) (hr : r<58) :
 noncomputable def initialValue (pool s1 s2 s3 : Nat) : ENNReal :=
   (OuterRootNumerics.initialAt pool (4*s1+2*s2+s3) : ENNReal)/ClaudeWCT.Numerics.CanonicalCompression.scale
 
-theorem root_step (pool s1 s2 s3 : Nat) (hlo : 72 ≤ pool) (hhi : pool ≤ 74)
+theorem root_step (pool s1 s2 s3 : Nat) (hlo : 72 ≤ pool) (hhi : pool ≤ 75)
     (hs1 : s1 ≤ 2) (hs2 : s2 ≤ 1) (hs3 : s3 ≤ 1) :
     1 ≤ initialValue pool s1 s2 s3 ∧
     ((ClaudeWCT.Numerics.CanonicalCompression.zNum : ENNReal)/ClaudeWCT.Numerics.CanonicalCompression.zDen) *

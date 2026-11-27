@@ -3693,7 +3693,7 @@ def topNodeProg (level heap : Nat) (l r : Digest) : T3.M Digest :=
   if level = 12 then nodeHash 3 0 0 heap l r else Prod.snd <$> topNodeAt level heap l r
 
 /-- Cycle bound of one node at height `h` (`h = 12`: the root, no nonce). -/
-def nodeW (h : Nat) : Nat := if h = 12 then 63 else 89 + 21 * (topNonceCap h - 1)
+def nodeW (h : Nat) : Nat := if h = 12 then 81 else 107 + 21 * (topNonceCap h - 1)
 
 theorem nonceBytes_zero : nonceBytes 0 = zero16 := by decide
 theorem nodeHash_top (heap : Nat) (l r : Digest) :
@@ -3725,7 +3725,7 @@ include hpre htop hh12
 theorem node_prefix {ℓ : Nat} (hl : ℓ < 12) {levels : List (List Digest)} {pre : List Digest}
     (hi : pre.length < 2 ^ (12 - ℓ - 1)) {t : MachineState} (ht : TNodeInv s0 B ℓ levels pre t)
     (hpc : t.pc = pcOf 235) :
-    ∃ t2, Steps image t 40 40 t2 ∧ t2.pc = pcOf 263 ∧
+    ∃ t2 n, n ≤ 58 ∧ Steps image t n n t2 ∧ t2.pc = pcOf 263 ∧
       t2.getReg .x10 = BitVec.ofNat 64 NODE ∧ t2.getReg .x11 = BitVec.ofNat 64 64 ∧
       t2.getMem (BitVec.ofNat 64 (NODE + 32)) = 0 ∧
       T2Facts t2 B.arena (2 ^ (12 - ℓ - 1) + pre.length) ((levels.getD ℓ []).getD (2 * pre.length) 0)
@@ -3752,7 +3752,7 @@ theorem node_prefix {ℓ : Nat} (hl : ℓ < 12) {levels : List (List Digest)} {p
   have x24 : t.getReg .x24 = BitVec.ofNat 64 (lo + i) := by rw [ht.x24, hh12]
   obtain ⟨t1, st1, t1pc, t1r, t1f⟩ := sub118_spec subAt_keygen t hpc lo (lo + i) (by omega) (by omega) x20 x24
   rw [if_pos (by omega)] at t1pc
-  obtain ⟨t2, st2, t2pc, t2x10, t2x11, t2x12, t2x29, t2n0, t2n8, t2n16, t2n24, t2n48, t2n56, t2r, t2f⟩ :=
+  obtain ⟨t2, n2, hn2, st2, t2pc, t2x10, t2x11, t2x12, t2x29, t2n0, t2n8, t2n16, t2n24, t2n48, t2n56, t2r, t2f⟩ :=
     sub120_full subAt_keygen t1 t1pc B.arena (lo + i) B.tree (nodeLo B.lay B.tree) ha8 (by omega) hpre.htree
       (by simp only [NODE, NOUT] at has ⊢; omega) (by rw [t1r.get (by simp)]; exact r2)
       (by rw [t1r.get (by simp)]; exact x24) (by rw [t1r.get (by simp)]; exact r9)
@@ -3779,7 +3779,7 @@ theorem node_prefix {ℓ : Nat} (hl : ℓ < 12) {levels : List (List Digest)} {p
     simp only [BitVec.zero_add]
   have hfr : ∀ r, r ∉ [Reg.x6] → r ∉ [Reg.x3, .x6, .x7, .x28, .x29, .x30, .x10, .x11, .x12, .x29] →
       t2.getReg r = t.getReg r := fun r h1 h2 => by rw [t2r.get h2, t1r.get h1]
-  refine ⟨t2, (st1.trans st2).of_eq (by omega) (by omega), t2pc, t2x10, t2x11, by rw [fr _ (by simp), hpre.z32],
+  refine ⟨t2, _, by omega, st1.trans st2, t2pc, t2x10, t2x11, by rw [fr _ (by simp), hpre.z32],
     ⟨by rw [hfr _ (by simp) (by simp)]; exact r2, by rw [hfr _ (by simp) (by simp)]; exact r5, t2x12,
       by rw [hfr _ (by simp) (by simp)]; exact x24, t2x29,
       by rw [t2n0, hL1.1], by rw [t2n8, hL1.2], e16, t2n24, by rw [fr _ (by simp), hpre.z40],
@@ -3840,7 +3840,7 @@ theorem tnode {ℓ : Nat} (hl : ℓ < 12) {levels : List (List Digest)} {pre : L
       (topNodeProg (ℓ + 1) (2 ^ (12 - ℓ - 1) + pre.length) ((levels.getD ℓ []).getD (2 * pre.length) 0)
         ((levels.getD ℓ []).getD (2 * pre.length + 1) 0))
       (fun v u => u.pc = pcOf 235 ∧ TNodeInv s0 B ℓ levels (pre ++ [v]) u) := by
-  obtain ⟨t2, st, p2, x10, x11, z32, F, r02, f02⟩ := node_prefix hpre htop hh12 hl hi ht hpc
+  obtain ⟨t2, n, hn, st, p2, x10, x11, z32, F, r02, f02⟩ := node_prefix hpre htop hh12 hl hi ht hpc
   have hq := hashInput_topNode t2 _ 0 F.h1 F.h2 (by norm_num) _ _ x10 x11 F.w0 F.w8 F.w16 F.w24
     (by rw [z32]; rfl) F.w40 F.w48 F.w56
   have hv : hashArgumentsValid t2 = true :=
@@ -3854,7 +3854,7 @@ theorem tnode {ℓ : Nat} (hl : ℓ < 12) {levels : List (List Digest)} {pre : L
   by_cases hroot : ℓ + 1 = 12
   · rw [if_pos hroot, nodeHash_top]
     refine (TBSim.steps st (TBSim.publicHash_bind hf F.x5 hv hq (W := 15) (fun a => ?_))).mono
-      (by unfold nodeW; rw [if_pos hroot, topNodeInput_blocks]) (fun _ _ h => h)
+      (by unfold nodeW; rw [if_pos hroot, topNodeInput_blocks]; omega) (fun _ _ h => h)
     obtain ⟨u1, s1, p1, r1, f1⟩ := kt264_spec (writeHash t2 a) (by rw [pc_writeHash, p2, pcOf_add4])
     obtain ⟨u2, s2, p2', r2, f2⟩ := ktC0_spec u1 p1 (ℓ + 1) (by omega)
       (by rw [r1.get (by simp), getReg_writeHash]; exact x13)

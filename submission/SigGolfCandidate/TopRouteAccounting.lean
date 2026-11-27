@@ -59,12 +59,11 @@ open ClaudeWCT.WCT9
 def queryPathSave (lay : Layer) (q : Query) : Nat :=
   if lay=0 then CanonicalPolicy.topPathSave (TopRouteQueryLeaf.qLeaf q)
   else CanonicalPolicy.lowerPathSave lay.val (TopRouteQueryLeaf.qLeaf q)
-theorem queryPathSave_le (lay : Layer) (q : Query) : queryPathSave lay q ≤ 2 := by
+theorem queryPathSave_le (lay : Layer) (q : Query) : queryPathSave lay q ≤ 3 := by
   unfold queryPathSave
   split_ifs
-  · unfold CanonicalPolicy.topPathSave CanonicalPolicy.topPairSave
-    split_ifs <;> omega
-  · exact CanonicalPolicy.lowerPathSave_le_two _ _
+  · exact CanonicalPolicy.topPathSave_le_three _
+  · exact (CanonicalPolicy.lowerPathSave_le_two _ _).trans (by decide)
 
 theorem queryPathSave_lower (lay : Layer) (q : Query) (hl : lay≠0) :
     queryPathSave lay q = CanonicalPolicy.lowerPathSave lay.val (TopRouteQueryLeaf.qLeaf q) := by

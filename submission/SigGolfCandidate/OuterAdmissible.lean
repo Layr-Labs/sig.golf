@@ -10,7 +10,7 @@ open OuterImageValidity
 
 theorem keygen_raw : Images.keygenImage.Valid OuterValidityCore.sizes OuterValidityCore.layout := by
   have h:=OuterValidityLengths.valid Images.keygenImage Images.keygenCode Images.keygenData
-    rfl rfl 1191 0 Images.keygenCode_length Images.keygenData_length (by decide) (by decide)
+    rfl rfl 1238 0 Images.keygenCode_length Images.keygenData_length (by decide) (by decide)
   exact h
 
 theorem verify_raw : Images.verifyImage.Valid OuterValidityCore.sizes OuterValidityCore.layout := by

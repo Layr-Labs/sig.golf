@@ -10,27 +10,34 @@ set_option maxHeartbeats 0
 set_option maxRecDepth 1000000
 set_option exponentiation.threshold 10000000
 set_option Elab.async false
-def poolForLeaf (leaf : Nat) : Nat  := 74-ClaudeWCT.WCT9.CanonicalPolicy.topPathSave leaf
+def poolForLeaf (leaf : Nat) : Nat  := 75-ClaudeWCT.WCT9.CanonicalPolicy.topPathSave leaf
 def rootFloor (leaf : Nat) : Nat := max 16 (poolForLeaf leaf-57)
 theorem rootFloor_eq (leaf : Nat) : rootFloor leaf = SigGolfCandidate.Route16Guard.floor leaf := by
   rw [SigGolfCandidate.Route16Guard.floor_eq_threshold]
   rfl
 abbrev guardCode := SigGolfCandidate.Route16Machine.guardCode
+abbrev guardTailCode := SigGolfCandidate.Route16Machine.guardTailCode
 abbrev expandRootCode := SigGolfCandidate.Route16Machine.expandCode
-theorem guard_steps {im : Image} (hc : CodeAt im (pcOf 26008) guardCode)
+abbrev expandRootTailCode := SigGolfCandidate.Route16Machine.expandTailCode
+/-- C39: the sign top-floor guard: the jump at 26008 and the relocated block at 26461. -/
+def GuardAt (im : Image) : Prop := CodeAt im (pcOf 26008) guardCode ∧ CodeAt im (pcOf 26461) guardTailCode
+/-- C39: the expand top-floor guard: the jump at 88095 and the relocated block at 88480. -/
+def ExpandRootAt (im : Image) : Prop :=
+  CodeAt im (pcOf 88095) expandRootCode ∧ CodeAt im (pcOf 88480) expandRootTailCode
+theorem guard_steps {im : Image} (hc : GuardAt im)
     (s : MachineState) (hp : s.pc=pcOf 26008) (leaf credit : Nat) (hl : leaf<4096)
     (h18 : s.getReg .x18=BitVec.ofNat 64 leaf) (hm : s.getMem 0x66018=BitVec.ofNat 64 credit) :
-    ∃ t, Steps im s 11 11 t ∧ t.pc=pcOf 1959 ∧
+    ∃ t, Steps im s 49 49 t ∧ t.pc=pcOf 1959 ∧
       t.getReg .x29=BitVec.ofNat 64 (rootFloor leaf) ∧
       t.getReg .x30=BitVec.ofNat 64 credit ∧ RegsExcept s t [.x29,.x30] ∧ Frame s t (fun _=>False) := by
-  simpa only [rootFloor_eq] using SigGolfCandidate.Route16Machine.guard_steps hc s hp leaf credit hl h18 hm
-theorem expandRoot_steps {im : Image} (hc : CodeAt im (pcOf 88095) expandRootCode)
+  simpa only [rootFloor_eq] using SigGolfCandidate.Route16Machine.guard_steps hc.1 hc.2 s hp leaf credit hl h18 hm
+theorem expandRoot_steps {im : Image} (hc : ExpandRootAt im)
     (s : MachineState) (hp : s.pc=pcOf 88095) (leaf credit : Nat) (hl : leaf<4096)
     (h18 : s.getReg .x18=BitVec.ofNat 64 leaf) (hm : s.getMem 0x66040=BitVec.ofNat 64 credit) :
-    ∃ t, Steps im s 11 11 t ∧ t.pc=pcOf 54317 ∧
+    ∃ t, Steps im s 49 49 t ∧ t.pc=pcOf 54317 ∧
       t.getReg .x29=BitVec.ofNat 64 (rootFloor leaf) ∧
       t.getReg .x30=BitVec.ofNat 64 credit ∧ RegsExcept s t [.x29,.x30] ∧ Frame s t (fun _=>False) := by
-  simpa only [rootFloor_eq] using SigGolfCandidate.Route16Machine.expand_steps hc s hp leaf credit hl h18 hm
+  simpa only [rootFloor_eq] using SigGolfCandidate.Route16Machine.expand_steps hc.1 hc.2 s hp leaf credit hl h18 hm
 /-- C38: the relocated layer-1 credit block (expand 88106): `x = (index >>> 12) & 127`, `d = (x ^ x >>> 1) & 63`,
 save `[d ≠ 0] + ([d ≥ 4] & d)` (0, 1 or 2), added to the credit when `credit < residual` (mask `-(c < r)`). -/
 def expand1Code : List (BitVec 32) := [0x40e3303,0x20e37,0x550e3383,0xc3d393,0x7f3f393,0x13de13,0x1c3c3b3,0x3f3f393,0x43be13,0x1e4e13,0x7e7e33,0x7033b3,0x1c383b3,0x1533e33,0x41c00e33,0x1c3f3b3,0x730333,0xc75d706f]

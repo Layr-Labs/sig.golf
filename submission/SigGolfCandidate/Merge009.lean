@@ -135,13 +135,22 @@ theorem leafHalfHigh_top (leaf : Nat) : leafHalfHigh 0 leaf = decide (leaf % 2 =
 theorem leafHalfHigh_lower {lay : Layer} (h : lay ≠ 0) (leaf : Nat) : leafHalfHigh lay leaf = false := by
   simp only [leafHalfHigh, decide_eq_false_iff_not]
   exact fun h' => h (Fin.ext h'.1)
-/-- C4 top fold word: the heap itself for the real heaps `1..4095` (`topNodeWord_eq`); always in `[1, 4096)`, so it
-is never the digest word 0, never an FTS word (`≥ 2 ^ 16`) and never a lower word (type byte 193). -/
+/-- C4 top fold word: the heap itself for the real heaps `1..4095` (`topNodeWord_eq`), except the special labels
+that the verifier stores straight from a register: heap 1 `14336` (tp), heap 7 `520192` (t1) and (C40) the eight
+height-9 heaps 8..15: the constants s11 = 0x3fe00 (heap 8) and ra = 0x71c71c71c71c71c7 (heap 9), and for heaps
+10..15 the fold's own window/answer pointer `11920 + 16 * slot` (slots 9, 20, 6, 3, 15, 12). -/
 def topNodeWord (heap : Nat) : Nat :=
   let n := (heap - 1) % 4095 + 1
-  if n = 1 then 14336 else if n = 7 then 520192 else n
+  if n = 1 then 14336 else if n = 7 then 520192
+  else if n = 8 then 261632 else if n = 9 then 8198552921648689607 else if n = 10 then 12064
+  else if n = 11 then 12240 else if n = 12 then 12016 else if n = 13 then 11968 else if n = 14 then 12160
+  else if n = 15 then 12112 else n
 /-- Inverse of the special top-node label on the valid top-label image. -/
-def topNodeHeap (word : Nat) : Nat := if word = 14336 then 1 else if word = 520192 then 7 else word
+def topNodeHeap (word : Nat) : Nat :=
+  if word = 14336 then 1 else if word = 520192 then 7
+  else if word = 261632 then 8 else if word = 8198552921648689607 then 9 else if word = 12064 then 10
+  else if word = 12240 then 11 else if word = 12016 then 12 else if word = 11968 then 13 else if word = 12160 then 14
+  else if word = 12112 then 15 else word
 def privatePair (tag lay tree position index : Nat) : M (Digest × Digest) := do
   let output ← privateHash (.inl (header tag lay tree position index))
   pure (output.extractLsb' 0 128, output.extractLsb' 128 128)

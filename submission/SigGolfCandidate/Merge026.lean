@@ -697,7 +697,9 @@ theorem chainHeader_ne_nodeTweak (lay : Layer) (tree leaf i step : Nat) (hst : s
       have hw := congrArg (fun x : BitVec 128 => (x.extractLsb' 0 64).toNat) h
       simp only [chainHeader_low, chainHeaderFlaggedLow_toNat, nodeTweak_top, append64_low, topNodeWord_toNat64] at hw
       have hb := chainHeaderLow_band lay tree leaf i step
-      have := topNodeWord_lt heap
+      -- C40: the top word is `< 856065` or ra (in `[2^56, 193 * 2^56)`), a chain word lies in `[2^28, 2^56)`
+      -- (honest, with flag) or `≥ 193 * 2^56` (legacy).
+      have := topNodeWord_small_or_ra heap
       split_ifs at hw <;> omega
     · have hc := chainHeader_tweakMarker lay tree leaf i step
       rw [h, nodeTweak_marker, if_neg ht] at hc

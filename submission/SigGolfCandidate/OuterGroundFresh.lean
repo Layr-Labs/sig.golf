@@ -78,10 +78,12 @@ theorem header_ne_top (coord index heap heap' : Nat) (hc : coord<9) :
     obtain ⟨h8,h128⟩:=hn
     rw [ClaudeWCT.WCT9.ftsNodeLowN_eq,Nat.mod_eq_of_lt (show coord<16 by omega)] at hl
     unfold SigGolfCandidate.T3.ftsBiasN at hl
-    rcases SigGolfCandidate.T3.topNodeWord_small_or_special heap' with hs | hs | hs <;> omega
+    rcases SigGolfCandidate.T3.topNodeWord_small_or_special heap' with hs | hs | hs | hs <;>
+      first | omega | (have := SigGolfCandidate.T3.TopNine.cases hs; omega)
   · rw [if_neg hn,ClaudeWCT.WCT9.ftsLeafLow_zero,Nat.mod_eq_of_lt (show coord<16 by omega)] at hl
     unfold SigGolfCandidate.T3.ftsBiasN at hl
-    rcases SigGolfCandidate.T3.topNodeWord_small_or_special heap' with hs | hs | hs <;> omega
+    rcases SigGolfCandidate.T3.topNodeWord_small_or_special heap' with hs | hs | hs | hs <;>
+      first | omega | (have := SigGolfCandidate.T3.TopNine.cases hs; omega)
 
 #print axioms header_ne_top
 #print axioms V_two

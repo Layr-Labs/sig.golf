@@ -88,7 +88,7 @@ theorem rowsB_none : ∀ r < 64, ∀ q < 84,
       rowSrc (rowsB.getD r []) (8 * q) = none := by
   decide +kernel
 theorem newA_bound : ∀ r < 64, ∀ j < 6,
-    336 ≤ ClaudeWCT.W9.T3M.topSibA r j ∧ ClaudeWCT.W9.T3M.topSibA r j + 16 ≤ 672 ∧
+    320 ≤ ClaudeWCT.W9.T3M.topSibA r j ∧ ClaudeWCT.W9.T3M.topSibA r j + 16 ≤ 672 ∧
       ClaudeWCT.W9.T3M.topSibA r j % 8 = 0 := by decide
 theorem newB_bound : ∀ r < 64, ∀ j < 6,
     ClaudeWCT.W9.T3M.topSibB r j + 16 ≤ 320 ∧ ClaudeWCT.W9.T3M.topSibB r j % 8 = 0 := by decide

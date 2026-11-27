@@ -10,18 +10,19 @@ namespace OuterIndexMean
 open Finset ClaudeWCT.Numerics
 
 def meanInitial : Nat := OuterGroundNumerics.mean74
-def initialF (rootSave s1 s2 s3 : Nat) : Nat := OuterRootNumerics.initialAt (74-rootSave) (4*s1+2*s2+s3)
+def initialF (rootSave s1 s2 s3 : Nat) : Nat := OuterRootNumerics.initialAt (75-rootSave) (4*s1+2*s2+s3)
 def indexInitial (index : Nat) : Nat := LocalRouteUniform.evalIndex initialF index
 
-/-- Layer-1 saves 0/1/2 carry weights 2/66/60 (of 128); `2048 = 4*128*4`. -/
-theorem cases_checked : (∑ a : Fin 2,∑ b : Fin 2,∑ d : Fin 2,∑ e : Fin 2,
-    LocalRouteUniform.weighted initialF (a.val+b.val) d.val e.val)≤2048*meanInitial := by decide +kernel
+/-- Root saves 0/1/2/3 carry weights 132/1044/1996/924 (of 4096), layer-1 saves 0/1/2 weights 2/66/60
+(of 128); `2097152 = 4096*128*4`. -/
+theorem cases_checked : (∑ d : Fin 2,∑ e : Fin 2,
+    LocalRouteUniform.topWeighted initialF d.val e.val)≤2097152*meanInitial := by decide +kernel
 
 theorem index_initial_sum : (∑ i : Fin (2^31),indexInitial i.val)≤2^31*meanInitial := by
   unfold indexInitial
   rw [LocalRouteUniform.index_uniform]
   calc
-    _ ≤ 2^20*(2048*meanInitial) := Nat.mul_le_mul_left _ cases_checked
+    _ ≤ 2^10*(2097152*meanInitial) := Nat.mul_le_mul_left _ cases_checked
     _ = _ := by ring
 
 theorem index_initial_matches (index : Nat) : indexInitial index=

@@ -2580,6 +2580,9 @@ theorem posOf_padded_chain (index coord raw t step : Nat)
     have ht6 := hb.2.2.2.1
     rw [Nat.mod_eq_of_lt (show coord < 16 by omega), Nat.mod_eq_of_lt (show t < 8 by omega)] at htag
     rw [Nat.mul_add_mod_self_right, Nat.mod_eq_of_lt hlt]
+    -- C40: an FTS chain word is `≥ 2 ^ 20 - 2 ^ 15` (above the small height-9 labels), tag `≥ 186` (ra's is 113).
+    have hge20 := ClaudeWCT.W9.T3M.Extract.ftsChainLow_ge20 (coord := coord) (by omega) index raw t step ht6
+    unfold SigGolfCandidate.T3.TopNine
     omega
   rw [hdrKey_of_len64 hlen hT,wctChainInputP_block4,pad64_block4,hdrBlock_block4W,
     canonicalHeader_ftsChainHeaderP _ _ _ _ _ _ hb.2.2.2.1]
@@ -2607,6 +2610,9 @@ theorem posOf_padded_chainW (index coord raw t step : Nat)
     have ht6 := hb.2.2.2.1
     rw [Nat.mod_eq_of_lt (show coord < 16 by omega), Nat.mod_eq_of_lt (show t < 8 by omega)] at htag
     rw [Nat.mul_add_mod_self_right, Nat.mod_eq_of_lt hlt]
+    -- C40: an FTS chain word is `≥ 2 ^ 20 - 2 ^ 15` (above the small height-9 labels), tag `≥ 186` (ra's is 113).
+    have hge20 := ClaudeWCT.W9.T3M.Extract.ftsChainLow_ge20 (coord := coord) (by omega) index raw t step ht6
+    unfold SigGolfCandidate.T3.TopNine
     omega
   rw [hdrKey_of_len64 hlen hT, pad64_wctChainInputPW, hdrBlock_wctChainInputPW,
     canonicalHeader_ftsChainHeaderP _ _ _ _ _ _ hb.2.2.2.1]
@@ -12156,6 +12162,8 @@ theorem structuralHit_chain {answers : Answers} {qs : List Spec.Domain} (a : Cha
       rw [Extract.hdrBlock, chainInputPW_header, Extract.topLow_bytesLE_iff, SigGolfCandidate.T3M.chainHeaderP,
         append64_lowNat, chainHeader_low, chainHeaderFlaggedLow_toNat]
       have := chainHeaderLow_band a.key.lay a.key.tree a.key.leaf a.chain step
+      -- C40: a chain word is below `2 ^ 56` or in the legacy band, never ra.
+      unfold SigGolfCandidate.T3.TopNine
       split_ifs <;> omega
     rw [Extract.hdrKey_of_len64 hlen hT, Extract.hdrBlock, chainInputPW_header,
       Extract.canonicalHeader_chainHeaderP]
@@ -12330,6 +12338,8 @@ theorem structuralHit_chain {answers : Answers} {qs : List Spec.Domain} (a : Cha
       rw [Extract.hdrBlock, chainInputPW_header, Extract.topLow_bytesLE_iff, SigGolfCandidate.T3M.chainHeaderP,
         append64_lowNat, chainHeader_low, chainHeaderFlaggedLow_toNat]
       have := chainHeaderLow_band a.key.lay a.key.tree a.key.leaf a.chain step
+      -- C40: a chain word is below `2 ^ 56` or in the legacy band, never ra.
+      unfold SigGolfCandidate.T3.TopNine
       split_ifs <;> omega
     rw [Extract.hdrKey_of_len64 hlen hT, Extract.hdrBlock, chainInputPW_header,
       Extract.canonicalHeader_chainHeaderP]
@@ -13672,17 +13682,20 @@ theorem take8_bytesLE16 (a : BitVec 128) : (bytesLE 16 a).take 8 = bytesLE 8 (a.
 /- Every bounded FTS position has a low word above the top-label range. -/
 set_option debug.skipKernelTC true in
 theorem ftsPos_low {p : Extract.Pos} (hb : p.Bounded) (h : FtsPos p) :
-    (tweakLow p.hdr = 0 ∨ 4096 ≤ tweakLow p.hdr) ∧ tweakLow p.hdr < 2 ^ 64 ∧ tweakLow p.hdr ≠ 520192 ∧ tweakLow p.hdr ≠ 14336 := by
+    (tweakLow p.hdr = 0 ∨ 4096 ≤ tweakLow p.hdr) ∧ tweakLow p.hdr < 2 ^ 64 ∧ tweakLow p.hdr ≠ 520192 ∧ tweakLow p.hdr ≠ 14336 ∧
+      ¬ SigGolfCandidate.T3.TopNine (tweakLow p.hdr) := by
   cases p with
   | wctChain index coord child t step =>
       obtain ⟨-, hk, -, ht, -⟩ := hb
       have h1 := WCT9.ftsChainLow_ge (show coord < 15 by omega) index child t step ht
+      -- C40: an FTS chain word is `≥ 2 ^ 20 - 2 ^ 15` with tag `≥ 186` (ra's tag is 113).
+      have h20 := Extract.ftsChainLow_ge20 (show coord < 15 by omega) index child t step ht
       have h2 := WCT9.ftsChainLow_lt index coord child t step
       simp only [Extract.Pos.hdr, WCT9.ftsChainHeader]
       rw [Extract.tweakLow_eq_low, WCT9.ftsChainHeaderP_low, BitVec.toNat_ofNat,
         Nat.mod_eq_of_lt h2]
       have ht := WCT9.ftsChainLow_tag index coord child t step
-      exact ⟨Or.inr h1, h2, by omega, by omega⟩
+      exact ⟨Or.inr h1, h2, by omega, by omega, by unfold SigGolfCandidate.T3.TopNine; omega⟩
   | wctLeaf index coord child =>
       obtain ⟨-, hk, -⟩ := hb
       have h1 := WCT9.ftsLeafLow_zero_or_ge (show coord < 15 by omega) index child
@@ -13697,7 +13710,14 @@ theorem ftsPos_low {p : Extract.Pos} (hb : p.Bounded) (h : FtsPos p) :
         have hm := WCT9.ftsSelMul_mul_facts coord child
         unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN
         omega
-      exact ⟨h1, h2, hn, hn1⟩
+      -- C40: an FTS leaf word is `index * 2 ^ 33 + child field - 2048 (coord + 1)` mod `2 ^ 64`: never a height-9 label.
+      have hn9 : ¬ SigGolfCandidate.T3.TopNine (WCT9.ftsLeafLow index coord child) := by
+        have hm := WCT9.ftsSelMul_mul_facts coord child
+        have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
+        unfold SigGolfCandidate.T3.TopNine WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN
+        rw [Nat.mod_eq_of_lt (show coord < 16 by omega)]
+        omega
+      exact ⟨h1, h2, hn, hn1, hn9⟩
   | wctNode index coord level nd =>
       obtain ⟨-, hk, hlev, hnd⟩ := hb
       have hp : 2 ^ (7 - level - 1) ≤ 64 := by
@@ -13722,9 +13742,22 @@ theorem ftsPos_low {p : Extract.Pos} (hb : p.Bounded) (h : FtsPos p) :
       have hneN1 : WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) ≠ 14336 := by
         unfold WCT9.ftsNodeLowN SigGolfCandidate.T3.ftsBiasN
         omega
+      -- C40: FTS node words are `index * 2 ^ 33 - (2048 (coord + 1) + heap)` mod `2 ^ 64`: never a height-9 label.
+      have hn9L : ¬ SigGolfCandidate.T3.TopNine (WCT9.ftsLeafLow index coord 0) := by
+        have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
+        rw [WCT9.ftsLeafLow_zero]
+        unfold SigGolfCandidate.T3.TopNine SigGolfCandidate.T3.ftsBiasN
+        rw [Nat.mod_eq_of_lt (show coord < 16 by omega)]
+        omega
+      have hn9N : ¬ SigGolfCandidate.T3.TopNine (WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd)) := by
+        have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
+        unfold SigGolfCandidate.T3.TopNine WCT9.ftsNodeLowN SigGolfCandidate.T3.ftsBiasN
+        rw [Nat.mod_eq_of_lt (show coord < 16 by omega)]
+        omega
       simp only [Extract.Pos.hdr]
       unfold tweakLow
       rw [hlow]
+      unfold SigGolfCandidate.T3.TopNine at hn9L hn9N ⊢
       split_ifs <;> omega
   | _ => exact h.elim
 theorem structuralHitSrc_of_fts_hitIn (answers : Answers) (N : HashOutput) (w : WBytes)
@@ -13755,7 +13788,11 @@ theorem structuralHitSrc_of_fts_hitIn (answers : Answers) (N : HashOutput) (w : 
       rintro ⟨-, ht⟩
       unfold Extract.TopLow at ht
       rw [h8] at ht
-      omega
+      rcases ht with ht | ht | ht | ht
+      · omega
+      · omega
+      · omega
+      · exact hlo.2.2.2.2 ht
     have hkey' : Extract.hdrKey actual = bytesLE 16 pos'.hdr := by
       rw [Extract.hdrKey_of_not_leafLen hl hT, hdr']
     have hhdr : pos.hdr = pos'.hdr := bytesLE_injective (hkey.symm.trans hkey')
