@@ -35,7 +35,7 @@ theorem tail_window (b n : Nat) (hb : 26241≤b) :
   rw [show 26241+(b-26241)=b by omega]
   rfl
 
-theorem code_tail {b : Nat} {words : List (BitVec 32)} (hb : 26241≤b) (he : b+words.length≤26509)
+theorem code_tail {b : Nat} {words : List (BitVec 32)} (hb : 26241≤b) (he : b+words.length≤26586)
     (hc : CodeAt Images.signImage (pcOf b) words) : CodeAt OuterImages.signImage (pcOf b) words := by
   exact codeAt_of_window_eq (source:=Images.signImage) (target:=OuterImages.signImage) (start:=b) (count:=words.length)
     le_rfl (by omega) (by omega) (tail_window b words.length hb).symm hc

@@ -1536,6 +1536,8 @@ structure LayerIn (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index lay : Nat) 
   dst3 : lay = 3 → s.getReg .x12 = BitVec.ofNat 64 4240 ∨ s.getReg .x12 = BitVec.ofNat 64 4304
   /-- C4 (D7): the L3 encoding block reloads `s2` from this stack word (0xFFF). -/
   d0 : lay = 3 → s.getMem (BitVec.ofNat 64 (TOPB9 - 304)) = 0xFFF
+  /-- C41: the top head finds the dispatch base `s7 = t6 << 5` already set (layer 1's level 5 wrote it). -/
+  s7top : lay = 0 → s.getReg .x23 = (s7E 0).eval s
 structure EncPre (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index lay c : Nat)
     (t : MachineState) : Prop where
   pc : t.pc = pcOf (trPc lay c + stepsA lay)
@@ -2132,9 +2134,9 @@ theorem lctxOfCk_known (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer)
   · exact knownOK_at _ s 6 (.x11, 64) hk rfl
   · exact knownOK_at _ s 7 (.x13, 2) hk rfl
   · exact knownOK_at _ s 8 (.x19, 3) hk rfl
-  · exact knownOK_at _ s 9 (.x20, 4) hk rfl
-  · exact knownOK_at _ s 10 (.x21, 5) hk rfl
-  · exact knownOK_at _ s 11 (.x26, 6) hk rfl
+  · exact knownOK_at _ s 9 (.x20, 930564) hk rfl
+  · exact knownOK_at _ s 10 (.x21, 989957) hk rfl
+  · exact knownOK_at _ s 11 (.x26, 108112779336744966) hk rfl
   · exact h28
   · exact knownOK_at _ s 3 (.x9, 0x7fc01) hk rfl
   · exact knownOK_at _ s 13 (.x27, 0x3fe00) hk rfl
@@ -3091,7 +3093,7 @@ def lfBlocks (lay : Nat) : Nat := if lay = 0 then 13 else 11
 def lfSlot (lay j : Nat) : Nat := if lay = 0 then slotT j else bufferBias lay + slotL j
 def stabBits (lay : Nat) : Nat := if lay = 1 then 7 else 6
 def lfKeepK (lay : Nat) : List (Reg × Word) :=
-  [(.x9, 0x7fc01), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
+  [(.x9, 0x7fc01), (.x13, 2), (.x19, 3), (.x20, 930564), (.x21, 989957), (.x26, 108112779336744966),
    (if lay = 0 then (.x4, BitVec.ofNat 64 s3v) else (.x4, BitVec.ofNat 64 (bufferBias lay))),
    (.x2, BitVec.ofNat 64 0xffbde0)] ++
   (if lay = 0 then [(.x1, BitVec.ofNat 64 M1c), (.x27, 0x3fe00)] else [(.x1, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x6, 0), (.x27, 0x3fe00)])
@@ -3593,7 +3595,7 @@ structure TopEntry (u : MachineState) (v : Digest) (p : Nat) (s : MachineState) 
   frame : Frame u s (fun A => A = 25160)
 def topRowA (c : Nat) : Nat := rowA 0 c
 theorem prefix_slots : (List.range 128).all (fun c => decide (topRowA c ∈ Nonbinary.aVals) &&
-    (Nonbinary.prefixWordsOf (topRowA c)).isPrefixOf (codeFrom (trPc 0 c + 5))) = true := by
+    (Nonbinary.prefixWordsOf (topRowA c)).isPrefixOf (codeFrom (trPc 0 c + 4))) = true := by
   decide +kernel
 
 theorem topRowA_mem (c : Nat) (hc : c < 128) : topRowA c ∈ Nonbinary.aVals := by
@@ -3601,12 +3603,12 @@ theorem topRowA_mem (c : Nat) (hc : c < 128) : topRowA c ∈ Nonbinary.aVals := 
   simp only [Bool.and_eq_true, decide_eq_true_eq] at h
   exact h.1
 theorem prefix_at (c : Nat) (hc : c < 128) :
-    CodeAt image (pcOf (trPc 0 c + 5)) (Nonbinary.prefixWordsOf (topRowA c)) := by
+    CodeAt image (pcOf (trPc 0 c + 4)) (Nonbinary.prefixWordsOf (topRowA c)) := by
   have hp := trPc_lt 0 c
-  have h := codeAt_from (trPc 0 c + 5) (by omega)
+  have h := codeAt_from (trPc 0 c + 4) (by omega)
   have h2 := List.all_eq_true.mp prefix_slots c (List.mem_range.mpr hc)
   simp only [Bool.and_eq_true, decide_eq_true_eq] at h2
-  have hpre : Nonbinary.prefixWordsOf (topRowA c) <+: codeFrom (trPc 0 c + 5) :=
+  have hpre : Nonbinary.prefixWordsOf (topRowA c) <+: codeFrom (trPc 0 c + 4) :=
     List.isPrefixOf_iff_prefix.mp h2.2
   refine ⟨?_, ?_, ?_, hpre.trans h.2.2.2⟩
   · unfold pcOf; simp only [BitVec.toNat_ofNat]; omega
@@ -3618,13 +3620,13 @@ theorem prefix_at (c : Nat) (hc : c < 128) :
     omega
 theorem prefix_sub_at (c : Nat) (hc : c < 128) (pre seg post : List (BitVec 32))
     (he : Nonbinary.prefixWordsOf (topRowA c) = pre ++ seg ++ post) :
-    CodeAt image (pcOf (trPc 0 c + 5 + pre.length)) seg := by
+    CodeAt image (pcOf (trPc 0 c + 4 + pre.length)) seg := by
   have h := prefix_at c hc
   rw [he] at h
   have h' := CodeAt.drop_prefix (pre := pre) (seg := seg) (post := post) h
   rwa [pcOf, ofNat_add_ofNat,
-    show 0x1000 + 4 * (trPc 0 c + 5) + 4 * pre.length =
-      0x1000 + 4 * (trPc 0 c + 5 + pre.length) by ring] at h'
+    show 0x1000 + 4 * (trPc 0 c + 4) + 4 * pre.length =
+      0x1000 + 4 * (trPc 0 c + 4 + pre.length) by ring] at h'
 /-- The witness choice byte (rel 11176, abs 15304) is the low byte of its witness word. -/
 theorem extractByte_wword_choice (w : ClaudeWCT.W9.T3M.WBytes) :
     extractByte (wword w (ClaudeWCT.W9.T3M.choiceOff / 8)) 0 = ClaudeWCT.W9.T3M.wchoice w := by
@@ -3646,10 +3648,10 @@ theorem topTransition (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat
   change (d + 16 = topRowA c ∧ WIT + BC.bufferTop 0 + 16 ≤ topRowA c) ∨ d = topRowA c + 48 at hd
   have hdA : d % 8 = 0 ∧ 16136 ≤ d ∧ d + 32 ≤ 0x7000 := by omega
   have hk : KnownOK (BC.bK 0 c) (writeHash t a) := fun p hp => by rw [writeHash_getReg]; exact ht.glob.1 p hp
-  have hpc : (writeHash t a).pc = pcOf (trPc 0 c + 5) := by
+  have hpc : (writeHash t a).pc = pcOf (trPc 0 c + 4) := by
     rw [writeHash_pc, ht.pc]
-    change pcOf (trPc 0 c + 4) + 4 = pcOf (trPc 0 c + 5)
-    simpa only [Nat.add_assoc] using pcOf_add4 (trPc 0 c + 4)
+    change pcOf (trPc 0 c + 3) + 4 = pcOf (trPc 0 c + 4)
+    simpa only [Nat.add_assoc] using pcOf_add4 (trPc 0 c + 3)
   have hglob := Glob_writeHash ht.glob a d h12 (safeDest_hi d (by unfold WLO WIT; omega) hdA.1 (by omega))
   have hv := DigAt.writeHash_lo t a d h12 (by omega)
   have h12s : (writeHash t a).getReg .x12 = BitVec.ofNat 64 d := by rw [writeHash_getReg]; exact h12
@@ -3677,7 +3679,7 @@ theorem topTransition (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat
       extractByte_wword_choice]
     rfl
   obtain ⟨z, ez, pz, lo, hi, s3, mask, rz, fz⟩ := Verify.Nonbinary.prefix_head_spec
-    (writeHash t a) a (ClaudeWCT.W9.T3M.wtopHigh w) (topRowA c) d (trPc 0 c + 5) ha hpc (prefix_at c hc')
+    (writeHash t a) a (ClaudeWCT.W9.T3M.wtopHigh w) (topRowA c) d (trPc 0 c + 4) ha hpc (prefix_at c hc')
     h12s hdA h11 h4 hra hmask h10 hhint hv hhi
   have hn := Verify.Nonbinary.selCost_le (ClaudeWCT.W9.T3M.wtopHigh w) a
   unfold Verify.Nonbinary.selMax at hn
@@ -4100,11 +4102,11 @@ def mkMove (lay level : Nat) : Nat := if lay = 0 ∧ level = 11 then 0 else 1
 def mkHeap (lay ci sh l : Nat) : Nat := (2 ^ hL lay + sh * 2 ^ mkLo lay ci) / 2 ^ (l + 1)
 def mkK (lay : Nat) : List (Reg × Word) :=
   gkL lay ++ (if lay = 0 then [(.x6, 520192), (.x1, BitVec.ofNat 64 M1c), (.x27, 0x3fe00)] else []) ++ [(if lay = 0 then (.x4, BitVec.ofNat 64 s3v) else (.x4, BitVec.ofNat 64 (bufferBias lay))), (.x13, 2),
-    (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), (.x5, 0)] ++
+    (.x19, 3), (.x20, 930564), (.x21, 989957), (.x26, 108112779336744966), (.x5, 0)] ++
     (if lay = 0 then [] else [(.x2, BitVec.ofNat 64 0xffbde0)])
 def mkKc (lay : Nat) : List (Reg × Word) :=
   gkL lay ++ (if lay = 0 then [(.x6, 520192), (.x1, BitVec.ofNat 64 M1c), (.x27, 0x3fe00)] else []) ++ [(if lay = 0 then (.x4, BitVec.ofNat 64 s3v) else (.x4, BitVec.ofNat 64 (bufferBias lay))), (.x13, 2),
-    (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), (.x5, 0)]
+    (.x19, 3), (.x20, 930564), (.x21, 989957), (.x26, 108112779336744966), (.x5, 0)]
 def mkKeep : List Reg := [.x4, .x1, .x2, .x16, .x17, .x9, .x24, .x23, .x6, .x25, .x27, .x29, .x31]
 def mkEntSpec (lay ci sh : Nat) : Spec := let st := 1; ⟨[], [], mkShp lay ci sh + 1, true, st, [], none, st⟩
 def mkEntPost (lay ci sh : Nat) : List (Reg × Word) :=
@@ -4123,12 +4125,18 @@ def mkHdrE (lay l : Nat) : E := if lay = 0 then kw 64 else if l = 0 then t3E (la
 /-- C2 lower fold constant `K heap = mkK7 + heap` (F: `lowerK + 0x201`, the honest `WCT9.lowerAdd`). -/
 def mkK7 : Nat := 1920
 /-- C2: lower levels write only the packed tweak word `hyperWord + mkK7 + heap`; its high word is witness memory.
-C4: a top level writes only its one-word label, the heap. -/
+C4: a top level writes only its one-word label, the heap. C41: layer 1's level 5 (heaps 2/3) writes a register
+label: `t6` (x31) for rows `< 64`, `s7 = t6 << 5` (`s7E 0`, computed by the fold) otherwise. -/
 def mkLabE (lay ci sh l : Nat) : E :=
-  if lay = 0 then (if mkHeap lay ci sh l < 64 then kw (T3.topNodeWord (mkHeap lay ci sh l)) else mkHeapE lay ci sh l) else addC (mkHdrE lay l) (BitVec.ofNat 64 (mkK7 + mkHeap lay ci sh l))
+  if lay = 0 then (if mkHeap lay ci sh l < 64 then kw (T3.topNodeWord (mkHeap lay ci sh l)) else mkHeapE lay ci sh l)
+  else if lay = 1 ∧ l = 5 then (if sh < 64 then .reg .x31 else s7E 0)
+  else addC (mkHdrE lay l) (BitVec.ofNat 64 (mkK7 + mkHeap lay ci sh l))
 def mkLvlMem (lay ci sh l : Nat) : List (Addr × E) :=
   [(⟨none, BitVec.ofNat 64 (mkBlk lay (mkLeafOf lay ci sh) l + 16)⟩, mkLabE lay ci sh l)]
-def mkLvlRegs (lay l : Nat) : List (Reg × E) := if l = 0 ∧ lay ≠ 0 then [(.x28, t3E (lay - 1))] else []
+def mkLvlRegs (lay l : Nat) : List (Reg × E) :=
+  if l = 0 ∧ lay ≠ 0 then [(.x28, t3E (lay - 1))] else if lay = 1 ∧ l = 5 then [(.x23, s7E 0)] else []
+/-- C41: the registers a level keeps: all of `mkKeep`, except that layer 1's level 5 writes `s7` (x23). -/
+def mkKeepL (lay l : Nat) : List Reg := if lay = 1 ∧ l = 5 then mkKeep.erase .x23 else mkKeep
 def mkLvlKeep (lay l : Nat) : List Reg := if l = 0 ∧ lay ≠ 0 then [] else [.x28]
 def mkLvlAllow (lay sh l : Nat) : List Nat := [mkBlk lay sh l + 16, mkBlk lay sh l + 24]
 def mkDispTgt (sh : Nat) : E :=
@@ -4161,7 +4169,8 @@ def mkLvlKN (lay ci sh kk : Nat) : List (Reg × Word) :=
 def mkLvlCheckN (lay ci sh kk : Nat) : Bool :=
   mkSpecB (mkLvlAllow lay (mkLeafOf lay ci sh) (mkLo lay ci + kk)) [] (gkL lay)
     (mkLvlKN lay ci sh kk) [] (mkShp lay ci sh + mkOffOpt lay ci sh kk + 2) []
-    (mkLvlSpecN lay ci sh kk) [] (mkLvlPostN lay ci sh kk) (mkKeep ++ (.x14 :: mkLvlKeep lay (mkLo lay ci + kk)))
+    (mkLvlSpecN lay ci sh kk) [] (mkLvlPostN lay ci sh kk)
+    (mkKeepL lay (mkLo lay ci + kk) ++ (.x14 :: mkLvlKeep lay (mkLo lay ci + kk)))
 def mkLvlCheckD (lay ci sh kk : Nat) : Bool :=
   mkSpecB (mkLvlAllow lay (mkLeafOf lay ci sh) (mkLo lay ci + kk)) [] (gkL lay)
     (mkLvlKN lay ci sh kk) [] (mkShp lay ci sh + mkOffOpt lay ci sh kk + 2) [.jmp]
@@ -4209,7 +4218,7 @@ def mkLvlCheckN (lay ci sh kk : Nat) : Bool :=
   mkSpecB (mkLvlAllow lay (mkLeafOf lay ci sh) (mkLo lay ci + kk)) [] (gkL lay)
     (mkLvlKN lay ci sh kk) [] (mkShp lay ci sh + mkOffOpt lay ci sh kk + 2) []
     (mkLvlSpecN lay ci sh kk) [] (mkLvlPostN lay ci sh kk)
-    (mkKeep ++ (.x14 :: mkLvlKeep lay (mkLo lay ci + kk)))
+    (mkKeepL lay (mkLo lay ci + kk) ++ (.x14 :: mkLvlKeep lay (mkLo lay ci + kk)))
 def mkLvlCheck (lay ci sh kk : Nat) : Bool :=
   if mkIsDisp lay ci kk then T3M.mkLvlCheckD lay ci sh kk
   else mkLvlCheckN lay ci sh kk

@@ -50,11 +50,13 @@ set_option maxRecDepth 10000
 theorem tweakLow_top {heap : Nat} (h1 : 1 ≤ heap) (h2 : heap < 4096) : tweakLow (nodeTweak 3 0 0 heap) = topNodeWord heap := by
   rw [nodeTweak_top_low]
 
-/-- C40: every top word is below `856065` except heap 9's register label ra. -/
+/-- C40: every top word is below `1015808` (C42: the heap-4/5/6 labels `930564`/`989957` included) except heap 9's
+register label ra and (C42) heap 6's label `0x01801800000c0006`. -/
 theorem ne_top_of_low {hdr : BitVec 128} {heap : Nat} (h1 : 1 ≤ heap) (h2 : heap < 4096)
-    (hl : 856065 ≤ tweakLow hdr) (hra : tweakLow hdr ≠ 8198552921648689607) : hdr ≠ nodeTweak 3 0 0 heap := by
+    (hl : 1015808 ≤ tweakLow hdr) (hra : tweakLow hdr ≠ 8198552921648689607)
+    (hM : tweakLow hdr ≠ 108112779336744966) : hdr ≠ nodeTweak 3 0 0 heap := by
   rintro rfl
-  rw [tweakLow_top h1 h2] at hl hra
+  rw [tweakLow_top h1 h2] at hl hra hM
   have := topNodeWord_small_or_ra heap
   omega
 
@@ -73,16 +75,25 @@ theorem header0_ne_top (lay tree position index : Nat) {heap : Nat} (h1 : 2 ≤ 
   intro he
   have hm := congrArg tweakMarker he
   have ht := congrArg tweakTag he
+  clear he
   rw [header_marker, tweakMarker_top (by omega) h2] at hm
   rw [tweakTag_top (by omega) h2] at ht
-  have : tweakTag (header 0 lay tree position index) = 0 := by
+  have h0 : tweakTag (header 0 lay tree position index) = 0 := by
     simp [header_tag]
-  rw [this] at ht
-  rw [SigGolfCandidate.T3.topNodeWord_eq (by omega) h2] at hm ht
-  split_ifs at hm ht <;> omega
+  rw [h0] at ht
+  clear h0
+  -- C42: case on the reduced heap (`split_ifs` over the longer label chain times out).
+  have hred : (heap - 1) % 4095 + 1 = heap := by omega
+  unfold topNodeWord at hm ht
+  rw [hred] at hm ht
+  rcases topWordN_cases heap with h | ⟨-, h⟩
+  · rcases h with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
+      first | omega | simp [topWordN] at hm
+  · rw [h] at hm ht
+    omega
 
 theorem chainHeader_low_ge (lay : Layer) (tree leaf i step : Nat) :
-    856065 ≤ tweakLow (chainHeader lay tree leaf i step) := by
+    1015808 ≤ tweakLow (chainHeader lay tree leaf i step) := by
   have hb := chainHeaderLow_band lay tree leaf i step
   have hf := chainHeaderFlaggedLow_toNat lay tree leaf i step
   have hl : tweakLow (chainHeader lay tree leaf i step) = (chainHeaderFlaggedLow lay tree leaf i step).toNat := by
@@ -90,7 +101,7 @@ theorem chainHeader_low_ge (lay : Layer) (tree leaf i step : Nat) :
     rw [← chainHeader_low, BitVec.extractLsb'_toNat]
     simp
   rw [hl, hf]
-  have : (856065 : Nat) ≤ 193 * 2 ^ 56 := by norm_num
+  have : (1015808 : Nat) ≤ 193 * 2 ^ 56 := by norm_num
   omega
 
 /-- C40: a chain word (below `2 ^ 56`, or in the legacy band) is never ra. -/
@@ -105,7 +116,19 @@ theorem chainHeader_low_ne_ra (lay : Layer) (tree leaf i step : Nat) :
   rw [hl, hf]
   split_ifs <;> omega
 
-theorem leafTweak_low_ge (lay : Layer) (tree leaf : Nat) : 856065 ≤ tweakLow (leafTweak lay tree leaf) := by
+/-- C42: a chain word (in `[2 ^ 28, 2 ^ 48)` or the legacy band) is never heap 6's label `0x01801800000c0006`. -/
+theorem chainHeader_low_ne_M (lay : Layer) (tree leaf i step : Nat) :
+    tweakLow (chainHeader lay tree leaf i step) ≠ 108112779336744966 := by
+  have hb := chainHeaderLow_band lay tree leaf i step
+  have hf := chainHeaderFlaggedLow_toNat lay tree leaf i step
+  have hl : tweakLow (chainHeader lay tree leaf i step) = (chainHeaderFlaggedLow lay tree leaf i step).toNat := by
+    unfold tweakLow
+    rw [← chainHeader_low, BitVec.extractLsb'_toNat]
+    simp
+  rw [hl, hf]
+  split_ifs <;> omega
+
+theorem leafTweak_low_ge (lay : Layer) (tree leaf : Nat) : 1015808 ≤ tweakLow (leafTweak lay tree leaf) := by
   unfold leafTweak tweakLow
   rw [BitVec.toNat_append]
   simp only [BitVec.toNat_ofNat, Nat.zero_mod, Nat.zero_shiftLeft, Nat.zero_or]
@@ -116,6 +139,16 @@ theorem leafTweak_low_ge (lay : Layer) (tree leaf : Nat) : 856065 ≤ tweakLow (
 /-- C40: a leaf tweak's low word (a hyper word: a multiple of `2 ^ 16` or in the legacy band) is never ra. -/
 theorem leafTweak_low_ne_ra (lay : Layer) (tree leaf : Nat) :
     tweakLow (leafTweak lay tree leaf) ≠ 8198552921648689607 := by
+  unfold leafTweak tweakLow
+  rw [BitVec.toNat_append]
+  simp only [BitVec.toNat_ofNat, Nat.zero_mod, Nat.zero_shiftLeft, Nat.zero_or]
+  rw [Nat.mod_eq_of_lt (BitVec.isLt _)]
+  have := hyperWord_mod_or_ge lay.val (tree * 2 ^ height lay + leaf)
+  omega
+
+/-- C42: a leaf tweak's low word is never heap 6's label `0x01801800000c0006` (not a multiple of `2 ^ 16`). -/
+theorem leafTweak_low_ne_M (lay : Layer) (tree leaf : Nat) :
+    tweakLow (leafTweak lay tree leaf) ≠ 108112779336744966 := by
   unfold leafTweak tweakLow
   rw [BitVec.toNat_append]
   simp only [BitVec.toNat_ofNat, Nat.zero_mod, Nat.zero_shiftLeft, Nat.zero_or]
@@ -157,7 +190,8 @@ theorem gav_chain (lay : Layer) (tree leaf i start count : Nat) (value : Digest)
     simpa only [chainInput, List.append_assoc] using
       queryHeader_padded zero16 (zero16 ++ bytesLE 16 value) (by simp [zero16])
         (chainHeader lay tree leaf i step)
-  exact topQ_ne hh (ne_top_of_low (by omega) h4 (chainHeader_low_ge ..) (chainHeader_low_ne_ra _ _ _ _ _)) ht
+  exact topQ_ne hh (ne_top_of_low (by omega) h4 (chainHeader_low_ge ..) (chainHeader_low_ne_ra _ _ _ _ _)
+    (chainHeader_low_ne_M _ _ _ _ _)) ht
 
 /-- Witness stack: top chains (G `value | header | 0 | 0`, F `chainInput`) carry the chain header in bytes `16..32`. -/
 theorem gav_topChain (leaf i start count : Nat) (value : Digest) :
@@ -173,13 +207,15 @@ theorem gav_topChain (leaf i start count : Nat) (value : Digest) :
         queryHeader_padded (bytesLE 16 value) (zero16 ++ zero16) (bytesLE_length ..) (chainHeader 0 0 leaf i step)
     · simpa only [chainInput, List.append_assoc] using
         queryHeader_padded zero16 (zero16 ++ bytesLE 16 value) (by simp [zero16]) (chainHeader 0 0 leaf i step)
-  exact topQ_ne hh (ne_top_of_low (by omega) h4 (chainHeader_low_ge ..) (chainHeader_low_ne_ra _ _ _ _ _)) ht
+  exact topQ_ne hh (ne_top_of_low (by omega) h4 (chainHeader_low_ge ..) (chainHeader_low_ne_ra _ _ _ _ _)
+    (chainHeader_low_ne_M _ _ _ _ _)) ht
 
 theorem gav_leafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
     Avoids secret target (leafHash lay tree leaf ends) := by
   unfold leafHash
   apply avoids_shortHash_of_ne
-  exact topQ_ne (queryHeader_leafInput ..) (ne_top_of_low (by omega) h4 (leafTweak_low_ge ..) (leafTweak_low_ne_ra _ _ _)) ht
+  exact topQ_ne (queryHeader_leafInput ..) (ne_top_of_low (by omega) h4 (leafTweak_low_ge ..) (leafTweak_low_ne_ra _ _ _)
+    (leafTweak_low_ne_M _ _ _)) ht
 
 theorem gav_topPairsFrom (first start : Nat) (init : List Digest) :
     Avoids secret target (topPairsFrom first start init) := by
@@ -954,7 +990,9 @@ def keygenCode_3 : List (BitVec 32) := bv_list% 32 [0x7e3423,0x83dff06f] ++ bv_l
 def keygenCode_4 : List (BitVec 32) := bv_list% 32 [0xb1c63,0x63023,0x63423,0x63823,0x63c23,0xcc4ff06f,0x73,0xcbcff06f] ++ bv_list% 32 [0x900713,0x2381813,0xb79ff06f] ++ List.replicate 82 19 ++ bv_list% 32 [3148435,2579093091,4197011,2555375727,787347,267645715,8590099,8639379,6546355,7735,4043181587,29618995,4395795,4445075,29619123,6546355,15927,859704851,29618995,2298643,2347923,29619123,6546355,24119,1432227347,29618995,1250067,1299347,29619123,6546355,50566035,2706370671] ++ bv_list% 32 [0x397f13,0x40f1263,0x21c37,0x295f13,0x1f7e93,0x1f00713,0x2ef0733,0x1d70733,0x175713,0x2071713,0x176713,0xe8c63,0x1f0c3203,0x4c3023,0x1f8c3203,0x4c3423,0x10c0c13,0xf70ff06f,0x993,0x8067,0x397f13,0x6f1f13,0x1e686b3,0x713,0x793,0x215b7,0x1f058513,0xfbcff06f]
 def keygenCode : List (BitVec 32) :=
   [keygenCode_0, keygenCode_1, keygenCode_2, keygenCode_3, keygenCode_4].foldl (· ++ ·) [] ++ bv_list% 32 [0x1830333,0xfff30193,0x11b193,0x33b7,0x7ff38393,0x403001b3,0x71f1b3,0x330333,0xff930193,0x19663,0x7f337,0x968ff06f,0x80006f,0x960ff06f]
-    ++ bv_list% 32 [0xff830193,0x19863,0x40337,0xe0030313,0x94cff06f,0xff730193,0x2019463,0x71c72337,0xc7130313,0xb31313,0x63830313,0xb31313,0x71c30313,0xa31313,0x1c730313,0x920ff06f,0xff630193,0x19863,0x3337,0xf2030313,0x90cff06f,0xff530193,0x19863,0x3337,0xfd030313,0x8f8ff06f,0xff430193,0x19863,0x3337,0xef030313,0x8e4ff06f,0xff330193,0x19863,0x3337,0xec030313,0x8d0ff06f,0xff230193,0x19863,0x3337,0xf8030313,0x8bcff06f,0xff130193,0x19863,0x3337,0xf5030313,0x8a8ff06f,0x8a4ff06f]  -- C40: label remap of heaps 8..15 (1191..1237)
+    ++ bv_list% 32 [0xff830193,0x19863,0x337,0x30313,0x94cff06f,0xff730193,0x2019463,0x71c72337,0xc7130313,0xb31313,0x63830313,0xb31313,0x71c30313,0xa31313,0x1c730313,0x920ff06f,0xff630193,0x19863,0x3337,0xf2030313,0x90cff06f,0xff530193,0x19863,0x3337,0xfd030313,0x8f8ff06f,0xff430193,0x19863,0x3337,0xef030313,0x8e4ff06f,0xff330193,0x19863,0x3337,0xec030313,0x8d0ff06f,0xff230193,0x19863,0x3337,0xf8030313,0x8bcff06f,0xff130193,0x19863,0x3337,0xf5030313,0x8a8ff06f,0x40006f]  -- C40: label remap of heaps 8..15 (1191..1237)
+    -- C42: label remap of heaps 4/5/6 (1238..1256)
+    ++ bv_list% 32 [0xffc30193,0x19863,0xe3337,0x30430313,0x890ff06f,0xffb30193,0x19863,0xf2337,0xb0530313,0x87cff06f,0xffa30193,0x19e63,0x60060337,0x831313,0x330313,0x1231313,0x630313,0x85cff06f,0x858ff06f]
 def keygenData : List (BitVec 8) := [
 ]
 def keygenImage : Riscv.Image := ⟨keygenCode, keygenData⟩
@@ -2053,40 +2091,53 @@ theorem gq_ne {input target : HashInput} {hdr : BitVec 128} {lay tree heap : Nat
   rintro rfl
   exact hn (bytesLE_injective (h.symm.trans ht))
 
-theorem lowerTweak_marker' {heap : Nat} (hh : heap < 128) (lay tree : Nat) :
+theorem lowerTweak_marker' {heap : Nat} (hh : heap < 128) (lay tree : Nat)
+    (hp : ¬ ClaudeWCT.WCT9.LowerPair (lay - 1) tree heap) :
     tweakMarker (ClaudeWCT.WCT9.lowerTweak lay tree heap) = 128 + heap :=
-  ClaudeWCT.WCT9.lowerTweak_marker hh lay tree
+  ClaudeWCT.WCT9.lowerTweak_marker hh lay tree hp
 
+/-- C41: a header with marker `< 128` whose low word is outside both layer-1 pair label bands is no ground header
+(a packed lower node word has marker `128 + heap`, a pair label lies in a pair band). -/
 theorem ne_ground_of_marker {hdr : BitVec 128} {lay tree heap : Nat} (hh : heap < 128)
-    (hm : tweakMarker hdr < 128) : hdr ≠ ClaudeWCT.WCT9.lowerTweak lay tree heap := by
+    (hm : tweakMarker hdr < 128)
+    (hl : ¬ ((4096 ≤ tweakLow hdr ∧ tweakLow hdr < 8192) ∨
+      (2 ^ 17 ≤ tweakLow hdr ∧ tweakLow hdr < 2 ^ 18 ∧ tweakLow hdr % 32 = 0))) :
+    hdr ≠ ClaudeWCT.WCT9.lowerTweak lay tree heap := by
   rintro rfl
-  rw [lowerTweak_marker' hh] at hm
+  have := ClaudeWCT.WCT9.lowerTweak_cases hh lay tree
+  unfold tweakMarker at hm
+  unfold tweakLow at hl
   omega
 
-theorem header_ne_ground (tag l t p i : Nat) {lay tree heap : Nat} (hh : heap < 128) :
-    header tag l t p i ≠ ClaudeWCT.WCT9.lowerTweak lay tree heap :=
-  ne_ground_of_marker hh (by rw [header_marker]; omega)
+/-- C41: a legacy header (marker 1, tag byte `tag`) with `tag % 256 < 16` is outside both pair label bands. -/
+theorem header_ne_ground (tag l t p i : Nat) (htag : tag % 256 < 16) {lay tree heap : Nat} (hh : heap < 128) :
+    header tag l t p i ≠ ClaudeWCT.WCT9.lowerTweak lay tree heap := by
+  have hm := header_marker tag l t p i
+  have ht := header_tag tag l t p i
+  refine ne_ground_of_marker hh (by omega) ?_
+  unfold tweakMarker at hm
+  unfold tweakTag at ht
+  unfold tweakLow
+  omega
 
-theorem hasTag_ne_ground {tag : Nat} {input target : HashInput} (hi : HasTag tag input)
+theorem hasTag_ne_ground {tag : Nat} (htag : tag % 256 < 16) {input target : HashInput} (hi : HasTag tag input)
     {lay tree heap : Nat} (hh : heap < 128) (ht : GQ lay tree heap target) : input ≠ target := by
   obtain ⟨l, tr, p, ix, h⟩ := hi
-  exact gq_ne h (header_ne_ground _ _ _ _ _ hh) ht
+  exact gq_ne h (header_ne_ground _ _ _ _ _ htag hh) ht
 
 theorem leafTweak_ne_ground (l : Layer) (t lf : Nat) {lay tree heap : Nat} (hh : heap < 128) :
-    leafTweak l t lf ≠ ClaudeWCT.WCT9.lowerTweak lay tree heap :=
-  ne_ground_of_marker hh (by have := leafTweak_marker l t lf; omega)
+    leafTweak l t lf ≠ ClaudeWCT.WCT9.lowerTweak lay tree heap := by
+  -- C41: a leaf tweak's low word is a hyper word (`≥ 2 ^ 28`), above the pair label bands.
+  refine ne_ground_of_marker hh (by have := leafTweak_marker l t lf; omega) ?_
+  have hy := hyperWord_ge l.val (t * 2 ^ height l + lf)
+  rw [leafTweak_low]
+  omega
 
 theorem topTweak_ne_ground (heap' : Nat) {lay tree heap : Nat} (hh : heap < 128) :
-    nodeTweak 3 0 0 heap' ≠ ClaudeWCT.WCT9.lowerTweak lay tree heap := by
-  intro he
-  have hl := nodeTweak_top_low 0 heap'
-  -- C40: the top word is `< 856065` or ra (in `[2 ^ 48, 193 * 2 ^ 56)`); a lower word is `≥ 2 ^ 28` and below
-  -- `2 ^ 48` or in the legacy band.
-  have := topNodeWord_small_or_ra heap'
-  have hb := ClaudeWCT.WCT9.lowerTweak_band hh lay tree
-  unfold tweakLow at hl
-  rw [he] at hl
-  omega
+    nodeTweak 3 0 0 heap' ≠ ClaudeWCT.WCT9.lowerTweak lay tree heap :=
+  -- C40/C41: the top word is `0`, in `[1, 4096)`, 14336, 520192, ra or a window pointer; a lower word is a pair label
+  -- or `≥ 2 ^ 28` (below `2 ^ 48` or in the legacy band).
+  ClaudeWCT.W9.T3M.Extract.nodeTweak_top_ne_lowerTweak rfl hh _ _ _ _
 
 theorem chainHeader_ne_ground (l : Layer) (t lf i step : Nat) (hs : step < 7) {lay tree heap : Nat}
     (hh : heap < 128) : chainHeader l t lf i step ≠ ClaudeWCT.WCT9.lowerTweak lay tree heap :=
@@ -2100,12 +2151,11 @@ theorem lowerTweak_ne_ground {lay tree heap lay' tree' heap' : Nat} (hp : GP lay
 
 theorem digestHeader_ne_ground (c : BitVec 32) {lay tree heap : Nat} (hh : heap < 128) :
     digestHeader c ≠ ClaudeWCT.WCT9.lowerTweak lay tree heap := by
+  -- C41: no lower node word (pair label or packed word) is the digest label 25984.
   intro he
-  have hl := ClaudeWCT.WCT9.lowerTweak_low_ge hh lay tree
+  have hl := ClaudeWCT.WCT9.lowerTweak_low_ne_digest hh lay tree
   rw [← he] at hl
-  change 2 ^ 28 ≤ tweakLow (digestHeader c) at hl
-  rw [digestHeader_lowNat] at hl
-  norm_num at hl
+  exact hl (digestHeader_lowNat c)
 
 
 
@@ -2151,27 +2201,28 @@ variable (secret : BitVec 256) (target : HashInput) (lay tree heap : Nat) (ht : 
   (hp : GP lay tree heap)
 include ht hp
 
-theorem gav_privatePair (tag l t p i : Nat) : Avoids secret target (privatePair tag l t p i) := by
+theorem gav_privatePair (tag l t p i : Nat) (htag : tag % 256 < 16) :
+    Avoids secret target (privatePair tag l t p i) := by
   unfold privatePair
   apply avoids_bind
   · exact avoids_privateHash_of_ne secret target _
-      (hasTag_ne_ground (hasTag_privatePair ..) (by have := hp.h16; omega) ht)
+      (hasTag_ne_ground htag (hasTag_privatePair ..) (by have := hp.h16; omega) ht)
   · intro _; exact avoids_pure _ _ _
 
 theorem gav_privateMac (region : Region) : Avoids secret target (privateMac region) := by
   unfold privateMac privateMacKey
   simp only [bind_assoc, pure_bind]
   exact avoids_bind (avoids_privateHash_of_ne secret target _
-      (hasTag_ne_ground (hasTag_privatePair secret 14 0 0 0 0) (by have := hp.h16; omega) ht)) fun _ =>
+      (hasTag_ne_ground (by decide) (hasTag_privatePair secret 14 0 0 0 0) (by have := hp.h16; omega) ht)) fun _ =>
     avoids_bind (avoids_privateHash_of_ne secret target _
-      (hasTag_ne_ground (hasTag_privatePair secret 14 0 0 0 1) (by have := hp.h16; omega) ht)) fun _ =>
+      (hasTag_ne_ground (by decide) (hasTag_privatePair secret 14 0 0 0 1) (by have := hp.h16; omega) ht)) fun _ =>
     avoids_pure _ _ _
 
 theorem gav_privateNonce (message : Message) : Avoids secret target (privateNonce message) := by
   unfold privateNonce
   apply avoids_bind
   · exact avoids_privateHash_of_ne secret target _
-      (hasTag_ne_ground (hasTag_privateNonce ..) (by have := hp.h16; omega) ht)
+      (hasTag_ne_ground (by decide) (hasTag_privateNonce ..) (by have := hp.h16; omega) ht)
   · intro _; exact avoids_pure _ _ _
 
 theorem gav_topChain (leaf i start count : Nat) (value : Digest) (hs : start + count ≤ 7) :
@@ -2200,7 +2251,7 @@ theorem gav_leafHash (l : Layer) (t lf : Nat) (ends : List Digest) : Avoids secr
 theorem gav_topPairsFrom (first start : Nat) (init : List Digest) :
     Avoids secret target (topPairsFrom first start init) := by
   unfold topPairsFrom topSeedPair
-  exact avoids_foldlM _ _ _ _ (fun acc j => avoids_bind (gav_privatePair secret target lay tree heap ht hp 0 0 0 _ 0)
+  exact avoids_foldlM _ _ _ _ (fun acc j => avoids_bind (gav_privatePair secret target lay tree heap ht hp 0 0 0 _ 0 (by decide))
     (fun _ => avoids_pure _ _ _)) _
 
 theorem gav_buildLeafTopC (leaf : Nat) (coefs : List Digest) (signatureOnly : Bool) :
@@ -2320,11 +2371,14 @@ theorem gav_ftsQuery (index : Nat) (q : Spec.Domain)
       · exact gq_ne hblock (fun he => ClaudeWCT.WCT9.lowerTweak_ne_ftsChainHeaderP hh lay tree index coord selected
           t step 0 he.symm) ht
       · exact gq_ne hblock (ne_ground_of_marker hh (by
-          rw [ClaudeWCT.WCT9.ftsLeafHeader_tweakMarker]; omega)) ht
+          rw [ClaudeWCT.WCT9.ftsLeafHeader_tweakMarker]; omega) (by
+          have := ClaudeWCT.W9.T3M.Extract.ftsLeafLow_ge18 index coord selected
+          have := ClaudeWCT.WCT9.ftsLeafLow_lt index coord selected
+          unfold tweakLow; rw [ClaudeWCT.WCT9.ftsLeafHeader_toNat]; omega)) ht
       · exact gq_ne hblock (fun he => ClaudeWCT.WCT9.lowerTweak_ne_wctNodeHeader hh lay tree hk index heap' he.symm) ht
-      · exact gq_ne hblock (header_ne_ground _ _ _ _ _ hh) ht
+      · exact gq_ne hblock (header_ne_ground _ _ _ _ _ (by decide) hh) ht
     · obtain ⟨coord, pair, -, -, rfl⟩ := (show ClaudeWCT.WCT9.FtsSeed index tweak from hlegacy)
-      exact hasTag_ne_ground (hasTag_privatePair secret 8 coord index 0 pair) hh ht
+      exact hasTag_ne_ground (by decide) (hasTag_privatePair secret 8 coord index 0 pair) hh ht
     · exact hlegacy.elim
   · have hblock : SigGolfCandidate.T3M.Extract.hdrBlock
         (pad64 (ClaudeWCT.WCT9.wctTopInput coord index heap' left pad right)) =
@@ -2395,7 +2449,7 @@ theorem gav_lowerCoefs (l : Layer) (t lf : Nat) (carry : List Digest) :
   unfold ClaudeWCT.WCT9.lowerCoefs ClaudeWCT.WCT9.lowerFamCoefs ClaudeWCT.WCT9.lowerSeedPair
   split
   · exact avoids_bind (avoids_bind (avoids_foldlM _ _ _ _ (fun state j =>
-      avoids_bind (gav_privatePair secret target lay tree heap ht hp 0 _ _ _ _) fun _ => avoids_pure _ _ _) _)
+      avoids_bind (gav_privatePair secret target lay tree heap ht hp 0 _ _ _ _ (by decide)) fun _ => avoids_pure _ _ _) _)
       fun _ => avoids_pure _ _ _) fun _ => avoids_pure _ _ _
   · exact avoids_pure _ _ _
 
@@ -5464,7 +5518,12 @@ theorem topLow_merkleInputW (tree h leaf : Nat) (path : Nat → Digest) (hpads :
     TopLow (hdrBlock (pad64 (merkleInputW 0 tree h leaf path hpads pads step value))) := by
   rw [hdrBlock_merkleInputW, topLow_bytesLE_iff, tweakLow_eq_low, BitVec.extractLsb'_append_eq_right,
     WCT9.merkleWord_top, topNodeWord_toNat64]
-  exact (topNodeWord_small_or_special _).imp (fun hb => ⟨topNodeWord_pos _, hb⟩) id
+  rcases topNodeWord_small_or_special (2 ^ (h - step - 1) + leaf / 2 ^ (step + 1)) with hs | hs | hs | hs | hs
+  · exact Or.inl hs
+  · exact Or.inr (Or.inl hs)
+  · exact Or.inr (Or.inr (Or.inl hs))
+  · exact Or.inr (Or.inr (Or.inr (Or.inl (Or.inl hs))))
+  · exact Or.inr (Or.inr (Or.inr (Or.inl (Or.inr hs))))
 /-- C4: two top fold inputs of the same step have the same decoding key (the key of a top label keeps only the low
 word, which is the label `topNodeWord heap`). -/
 theorem merkleInputW_sameHeader_top {tree h leaf step : Nat}
@@ -5477,7 +5536,8 @@ theorem merkleInputW_sameHeader_top {tree h leaf step : Nat}
     SigGolfCandidate.T3M.Extract.bytesLE_header_words, SigGolfCandidate.T3M.Extract.bytesLE_header_words,
     List.take_left' (bytesLE_length 8 _), List.take_left' (bytesLE_length 8 _)]
 /-- Two fold inputs of the same step have the same decoding key: on the lower trees the high tweak word is ignored
-because the packed node word is marked (heap `< 128`), on the top tree (C4) because the label is `TopLow`. -/
+because the packed node word is marked (heap `< 128`), on the top tree (C4) because the label is `TopLow`. C41: a
+layer-1 pair label is `TopLow` too (keyed by the low word). -/
 theorem merkleInputW_sameHeader {lay tree h leaf step : Nat} (hh : 2 ^ (h - step - 1) + leaf / 2 ^ (step + 1) < 128)
     (path path' : Nat → Digest) (hpads hpads' : Nat → BitVec 64) (pads pads' : Nat → Digest) (value value' : Digest) :
     SameHeader (pad64 (merkleInputW lay tree h leaf path hpads pads step value))
@@ -5485,25 +5545,38 @@ theorem merkleInputW_sameHeader {lay tree h leaf step : Nat} (hh : 2 ^ (h - step
   by_cases h0 : lay = 0
   · subst h0; exact merkleInputW_sameHeader_top _ _ _ _ _ _ _ _
   refine ⟨by rw [merkleInputW_length, merkleInputW_length], ?_⟩
-  have hm : ∀ heap, heap < 128 → 128 ≤ (WCT9.merkleWord lay tree heap).toNat % 256 := by
-    intro heap hh'; rw [WCT9.merkleWord_lower h0, (WCT9.lowerNodeWord_band hh' _ _).1]; omega
+  by_cases hP : WCT9.LowerPair (lay - 1) tree (2 ^ (h - step - 1) + leaf / 2 ^ (step + 1))
+  · have hT : ∀ (hp : BitVec 64), TopLow (bytesLE 16 (hp ++ WCT9.merkleWord lay tree
+        (2 ^ (h - step - 1) + leaf / 2 ^ (step + 1)))) := by
+      intro hp
+      rw [topLow_bytesLE_iff, tweakLow_eq_low, BitVec.extractLsb'_append_eq_right, WCT9.merkleWord_lower h0,
+        WCT9.lowerNodeWord_toNat_pair hP]
+      right; right; right; right
+      rcases WCT9.lowerPairWord_band hP with hb | hb <;> omega
+    rw [hdrKey_of_top (merkleInputW_length ..) (by rw [hdrBlock_merkleInputW]; exact hT _),
+      hdrKey_of_top (merkleInputW_length ..) (by rw [hdrBlock_merkleInputW]; exact hT _), hdrBlock_merkleInputW,
+      hdrBlock_merkleInputW, SigGolfCandidate.T3M.Extract.bytesLE_header_words,
+      SigGolfCandidate.T3M.Extract.bytesLE_header_words, List.take_left' (bytesLE_length 8 _),
+      List.take_left' (bytesLE_length 8 _)]
+  have hm : 128 ≤ (WCT9.merkleWord lay tree (2 ^ (h - step - 1) + leaf / 2 ^ (step + 1))).toNat % 256 := by
+    rw [WCT9.merkleWord_lower h0, (WCT9.lowerNodeWord_band hh _ _ hP).1]; exact Nat.le_add_right _ _
   have hn : ∀ (hp : BitVec 64), ¬ TopLow (bytesLE 16 (hp ++ WCT9.merkleWord lay tree
       (2 ^ (h - step - 1) + leaf / 2 ^ (step + 1)))) := by
     intro hp ht
-    generalize 2 ^ (h - step - 1) + leaf / 2 ^ (step + 1) = heap at hh ht
+    have := (WCT9.lowerNodeWord_band hh (lay - 1) tree hP).2.2
+    generalize 2 ^ (h - step - 1) + leaf / 2 ^ (step + 1) = heap at hh ht this
     rw [topLow_bytesLE_iff, tweakLow_eq_low, BitVec.extractLsb'_append_eq_right, WCT9.merkleWord_lower h0] at ht
-    have := (WCT9.lowerNodeWord_band hh (lay - 1) tree).2.2
     unfold SigGolfCandidate.T3.TopNine at ht
     omega
   rw [hdrKey_of_len64 (merkleInputW_length ..) (by rw [hdrBlock_merkleInputW]; exact hn _),
     hdrKey_of_len64 (merkleInputW_length ..) (by rw [hdrBlock_merkleInputW]; exact hn _),
     hdrBlock_merkleInputW, hdrBlock_merkleInputW]
   apply canonicalHeader_high_irrelevant
-  · exact hm _ hh
+  · exact hm
   · intro he
     rw [WCT9.merkleWord_lower h0] at he
     have hp : 1 ≤ 2 ^ (h - step - 1) := Nat.one_le_two_pow
-    have hm' := WCT9.lowerTweak_marker hh lay tree
+    have hm' := WCT9.lowerTweak_marker hh lay tree hP
     simp only [WCT9.lowerTweak, append64_marker] at hm'
     have hz := congrArg (fun w : BitVec 64 => w.toNat % 256) he
     norm_num only [BitVec.toNat_ofNat] at hz
@@ -6295,7 +6368,8 @@ structure Pre (L : Layout) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
   hashLen : u.getReg .x11 = 128
   nodeWord : u.getReg .x15 = BitVec.ofNat 64 (V3.nodeLow k.val index)
   returnPC : u.getReg .x1 = pcOf (L.returnWord k)
-  heaps : ∀ h, 2 ≤ h → h ≤ 6 → u.getReg (heapReg h) = BitVec.ofNat 64 h
+  /-- C42: the heap registers hold the FTS labels (`s4`/`s5`/`s10` are the path-table bases and the OR constant). -/
+  heaps : ∀ h, 2 ≤ h → h ≤ 6 → u.getReg (heapReg h) = BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel h)
   leafAt : ∀ i, i < 8 → DigAt u (Chain.base L k + 640 + 16 * i)
     (V3.leafFields k.val index j.val (V3.leafPad w k.val) ends i)
   padAt : ∀ l, l < 6 → DigAt u (Chain.base L k + V3.padOff j.val l) (V3.nodePad w k.val j.val l)
@@ -6342,7 +6416,7 @@ structure Pre (L : Layout) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
   hashLen : u.getReg .x11 = 128
   nodeWord : u.getReg .x15 = BitVec.ofNat 64 (V3.nodeLow k.val index)
   returnPC : u.getReg .x1 = pcOf (L.returnWord k)
-  heaps : ∀ h, 2 ≤ h → h ≤ 6 → u.getReg (Child.heapReg h) = BitVec.ofNat 64 h
+  heaps : ∀ h, 2 ≤ h → h ≤ 6 → u.getReg (Child.heapReg h) = BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel h)
   leafAt : ∀ i, i < 8 → DigAt u (Chain.base L k + 640 + 16 * i)
     (V3.leafFields k.val index j.val (V3.leafPad w k.val) ends i)
   padAt : ∀ l, l < 6 → DigAt u (Chain.base L k + SharedV3.blkOff (SharedV3.physical k.val j.val) l + 32) (SharedV3.nodePad w k.val (SharedV3.physical k.val j.val) l)
@@ -6432,9 +6506,10 @@ structure Pre (L : Layout) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
   stepOne : (u.getReg .x9).truncate 8 = 1#8
   stepTwo : u.getReg .x13 = 2
   hashLen : u.getReg .x11 = 64
-  childPC : u.getReg .x23 = pcOf (L.childWord j)
+  /-- C42: `s7` is the child word plus a bias (4 or 5); the routine exit `jalr zero,0(s7)` lands on the next word. -/
+  childPC : u.getReg .x23 &&& ~~~1#64 = pcOf (L.childWord j + 1)
   returnPC : u.getReg .x1 = pcOf (L.returnWord k)
-  heaps : ∀ h, 2 ≤ h → h ≤ 6 → u.getReg (Child.heapReg h) = BitVec.ofNat 64 h
+  heaps : ∀ h, 2 ≤ h → h ≤ 6 → u.getReg (Child.heapReg h) = BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel h)
   witness : ∀ off, off < 848 → off % 8 = 0 →
     u.getMem (BitVec.ofNat 64 (base L k + off)) =
       w.extractLsb' (8 * (V3.regionOffset k.val + off)) 64
@@ -8077,7 +8152,7 @@ def x28v (c : LCtx) : Nat := 2 ^ 16 * packedHi c.lay c.tree c.leaf + c.koff
 theorem x28v_eq (c : LCtx) (h0 : c.koff = 0) : c.x28v = 2 ^ 16 * packedHi c.lay c.tree c.leaf := by
   unfold x28v; omega
 def known (c : LCtx) : List (Reg × Word) :=
-  [(.x5, 0), (.x11, 64), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
+  [(.x5, 0), (.x11, 64), (.x13, 2), (.x19, 3), (.x20, 930564), (.x21, 989957), (.x26, 108112779336744966),
    (.x28, BitVec.ofNat 64 c.x28v), (.x9, 0x7fc01), (.x27, 0x3fe00), (.x5, 0),
    (.x16, c.d0), (.x17, c.d1), (.x29, 201#64 - BitVec.ofNat 64 c.ck),
    (.x4, BitVec.ofNat 64 c.bufferOffset)]
@@ -8769,9 +8844,9 @@ theorem posE_eval (c : LCtx) {s0 s : MachineState} (hk : ∀ p ∈ c.known, s0.g
     rfl
   · exact congrArg (fun v : Word => v.truncate 8) (kr .x13 2 (by simp [known]) (by decide))
   · exact congrArg (fun v : Word => v.truncate 8) (kr .x19 3 (by simp [known]) (by decide))
-  · exact congrArg (fun v : Word => v.truncate 8) (kr .x20 4 (by simp [known]) (by decide))
-  · exact congrArg (fun v : Word => v.truncate 8) (kr .x21 5 (by simp [known]) (by decide))
-  · exact congrArg (fun v : Word => v.truncate 8) (kr .x26 6 (by simp [known]) (by decide))
+  · exact (congrArg (fun v : Word => v.truncate 8) (kr .x20 930564 (by simp [known]) (by decide))).trans rfl
+  · exact (congrArg (fun v : Word => v.truncate 8) (kr .x21 989957 (by simp [known]) (by decide))).trans rfl
+  · exact (congrArg (fun v : Word => v.truncate 8) (kr .x26 108112779336744966 (by simp [known]) (by decide))).trans rfl
 theorem w0_low (c : LCtx) (hc : c.ok) (i m : Nat) (hi : i ≤ 42) (hm : m < 256) :
     (BitVec.ofNat 64 (c.w0 i + 256 * m)).toNat % 256 = 128 + i + c.koff ∧
       (BitVec.ofNat 64 (c.w0 i + 256 * m)).toNat / 2 ^ 16 = packedHi c.lay c.tree c.leaf := by
@@ -9693,7 +9768,7 @@ def leafSetupRel : Result :=
     [(kAt .x8 881 24, .c 0),
       (kAt .x8 881 16, .reg .x31)],
     [.valid (kAt .x8 881 24) 8, .valid (kAt .x8 881 16) 8]⟩,
-    .bin .and (.bin .add (.reg .x23) (.c 4)) (.c (~~~1#64)), .jump, 5, 5⟩
+    .bin .and (.reg .x23) (.c (~~~1#64)), .jump, 5, 5⟩
 inductive ChainPieceKind where
   | head (off dst chain digit : Nat)
   | rung (digit : Nat) (dst : Option Nat)
@@ -10892,7 +10967,7 @@ theorem leaf_trace_mem (value : ChainWord → Word) (tr : ChainTrace) (s : Machi
 theorem leafSetup_regs (s : MachineState) (B : Nat) (hbase : s.getReg .x8 = BitVec.ofNat 64 (B - 241)) (hl8 : 241 ≤ B) :
     (leafSetupRel.toState s).getReg .x10 = BitVec.ofNat 64 (B + 640) ∧
     (leafSetupRel.toState s).getReg .x11 = 128 ∧
-    (leafSetupRel.toState s).pc = (s.getReg .x23 + 4) &&& ~~~1#64 := by
+    (leafSetupRel.toState s).pc = s.getReg .x23 &&& ~~~1#64 := by
   simp only [leafSetupRel, Result.toState_getReg, Result.toState_pc,
     RegFile.get, RegFile.set, addC_eval, E.eval, BinOp.eval, hbase]
   exact ⟨(ofNat_add_ofNat (B - 241) 881).trans (by congr 1; omega), trivial, trivial⟩
@@ -11022,7 +11097,7 @@ theorem Inv.rung {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 12
   have hstep := packedPos_eval s digit hd
     ((congrArg (fun v : Word => v.truncate 8) (hs.keep .x9 (by decide))).trans hu.stepOne)
     ((hs.keep .x13 (by decide)).trans hu.stepTwo)
-    ((hs.keep .x19 (by decide)).trans (hu.heaps 3 (by decide) (by decide)))
+    ((hs.keep .x19 (by decide)).trans ((hu.heaps 3 (by decide) (by decide)).trans rfl))
   let prepared := (rungRRel .x8 digit (dst.map (fun d => BitVec.ofNat 64 (d + 241))) pc).toState s
   have h12 : prepared.getReg .x12 = BitVec.ofNat 64 (base L k + dst.getD tr.output) := by
     cases dst with
@@ -11353,7 +11428,7 @@ theorem Inv.hashReady {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : F
       have hstep := packedPos_eval s digit hd
         ((congrArg (fun v : Word => v.truncate 8) (hs.keep .x9 (by decide))).trans hu.stepOne)
         ((hs.keep .x13 (by decide)).trans hu.stepTwo)
-        ((hs.keep .x19 (by decide)).trans (hu.heaps 3 (by decide) (by decide)))
+        ((hs.keep .x19 (by decide)).trans ((hu.heaps 3 (by decide) (by decide)).trans rfl))
       let prepared := (rungRRel .x8 digit (dst.map (fun d => BitVec.ofNat 64 (d + 241))) pc).toState s
       have h10 := ((rungRRel_keeps .x8 digit (dst.map (fun d => BitVec.ofNat 64 (d + 241))) pc).reg s (by decide)).trans hp.1
       have hlen := ((rungRRel_keeps .x8 digit (dst.map (fun d => BitVec.ofNat 64 (d + 241))) pc).reg s (by decide)).trans hs.hashLen
@@ -11528,7 +11603,7 @@ theorem Inv.leafPost {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fi
     padAt := fun l hl => merklePad_of_frame hu hf l hl,
     sibAt := fun l hl => merkleSibling_of_frame hu hf l hl,
     twAt := fun l hl => merkleTw_of_frame hu hf l hl }
-  · rw [hp.2.2, hs.keep .x23 (by decide), hu.childPC, SigGolfCandidate.T3M.pcOf_add4, pcOf_and_not1]
+  · rw [hp.2.2, hs.keep .x23 (by decide), hu.childPC]
   · intro h hlo hhi
     have hn : Child.heapReg h ∉ clobbers := by interval_cases h <;> decide
     exact (hkeep _ hn).trans (hu.heaps h hlo hhi)
@@ -11981,14 +12056,18 @@ open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.
 open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (Digest HashOutput)
 structure SetupMask (u : MachineState) : Prop where
-  rankPadAt : u.getMem (BitVec.ofNat 64 (stackBase7 + 48)) = BitVec.ofNat 64 0x1801800000c0000
-  child : u.getMem (BitVec.ofNat 64 (dataBase7 + 368)) = BitVec.ofNat 64 0xf1b00
+  /-- C42: the FTS OR constant `M` (bits 1, 2 are dropped by every dispatch mask; also heap 6's label in `s10`). -/
+  rankPadAt : u.getMem (BitVec.ofNat 64 (stackBase7 + 48)) = BitVec.ofNat 64 0x1801800000c0006
+  /-- C42: the odd path-table base `+ 5` (heap 5's label in `s5`). -/
+  child : u.getMem (BitVec.ofNat 64 (dataBase7 + 368)) = BitVec.ofNat 64 0xf1b05
   jt : u.getMem (BitVec.ofNat 64 (dataBase7 + 376)) = BitVec.ofNat 64 0xfff01
   coord : u.getMem (BitVec.ofNat 64 (dataBase7 + 464)) = BitVec.ofNat 64 10879
   gate : u.getMem (BitVec.ofNat 64 (dataBase7 + 352)) = BitVec.ofNat 64 (929 * 2^50)
   d0 : u.getMem (BitVec.ofNat 64 dataBase7) = BitVec.ofNat 64 0xfff
-  aTable : u.getMem (BitVec.ofNat 64 (dataBase7 + 56)) = BitVec.ofNat 64 0xe3300
-  singleton : u.getMem (BitVec.ofNat 64 (dataBase7 + 64)) = BitVec.ofNat 64 0xe7400
+  /-- C42: the even path-table base `+ 4` (heap 4's label in `s4`). -/
+  aTable : u.getMem (BitVec.ofNat 64 (dataBase7 + 56)) = BitVec.ofNat 64 0xe3304
+  /-- C42: coordinate 8's path-table base `+ 4`. -/
+  singleton : u.getMem (BitVec.ofNat 64 (dataBase7 + 64)) = BitVec.ofNat 64 0xe7404
 structure Pre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (u : MachineState) : Prop where
   pc : u.pc = pcOf 4
   glob : Glob [(.x5, 0)] w pk u

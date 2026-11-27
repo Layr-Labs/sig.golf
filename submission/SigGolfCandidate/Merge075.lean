@@ -2310,7 +2310,7 @@ theorem sub120_spec {image : Image} {b : Nat} (h : SubAt image b) (s : MachineSt
     (hdis : NODE + 64 ≤ arena + 32 * k ∨ arena + 32 * k + 32 ≤ NODE)
     (h2 : s.getReg .x2 = BitVec.ofNat 64 arena) (h24 : s.getReg .x24 = BitVec.ofNat 64 k)
     (h9 : s.getReg .x9 = BitVec.ofNat 64 tree) (h21 : s.getReg .x21 = BitVec.ofNat 64 h0) :
-    ∃ t n, n ≤ 50 ∧ Steps image s n n t ∧ t.pc = pcOf (b + 140) ∧
+    ∃ t n, n ≤ 60 ∧ Steps image s n n t ∧ t.pc = pcOf (b + 140) ∧
       t.getReg .x29 = BitVec.ofNat 64 (k % 2) ∧ t.getReg .x30 = BitVec.ofNat 64 (NODE + 48) ∧
       t.getMem (BitVec.ofNat 64 NODE) = s.getMem (BitVec.ofNat 64 (arena + 32 * k)) ∧
       t.getMem (BitVec.ofNat 64 (NODE + 8)) = s.getMem (BitVec.ofNat 64 (arena + 32 * k + 8)) ∧
@@ -2433,14 +2433,19 @@ theorem nodeLo_add {lay : Nat} (h0 : lay ≠ 0) (tree : Nat) :
 theorem nodeLo_honest {lay tree : Nat} (h0 : lay ≠ 0) (h : T3.hyperHonest (lay - 1) tree) :
     nodeLo lay tree = (T3.hyperWord (lay - 1) tree).toNat + 513 := by
   unfold nodeLo; rw [if_neg h0, if_pos h]
-theorem lowerNodeWord_nodeLo {lay : Nat} (h0 : lay ≠ 0) (tree heap : Nat) :
-    ClaudeWCT.WCT9.lowerNodeWord (lay - 1) tree heap =
+/-- The packed lower node word (before the C41 layer-1 remap) from the node base `nodeLo`. -/
+theorem packedWord_nodeLo {lay : Nat} (h0 : lay ≠ 0) (tree heap : Nat) :
+    T3.hyperWord (lay - 1) tree + BitVec.ofNat 64 (ClaudeWCT.WCT9.lowerAdd (lay - 1) tree + heap) =
       BitVec.ofNat 64 (nodeLo lay tree + (ClaudeWCT.WCT9.lowerK + heap)) := by
-  unfold ClaudeWCT.WCT9.lowerNodeWord
   apply BitVec.eq_of_toNat_eq
   rw [BitVec.toNat_add, BitVec.toNat_ofNat, BitVec.toNat_ofNat]
   have := nodeLo_add h0 tree
   omega
+/-- C41: the lower node word is the producers' stub remap (`WCT9.l1Remap`) of the packed word from `nodeLo`. -/
+theorem lowerNodeWord_nodeLo {lay : Nat} (h0 : lay ≠ 0) (tree heap : Nat) (hh : heap < 128) :
+    ClaudeWCT.WCT9.lowerNodeWord (lay - 1) tree heap =
+      ClaudeWCT.WCT9.l1Remap (BitVec.ofNat 64 (nodeLo lay tree + (ClaudeWCT.WCT9.lowerK + heap))) := by
+  rw [ClaudeWCT.WCT9.lowerNodeWord_remap hh, packedWord_nodeLo h0]
 /-- C4: the top node tweak is the one-word label `0#64 ++ heap` (`nodeLo 0 tree = 0`). -/
 theorem nodeTweak_3_top (tree heap : Nat) (h1 : 1 ≤ heap) (h2 : heap < 4096) :
     T3.nodeTweak 3 0 tree heap = 0#64 ++ KeygenLabel.remapWord (BitVec.ofNat 64 (nodeLo 0 tree + heap)) := by
@@ -2452,7 +2457,7 @@ theorem sub120_full {image : Image} {b : Nat} (h : SubAt image b) (s : MachineSt
     (hdis : NODE + 64 ≤ arena + 32 * k ∨ arena + 32 * k + 32 ≤ NODE)
     (h2 : s.getReg .x2 = BitVec.ofNat 64 arena) (h24 : s.getReg .x24 = BitVec.ofNat 64 k)
     (h9 : s.getReg .x9 = BitVec.ofNat 64 tree) (h21 : s.getReg .x21 = BitVec.ofNat 64 h0) :
-    ∃ t n, n ≤ 56 ∧ Steps image s n n t ∧ t.pc = pcOf (b + 146) ∧
+    ∃ t n, n ≤ 66 ∧ Steps image s n n t ∧ t.pc = pcOf (b + 146) ∧
       t.getReg .x10 = BitVec.ofNat 64 NODE ∧ t.getReg .x11 = BitVec.ofNat 64 64 ∧
       t.getReg .x12 = BitVec.ofNat 64 NOUT ∧ t.getReg .x29 = BitVec.ofNat 64 (k % 2 * 2 ^ 4) ∧
       t.getMem (BitVec.ofNat 64 NODE) = s.getMem (BitVec.ofNat 64 (arena + 32 * k)) ∧

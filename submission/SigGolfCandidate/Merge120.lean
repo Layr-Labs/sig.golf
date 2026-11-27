@@ -3259,8 +3259,10 @@ def kw (k : Nat) : E := .c (BitVec.ofNat 64 k)
 def hL (lay : Nat) : Nat := [12,7,6,6].getD lay 0
 /-- Layer head steps before the encoding ecall (stage 2): L3 5 (C3: no row high-word store; the merged singleton
 leaves the right top value at `WIT + 48`, so no copy), top 5, L1/L2 6 (C2/C3, as #866; T1: the L1/L2 transition
-heads lose `addi tp,tp,720`, 7 -> 6). L-hyper (F): the L3 head ORs the marker `2^31` into `s6` (no `ori`), 6. -/
-def stepsA (lay : Nat) : Nat := if lay = 3 then 5 else if lay = 0 then 4 else 6
+heads lose `addi tp,tp,720`, 7 -> 6). L-hyper (F): the L3 head ORs the marker `2^31` into `s6` (no `ori`), 6.
+C41: the top head (`addi a0; addi tp; sd t3; ecall`) loses its `slli s7,t6,5`, which moved into the layer-1
+height-6 fold (its heap-3 label is `s7`), 4 -> 3; `s7` reaches the head already set and is kept. -/
+def stepsA (lay : Nat) : Nat := if lay = 3 then 5 else if lay = 0 then 3 else 6
 def retOff (lay : Nat) : Nat := if lay = 0 then 9 else if lay = 3 then 38 else 41
 /-- T1 (tp-merge): lower frame bases `F` (tp = F + 944, the L3 head's `jalr tp` link); index 0 is a placeholder satisfying the `LCtx` frame
 facts (the top layer has no lower frame). -/
@@ -3295,21 +3297,21 @@ def rowA (lay c : Nat) : Nat := 0x10A0 + mkBase (lay + 1) + 16 * plan (lay + 1) 
 def bufferBias (lay : Nat) : Nat := [14336,17968,21224,24480].getD lay 0
 def bufferBase (lay : Nat) : Nat := [15288,18752,22008,25264].getD lay 0
 def preK (lay : Nat) : List (Reg × Word) :=
-  if lay = 3 then [(.x5, 0)] ++ [(.x8, BitVec.ofNat 64 4095), (.x11, 64), (.x26, 6), (.x13, 2), 
-    (.x2, BitVec.ofNat 64 0xffbde0), (.x19, 3), (.x20, 4), (.x21, 5), (.x6, 0)]
+  if lay = 3 then [(.x5, 0)] ++ [(.x8, BitVec.ofNat 64 4095), (.x11, 64), (.x26, 108112779336744966), (.x13, 2), 
+    (.x2, BitVec.ofNat 64 0xffbde0), (.x19, 3), (.x20, 930564), (.x21, 989957), (.x6, 0)]
   else baseK ++ [(.x6, 0), (.x9, 0x7fc01),
     (.x1, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x11, 64),
-    (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), 
+    (.x13, 2), (.x19, 3), (.x20, 930564), (.x21, 989957), (.x26, 108112779336744966), 
     (.x5, 0), (.x2, BitVec.ofNat 64 0xffbde0), (.x27, 0x3fe00), (.x4, BitVec.ofNat 64 (bufferBias (lay+1)))]
 def layK (lay : Nat) : List (Reg × Word) :=
   baseK ++ [(.x6, 0), (.x11, 64),
-    (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), 
+    (.x13, 2), (.x19, 3), (.x20, 930564), (.x21, 989957), (.x26, 108112779336744966), 
     (.x2, BitVec.ofNat 64 0xffbde0)] ++
     (if lay = 3 then [] else [(.x9, 0x7fc01), (.x1, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x5, 0), (.x27, 0x3fe00), (.x4, BitVec.ofNat 64 (bufferBias lay))])
 def chainK (lay : Nat) : List (Reg × Word) :=
   baseK ++ [(.x6, 0), (.x9, 0x7fc01),
     (.x1, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x11, 64),
-    (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), 
+    (.x13, 2), (.x19, 3), (.x20, 930564), (.x21, 989957), (.x26, 108112779336744966), 
     (.x5, 0), (.x27, 0x3fe00), (.x4, BitVec.ofNat 64 (bufferBias lay))]
 def bK (lay : Nat) : List (Reg × Word) := layK lay ++ [(.x10, 4256)]
 def rReg (lay : Nat) : Reg := if lay = 3 then .x22 else .x31
@@ -3477,7 +3479,7 @@ def headerWrites (lay c : Nat) : List (Addr × E) :=
   [(⟨none, BitVec.ofNat 64 (rowA lay c + 16)⟩, .reg .x28)]
 def specA (lay c : Nat) : Spec :=
   if lay = 3 then T3M.specA lay (trPc lay c) else
-  ⟨if lay = 0 then [(.x23, s7E lay), (.x12, .reg .x12)]
+  ⟨if lay = 0 then [(.x12, .reg .x12)]
    else [(.x23, s7E lay), (.x31, treeE lay), (.x12, .reg .x12)],
    headerWrites lay c, trPc lay c + stepsA lay, true, stepsA lay,
    [], none, stepsA lay⟩
@@ -3485,7 +3487,7 @@ def rejA (lay c : Nat) : Spec :=
   if lay = 3 then T3M.rejA lay (trPc lay c) else
   ⟨[(.x5, kw 1), (.x10, kw 1)], headerWrites lay c,
    rejEcall, true, stepsA lay + 3, [ctrBr lay c true], none, stepsA lay + 3⟩
-def keepA (lay : Nat) : List Reg := if lay = 3 then [] else if lay = 0 then [.x28, .x31] else [.x28]
+def keepA (lay : Nat) : List Reg := if lay = 3 then [] else if lay = 0 then [.x28, .x31, .x23] else [.x28]
 def bKB (lay c : Nat) : List (Reg × Word) := (bK lay c).filter (fun p => p.1 != .x12)
 /-- SGV1: the LOW path loads `w1` then `w0` (obligations newest first). -/
 def oblB : List Oblig := [.valid ⟨some (.reg .x12), 0⟩ 8, .valid ⟨some (.reg .x12), 8⟩ 8]

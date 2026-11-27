@@ -3120,22 +3120,31 @@ def hashPc (c : Nat) : Nat := [22840, 23058, 23264, 23482, 23688, 23906, 24112, 
 def words (c : Nat) : List (BitVec 32) := [words0,words1,words2,words3,words4,words5,words6,words7,words8].getD c []
 def c4StubPc : Nat := 1729
 def c4Stub : List (BitVec 32) := bv_list% 32 [0x3b7,0x80038393,0x1911406f]
-def labelStub0 : List (BitVec 32) := bv_list% 32 [0x794193,0x11b193,0x3900393,0x27181b3,0x12181b3,0x353c23,0xd40fd06f]
-def labelStub1 : List (BitVec 32) := bv_list% 32 [0x794193,0x11b193,0x3900393,0x27181b3,0x12181b3,0x353c23,0x865fd06f]
-def labelStub2 : List (BitVec 32) := bv_list% 32 [0x794193,0x11b193,0x3900393,0x27181b3,0x12181b3,0x353c23,0xb91fd06f]
-def labelStub3 : List (BitVec 32) := bv_list% 32 [0x794193,0x11b193,0x3900393,0x27181b3,0x12181b3,0x353c23,0xecdfd06f]
-def labelStub4 : List (BitVec 32) := bv_list% 32 [0x794193,0x11b193,0x3900393,0x27181b3,0x12181b3,0x353c23,0x9f8fe06f]
-def labelStub5 : List (BitVec 32) := bv_list% 32 [0x794193,0x11b193,0x3900393,0x27181b3,0x12181b3,0x353c23,0xd34fe06f]
-def labelStub6 : List (BitVec 32) := bv_list% 32 [0x794193,0x11b193,0x3900393,0x27181b3,0x12181b3,0x353c23,0x861fe06f]
-def labelStub7 : List (BitVec 32) := bv_list% 32 [0x794193,0x11b193,0x3900393,0x27181b3,0x12181b3,0x353c23,0xb9dfe06f]
-def labelStub8 : List (BitVec 32) := bv_list% 32 [0x794193,0x11b193,0x3900393,0x27181b3,0x12181b3,0x353c23,0xeedfe06f]
+/-- C42: the label stub of coordinate `c` (`25562 + 7c`): `nop x4; jal t2,STUB_s2; sd gp,24(a0); jal zero,back`; the
+former inline `gp := s2 + 57 * [s2 = 7]` is the call to the shared heap-label stub `heapStub`. -/
+def labelStub0 : List (BitVec 32) := bv_list% 32 [0x13,0x13,0x13,0x13,0x731003ef,0x353c23,0xd40fd06f]
+def labelStub1 : List (BitVec 32) := bv_list% 32 [0x13,0x13,0x13,0x13,0x715003ef,0x353c23,0x865fd06f]
+def labelStub2 : List (BitVec 32) := bv_list% 32 [0x13,0x13,0x13,0x13,0x6f9003ef,0x353c23,0xb91fd06f]
+def labelStub3 : List (BitVec 32) := bv_list% 32 [0x13,0x13,0x13,0x13,0x6dd003ef,0x353c23,0xecdfd06f]
+def labelStub4 : List (BitVec 32) := bv_list% 32 [0x13,0x13,0x13,0x13,0x6c1003ef,0x353c23,0x9f8fe06f]
+def labelStub5 : List (BitVec 32) := bv_list% 32 [0x13,0x13,0x13,0x13,0x6a5003ef,0x353c23,0xd34fe06f]
+def labelStub6 : List (BitVec 32) := bv_list% 32 [0x13,0x13,0x13,0x13,0x689003ef,0x353c23,0x861fe06f]
+def labelStub7 : List (BitVec 32) := bv_list% 32 [0x13,0x13,0x13,0x13,0x66d003ef,0x353c23,0xb9dfe06f]
+def labelStub8 : List (BitVec 32) := bv_list% 32 [0x13,0x13,0x13,0x13,0x651003ef,0x353c23,0xeedfe06f]
 def labelStubPc (c : Nat) : Nat := 25562 + 7*c
 def labelStub (c : Nat) : List (BitVec 32) := [labelStub0,labelStub1,labelStub2,labelStub3,labelStub4,labelStub5,labelStub6,labelStub7,labelStub8].getD c []
-def look (c n : Nat) : Option (BitVec 32) := if labelStubPc c ≤ n then (labelStub c)[n-labelStubPc c]? else if entry c ≤ n then (words c)[n-entry c]? else if c = 0 ∧ c4StubPc ≤ n then c4Stub[n-c4StubPc]? else none
-def dirs (mode : Nat) : List Dir := if mode=0 then [.br false] else [.br true,.br (mode=2)]
+/-- C42: `STUB_s2` (sign words `26538..26561`): `gp := ftsHeapLabel s2` for heaps `2..7` (`s2 = 4|5|6|7` load
+`930564|989957|M|64`, any other heap `gp := s2`), back through `jalr zero,0(t2)`. -/
+def heapStubPc : Nat := 26538
+def heapStub : List (BitVec 32) := bv_list% 32 [0xffc90193,0x19863,0xe31b7,0x30418193,0x38067,0xffb90193,0x19863,0xf21b7,0xb0518193,0x38067,0xffa90193,0x19e63,0x600601b7,0x819193,0x318193,0x1219193,0x618193,0x38067,0xff990193,0x19663,0x4000193,0x38067,0x90193,0x38067]
+def look (c n : Nat) : Option (BitVec 32) := if heapStubPc ≤ n then heapStub[n-heapStubPc]? else if labelStubPc c ≤ n then (labelStub c)[n-labelStubPc c]? else if entry c ≤ n then (words c)[n-entry c]? else if c = 0 ∧ c4StubPc ≤ n then c4Stub[n-c4StubPc]? else none
+/-- C42: the heap-label stub's path `p`: heap `4 + p` for `p < 4` (`p` taken compares, then the hit), every other
+heap `p = 4` (four taken compares, `gp := s2`). -/
+def labDirs (p : Nat) : List Dir := if p<4 then List.replicate p (.br true) ++ [.br false] else List.replicate 4 (.br true)
+def dirs (mode p : Nat) : List Dir := if mode=0 then [.br false] else .br true :: (labDirs p ++ [.br (mode=2)])
 /-- E8: the node hash site `hashPc c` holds `jal zero, SIGN_TRAMP + 5 c` (the FTS ground trampoline); the run stops
 before it. -/
-def runNode (c mode : Nat) : Option PRes := runA (look c) [hashPc c] (entry c) (dirs mode)
+def runNode (c mode p : Nat) : Option PRes := runA (look c) [hashPc c] (entry c) (dirs mode p)
 end ClaudeWCT.W9.Machine.Sign.SharedNode
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedNode
@@ -3144,20 +3153,24 @@ open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 
 def loE (c : Nat) : E := mkAdd (.bin .sll (.reg .x22) (cE 33)) (cE (2^64-2048-2048*c))
 def hdrLo (c mode : Nat) : E := if mode=0 then .bin .sub (loE c) (.reg .x18) else loE c
-def hdrHi (mode : Nat) : E := if mode=0 then cE 0 else mappedHi (.reg .x18)
+/-- C42: the label word `gp` after the heap-label stub's path `p` (`ftsHeapLabel` of heap `4 + p`, or `s2`). -/
+def labE (p : Nat) : E :=
+  if p=0 then cE 930564 else if p=1 then cE 989957 else if p=2 then cE 108112779336744966 else if p=3 then cE 64
+  else .reg .x18
+def hdrHi (mode p : Nat) : E := if mode=0 then cE 0 else labE p
 def padShift : E := .bin .sll (.bin .add (.bin .srl (.reg .x18) (cE 1)) (cE (2^64-2))) (cE 5)
 def padAddr (c off : Nat) : E :=
   if c%2=1 then .bin .add padShift (cE (0x67000+64*(c/2)+16+off)) else cE (FORW+32*c+16+off)
 def padWord (c mode off : Nat) : E := if mode=1 ∧ c≠0 then .ld (padAddr c off) else cE 0
 
-def regs (c mode : Nat) : List (Reg × E) :=
-  (if mode=0 then [] else [(.x3,mappedHi (.reg .x18))]) ++ [(.x6,if mode=1 ∧ c≠0 then padWord c mode 0 else hdrLo c mode),
+def regs (c mode p : Nat) : List (Reg × E) :=
+  (if mode=0 then [] else [(.x3,labE p)]) ++ [(.x6,if mode=1 ∧ c≠0 then padWord c mode 0 else hdrLo c mode),
    (.x7,if mode=1 ∧ c≠0 then padWord c mode 8 else cE (if mode=0 then 8 else 4)),
    (.x10,cE NODEW),(.x11,cE 64),(.x12,cE NOUTW),
    (.x28,if mode=1 ∧ c≠0 then padAddr c 0 else .bin .add sh5 (cE HEAPW))]
-def mem (c mode : Nat) : SymMem :=
+def mem (c mode p : Nat) : SymMem :=
   [mwc (NODEW+40) (padWord c mode 8),mwc (NODEW+32) (padWord c mode 0),
-   mwc (NODEW+24) (hdrHi mode),mwc (NODEW+16) (hdrLo c mode),
+   mwc (NODEW+24) (hdrHi mode p),mwc (NODEW+16) (hdrLo c mode),
    mwc (NODEW+56) (nodeLd 24),mwc (NODEW+48) (nodeLd 16),mwc (NODEW+8) (nodeLd 8),mwc NODEW (nodeLd 0)]
 def readObl : List Oblig :=
   [.ne (nodeAddr 24) ⟨none,BitVec.ofNat 64 NODEW⟩,.ne (nodeAddr 24) ⟨none,BitVec.ofNat 64 (NODEW+8)⟩,
@@ -3171,13 +3184,24 @@ def padReadObl (c off : Nat) : List Oblig :=
 def obligations (c mode : Nat) : List Oblig :=
   (if mode=1 ∧ c%2=1 then padReadObl c 8 ++ padReadObl c 0 else []) ++ readObl
 
-def branches (mode : Nat) : List Br :=
+/-- C42: the heap-label stub's compare `bne gp,zero` on `gp = s2 - (4 + k)`. -/
+def labBr (k : Nat) (d : Bool) : Br := ⟨.ne,.bin .add (.reg .x18) (cE (2^64-(4+k))),cE 0,d⟩
+/-- C42: the stub's compares on path `p`, latest first. -/
+def labBrs (p : Nat) : List Br :=
+  if p=0 then [labBr 0 false] else if p=1 then [labBr 1 false,labBr 0 true]
+  else if p=2 then [labBr 2 false,labBr 1 true,labBr 0 true]
+  else if p=3 then [labBr 3 false,labBr 2 true,labBr 1 true,labBr 0 true]
+  else [labBr 3 true,labBr 2 true,labBr 1 true,labBr 0 true]
+def branches (mode p : Nat) : List Br :=
   if mode=0 then [⟨.ltu,.reg .x18,cE 8,false⟩] else
-    [⟨.ltu,.reg .x18,cE 4,mode=2⟩,⟨.ltu,.reg .x18,cE 8,true⟩]
-def cycles (c mode : Nat) : Nat :=
-  (if mode=1 then if c=0 then 32 else if c%2=1 then 38 else 34 else if c=0 then 31 else 29) + (if mode=0 then 0 else 10)
-def expected (c mode : Nat) : PRes :=
-  pres2 (regs c mode) (mem c mode) (obligations c mode) (hashPc c) false (cycles c mode - (if mode=0 then 0 else 3)) (cycles c mode) (branches mode)
+    ⟨.ltu,.reg .x18,cE 4,mode=2⟩ :: (labBrs p ++ [⟨.ltu,.reg .x18,cE 8,true⟩])
+/-- C42: instructions of the heap-label stub on path `p` (no `mul` left: steps = cycles). -/
+def labN (p : Nat) : Nat := if p=0 then 5 else if p=1 then 7 else if p=2 then 12 else 10
+def cycles (c mode p : Nat) : Nat :=
+  (if mode=1 then if c=0 then 32 else if c%2=1 then 38 else 34 else if c=0 then 31 else 29) + (if mode=0 then 0 else 7+labN p)
+def expected (c mode p : Nat) : PRes :=
+  pres2 (regs c mode p) (mem c mode p) (obligations c mode) (hashPc c) false (cycles c mode p) (cycles c mode p)
+    (branches mode p)
 end ClaudeWCT.W9.Machine.Sign.SharedNode
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedLeaf

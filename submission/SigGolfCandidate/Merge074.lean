@@ -3208,7 +3208,7 @@ def seg_542 : List (BitVec 32) :=
   List.replicate 45 0x00000013 ++ packedHelper ++ coefgenCode ++ [0x00000013] ++ hornCode ++ [0x00000013] ++
     capCode ++ kgStepCode ++ kchkCode ++ capCont ++ List.replicate 3 0x00000013 ++ kt147 ++ PackedBlocks.keygen_hdrT ++
     List.replicate 222 0x00000013 ++ kgMaskStub ++ kgAllocStub ++ List.replicate 82 0x00000013
-def mainL : Rv.Layout := [(0, seg_0), (26, seg_26), (28, seg_28), (34, seg_34), (36, seg_36), (39, seg_39), (48, seg_48), (50, seg_50), (51, seg_51), (52, seg_52), (64, seg_64), (65, seg_65), (81, seg_81), (84, seg_84), (113, seg_113), (114, seg_114), (116, seg_116), (117, layoutCode kSubL), (277, seg_277), (289, seg_289), (295, seg_295), (309, seg_309), (310, seg_310), (330, seg_330), (334, seg_334), (542, seg_542), (1117, maxDigitCode), (1121, revCode), (1149, ktopCode), (1177, KeygenLabel.stub), (1191, KeygenLabel.chain)]
+def mainL : Rv.Layout := [(0, seg_0), (26, seg_26), (28, seg_28), (34, seg_34), (36, seg_36), (39, seg_39), (48, seg_48), (50, seg_50), (51, seg_51), (52, seg_52), (64, seg_64), (65, seg_65), (81, seg_81), (84, seg_84), (113, seg_113), (114, seg_114), (116, seg_116), (117, layoutCode kSubL), (277, seg_277), (289, seg_289), (295, seg_295), (309, seg_309), (310, seg_310), (330, seg_330), (334, seg_334), (542, seg_542), (1117, maxDigitCode), (1121, revCode), (1149, ktopCode), (1177, KeygenLabel.stub), (1191, KeygenLabel.chain), (1238, KeygenLabel.chain2)]
 theorem mainL_ok : layoutOk 0 mainL = true := by decide +kernel
 abbrev image : Image := Images.keygenImage
 theorem code_eq : image.code = layoutCode mainL := by decide +kernel

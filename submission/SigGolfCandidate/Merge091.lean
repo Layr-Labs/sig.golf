@@ -189,7 +189,7 @@ structure ChildPre (j B k index : Nat) (leaf pads sibs tws : Nat → Digest) (u 
   a0 : u.getReg .x10 = BitVec.ofNat 64 (B + leafO)
   a1 : u.getReg .x11 = BitVec.ofNat 64 128
   w0 : u.getReg .x15 = BitVec.ofNat 64 (w0n k index)
-  heaps : ∀ h, 2 ≤ h → h ≤ 6 → u.getReg (heapReg h) = BitVec.ofNat 64 h
+  heaps : ∀ h, 2 ≤ h → h ≤ 6 → u.getReg (heapReg h) = BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel h)
   leafAt : ∀ i, i < 8 → DigAt u (B + leafO + 16 * i) (leaf i)
   padAt : ∀ l, l < 6 → DigAt u (B + padO j l) (pads l)
   sibAt : ∀ l, l < 6 → DigAt u (B + sibO l j) (sibs l)
@@ -284,13 +284,12 @@ theorem lvlMem_get {s : MachineState} {B : Nat} (hB : 241 ≤ B ∧ s.getReg .x8
     simp only [← Nat.add_assoc, E.eval, e24, e16, h3, false_imp_iff, and_true]
 theorem heapReg_eval {s : MachineState} {j l : Nat} (hj : j < 128) (hl4 : 4 ≤ l) (hl : l ≤ 5)
     (h64 : s.getReg .x11 = BitVec.ofNat 64 64)
-    (hheap : ∀ h, 2 ≤ h → h ≤ 6 → s.getReg (heapReg h) = BitVec.ofNat 64 h) :
+    (hheap : ∀ h, 2 ≤ h → h ≤ 6 → s.getReg (heapReg h) = BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel h)) :
     s.getReg (heapReg (heapOf l j)) = BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel (heapOf l j)) := by
   have hb := heapOf_low j l hj hl4 hl
   by_cases he : heapOf l j = 7
   · simpa [he, heapReg, SigGolfCandidate.T3.ftsHeapLabel] using h64
   · have h6 : heapOf l j ≤ 6 := by omega
-    rw [show SigGolfCandidate.T3.ftsHeapLabel (heapOf l j) = heapOf l j by simp [SigGolfCandidate.T3.ftsHeapLabel, he, show heapOf l j ≠ 64 by omega, show heapOf l j ≠ 1 by omega, show heapOf l j ≠ 1048321 by omega]]
     exact hheap _ hb.1 h6
 theorem frame_writeHash4 (t : MachineState) (a : BitVec 256) (d : Nat)
     (h12 : t.getReg .x12 = BitVec.ofNat 64 d) (hd : d + 32 < 2 ^ 64) :
@@ -1123,7 +1122,7 @@ structure ChildPre (j B k index : Nat) (leaf pads sibs tws : Nat → Digest) (u 
   a0 : u.getReg .x10 = BitVec.ofNat 64 (B + leafO)
   a1 : u.getReg .x11 = BitVec.ofNat 64 128
   w0 : u.getReg .x15 = BitVec.ofNat 64 (w0n k index)
-  heaps : ∀ h, 2 ≤ h → h ≤ 6 → u.getReg (heapReg h) = BitVec.ofNat 64 h
+  heaps : ∀ h, 2 ≤ h → h ≤ 6 → u.getReg (heapReg h) = BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel h)
   leafAt : ∀ i, i < 8 → DigAt u (B + leafO + 16 * i) (leaf i)
   padAt : ∀ l, l < 6 → DigAt u (B + padO j l) (pads l)
   sibAt : ∀ l, l < 6 → DigAt u (B + sibO l j) (sibs l)
@@ -1213,13 +1212,12 @@ theorem lvlMem_get {s : MachineState} {B : Nat} (hB : 241 ≤ B ∧ s.getReg .x8
     simp only [← Nat.add_assoc, E.eval, e24, e16, h3, not_false_eq_true, and_true]
 theorem heapReg_eval {s : MachineState} {j l : Nat} (hj : j < 128) (hl4 : 4 ≤ l) (hl : l ≤ 5)
     (h64 : s.getReg .x11 = BitVec.ofNat 64 64)
-    (hheap : ∀ h, 2 ≤ h → h ≤ 6 → s.getReg (heapReg h) = BitVec.ofNat 64 h) :
+    (hheap : ∀ h, 2 ≤ h → h ≤ 6 → s.getReg (heapReg h) = BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel h)) :
     s.getReg (heapReg (heapOf l j)) = BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel (heapOf l j)) := by
   have hb := heapOf_low j l hj hl4 hl
   by_cases he : heapOf l j = 7
   · simpa [he, heapReg, SigGolfCandidate.T3.ftsHeapLabel] using h64
   · have h6 : heapOf l j ≤ 6 := by omega
-    rw [show SigGolfCandidate.T3.ftsHeapLabel (heapOf l j) = heapOf l j by simp [SigGolfCandidate.T3.ftsHeapLabel, he, show heapOf l j ≠ 64 by omega, show heapOf l j ≠ 1 by omega, show heapOf l j ≠ 1048321 by omega]]
     exact hheap _ hb.1 h6
 theorem frame_writeHash4 (t : MachineState) (a : BitVec 256) (d : Nat)
     (h12 : t.getReg .x12 = BitVec.ofNat 64 d) (hd : d + 32 < 2 ^ 64) :
@@ -2034,7 +2032,7 @@ structure ChildPre (j B k index : Nat) (leaf pads sibs tws : Nat → Digest) (u 
   a0 : u.getReg .x10 = BitVec.ofNat 64 (B + leafO)
   a1 : u.getReg .x11 = BitVec.ofNat 64 128
   w0 : u.getReg .x15 = BitVec.ofNat 64 (w0n k index)
-  heaps : ∀ h, 2 ≤ h → h ≤ 6 → u.getReg (heapReg h) = BitVec.ofNat 64 h
+  heaps : ∀ h, 2 ≤ h → h ≤ 6 → u.getReg (heapReg h) = BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel h)
   leafAt : ∀ i, i < 8 → DigAt u (B + leafO + 16 * i) (leaf i)
   padAt : ∀ l, l < 6 → DigAt u (B + padO j l) (pads l)
   sibAt : ∀ l, l < 6 → DigAt u (B + sibO l j) (sibs l)
@@ -2124,13 +2122,12 @@ theorem lvlMem_get {s : MachineState} {B : Nat} (hB : 241 ≤ B ∧ s.getReg .x8
     simp only [← Nat.add_assoc, E.eval, e24, e16, h3, not_false_eq_true, and_true]
 theorem heapReg_eval {s : MachineState} {j l : Nat} (hj : j < 128) (hl4 : 4 ≤ l) (hl : l ≤ 5)
     (h64 : s.getReg .x11 = BitVec.ofNat 64 64)
-    (hheap : ∀ h, 2 ≤ h → h ≤ 6 → s.getReg (heapReg h) = BitVec.ofNat 64 h) :
+    (hheap : ∀ h, 2 ≤ h → h ≤ 6 → s.getReg (heapReg h) = BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel h)) :
     s.getReg (heapReg (heapOf l j)) = BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel (heapOf l j)) := by
   have hb := heapOf_low j l hj hl4 hl
   by_cases he : heapOf l j = 7
   · simpa [he, heapReg, SigGolfCandidate.T3.ftsHeapLabel] using h64
   · have h6 : heapOf l j ≤ 6 := by omega
-    rw [show SigGolfCandidate.T3.ftsHeapLabel (heapOf l j) = heapOf l j by simp [SigGolfCandidate.T3.ftsHeapLabel, he, show heapOf l j ≠ 64 by omega, show heapOf l j ≠ 1 by omega, show heapOf l j ≠ 1048321 by omega]]
     exact hheap _ hb.1 h6
 theorem frame_writeHash4 (t : MachineState) (a : BitVec 256) (d : Nat)
     (h12 : t.getReg .x12 = BitVec.ofNat 64 d) (hd : d + 32 < 2 ^ 64) :
@@ -2948,7 +2945,7 @@ structure ChildPre (j B k index : Nat) (leaf pads sibs tws : Nat → Digest) (u 
   a0 : u.getReg .x10 = BitVec.ofNat 64 (B + leafO)
   a1 : u.getReg .x11 = BitVec.ofNat 64 128
   w0 : u.getReg .x15 = BitVec.ofNat 64 (w0n k index)
-  heaps : ∀ h, 2 ≤ h → h ≤ 6 → u.getReg (heapReg h) = BitVec.ofNat 64 h
+  heaps : ∀ h, 2 ≤ h → h ≤ 6 → u.getReg (heapReg h) = BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel h)
   leafAt : ∀ i, i < 8 → DigAt u (B + leafO + 16 * i) (leaf i)
   padAt : ∀ l, l < 6 → DigAt u (B + padO j l) (pads l)
   sibAt : ∀ l, l < 6 → DigAt u (B + sibO l j) (sibs l)
@@ -3038,13 +3035,12 @@ theorem lvlMem_get {s : MachineState} {B : Nat} (hB : 241 ≤ B ∧ s.getReg .x8
     simp only [← Nat.add_assoc, E.eval, e24, e16, h3, not_false_eq_true, and_true]
 theorem heapReg_eval {s : MachineState} {j l : Nat} (hj : j < 128) (hl4 : 4 ≤ l) (hl : l ≤ 5)
     (h64 : s.getReg .x11 = BitVec.ofNat 64 64)
-    (hheap : ∀ h, 2 ≤ h → h ≤ 6 → s.getReg (heapReg h) = BitVec.ofNat 64 h) :
+    (hheap : ∀ h, 2 ≤ h → h ≤ 6 → s.getReg (heapReg h) = BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel h)) :
     s.getReg (heapReg (heapOf l j)) = BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel (heapOf l j)) := by
   have hb := heapOf_low j l hj hl4 hl
   by_cases he : heapOf l j = 7
   · simpa [he, heapReg, SigGolfCandidate.T3.ftsHeapLabel] using h64
   · have h6 : heapOf l j ≤ 6 := by omega
-    rw [show SigGolfCandidate.T3.ftsHeapLabel (heapOf l j) = heapOf l j by simp [SigGolfCandidate.T3.ftsHeapLabel, he, show heapOf l j ≠ 64 by omega, show heapOf l j ≠ 1 by omega, show heapOf l j ≠ 1048321 by omega]]
     exact hheap _ hb.1 h6
 theorem frame_writeHash4 (t : MachineState) (a : BitVec 256) (d : Nat)
     (h12 : t.getReg .x12 = BitVec.ofNat 64 d) (hd : d + 32 < 2 ^ 64) :

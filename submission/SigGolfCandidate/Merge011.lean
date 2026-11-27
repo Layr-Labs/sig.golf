@@ -199,9 +199,20 @@ the current scheme uses the definitions below.
 def lowerK : Nat := 1407
 /-- Z6 option F: the lower node word's addend, `lowerK + 0x201` on the marker format (whose low half is 0). -/
 def lowerAdd (lay tree : Nat) : Nat := if hyperHonest lay tree then 1920 else lowerK
+/-- C41: the layer-1 pair nodes (heaps 2 and 3 of an honest layer-1 tree, `lay` = layer - 1 = 0) carry the values
+the verifier already holds in registers at that fold: heap 2 the routed register `t6 = tree + 4096`, heap 3 the top
+dispatch base `s7 = (tree + 4096) * 32`. -/
+def LowerPair (lay tree heap : Nat) : Prop := lay % 256 = 0 ∧ hyperHonest lay tree ∧ (heap = 2 ∨ heap = 3)
+instance (lay tree heap : Nat) : Decidable (LowerPair lay tree heap) := inferInstanceAs (Decidable (_ ∧ _ ∧ _))
+/-- C41: the pair label value (`tree % 2 ^ 32 < 4096` on `LowerPair`). -/
+def lowerPairWord (tree heap : Nat) : Nat :=
+  if heap = 2 then tree % 2 ^ 32 + 4096 else (tree % 2 ^ 32 + 4096) * 32
 /-- Packed lower node word (`lay` = layer - 1, as in `hyperWord`). For heaps `2..127` the low 16 bits are
-`0x0780 + heap` (no carry: `hyperWord`'s low 16 bits are `0` or `0x0201`, the addend `1920` or `lowerK`). -/
-def lowerNodeWord (lay tree heap : Nat) : BitVec 64 := hyperWord lay tree + BitVec.ofNat 64 (lowerAdd lay tree + heap)
+`0x0780 + heap` (no carry: `hyperWord`'s low 16 bits are `0` or `0x0201`, the addend `1920` or `lowerK`).
+C41: except the layer-1 pair labels (`LowerPair`, `lowerPairWord`). -/
+def lowerNodeWord (lay tree heap : Nat) : BitVec 64 :=
+  if LowerPair lay tree heap then BitVec.ofNat 64 (lowerPairWord tree heap)
+  else hyperWord lay tree + BitVec.ofNat 64 (lowerAdd lay tree + heap)
 /-- C2 node tweak of lower layer `lay` (1..3) with the honest high word 0. -/
 def lowerTweak (lay tree heap : Nat) : BitVec 128 := 0#64 ++ lowerNodeWord (lay - 1) tree heap
 /-- Merkle node tweak of the current scheme: the top tree keeps `nodeTweak 3 0` (C4: the one-word label
@@ -554,9 +565,28 @@ theorem lowerLeafHash_top (tree leaf : Nat) (ends : List Digest) :
 theorem leafHashW_top (tree leaf : Nat) (pad : Digest) (hi : BitVec 64) (ends : List Digest) :
     leafHashW 0 tree leaf pad hi ends = halfHash (decide (leaf % 2 = 0)) (leafInputW 0 tree leaf pad hi ends) := by
   unfold leafHashW lowerHash; rw [show (0 : Layer).val = 0 from rfl, lowerHigh_top]
+/-- C41: off the layer-1 pair labels, the lower node word is the packed word. -/
+theorem lowerNodeWord_of_not_pair {lay tree heap : Nat} (h : ¬ LowerPair lay tree heap) :
+    lowerNodeWord lay tree heap = hyperWord lay tree + BitVec.ofNat 64 (lowerAdd lay tree + heap) := by
+  unfold lowerNodeWord; rw [if_neg h]
+theorem lowerNodeWord_of_pair {lay tree heap : Nat} (h : LowerPair lay tree heap) :
+    lowerNodeWord lay tree heap = BitVec.ofNat 64 (lowerPairWord tree heap) := by
+  unfold lowerNodeWord; rw [if_pos h]
+/-- C41: a pair label lies in `[4096, 8192)` (heap 2) or is a multiple of 32 in `[2 ^ 17, 2 ^ 18)` (heap 3). -/
+theorem lowerPairWord_band {lay tree heap : Nat} (h : LowerPair lay tree heap) :
+    (heap = 2 ∧ 4096 ≤ lowerPairWord tree heap ∧ lowerPairWord tree heap < 8192) ∨
+    (heap = 3 ∧ 2 ^ 17 ≤ lowerPairWord tree heap ∧ lowerPairWord tree heap < 2 ^ 18 ∧
+      lowerPairWord tree heap % 32 = 0) := by
+  obtain ⟨h0, ⟨-, hr⟩, h23⟩ := h
+  rw [h0] at hr
+  have hr' : tree % 2 ^ 32 < 4096 := by simpa [hyperW] using hr
+  unfold lowerPairWord
+  rcases h23 with rfl | rfl
+  · left; refine ⟨rfl, ?_, ?_⟩ <;> simp only [if_true] <;> omega
+  · right; refine ⟨rfl, ?_, ?_, ?_⟩ <;> simp only [show ((3 : Nat) = 2) = False from by decide, if_false] <;> omega
 theorem lowerTweak_low (lay tree heap : Nat) :
-    (lowerTweak lay tree heap).extractLsb' 0 64 = hyperWord (lay - 1) tree + BitVec.ofNat 64 (lowerAdd (lay - 1) tree + heap) := by
-  unfold lowerTweak lowerNodeWord; exact BitVec.extractLsb'_append_eq_right
+    (lowerTweak lay tree heap).extractLsb' 0 64 = lowerNodeWord (lay - 1) tree heap := by
+  unfold lowerTweak; exact BitVec.extractLsb'_append_eq_right
 theorem lowerTweak_high (lay tree heap : Nat) : (lowerTweak lay tree heap).extractLsb' 64 64 = 0 := by
   unfold lowerTweak; exact BitVec.extractLsb'_append_eq_left
 @[simp] theorem merkleTweak_top (tree heap : Nat) : merkleTweak 0 tree heap = nodeTweak 3 0 tree heap := by
@@ -2033,50 +2063,96 @@ theorem rowTweak_tag (lay : Layer) (tree leaf : Nat) : tweakTag (rowTweak lay tr
   rw [rowTweak_tag_eq]; have := rowTweak_marker lay tree leaf; omega
 theorem rowTweak_high (lay : Layer) (tree leaf : Nat) : tweakHigh (rowTweak lay tree leaf) = 1 := by
   rw [rowTweak, append64_high]; rfl
-theorem topNodeWord_pos (heap : Nat) : 1 ≤ topNodeWord heap := by
-  dsimp only [topNodeWord]
-  split_ifs <;> omega
-/-- C40: the height-9 top labels (heaps 8..15): two register constants and six window pointers `11920 + 16 * slot`. -/
+/-- C40/C41: the height-9 top labels (heaps 8..15): the zero register (heap 8, C41), ra (heap 9) and six window
+pointers `11920 + 16 * slot`. -/
 def TopNine (w : Nat) : Prop :=
-  w = 261632 ∨ w = 8198552921648689607 ∨ w = 12064 ∨ w = 12240 ∨ w = 12016 ∨ w = 11968 ∨ w = 12160 ∨ w = 12112
+  w = 0 ∨ w = 8198552921648689607 ∨ w = 12064 ∨ w = 12240 ∨ w = 12016 ∨ w = 11968 ∨ w = 12160 ∨ w = 12112
 /-- C40: the window-pointer labels lie in `[11968, 12240]` and are multiples of 16. -/
 theorem TopNine.cases {w : Nat} (h : TopNine w) :
-    w = 261632 ∨ w = 8198552921648689607 ∨ (11968 ≤ w ∧ w ≤ 12240 ∧ w % 16 = 0) := by
+    w = 0 ∨ w = 8198552921648689607 ∨ (11968 ≤ w ∧ w ≤ 12240 ∧ w % 16 = 0) := by
   unfold TopNine at h; omega
-theorem topNodeWord_small_or_special (heap : Nat) : topNodeWord heap < 4096 ∨ topNodeWord heap = 520192 ∨
-    topNodeWord heap = 14336 ∨ TopNine (topNodeWord heap) := by
-  dsimp only [topNodeWord, TopNine]
-  split_ifs <;> omega
+/-- C42: the heap-4/5/6 top labels, taken from the step registers s4/s5/s10 (FTS path-table bases `0xe3304`,
+`0xf1b05` and the FTS OR constant `0x01801800000c0006`). -/
+def TopStep (w : Nat) : Prop := w = 930564 ∨ w = 989957 ∨ w = 108112779336744966
+instance (w : Nat) : Decidable (TopStep w) := inferInstanceAs (Decidable (_ ∨ _ ∨ _))
+/-- C42: off the thirteen special reduced heaps the top label is the reduced heap itself. -/
+theorem topWordN_of_not {n : Nat} (h1 : n ≠ 1) (h7 : n ≠ 7) (h4 : n ≠ 4) (h5 : n ≠ 5) (h6 : n ≠ 6) (h8 : n ≠ 8)
+    (h9 : n ≠ 9) (h10 : n ≠ 10) (h11 : n ≠ 11) (h12 : n ≠ 12) (h13 : n ≠ 13) (h14 : n ≠ 14) (h15 : n ≠ 15) :
+    topWordN n = n := by
+  unfold topWordN
+  rw [if_neg h1, if_neg h7, if_neg h4, if_neg h5, if_neg h6, if_neg h8, if_neg h9, if_neg h10, if_neg h11,
+    if_neg h12, if_neg h13, if_neg h14, if_neg h15]
+/-- C42: case split for top-label proofs (no `split_ifs` over the label chain): a reduced heap is one of the thirteen
+special ones, or it lies outside `[4, 16)` and keeps its label. -/
+theorem topWordN_cases (n : Nat) : (n = 1 ∨ n = 7 ∨ n = 4 ∨ n = 5 ∨ n = 6 ∨ n = 8 ∨ n = 9 ∨ n = 10 ∨ n = 11 ∨
+    n = 12 ∨ n = 13 ∨ n = 14 ∨ n = 15) ∨ ((n < 4 ∨ 16 ≤ n) ∧ topWordN n = n) := by
+  rcases Nat.lt_or_ge n 16 with h | h
+  · interval_cases n <;> decide
+  · exact Or.inr ⟨Or.inr h, topWordN_of_not (by omega) (by omega) (by omega) (by omega) (by omega) (by omega)
+      (by omega) (by omega) (by omega) (by omega) (by omega) (by omega) (by omega)⟩
+/-- C41: a top word is a heap label in `[1, 4096)`, one of the two old specials, or a height-9 label (`TopNine`, now
+including heap 8's `0`). -/
+theorem topNodeWord_small_or_special (heap : Nat) : (1 ≤ topNodeWord heap ∧ topNodeWord heap < 4096) ∨
+    topNodeWord heap = 520192 ∨ topNodeWord heap = 14336 ∨ TopNine (topNodeWord heap) ∨ TopStep (topNodeWord heap) := by
+  have h1 : (heap - 1) % 4095 + 1 ≤ 4095 := by omega
+  have h0 : 1 ≤ (heap - 1) % 4095 + 1 := by omega
+  unfold topNodeWord
+  generalize (heap - 1) % 4095 + 1 = n at h1 h0
+  rcases topWordN_cases n with h | ⟨_, h⟩
+  · unfold TopNine TopStep
+    rcases h with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
+  · rw [h]; exact Or.inl ⟨h0, by omega⟩
+/-- C41: the only top word `0` is heap 8's (`(heap - 1) % 4095 + 1 = 8`). -/
+theorem topNodeWord_pos_of {heap : Nat} (h : (heap - 1) % 4095 + 1 ≠ 8) : 1 ≤ topNodeWord heap := by
+  have h1 : 1 ≤ (heap - 1) % 4095 + 1 := by omega
+  unfold topNodeWord
+  generalize (heap - 1) % 4095 + 1 = n at h h1
+  rcases topWordN_cases n with h' | ⟨_, h'⟩
+  · rcases h' with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
+    all_goals first | decide | exact absurd rfl h
+  · rw [h']; exact h1
 theorem topNodeWord_ne_seven (heap : Nat) : topNodeWord heap ≠ 7 := by
-  dsimp only [topNodeWord]
-  split_ifs <;> omega
-/-- C40: every top word is below 856065 except heap 9's register label `ra = 0x71c71c71c71c71c7`. -/
-theorem topNodeWord_small_or_ra (heap : Nat) : topNodeWord heap < 856065 ∨ topNodeWord heap = 8198552921648689607 := by
-  dsimp only [topNodeWord]
-  split_ifs <;> omega
+  unfold topNodeWord
+  generalize (heap - 1) % 4095 + 1 = n
+  rcases topWordN_cases n with h | ⟨hb, h⟩
+  · rcases h with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
+  · rw [h]; omega
+/-- C40/C42: every top word is below `2 ^ 20 - 2 ^ 15 = 1015808` (the FTS chain floor) except heap 9's register label
+`ra = 0x71c71c71c71c71c7` and heap 6's label, the FTS OR constant `0x01801800000c0006`. -/
+theorem topNodeWord_small_or_ra (heap : Nat) : topNodeWord heap < 1015808 ∨ topNodeWord heap = 8198552921648689607 ∨
+    topNodeWord heap = 108112779336744966 := by
+  have h1 : (heap - 1) % 4095 + 1 ≤ 4095 := by omega
+  unfold topNodeWord
+  generalize (heap - 1) % 4095 + 1 = n at h1
+  rcases topWordN_cases n with h | ⟨_, h⟩
+  · rcases h with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
+  · rw [h]; exact Or.inl (by omega)
 /-- C40: every top word is below the lower/legacy type band `193 * 2 ^ 56` (and below `2 ^ 63`). -/
 theorem topNodeWord_lt (heap : Nat) : topNodeWord heap < 193 * 2 ^ 56 := by
   have := topNodeWord_small_or_ra heap
   omega
 theorem topNodeWord_eq {heap : Nat} (h1 : 1 ≤ heap) (h : heap < 4096) :
     topNodeWord heap = if heap = 1 then 14336 else if heap = 7 then 520192
-      else if heap = 8 then 261632 else if heap = 9 then 8198552921648689607 else if heap = 10 then 12064
+      else if heap = 4 then 930564 else if heap = 5 then 989957 else if heap = 6 then 108112779336744966
+      else if heap = 8 then 0 else if heap = 9 then 8198552921648689607 else if heap = 10 then 12064
       else if heap = 11 then 12240 else if heap = 12 then 12016 else if heap = 13 then 11968 else if heap = 14 then 12160
       else if heap = 15 then 12112 else heap := by
   have he : (heap - 1) % 4095 + 1 = heap := by omega
-  simp only [topNodeWord, he]
+  rw [topNodeWord, he]; rfl
 /-- C40: the heaps `16..4095` keep the identity label. -/
 theorem topNodeWord_ge16 {heap : Nat} (h16 : 16 ≤ heap) (h : heap < 4096) : topNodeWord heap = heap := by
   rw [topNodeWord_eq (by omega) h]
   rw [if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega),
-    if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega)]
+    if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega),
+    if_neg (by omega), if_neg (by omega), if_neg (by omega)]
 theorem topNodeHeap_word {heap : Nat} (h1 : 1 ≤ heap) (h : heap < 4096) :
     topNodeHeap (topNodeWord heap) = heap := by
   by_cases h16 : 16 ≤ heap
   · rw [topNodeWord_ge16 h16 h]
     unfold topNodeHeap
     rw [if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega),
-      if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega)]
+      if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega),
+      if_neg (by omega), if_neg (by omega), if_neg (by omega)]
   · interval_cases heap <;> decide
 theorem topNodeWord_inj {heap heap' : Nat} (h1 : 1 ≤ heap) (h : heap < 4096) (h1' : 1 ≤ heap') (h' : heap' < 4096)
     (he : topNodeWord heap = topNodeWord heap') : heap = heap' := by
@@ -2094,18 +2170,33 @@ theorem nodeTweak_top_high (tree heap : Nat) : tweakHigh (nodeTweak 3 0 tree hea
 theorem nodeTweak_lower {lay : Nat} (h0 : lay ≠ 0) (h4 : lay < 4) (tree heap : Nat) :
     nodeTweak 3 lay tree heap = BitVec.ofNat 64 heap ++ hyperWordOld (lay - 1) tree := by
   simp [nodeTweak, h0, h4]
-theorem ftsHeapLabel_invol (heap : Nat) : ftsHeapLabel (ftsHeapLabel heap) = heap := by
+/-- C42: off the ten swapped values the FTS heap label is the identity. -/
+theorem ftsHeapLabel_of_not {heap : Nat} (h : heap ≠ 1 ∧ heap ≠ 1048321 ∧ heap ≠ 7 ∧ heap ≠ 64 ∧ heap ≠ 4 ∧
+    heap ≠ 930564 ∧ heap ≠ 5 ∧ heap ≠ 989957 ∧ heap ≠ 6 ∧ heap ≠ 108112779336744966) : ftsHeapLabel heap = heap := by
+  obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10⟩ := h
   unfold ftsHeapLabel
-  split_ifs <;> omega
+  rw [if_neg h1, if_neg h2, if_neg h3, if_neg h4, if_neg h5, if_neg h6, if_neg h7, if_neg h8, if_neg h9, if_neg h10]
+theorem ftsHeapLabel_invol (heap : Nat) : ftsHeapLabel (ftsHeapLabel heap) = heap := by
+  by_cases h : heap = 1 ∨ heap = 1048321 ∨ heap = 7 ∨ heap = 64 ∨ heap = 4 ∨ heap = 930564 ∨ heap = 5 ∨
+      heap = 989957 ∨ heap = 6 ∨ heap = 108112779336744966
+  · rcases h with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> rfl
+  · simp only [not_or] at h
+    rw [ftsHeapLabel_of_not h, ftsHeapLabel_of_not h]
 theorem ftsHeapLabel_inj {heap other : Nat} (he : ftsHeapLabel heap = ftsHeapLabel other) : heap = other := by
   have hh := congrArg ftsHeapLabel he
   simpa only [ftsHeapLabel_invol] using hh
 theorem ftsHeapLabel_lt {heap : Nat} (hh : heap < 2^64) : ftsHeapLabel heap < 2^64 := by
-  unfold ftsHeapLabel
-  split_ifs <;> omega
+  by_cases h : heap = 1 ∨ heap = 1048321 ∨ heap = 7 ∨ heap = 64 ∨ heap = 4 ∨ heap = 930564 ∨ heap = 5 ∨
+      heap = 989957 ∨ heap = 6 ∨ heap = 108112779336744966
+  · rcases h with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
+  · simp only [not_or] at h
+    rw [ftsHeapLabel_of_not h]; exact hh
 theorem ftsHeapLabel_mod_zero (heap : Nat) : ftsHeapLabel heap % 2^64 = 0 ↔ heap % 2^64 = 0 := by
-  unfold ftsHeapLabel
-  split_ifs <;> norm_num [*]
+  by_cases h : heap = 1 ∨ heap = 1048321 ∨ heap = 7 ∨ heap = 64 ∨ heap = 4 ∨ heap = 930564 ∨ heap = 5 ∨
+      heap = 989957 ∨ heap = 6 ∨ heap = 108112779336744966
+  · rcases h with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
+  · simp only [not_or] at h
+    rw [ftsHeapLabel_of_not h]
 def FtsNew (heap : Nat) : Prop := 8 ≤ heap ∧ heap < 128
 instance (heap : Nat) : Decidable (FtsNew heap) := inferInstanceAs (Decidable (8 ≤ heap ∧ heap < 128))
 theorem nodeTweak_fts {lay : Nat} (h4 : 4 ≤ lay) (h13 : lay < 13) (tree : Nat) {heap : Nat} (hn : ¬ FtsNew heap) :
@@ -2481,11 +2572,12 @@ theorem nodeTweak_low_ne_digest (tag lay tree heap : Nat) : tweakLow (nodeTweak 
   · obtain ⟨rfl, rfl⟩ := htop
     rw [nodeTweak_top_low]
     have := topNodeWord_small_or_special heap
-    rcases this with h | h | h | h
+    rcases this with h | h | h | h | h
     · omega
     · omega
     · omega
     · have := TopNine.cases h; omega
+    · unfold TopStep at h; omega
   · have hm := nodeTweak_marker_ne_digest htop tree heap
     unfold tweakMarker at hm; unfold tweakLow
     intro h0; apply hm; omega
@@ -2520,8 +2612,14 @@ theorem nodeTweak_fts_ne_hyper {lay lay' : Nat} (h4 : 4 ≤ lay) (h13 : lay < 13
     have hl := congrArg tweakLow he
     rw [nodeTweak_top_low] at hl
     rcases nodeTweak_fts_low_zero_or_ge h4 h13 tree heap with hz | hg
-    · have := topNodeWord_pos heap'; omega
-    · rcases topNodeWord_small_or_special heap' with hs | hs | hs | hs
+    · exfalso
+      rw [nodeTweak_fts_low h4 h13] at hz
+      split_ifs at hz
+      · rw [ftsNodeWordH_toNat, Nat.mod_eq_of_lt (show lay - 4 < 16 by omega), ftsBiasN_eq _ (by omega)] at hz
+        split_ifs at hz <;> omega
+      · rw [ftsNodeWord_toNat, Nat.mod_eq_of_lt (show lay - 4 < 16 by omega), ftsBiasN_eq _ (by omega)] at hz
+        split_ifs at hz <;> omega
+    · rcases topNodeWord_small_or_special heap' with hs | hs | hs | hs | hs
       · omega
       · rw [hs, nodeTweak_fts_low h4 h13] at hl
         split_ifs at hl
@@ -2532,6 +2630,11 @@ theorem nodeTweak_fts_ne_hyper {lay lay' : Nat} (h4 : 4 ≤ lay) (h13 : lay < 13
         have hn := nodeTweak_fts_tag_ne h4 h13 tree heap (t := 56) (by decide)
         exact hn (by simpa using ht)
       · have hT := TopNine.cases hs
+        rw [nodeTweak_fts_low h4 h13] at hl
+        split_ifs at hl
+        · rw [ftsNodeWordH_toNat] at hl; unfold ftsBiasN at hl; omega
+        · rw [ftsNodeWord_toNat] at hl; unfold ftsBiasN at hl; omega
+      · unfold TopStep at hs
         rw [nodeTweak_fts_low h4 h13] at hl
         split_ifs at hl
         · rw [ftsNodeWordH_toNat] at hl; unfold ftsBiasN at hl; omega
@@ -2609,4 +2712,75 @@ theorem leafHash_lower {lay : Layer} (h : lay ≠ 0) (tree leaf : Nat) (ends : L
     leafHash lay tree leaf ends = shortHash (leafInput lay tree leaf ends) := by
   unfold leafHash; rw [leafHalfHigh_lower h]; rfl
 end SigGolfCandidate.T3
+end
+
+section
+namespace ClaudeWCT.WCT9
+open SigGolfCandidate.T3
+/-- C41: the producers' (sign, expand) label stub on a packed lower node word `w`: a layer-1 word (`w / 2 ^ 28 = 1`)
+of heap 2 or 3 (low 16 bits `1922` / `1923`) becomes the pair label (`w / 2 ^ 16`, resp. times 32); every other word
+is kept. -/
+def l1Remap (w : BitVec 64) : BitVec 64 :=
+  if w.toNat / 2 ^ 28 = 1 ∧ (w.toNat % 2 ^ 16 = 1922 ∨ w.toNat % 2 ^ 16 = 1923) then
+    (if w.toNat % 2 ^ 16 = 1922 then BitVec.ofNat 64 (w.toNat / 2 ^ 16) else BitVec.ofNat 64 (w.toNat / 2 ^ 16 * 32))
+  else w
+theorem l1Remap_of {w : BitVec 64} {n : Nat} (hw : w.toNat = n) :
+    l1Remap w = if n / 2 ^ 28 = 1 ∧ (n % 2 ^ 16 = 1922 ∨ n % 2 ^ 16 = 1923) then
+      (if n % 2 ^ 16 = 1922 then BitVec.ofNat 64 (n / 2 ^ 16) else BitVec.ofNat 64 (n / 2 ^ 16 * 32)) else w := by
+  unfold l1Remap; rw [hw]
+/-- C41: the lower node word is the stub's remap of the packed word (heaps `< 128`). -/
+theorem lowerNodeWord_remap {lay tree heap : Nat} (hh : heap < 128) :
+    lowerNodeWord lay tree heap = l1Remap (hyperWord lay tree + BitVec.ofNat 64 (lowerAdd lay tree + heap)) := by
+  have hT := Nat.mod_lt tree (show 0 < 2 ^ 32 by decide)
+  have hL := Nat.mod_lt lay (show 0 < 256 by decide)
+  by_cases hh' : hyperHonest lay tree
+  · have hv := hyperWord_toNat_of hh'
+    have hr : tree % 2 ^ 32 < 2 ^ hyperW (lay % 256) := hh'.2
+    have hq : 2 ^ hyperW (lay % 256) ≤ 2 ^ 31 := Nat.pow_le_pow_right (by norm_num) (hyperW_le _)
+    generalize hQ : 2 ^ hyperW (lay % 256) = Q at hr hq
+    have hv' : (hyperWord lay tree).toNat = tree % 2 ^ 32 * 65536 + Q * 65536 := by
+      rw [hv, pow_add, hQ]; norm_num
+    have hadd : (hyperWord lay tree + BitVec.ofNat 64 (lowerAdd lay tree + heap)).toNat =
+        tree % 2 ^ 32 * 65536 + Q * 65536 + (1920 + heap) := by
+      rw [BitVec.toNat_add, hv', BitVec.toNat_ofNat, lowerAdd, if_pos hh',
+        Nat.mod_eq_of_lt (show 1920 + heap < 2 ^ 64 by omega)]
+      apply Nat.mod_eq_of_lt
+      omega
+    rw [l1Remap_of hadd]
+    by_cases h0 : lay % 256 = 0
+    · have hQ4 : Q = 4096 := by rw [← hQ, h0]; rfl
+      subst hQ4
+      by_cases hp : LowerPair lay tree heap
+      · rw [lowerNodeWord_of_pair hp]
+        rcases hp.2.2 with rfl | rfl
+        · rw [if_pos (by omega), if_pos (by omega)]
+          unfold lowerPairWord; rw [if_pos rfl]
+          congr 1; omega
+        · rw [if_pos (by omega), if_neg (by omega)]
+          unfold lowerPairWord; rw [if_neg (by decide)]
+          congr 1; omega
+      · rw [lowerNodeWord_of_not_pair hp, if_neg]
+        intro hc
+        exact hp ⟨h0, hh', by omega⟩
+    · have hp : ¬ LowerPair lay tree heap := fun hp => h0 hp.1
+      rw [lowerNodeWord_of_not_pair hp, if_neg]
+      intro hc
+      have h19 : 2 ^ 19 ≤ Q := by
+        rw [← hQ]
+        apply Nat.pow_le_pow_right (by norm_num)
+        have h4 := hh'.1
+        have : lay % 256 = 1 ∨ lay % 256 = 2 ∨ lay % 256 = 3 := by omega
+        rcases this with h | h | h <;> rw [h] <;> decide
+      omega
+  · have hp : ¬ LowerPair lay tree heap := fun hp => hh' hp.2.1
+    have hv := hyperWord_toNat_old hh'
+    have hadd : (hyperWord lay tree + BitVec.ofNat 64 (lowerAdd lay tree + heap)).toNat =
+        1 + 2 * 2 ^ 8 + tree % 2 ^ 32 * 2 ^ 16 + lay % 256 * 2 ^ 48 + 193 * 2 ^ 56 + (1407 + heap) := by
+      rw [BitVec.toNat_add, hv, BitVec.toNat_ofNat, lowerAdd, if_neg hh', lowerK,
+        Nat.mod_eq_of_lt (show 1407 + heap < 2 ^ 64 by omega)]
+      apply Nat.mod_eq_of_lt; omega
+    rw [lowerNodeWord_of_not_pair hp, l1Remap_of hadd, if_neg]
+    intro hc
+    omega
+end ClaudeWCT.WCT9
 end

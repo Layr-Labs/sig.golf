@@ -945,24 +945,26 @@ theorem respects_chainW (lay : Layer) (tree leaf i start count : Nat) (v : Diges
 theorem respects_lowerLeafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) (hlen : 4 ≤ ends.length) :
     Respects Enc.NonEnc (WCT9.lowerLeafHash lay tree leaf ends) := by
   exact respects_lowerLeafHash' _ _ _ _ (nonEnc_pad64_long _ (leafInput_long lay tree leaf ends hlen))
-theorem lowerNodeWord_marker (lay tree heap : Nat) (hh : heap < 128) :
+theorem lowerNodeWord_marker (lay tree heap : Nat) (hh : heap < 128) (hp : ¬ WCT9.LowerPair lay tree heap) :
     (WCT9.lowerNodeWord lay tree heap).toNat % 256 = 128 + heap :=
-  (WCT9.lowerNodeWord_band hh lay tree).1
-theorem merkleTweak_marker {lay : Nat} (h0 : lay ≠ 0) (tree heap : Nat) (hh : heap < 128) :
+  (WCT9.lowerNodeWord_band hh lay tree hp).1
+theorem merkleTweak_marker {lay : Nat} (h0 : lay ≠ 0) (tree heap : Nat) (hh : heap < 128)
+    (hp : ¬ WCT9.LowerPair (lay - 1) tree heap) :
     tweakMarker (WCT9.merkleTweak lay tree heap) = 128 + heap := by
   unfold WCT9.merkleTweak
   rw [if_neg h0]
   unfold WCT9.lowerTweak
-  rw [append64_marker, lowerNodeWord_marker _ _ _ hh]
+  rw [append64_marker, lowerNodeWord_marker _ _ _ hh hp]
 /-- C4: the top label is no hyper word by its low word (`topNodeWord heap < 4096`, legacy `nodeTweak_ne_row`); a
-lower word by its marker `128 + heap`. -/
+lower word by its marker `128 + heap` (C41: a layer-1 pair label by its value below `2 ^ 18`). -/
 theorem merkleTweak_notHyper (lay tree heap : Nat) (hh : lay = 0 ∨ heap < 128) :
     NotHyper (WCT9.merkleTweak lay tree heap) := by
   by_cases h0 : lay = 0
   · subst h0
     rw [WCT9.merkleTweak_top]
     exact SigGolfCandidate.T3.Security.Wots.Enc.nodeTweak_ne_row 3 0 tree heap (by decide) (fun _ _ => rfl)
-  · exact notHyper_of_marker (by rw [merkleTweak_marker h0 tree heap (hh.resolve_left h0)]; omega)
+  · rw [WCT9.merkleTweak_lower h0]
+    exact SigGolfCandidate.T3.Security.Wots.Enc.notHyper_lowerTweak (hh.resolve_left h0) lay tree
 theorem respects_lowerNodeHash (lay tree heap : Nat) (left right : Digest) (hh : lay = 0 ∨ heap < 128) :
     Respects Enc.NonEnc (WCT9.lowerNodeHash lay tree heap left right) := by
   exact respects_lowerNodeHash' _ _ _ _ _ (nonEnc_of_hdr _ _ (SigGolfCandidate.T3M.Extract.hdrBlock_block4 left _ 0 right)
@@ -9882,10 +9884,23 @@ theorem nodeTweak_probe_safeS (tag lay tree heap : Nat) (htag : tag % 256 < 130)
   by_cases ht : tag = 3 ∧ lay = 0
   · obtain ⟨rfl, rfl⟩ := ht
     have hl := nodeTweak_top_low tree heap
-    unfold tweakLow topNodeWord at hl
-    dsimp only at hl
+    unfold tweakLow at hl
     -- C40: heap 9's label ra has marker 0xc7; every other top label is below 2^20 - 2^15 or has tag < 130 / tag % 8 < 2
-    split_ifs at hl <;> first | (left; omega) | (right; left; omega) | (right; right; omega)
+    -- C42: heap 6's label `0x01801800000c0006` has marker 6; heaps 4/5's (930564, 989957) are below 2^20 - 2^15.
+    rcases SigGolfCandidate.T3.topNodeWord_small_or_special heap with h | h | h | h | h
+    · right; right; omega
+    · right; right; omega
+    · right; right; omega
+    · have := SigGolfCandidate.T3.TopNine.cases h
+      rcases this with h | h | h
+      · right; right; omega
+      · right; left; omega
+      · right; right; omega
+    · unfold SigGolfCandidate.T3.TopStep at h
+      rcases h with h | h | h
+      · right; right; omega
+      · right; right; omega
+      · right; left; omega
   · by_cases hlow : tag = 3 ∧ lay < 4
     · obtain ⟨rfl,h4⟩ := hlow
       have hg := nodeTweak_lower_tag (by omega : lay ≠ 0) h4 tree heap
@@ -10053,11 +10068,10 @@ theorem lowerNodeHash_free (lay : Layer) (tree heap : Nat) (left right : Digest)
   by_cases h0 : lay.val = 0
   · rw [h0, WCT9.merkleTweak_top]; exact nodeTweak_probe_safeS 3 0 tree heap (by decide)
   · rw [WCT9.merkleTweak_lower h0]
-    left; left
+    -- C41: a packed word has tag 7; a layer-1 pair label is below `2 ^ 18 < 2 ^ 20 - 2 ^ 15`.
     have h7 : height lay ≤ 7 := by fin_cases lay <;> simp_all [height]
     have h128 : heap < 128 := lt_of_lt_of_le hh (le_trans (Nat.pow_le_pow_right (by decide) h7) (by norm_num))
-    have := WCT9.lowerTweak_tag h128 lay.val tree
-    unfold tweakTag at this
+    have := WCT9.lowerTweak_cases h128 lay.val tree
     omega
 /-- U16b: every trial of a lower node (nonce `n` in the pad) is free, as the plain node hash. -/
 theorem lowerNodeHashN_free (lay : Layer) (tree heap n : Nat) (left right : Digest) (hh : heap < 2 ^ height lay) :
@@ -10070,11 +10084,10 @@ theorem lowerNodeHashN_free (lay : Layer) (tree heap n : Nat) (left right : Dige
   by_cases h0 : lay.val = 0
   · rw [h0, WCT9.merkleTweak_top]; exact nodeTweak_probe_safeS 3 0 tree heap (by decide)
   · rw [WCT9.merkleTweak_lower h0]
-    left; left
+    -- C41: a packed word has tag 7; a layer-1 pair label is below `2 ^ 18 < 2 ^ 20 - 2 ^ 15`.
     have h7 : height lay ≤ 7 := by fin_cases lay <;> simp_all [height]
     have h128 : heap < 128 := lt_of_lt_of_le hh (le_trans (Nat.pow_le_pow_right (by decide) h7) (by norm_num))
-    have := WCT9.lowerTweak_tag h128 lay.val tree
-    unfold tweakTag at this
+    have := WCT9.lowerTweak_cases h128 lay.val tree
     omega
 theorem lowerSeedPair_free (lay : Layer) (tree pair : Nat) :
     AllQueriesSatisfy (WCT9.lowerSeedPair lay tree pair) WFree := by
@@ -14425,7 +14438,7 @@ theorem lowerNodeHash_dn (lay : Layer) (tree heap : Nat) (left right : Digest) (
     · rw [WCT9.merkleTweak_lower h0]
       have h7 : height lay ≤ 7 := by fin_cases lay <;> simp_all [height]
       have h128 : heap < 128 := lt_of_lt_of_le hh (le_trans (Nat.pow_le_pow_right (by decide) h7) (by norm_num))
-      have := WCT9.lowerTweak_band h128 lay.val tree
+      have := WCT9.lowerTweak_cases h128 lay.val tree
       omega
 /- U16b: every trial of a lower node (nonce `n` in the pad) is no digest/nonce query. -/
 set_option debug.skipKernelTC true in
@@ -14452,7 +14465,7 @@ theorem lowerNodeHashN_dn (lay : Layer) (tree heap n : Nat) (left right : Digest
     · rw [WCT9.merkleTweak_lower h0]
       have h7 : height lay ≤ 7 := by fin_cases lay <;> simp_all [height]
       have h128 : heap < 128 := lt_of_lt_of_le hh (le_trans (Nat.pow_le_pow_right (by decide) h7) (by norm_num))
-      have := WCT9.lowerTweak_band h128 lay.val tree
+      have := WCT9.lowerTweak_cases h128 lay.val tree
       omega
 /-- Pairing stage 1: a step of the current scheme (F or G row) is no digest query. -/
 theorem chainStepW_dn (lay : Layer) (tree leaf i step : Nat) (value : Digest) :
@@ -14536,7 +14549,7 @@ theorem cell_not_digest (s : CanonGraph.Secrets) (node : CanonGraph.Node) (label
         generalize 2 ^ (height n.1.lay - n.1.level.val - 1) + n.1.idx.val = heap at hh ⊢
         generalize n.1.tree.val = tr
         generalize n.1.lay.val = l at hl ⊢
-        have := WCT9.lowerTweak_band hh l tr
+        have := WCT9.lowerTweak_cases hh l tr
         omega
   | forest index =>
       simp only [CanonGraph.Node.toPos, ClaudeWCT.W9.T3M.Extract.Pos.hdr] at h

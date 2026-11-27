@@ -17,9 +17,17 @@ elab "transfer_sign_field" : tactic => do
   unless pc.getAppFn.isConstOf ``SigGolfCandidate.T3M.pcOf do
     throwError "expected pcOf address"
   let b:=pc.getAppArgs[0]!
-  let fn←mkAppOptM ``OuterSignTransfers.code #[some b,some args[2]!]
-  replaceMainGoal (←g.apply fn)
-  evalTactic (←`(tactic| all_goals first | assumption | decide +kernel))
+  let saved←saveState
+  try
+    let fn←mkAppOptM ``OuterSignTransfers.code #[some b,some args[2]!]
+    replaceMainGoal (←g.apply fn)
+    evalTactic (←`(tactic| all_goals first | assumption | decide +kernel))
+  catch _ =>
+    -- C41: words past the replaced layout block (the label stub 26509.., the band check 26523..)
+    saved.restore
+    let fn←mkAppOptM ``OuterSignTransfers.code_tail #[some b,some args[2]!]
+    replaceMainGoal (←g.apply fn)
+    evalTactic (←`(tactic| all_goals first | assumption | decide +kernel))
 
 namespace OuterSignRebind
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv SigGolfCandidate.T3M

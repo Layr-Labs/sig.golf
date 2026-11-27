@@ -3977,9 +3977,8 @@ theorem lowerNodeHash_notDigest (lay : Layer) (tree heap : Nat) (left right : Di
         SigGolfCandidate.T3M.Extract.hdrBlock_pad64 _ (by simp [SphincsSecurity.bytesLE_length, zero16]),
         SigGolfCandidate.T3M.Extract.hdrBlock_prefix]
     · rw [ClaudeWCT.WCT9.merkleTweak_lower h0]
-      have hg := ClaudeWCT.WCT9.lowerTweak_low_ge h7 lay.val tree
-      unfold SigGolfCandidate.T3.tweakLow
-      omega
+      -- C41: a lower node word (pair label or packed word) is never the digest label.
+      exact ClaudeWCT.WCT9.lowerTweak_low_ne_digest h7 lay.val tree
 /-- U16b: every trial of a lower node of the honest tree shape is no digest query (nonce `n` only below the top; the
 nonce bytes sit after the packed node word, whose marker is `128 + heap`). -/
 theorem lowerNodeHashN_notDigest (lay : Layer) (tree heap n : Nat) (left right : Digest) (hh : heap < 2 ^ height lay)
@@ -4003,9 +4002,8 @@ theorem lowerNodeHashN_notDigest (lay : Layer) (tree heap n : Nat) (left right :
         SigGolfCandidate.T3M.Extract.hdrBlock_pad64 _ (by simp [SphincsSecurity.bytesLE_length, nonceBytes]),
         SigGolfCandidate.T3M.Extract.hdrBlock_prefix]
     · rw [ClaudeWCT.WCT9.merkleTweak_lower h0]
-      have hg := ClaudeWCT.WCT9.lowerTweak_low_ge h7 lay.val tree
-      unfold SigGolfCandidate.T3.tweakLow
-      omega
+      -- C41: a lower node word (pair label or packed word) is never the digest label.
+      exact ClaudeWCT.WCT9.lowerTweak_low_ne_digest h7 lay.val tree
 open SigGolfCandidate.T3.Security.BPB SigGolfCandidate.T3M SigGolfCandidate.T3M.SecurityInputs in
 /-- Pairing stage 1: a chain step of the current scheme (either format) is not a digest query. -/
 theorem chainStepW_ok_rev3 (lay : SigGolfCandidate.T3.Layer) (tree leaf i step : Nat) (v : SigGolfCandidate.T3.Digest) :

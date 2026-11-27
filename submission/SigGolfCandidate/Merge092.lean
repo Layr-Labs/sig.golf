@@ -122,15 +122,15 @@ def length (k : Nat) : Nat := endWord k-start k
 `ra = pcOf (endWord 8 - 78)` (`addi ra,ra,-284`, was `-280`), since the merged singleton returns with
 `jalr zero,312(ra)` (was 308) to the same word 46862. -/
 def words (k : Nat) : List (BitVec 32) := [
-[0x208b7,0x16088893,0x8b203,0x1425213,0x7f27213,0x8b703,0x875713,0x3ff77713,0x2437,0x53740413,0x66e37,0x337,0x10e3783,0x2179793,0x80030313,0x6787b3,0x1421f93,0xff8fb3,0x721b93,0x3f337,0x30313,0x6b8bb3,0x293,0x100493,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0x84408093,0x871713,0xc0337,0x30313,0x670733,0x70067],
-[0x208b7,0x16088893,0x8b203,0x1a25213,0x7f27213,0x88b703,0x2175713,0x3ff77713,0x2437,0x1e740413,0x66e37,0xe0e13,0x10e3783,0x2179793,0xfffff337,0x30313,0x6787b3,0x1a21f93,0xff8fb3,0x821b93,0x4b337,0x30313,0x6b8bb3,0x293,0x100493,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0x84008093,0x871713,0xc0337,0x30313,0x670733,0x70067],
-[0x208b7,0x16088893,0x88b203,0x1425213,0x7f27213,0x88b703,0x875713,0x3ff77713,0x2437,0xe9740413,0x66e37,0xe0e13,0x10e3783,0x2179793,0xfffff337,0x80030313,0x6787b3,0x1421f93,0xff8fb3,0x721b93,0x3f337,0x30313,0x6b8bb3,0x293,0x100493,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0x84408093,0x871713,0xc0337,0x30313,0x670733,0x70067],
-[0x208b7,0x16088893,0x88b203,0x1a25213,0x7f27213,0x88b703,0x2d75713,0x3ff77713,0x2437,0xb4740413,0x66e37,0xe0e13,0x10e3783,0x2179793,0xffffe337,0x30313,0x6787b3,0x1a21f93,0xff8fb3,0x821b93,0x4b337,0x30313,0x6b8bb3,0x293,0x100493,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0x84008093,0x871713,0xc0337,0x30313,0x670733,0x70067],
-[0x208b7,0x16088893,0x108b203,0x1425213,0x7f27213,0x108b703,0x875713,0x3ff77713,0x1437,0x7f740413,0x66e37,0xe0e13,0x10e3783,0x2179793,0xffffe337,0x80030313,0x6787b3,0x1421f93,0xff8fb3,0x721b93,0x3f337,0x30313,0x6b8bb3,0x293,0x100493,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0x84408093,0x871713,0xc0337,0x30313,0x670733,0x70067],
-[0x208b7,0x16088893,0x108b203,0x1a25213,0x7f27213,0x108b703,0x2175713,0x3ff77713,0x1437,0x4a740413,0x66e37,0xe0e13,0x10e3783,0x2179793,0xffffd337,0x30313,0x6787b3,0x1a21f93,0xff8fb3,0x821b93,0x4b337,0x30313,0x6b8bb3,0x293,0x100493,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0x84008093,0x871713,0xc0337,0x30313,0x670733,0x70067],
-[0x208b7,0x16088893,0x188b203,0x1425213,0x7f27213,0x188b703,0x875713,0x3ff77713,0x1437,0x15740413,0x66e37,0xe0e13,0x10e3783,0x2179793,0xffffd337,0x80030313,0x6787b3,0x1421f93,0xff8fb3,0x721b93,0x3f337,0x30313,0x6b8bb3,0x293,0x100493,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0x84408093,0x871713,0xc0337,0x30313,0x670733,0x70067],
-[0x208b7,0x16088893,0x188b203,0x1a25213,0x7f27213,0x188b703,0x2175713,0x3ff77713,0x1437,0xe0740413,0x66e37,0xe0e13,0x10e3783,0x2179793,0xffffc337,0x30313,0x6787b3,0x1a21f93,0xff8fb3,0x821b93,0x4b337,0x30313,0x6b8bb3,0x293,0x100493,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0x84008093,0x871713,0xc0337,0x30313,0x670733,0x70067],
-[0x208b7,0x16088893,0x108b203,0x3925213,0x7f27213,0x108b703,0x2d75713,0x3ff77713,0xcb040413,0x66e37,0xe0e13,0x10e3783,0x2179793,0xffffc337,0x80030313,0x6787b3,0x1421f93,0xff8fb3,0x821b93,0x43337,0x30313,0x6b8bb3,0x293,0x100493,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0x83408093,0x871713,0xc0337,0x30313,0x670733,0x70067]].getD k []
+[0x208b7,0x16088893,0x8b203,0x1425213,0x7f27213,0x8b703,0x875713,0x3ff77713,0x2437,0x53740413,0x66e37,0x337,0x10e3783,0x2179793,0x80030313,0x6787b3,0x1421f93,0xff8fb3,0x721b93,0x3f337,0x430313,0x6b8bb3,0x293,0x100493,0x200693,0x300993,0x404290ef,0x13,0x13,0x700f13,0x4000593,0x97,0x84408093,0x871713,0xc0337,0x30313,0x670733,0x70067],
+[0x208b7,0x16088893,0x8b203,0x1a25213,0x7f27213,0x88b703,0x2175713,0x3ff77713,0x2437,0x1e740413,0x66e37,0xe0e13,0x10e3783,0x2179793,0xfffff337,0x30313,0x6787b3,0x1a21f93,0xff8fb3,0x821b93,0x4b337,0x430313,0x6b8bb3,0x293,0x100493,0x200693,0x300993,0x368290ef,0x13,0x13,0x700f13,0x4000593,0x97,0x84008093,0x871713,0xc0337,0x30313,0x670733,0x70067],
+[0x208b7,0x16088893,0x88b203,0x1425213,0x7f27213,0x88b703,0x875713,0x3ff77713,0x2437,0xe9740413,0x66e37,0xe0e13,0x10e3783,0x2179793,0xfffff337,0x80030313,0x6787b3,0x1421f93,0xff8fb3,0x721b93,0x3f337,0x430313,0x6b8bb3,0x293,0x100493,0x200693,0x300993,0x2cc290ef,0x13,0x13,0x700f13,0x4000593,0x97,0x84408093,0x871713,0xc0337,0x30313,0x670733,0x70067],
+[0x208b7,0x16088893,0x88b203,0x1a25213,0x7f27213,0x88b703,0x2d75713,0x3ff77713,0x2437,0xb4740413,0x66e37,0xe0e13,0x10e3783,0x2179793,0xffffe337,0x30313,0x6787b3,0x1a21f93,0xff8fb3,0x821b93,0x4b337,0x430313,0x6b8bb3,0x293,0x100493,0x200693,0x300993,0x230290ef,0x13,0x13,0x700f13,0x4000593,0x97,0x84008093,0x871713,0xc0337,0x30313,0x670733,0x70067],
+[0x208b7,0x16088893,0x108b203,0x1425213,0x7f27213,0x108b703,0x875713,0x3ff77713,0x1437,0x7f740413,0x66e37,0xe0e13,0x10e3783,0x2179793,0xffffe337,0x80030313,0x6787b3,0x1421f93,0xff8fb3,0x721b93,0x3f337,0x430313,0x6b8bb3,0x293,0x100493,0x200693,0x300993,0x194290ef,0x13,0x13,0x700f13,0x4000593,0x97,0x84408093,0x871713,0xc0337,0x30313,0x670733,0x70067],
+[0x208b7,0x16088893,0x108b203,0x1a25213,0x7f27213,0x108b703,0x2175713,0x3ff77713,0x1437,0x4a740413,0x66e37,0xe0e13,0x10e3783,0x2179793,0xffffd337,0x30313,0x6787b3,0x1a21f93,0xff8fb3,0x821b93,0x4b337,0x430313,0x6b8bb3,0x293,0x100493,0x200693,0x300993,0xf8290ef,0x13,0x13,0x700f13,0x4000593,0x97,0x84008093,0x871713,0xc0337,0x30313,0x670733,0x70067],
+[0x208b7,0x16088893,0x188b203,0x1425213,0x7f27213,0x188b703,0x875713,0x3ff77713,0x1437,0x15740413,0x66e37,0xe0e13,0x10e3783,0x2179793,0xffffd337,0x80030313,0x6787b3,0x1421f93,0xff8fb3,0x721b93,0x3f337,0x430313,0x6b8bb3,0x293,0x100493,0x200693,0x300993,0x5c290ef,0x13,0x13,0x700f13,0x4000593,0x97,0x84408093,0x871713,0xc0337,0x30313,0x670733,0x70067],
+[0x208b7,0x16088893,0x188b203,0x1a25213,0x7f27213,0x188b703,0x2175713,0x3ff77713,0x1437,0xe0740413,0x66e37,0xe0e13,0x10e3783,0x2179793,0xffffc337,0x30313,0x6787b3,0x1a21f93,0xff8fb3,0x821b93,0x4b337,0x430313,0x6b8bb3,0x293,0x100493,0x200693,0x300993,0x7c1280ef,0x13,0x13,0x700f13,0x4000593,0x97,0x84008093,0x871713,0xc0337,0x30313,0x670733,0x70067],
+[0x208b7,0x16088893,0x108b203,0x3925213,0x7f27213,0x108b703,0x2d75713,0x3ff77713,0xcb040413,0x66e37,0xe0e13,0x10e3783,0x2179793,0xffffc337,0x80030313,0x6787b3,0x1421f93,0xff8fb3,0x821b93,0x43337,0x430313,0x6b8bb3,0x293,0x100493,0x200693,0x300993,0x729280ef,0x13,0x13,0x700f13,0x4000593,0x97,0x83408093,0x871713,0xc0337,0x30313,0x670733,0x70067]].getD k []
 def rawPosition (k : Nat) : Nat := [20,26,20,26,20,26,20,26,57].getD k 0
 def rawWord (k : Nat) : Nat := [0,0,1,1,2,2,3,3,2].getD k 0
 def rankPosition (k : Nat) : Nat := [8,33,8,45,8,33,8,33,45].getD k 0
@@ -146,8 +146,9 @@ def result (k : Nat) : Result :=
   let rank := mkBin .and (mkBin .srl (.ld (.c (BitVec.ofNat 64 (0x20160+8*rankWord k)))) (.c (BitVec.ofNat 64 (rankPosition k)))) (.c 1023)
   let node := mkAdd (mkBin .sll (.ld (.c 0x66010)) (.c 33)) (.c (BitVec.ofNat 64 (2^64-2048-2048*k)))
   let chainPC := mkAdd (mkBin .sll rank (.c 8)) (.c 0xc0000)
+  -- C42: the path base is `+ 4` (`addi t1,t1,4`): the bank exits `jalr zero,0(s7)` land on the old copy word `+ 1`.
   let childPC := mkAdd (mkBin .sll raw (.c (if k<8 ∧ k%2=0 then 7 else 8)))
-    (.c (BitVec.ofNat 64 (4096+4*(if k<8 ∧ k%2=0 then 63488 else if k=8 then 67584 else 75776))))
+    (.c (BitVec.ofNat 64 (4096+4*(if k<8 ∧ k%2=0 then 63488 else if k=8 then 67584 else 75776)+4)))
   let regs := RegFile.init.set .x17 (.c 0x20160)
   let regs := (regs.set .x4 raw).set .x14 chainPC
   -- Pairing stage 1: coordinate 8 derives its base from the incoming `s0` (r3w: `addi s0,s0,-848`; the banks run at
@@ -158,21 +159,33 @@ def result (k : Nat) : Result :=
   let regs := (regs.set .x31 (mkAdd (mkBin .sll raw (.c (BitVec.ofNat 64 (ClaudeWCT.WCT9.ftsSelShift k)))) node)).set .x23 childPC
   let regs := (regs.set .x5 (.c 0)).set .x9 (.c 1)
   let regs := (regs.set .x13 (.c 2)).set .x19 (.c 3)
-  let regs := (regs.set .x20 (.c 4)).set .x21 (.c 5)
-  let regs := (regs.set .x26 (.c 6)).set .x30 (.c 7)
+  -- C42: heaps 4/5/6 hold their FTS labels `ftsHeapLabel 4/5/6` (the step stub at 88780).
+  let regs := (regs.set .x20 (.c 930564)).set .x21 (.c 989957)
+  let regs := (regs.set .x26 (.c 108112779336744966)).set .x30 (.c 7)
   let regs := (regs.set .x11 (.c 64)).set .x1 (.c (pcOf (endWord k-(if k=8 then 506 else if k%2=1 then 503 else 502))))
-  ⟨⟨regs,[],[]⟩,mkBin .and chainPC (.c (~~~1#64)),.jump,length k,length k⟩
-theorem checked0 : rOK (symRun {} (words 0) (pcOf (start 0)) (length 0)) (result 0)=true := by decide +kernel
-theorem checked1 : rOK (symRun {} (words 1) (pcOf (start 1)) (length 1)) (result 1)=true := by decide +kernel
-theorem checked2 : rOK (symRun {} (words 2) (pcOf (start 2)) (length 2)) (result 2)=true := by decide +kernel
-theorem checked3 : rOK (symRun {} (words 3) (pcOf (start 3)) (length 3)) (result 3)=true := by decide +kernel
-theorem checked4 : rOK (symRun {} (words 4) (pcOf (start 4)) (length 4)) (result 4)=true := by decide +kernel
-theorem checked5 : rOK (symRun {} (words 5) (pcOf (start 5)) (length 5)) (result 5)=true := by decide +kernel
-theorem checked6 : rOK (symRun {} (words 6) (pcOf (start 6)) (length 6)) (result 6)=true := by decide +kernel
-theorem checked7 : rOK (symRun {} (words 7) (pcOf (start 7)) (length 7)) (result 7)=true := by decide +kernel
-theorem checked8 : rOK (symRun {} (words 8) (pcOf (start 8)) (length 8)) (result 8)=true := by decide +kernel
-theorem checked (k : Fin 9) : symRun {} (words k.val) (pcOf (start k.val)) (length k.val)=some (result k.val) := by
-  apply rOK_eq
+  ⟨⟨regs,[],[]⟩,mkBin .and chainPC (.c (~~~1#64)),.jump,length k+8,length k+8⟩
+/-- C42: the step-register stub (expand words 88780..88789, called by `jal ra,88780` from every dispatch block, which
+replaces `addi s4,zero,4; addi s5,zero,5; addi s10,zero,6`): `s4 := 930564; s5 := 989957;
+s10 := 0x01801800000c0006; jalr zero,8(ra)` (back over the two `nop`s after the call). -/
+def stub : List (BitVec 32) := [0xe3a37,0x304a0a13,0xf2ab7,0xb05a8a93,0x60060d37,0x8d1d13,0x3d0d13,0x12d1d13,0x6d0d13,0x808067]
+def look (k : Nat) (n : Nat) : Option (BitVec 32) :=
+  if start k ≤ n ∧ n < endWord k then (words k)[n-start k]?
+  else if 88780 ≤ n ∧ n < 88790 then stub[n-88780]? else none
+/-- The dispatch path (block, stub, block tail) as a path result: 8 more steps than the block (`jal`, 9 stub words and
+`jalr` replace the three `addi`s; the two `nop`s are skipped). -/
+def pres (k : Nat) : PRes := ⟨(result k).st,0,false,length k+8,length k+8,[],some (result k).pc⟩
+theorem checked0 : optBeq (pathAux {} (look 0) [] 60 (pcOf (start 0)) [.jmp] (σK []) []) (pres 0)=true := by decide +kernel
+theorem checked1 : optBeq (pathAux {} (look 1) [] 60 (pcOf (start 1)) [.jmp] (σK []) []) (pres 1)=true := by decide +kernel
+theorem checked2 : optBeq (pathAux {} (look 2) [] 60 (pcOf (start 2)) [.jmp] (σK []) []) (pres 2)=true := by decide +kernel
+theorem checked3 : optBeq (pathAux {} (look 3) [] 60 (pcOf (start 3)) [.jmp] (σK []) []) (pres 3)=true := by decide +kernel
+theorem checked4 : optBeq (pathAux {} (look 4) [] 60 (pcOf (start 4)) [.jmp] (σK []) []) (pres 4)=true := by decide +kernel
+theorem checked5 : optBeq (pathAux {} (look 5) [] 60 (pcOf (start 5)) [.jmp] (σK []) []) (pres 5)=true := by decide +kernel
+theorem checked6 : optBeq (pathAux {} (look 6) [] 60 (pcOf (start 6)) [.jmp] (σK []) []) (pres 6)=true := by decide +kernel
+theorem checked7 : optBeq (pathAux {} (look 7) [] 60 (pcOf (start 7)) [.jmp] (σK []) []) (pres 7)=true := by decide +kernel
+theorem checked8 : optBeq (pathAux {} (look 8) [] 60 (pcOf (start 8)) [.jmp] (σK []) []) (pres 8)=true := by decide +kernel
+theorem checked (k : Fin 9) :
+    pathAux {} (look k.val) [] 60 (pcOf (start k.val)) [.jmp] (σK []) []=some (pres k.val) := by
+  apply optBeq_eq
   fin_cases k
   · exact checked0
   · exact checked1
@@ -234,22 +247,36 @@ theorem layout_shift (image : Image) (k : Fin 9) : (layout image k).shift = 1352
 theorem layout_base (image : Image) (k k' : Fin 9) : Chain.base (layout image k) k' = coordinateBase k' - 1352 := by
   unfold Chain.base; rw [layout_shift]
 
+theorem look_ok {image : Image} (k : Fin 9) (hcode : CodeAt image (pcOf (start k.val)) (words k.val))
+    (hstub : CodeAt image (pcOf 88780) stub) : LookOK image (look k.val) := by
+  intro n w hw
+  unfold look at hw
+  split_ifs at hw with h1 h2
+  · have hb : start k.val<2^30 := by fin_cases k <;> decide
+    have hh:=ClaudeWCT.W9.Machine.Sign.SharedDigest.codeAt_get_word hb hcode hw
+    simpa only [Nat.add_sub_cancel' h1.1] using hh
+  · have hh:=ClaudeWCT.W9.Machine.Sign.SharedDigest.codeAt_get_word (by decide) hstub hw
+    simpa only [Nat.add_sub_cancel' h2.1] using hh
+
+/-- C42: the dispatch of coordinate `k` (its block and the step stub) runs `length k + 8` steps. -/
 theorem steps (image : Image) (k : Fin 9) (u : MachineState)
-    (hrun : symRun {} (words k.val) (pcOf (start k.val)) (length k.val)=some (result k.val))
-    (hcode : CodeAt image (pcOf (start k.val)) (words k.val)) (hpc : u.pc=pcOf (start k.val)) :
-    Steps image u (length k.val) (length k.val) ((result k.val).toState u) := by
-  have h:=symRun_sound hrun hcode u hpc (by exact True.intro)
+    (hcode : CodeAt image (pcOf (start k.val)) (words k.val)) (hstub : CodeAt image (pcOf 88780) stub)
+    (hpc : u.pc=pcOf (start k.val)) :
+    Steps image u (length k.val+8) (length k.val+8) ((result k.val).toState u) := by
+  have h:=(pathRun_sound (known:=[]) (checked k) (look_ok k hcode hstub) u hpc
+    (by intro p hp; cases hp) (by intro o ho; fin_cases k <;> cases ho) (by intro b hb; fin_cases k <;> cases hb)).1
   exact h
 
 theorem result_child_raw (k : Fin 9) (u : MachineState) : ((result k.val).toState u).getReg .x23=
       (rawRead k.val u <<< (if k.val<8 ∧ k.val%2=0 then 7 else 8))+
-        BitVec.ofNat 64 (4096+4*(if k.val<8 ∧ k.val%2=0 then 63488 else if k.val=8 then 67584 else 75776)) := by
+        BitVec.ofNat 64 (4096+4*(if k.val<8 ∧ k.val%2=0 then 63488 else if k.val=8 then 67584 else 75776)+4) := by
   fin_cases k <;> rfl
 
 
+/-- C42: `s7` is one word past the copy word (the bank exits `jalr zero,0(s7)`). -/
 theorem result_child (k : Fin 9) (u : MachineState) (raw : Fin 128)
     (hraw : rawRead k.val u=BitVec.ofNat 64 raw.val) :
-    ((result k.val).toState u).getReg .x23=pcOf (W9Drv.SharedBank.copyWord k.val raw.val) := by
+    ((result k.val).toState u).getReg .x23=pcOf (W9Drv.SharedBank.copyWord k.val raw.val+1) := by
   rw [result_child_raw,hraw]
   unfold W9Drv.SharedBank.copyWord SigGolfCandidate.FtsGrind.COPY_FIRST SigGolfCandidate.FtsGrind.COPY_K8
     SigGolfCandidate.FtsGrind.COPY_ODD
@@ -267,8 +294,9 @@ theorem result_hashMode (k : Fin 9) (u : MachineState) : ((result k.val).toState
 theorem result_stepOne (k : Fin 9) (u : MachineState) : (((result k.val).toState u).getReg .x9).truncate 8=1#8 := by fin_cases k <;> rfl
 theorem result_stepTwo (k : Fin 9) (u : MachineState) : ((result k.val).toState u).getReg .x13=2 := by fin_cases k <;> rfl
 theorem result_hashLen (k : Fin 9) (u : MachineState) : ((result k.val).toState u).getReg .x11=64 := by fin_cases k <;> rfl
+/-- C42: the heap registers hold the FTS heap labels (`2`, `3`, `930564`, `989957`, `0x01801800000c0006`). -/
 theorem result_heaps (k : Fin 9) (u : MachineState) (h : Nat) (h2 : 2≤h) (h7 : h≤6) :
-    ((result k.val).toState u).getReg (Child.heapReg h)=BitVec.ofNat 64 h := by
+    ((result k.val).toState u).getReg (Child.heapReg h)=BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel h) := by
   interval_cases h <;> fin_cases k <;> rfl
 
 theorem result_pc_value (k : Fin 9) (u : MachineState) (rank : Nat)
@@ -313,7 +341,7 @@ theorem chain_pre (image : Image) (k : Fin 9) (u : MachineState)
     · rw [layout_base]; unfold coordinateBase; omega
     · rw [result_base k u h8, layout_base]
   case nodeWord => exact hnode
-  case childPC => exact result_child k u raw hraw
+  case childPC => rw [result_child k u raw hraw]; exact pcOf_and_not1 _
   case returnPC => exact result_return k u
   case pc =>
     exact (result_pc_value k u rank.val hrank).trans (congrArg pcOf hslot.symm)
@@ -634,6 +662,9 @@ set_option maxRecDepth 100000
   · exact SharedCounterHooks.code_slice (off:=1768) hc (by decide +kernel) (by decide +kernel)
 theorem installed_code (k : Fin 9) : CodeAt Images.expandImage (pcOf (start k.val)) (words k.val) :=
   code_of_driver codeAt_expand_shared_driver k
+/-- C42: the step stub in the expand image (words 88780..88789). -/
+theorem installed_stub : CodeAt Images.expandImage (pcOf 88780) stub :=
+  codeAt_expand_lastR (by decide) (by decide) (by decide +kernel)
 end ClaudeWCT.W9.Machine.Expand.SharedDispatch
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedForestRun
@@ -782,13 +813,13 @@ theorem rec16_next {image : Image} {w : W9Machine.WBytes} {index : Nat} {raw : F
     · obtain rfl : m=k := Fin.ext (by omega)
       rw [gd_new]; exact ht.n0 h4
 
-/-- E8 and Y5 #1: per-coordinate cycle bound (dispatch, chain, copy routine and both searches). -/
-def stepW : Nat := 39+89+102+SigGolfCandidate.FtsGrind.W_SEARCH 2+SigGolfCandidate.FtsGrind.W_SEARCH16
+/-- E8 and Y5 #1: per-coordinate cycle bound (dispatch, chain, copy routine and both searches). C42: the dispatch runs
+the step stub (`+ 8`). -/
+def stepW : Nat := 47+89+102+SigGolfCandidate.FtsGrind.W_SEARCH 2+SigGolfCandidate.FtsGrind.W_SEARCH16
 
 theorem step_tbsim (image : Image) (sk : BitVec 256)
     (hwindow : (Frozen.image.code.drop 195584).take 59072=(image.code.drop 195584).take 59072)
-    (hchecked : ∀k:Fin 9,symRun {} (SharedDispatch.words k.val) (pcOf (SharedDispatch.start k.val))
-      (SharedDispatch.length k.val)=some (SharedDispatch.result k.val))
+    (hstub : CodeAt image (pcOf 88780) SharedDispatch.stub)
     (hcode : ∀k:Fin 9,CodeAt image (pcOf (SharedDispatch.start k.val)) (SharedDispatch.words k.val))
     (hslot : ∀rank:Fin 563,Frozen.layout.chainWord (N600.embed rank)=195584+64*rank.val)
     (hcodes : W9Drv.SharedBank.CopyCodes image)
@@ -815,7 +846,7 @@ theorem step_tbsim (image : Image) (sk : BitVec 256)
         RecInv16 raw (k.val+1) acc.2.2 t) := by
   let L:=SharedDispatch.layout image k
   let v:=(SharedDispatch.result k.val).toState u
-  have hs:=SharedDispatch.steps image k u (hchecked k) (hcode k)
+  have hs:=SharedDispatch.steps image k u (hcode k) hstub
     (by simpa only [pcWord,if_pos k.isLt] using hu.1.pc)
   have hc:=SharedDispatch.chain_pre image k u (SharedV3.viewWB 2904 w k.val u) index (raw k) (ranks k)
     hi hu.1.fields.index (hu.1.fields.raw k) (hu.1.fields.rank k) (hslot _) (witness_view hu.1)
@@ -850,12 +881,12 @@ theorem step_tbsim (image : Image) (sk : BitVec 256)
       SigGolfCandidate.FtsGrind.W_PLAIN16
     split_ifs <;> omega
   simpa only [SharedV3.coordinateG,N600.program,bind_assoc,pure_bind] using
-    hh.mono (show SharedDispatch.length k.val+((89+W9Drv.SharedBank.costG k)+0)≤ stepW by unfold stepW; omega)
+    hh.mono (show SharedDispatch.length k.val+8+((89+W9Drv.SharedBank.costG k)+0)≤ stepW by unfold stepW; omega)
       (fun _ _ h=>h)
 
 /-- E8: the expand forest pass, with the 9 ground nonces and their records. -/
 def forestW : Nat := 9*stepW
-theorem forestW_val : forestW=138708 := by decide
+theorem forestW_val : forestW=138780 := by decide
 
 /-- The forest pass's end: the hand-off pair, the frame, the fields, and the 9 nonce records. -/
 def ForestPost (initial : MachineState) (index : Nat) (raw : Fin 9 → Fin 128) (ranks : Fin 9 → Fin 563)
@@ -915,6 +946,7 @@ theorem forest_tbsim_of_copies (image : Image) (sk : BitVec 256)
     (hwindow : (Frozen.image.code.drop 195584).take 59072=(image.code.drop 195584).take 59072)
     (hcodes : W9Drv.SharedBank.CopyCodes image)
     (hcode : ∀k:Fin 9,CodeAt image (pcOf (SharedDispatch.start k.val)) (SharedDispatch.words k.val))
+    (hstub : CodeAt image (pcOf 88780) SharedDispatch.stub)
     (hslot : ∀rank:Fin 563,Frozen.layout.chainWord (N600.embed rank)=195584+64*rank.val)
     (hchain : ∀ (L : W9Machine.Layout),
       (Frozen.image.code.drop 195584).take 59072=(L.image.code.drop 195584).take 59072 →
@@ -929,7 +961,7 @@ theorem forest_tbsim_of_copies (image : Image) (sk : BitVec 256)
       (ForestPost initial index raw ranks) := by
   apply forest_tbsim image sk w index raw ranks initial ?_ h0
   intro k prev u hu
-  apply step_tbsim image sk hwindow SharedDispatch.checked hcode hslot hcodes ?_ w index hi raw ranks initial k prev u hu
+  apply step_tbsim image sk hwindow hstub hcode hslot hcodes ?_ w index hi raw ranks initial k prev u hu
   intro L k j rank hw hcodes' hc hb hcw w index snapshot u padL padR hpre hL hR
   exact SharedCore.core_tbsim L sk hw hcodes' k j rank hc hb
     (fun w index u hu=>hchain L hw hcw rank w index k j u hu) w index snapshot u padL padR hpre hL hR
@@ -2074,7 +2106,7 @@ theorem installed_forest_good (sk : BitVec 256) (output : HashOutput)
     rw [W9Machine.Frozen.image_eq]
     exact Images.expand_banks_eq_verify.symm
   have hm:=forest_tbsim_of_copies Images.expandImage sk hwin W9Drv.SharedBank.installed_copies
-    SharedDispatch.installed_code W9Drv.slot_entry
+    SharedDispatch.installed_code SharedDispatch.installed_stub W9Drv.slot_entry
     (fun L hw hc rank w index k j u hu=>N600.tbsim_sharedBank L sk hw hc rank w index k j u hu)
     (Paired.witEnc output witness) index hi (rawChildFromOutput output)
     (fun k=>forestRank output k.val) s h0

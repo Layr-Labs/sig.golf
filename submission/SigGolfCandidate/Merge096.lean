@@ -5615,7 +5615,8 @@ def hashProgram (c index h : Nat) (pad L R : Digest) : M Digest :=
   else if high c h then publicHash (nodeIn c index h pad L R) >>= fun o=>pure (o.extractLsb' 128 128)
   else shortHash (nodeIn c index h pad L R)
 
-theorem cycles_le (c m : Nat) : cycles c m≤48 := by unfold cycles;split_ifs <;> omega
+/-- C42: at most `38 + 7 + 12` (an odd coordinate, heap 6: the heap-label stub's longest path). -/
+theorem cycles_le (c m p : Nat) : cycles c m p≤57 := by unfold cycles labN;split_ifs <;> omega
 
 theorem hashPc_tail (c : Nat) (hc:c<9) : pcOf (hashPc c)+4=pcOf (SharedTail.entry c) := by
   have h:∀c,c<9→pcOf (hashPc c)+4=pcOf (SharedTail.entry c):=by decide +kernel
@@ -5655,7 +5656,7 @@ theorem input_of_readout (s u : MachineState) {c index h : Nat} {pad L R : Diges
     (h18:s.getReg .x18=BitVec.ofNat 64 h) (h22:s.getReg .x22=BitVec.ofNat 64 index)
     (hL:DigAt s (HEAPW+16*(2*h)) L) (hR:DigAt s (HEAPW+16*(2*h+1)) R)
     (hp:PadAt c h pad s)
-    (hm:∀k,k<8→u.getMem (BitVec.ofNat 64 (NODEW+8*k))=(value c (mode h) (8*k)).eval s) :
+    (hm:∀k,k<8→u.getMem (BitVec.ofNat 64 (NODEW+8*k))=(value c (mode h) (lab h) (8*k)).eval s) :
     u.readWords (BitVec.ofNat 64 NODEW) 8=wordsOf (nodeIn c index h pad L R) := by
   have hP:=padWord_eval s h18 hp
   refine readWords_node u hc hi hh ⟨?_,?_⟩ ?_ ?_ ⟨?_,?_⟩ ⟨?_,?_⟩
@@ -5805,8 +5806,8 @@ theorem signW_le (c h : Nat) (b : Bool) :
   split_ifs <;> norm_num
 
 /-- Cycles of one heap step: the node routine, the site `jal`, the trampoline round trip (worst case: a width-2
-ground node), the tail. -/
-def unitC : Nat := 71+(18*511+42)
+ground node), the tail. C42: the node routine's bound is 57 (heap-label stub), was 48. -/
+def unitC : Nat := 80+(18*511+42)
 
 theorem hash_unit {im : Image} {sk : BitVec 256} {c index h : Nat} {pad L R : Digest}
     (hn:LookOK im (look c)) (ht:LookOK im (SharedTail.look c)) (hg:GrindCode im)
@@ -5918,7 +5919,7 @@ theorem hash_unit {im : Image} {sk : BitVec 256} {c index h : Nat} {pad L R : Di
           · exact hn (Or.inr (Or.inl h'))
           all_goals exact hsv (by simp only[saveCell];omega)
         rw[ho.frame.get hX hns,m1.get hX id,fu.get hX hnw]
-  · have:=cycles_le c (mode h)
+  · have:=cycles_le c (mode h) (lab h)
     have:=signW_le c h (decide (c<4))
     unfold unitC
     omega
@@ -10983,9 +10984,16 @@ theorem installed_grind : GrindCode Images.signImage := by
   exact h ⟨c,hc⟩
 theorem installed_labelStub (c : Fin 9) : CodeAt Images.signImage (pcOf (labelStubPc c.val)) (labelStub c.val) := by
   fin_cases c <;> sign_slice_fast
+/-- C42: the heap-label stub `STUB_s2` at 26538. -/
+theorem installed_heapStub : CodeAt Images.signImage (pcOf heapStubPc) heapStub := by
+  sign_slice_fast
 theorem installed_look (c : Nat) (hc : c<9) : LookOK Images.signImage (look c) := by
   intro n w hw
   unfold look at hw
+  split at hw
+  · rename_i hheap
+    have he := SharedReuse.codeAt_get_word (by decide : heapStubPc < 2^30) installed_heapStub hw
+    simpa [Nat.add_sub_cancel' hheap] using he
   split at hw
   · rename_i hlabel
     have hb : labelStubPc c < 2^30 := by

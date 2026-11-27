@@ -11,6 +11,17 @@ import SigGolfCandidate.Merge056
 set_option debug.skipKernelTC true
 set_option linter.all false
 
+namespace ClaudeWCT.W9.T3M.Extract
+/-- C41: a word `≥ 2 ^ 28` that is below `2 ^ 56` or in the legacy band (`≥ 193 * 2 ^ 56`) fails `TopLow`'s low-word
+test (top labels, `TopNine`, the layer-1 pair bands; C42: the heap-4/5/6 labels, below `2 ^ 28` or in
+`[2 ^ 56, 193 * 2 ^ 56)`). -/
+theorem not_topLowWord_of_ge {w : Nat} (h : 2 ^ 28 ≤ w) (h' : w < 2 ^ 56 ∨ 193 * 2 ^ 56 ≤ w) :
+    ¬ ((1 ≤ w ∧ w < 4096) ∨ w = 520192 ∨ w = 14336 ∨
+      (SigGolfCandidate.T3.TopNine w ∨ w = 930564 ∨ w = 989957 ∨ w = 108112779336744966) ∨
+      (4096 ≤ w ∧ w < 8192) ∨ (131072 ≤ w ∧ w < 262144 ∧ w % 32 = 0)) := by
+  unfold SigGolfCandidate.T3.TopNine; omega
+end ClaudeWCT.W9.T3M.Extract
+
 -- ==== merged from ClaudeWCT_W9_T3M_Extract_Wct ====
 section
 
@@ -12162,9 +12173,8 @@ theorem structuralHit_chain {answers : Answers} {qs : List Spec.Domain} (a : Cha
       rw [Extract.hdrBlock, chainInputPW_header, Extract.topLow_bytesLE_iff, SigGolfCandidate.T3M.chainHeaderP,
         append64_lowNat, chainHeader_low, chainHeaderFlaggedLow_toNat]
       have := chainHeaderLow_band a.key.lay a.key.tree a.key.leaf a.chain step
-      -- C40: a chain word is below `2 ^ 56` or in the legacy band, never ra.
-      unfold SigGolfCandidate.T3.TopNine
-      split_ifs <;> omega
+      -- C40: a chain word is below `2 ^ 56` or in the legacy band, never ra. C41: and `≥ 2 ^ 28` (no pair label).
+      apply Extract.not_topLowWord_of_ge <;> split_ifs <;> omega
     rw [Extract.hdrKey_of_len64 hlen hT, Extract.hdrBlock, chainInputPW_header,
       Extract.canonicalHeader_chainHeaderP]
     exact Extract.Pos.canonicalHeader_eq (p := .chain a.key.lay a.key.tree a.key.leaf a.chain step) hb
@@ -12338,9 +12348,8 @@ theorem structuralHit_chain {answers : Answers} {qs : List Spec.Domain} (a : Cha
       rw [Extract.hdrBlock, chainInputPW_header, Extract.topLow_bytesLE_iff, SigGolfCandidate.T3M.chainHeaderP,
         append64_lowNat, chainHeader_low, chainHeaderFlaggedLow_toNat]
       have := chainHeaderLow_band a.key.lay a.key.tree a.key.leaf a.chain step
-      -- C40: a chain word is below `2 ^ 56` or in the legacy band, never ra.
-      unfold SigGolfCandidate.T3.TopNine
-      split_ifs <;> omega
+      -- C40: a chain word is below `2 ^ 56` or in the legacy band, never ra. C41: and `≥ 2 ^ 28` (no pair label).
+      apply Extract.not_topLowWord_of_ge <;> split_ifs <;> omega
     rw [Extract.hdrKey_of_len64 hlen hT, Extract.hdrBlock, chainInputPW_header,
       Extract.canonicalHeader_chainHeaderP]
     exact Extract.Pos.canonicalHeader_eq (p := .chain a.key.lay a.key.tree a.key.leaf a.chain step) hb
@@ -13682,8 +13691,9 @@ theorem take8_bytesLE16 (a : BitVec 128) : (bytesLE 16 a).take 8 = bytesLE 8 (a.
 /- Every bounded FTS position has a low word above the top-label range. -/
 set_option debug.skipKernelTC true in
 theorem ftsPos_low {p : Extract.Pos} (hb : p.Bounded) (h : FtsPos p) :
-    (tweakLow p.hdr = 0 ∨ 4096 ≤ tweakLow p.hdr) ∧ tweakLow p.hdr < 2 ^ 64 ∧ tweakLow p.hdr ≠ 520192 ∧ tweakLow p.hdr ≠ 14336 ∧
-      ¬ SigGolfCandidate.T3.TopNine (tweakLow p.hdr) := by
+    2 ^ 18 ≤ tweakLow p.hdr ∧ tweakLow p.hdr < 2 ^ 64 ∧ tweakLow p.hdr ≠ 520192 ∧ tweakLow p.hdr ≠ 14336 ∧
+      ¬ (SigGolfCandidate.T3.TopNine (tweakLow p.hdr) ∨ tweakLow p.hdr = 930564 ∨ tweakLow p.hdr = 989957 ∨
+        tweakLow p.hdr = 108112779336744966) := by
   cases p with
   | wctChain index coord child t step =>
       obtain ⟨-, hk, -, ht, -⟩ := hb
@@ -13695,7 +13705,7 @@ theorem ftsPos_low {p : Extract.Pos} (hb : p.Bounded) (h : FtsPos p) :
       rw [Extract.tweakLow_eq_low, WCT9.ftsChainHeaderP_low, BitVec.toNat_ofNat,
         Nat.mod_eq_of_lt h2]
       have ht := WCT9.ftsChainLow_tag index coord child t step
-      exact ⟨Or.inr h1, h2, by omega, by omega, by unfold SigGolfCandidate.T3.TopNine; omega⟩
+      exact ⟨by omega, h2, by omega, by omega, by unfold SigGolfCandidate.T3.TopNine; omega⟩
   | wctLeaf index coord child =>
       obtain ⟨-, hk, -⟩ := hb
       have h1 := WCT9.ftsLeafLow_zero_or_ge (show coord < 15 by omega) index child
@@ -13711,13 +13721,17 @@ theorem ftsPos_low {p : Extract.Pos} (hb : p.Bounded) (h : FtsPos p) :
         unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN
         omega
       -- C40: an FTS leaf word is `index * 2 ^ 33 + child field - 2048 (coord + 1)` mod `2 ^ 64`: never a height-9 label.
-      have hn9 : ¬ SigGolfCandidate.T3.TopNine (WCT9.ftsLeafLow index coord child) := by
+      -- C42: nor a heap-4/5/6 label (none is a multiple of 2048 or wrapped).
+      have hn9 : ¬ (SigGolfCandidate.T3.TopNine (WCT9.ftsLeafLow index coord child) ∨
+          WCT9.ftsLeafLow index coord child = 930564 ∨ WCT9.ftsLeafLow index coord child = 989957 ∨
+          WCT9.ftsLeafLow index coord child = 108112779336744966) := by
         have hm := WCT9.ftsSelMul_mul_facts coord child
         have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
         unfold SigGolfCandidate.T3.TopNine WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN
         rw [Nat.mod_eq_of_lt (show coord < 16 by omega)]
         omega
-      exact ⟨h1, h2, hn, hn1, hn9⟩
+      -- C41: an FTS word is `≥ 2 ^ 18`, above the layer-1 pair label bands.
+      exact ⟨Extract.ftsLeafLow_ge18 index coord child, h2, hn, hn1, hn9⟩
   | wctNode index coord level nd =>
       obtain ⟨-, hk, hlev, hnd⟩ := hb
       have hp : 2 ^ (7 - level - 1) ≤ 64 := by
@@ -13743,17 +13757,24 @@ theorem ftsPos_low {p : Extract.Pos} (hb : p.Bounded) (h : FtsPos p) :
         unfold WCT9.ftsNodeLowN SigGolfCandidate.T3.ftsBiasN
         omega
       -- C40: FTS node words are `index * 2 ^ 33 - (2048 (coord + 1) + heap)` mod `2 ^ 64`: never a height-9 label.
-      have hn9L : ¬ SigGolfCandidate.T3.TopNine (WCT9.ftsLeafLow index coord 0) := by
+      have hn9L : ¬ (SigGolfCandidate.T3.TopNine (WCT9.ftsLeafLow index coord 0) ∨
+          WCT9.ftsLeafLow index coord 0 = 930564 ∨ WCT9.ftsLeafLow index coord 0 = 989957 ∨
+          WCT9.ftsLeafLow index coord 0 = 108112779336744966) := by
         have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
         rw [WCT9.ftsLeafLow_zero]
         unfold SigGolfCandidate.T3.TopNine SigGolfCandidate.T3.ftsBiasN
         rw [Nat.mod_eq_of_lt (show coord < 16 by omega)]
         omega
-      have hn9N : ¬ SigGolfCandidate.T3.TopNine (WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd)) := by
+      have hn9N : ¬ (SigGolfCandidate.T3.TopNine (WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd)) ∨
+          WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) = 930564 ∨
+          WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) = 989957 ∨
+          WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) = 108112779336744966) := by
         have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
         unfold SigGolfCandidate.T3.TopNine WCT9.ftsNodeLowN SigGolfCandidate.T3.ftsBiasN
         rw [Nat.mod_eq_of_lt (show coord < 16 by omega)]
         omega
+      have h18L := Extract.ftsLeafLow_ge18 index coord 0
+      have h18N := Extract.ftsNodeLowN_ge18 index coord (2 ^ (7 - level - 1) + nd)
       simp only [Extract.Pos.hdr]
       unfold tweakLow
       rw [hlow]
@@ -13788,11 +13809,13 @@ theorem structuralHitSrc_of_fts_hitIn (answers : Answers) (N : HashOutput) (w : 
       rintro ⟨-, ht⟩
       unfold Extract.TopLow at ht
       rw [h8] at ht
-      rcases ht with ht | ht | ht | ht
+      rcases ht with ht | ht | ht | ht | ht | ht
       · omega
       · omega
       · omega
       · exact hlo.2.2.2.2 ht
+      · omega
+      · omega
     have hkey' : Extract.hdrKey actual = bytesLE 16 pos'.hdr := by
       rw [Extract.hdrKey_of_not_leafLen hl hT, hdr']
     have hhdr : pos.hdr = pos'.hdr := bytesLE_injective (hkey.symm.trans hkey')
@@ -14041,9 +14064,8 @@ theorem lowerNodeHash_notDigest (lay : Layer) (tree heap : Nat) (left right : Di
         SigGolfCandidate.T3M.Extract.hdrBlock_pad64 _ (by simp [SphincsSecurity.bytesLE_length, zero16]),
         SigGolfCandidate.T3M.Extract.hdrBlock_prefix]
     · rw [ClaudeWCT.WCT9.merkleTweak_lower h0]
-      have hg := ClaudeWCT.WCT9.lowerTweak_low_ge h7 lay.val tree
-      unfold SigGolfCandidate.T3.tweakLow
-      omega
+      -- C41: a lower node word (pair label or packed word) is never the digest label.
+      exact ClaudeWCT.WCT9.lowerTweak_low_ne_digest h7 lay.val tree
 set_option debug.skipKernelTC true in
 theorem lowerNodeHashN_notDigest (lay : Layer) (tree heap n : Nat) (left right : Digest) (h0 : lay.val ≠ 0)
     (hh : heap < 2 ^ height lay) :
@@ -14061,9 +14083,8 @@ theorem lowerNodeHashN_notDigest (lay : Layer) (tree heap n : Nat) (left right :
       SigGolfCandidate.T3M.Extract.hdrBlock_pad64 _ (by simp [SphincsSecurity.bytesLE_length, nonceBytes]),
       SigGolfCandidate.T3M.Extract.hdrBlock_prefix]
   · rw [ClaudeWCT.WCT9.merkleTweak_lower h0]
-    have hg := ClaudeWCT.WCT9.lowerTweak_low_ge h7 lay.val tree
-    unfold SigGolfCandidate.T3.tweakLow
-    omega
+    -- C41: a lower node word (pair label or packed word) is never the digest label.
+    exact ClaudeWCT.WCT9.lowerTweak_low_ne_digest h7 lay.val tree
 theorem layerEncoding_ok (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (counter : BitVec 32) :
     AllQueriesSatisfy (ClaudeWCT.WCT9.encodingHash lay (WCT9.layerEncodingInput lay tree leaf msg counter))
       SigGolfCandidate.T3.Security.BPB.NotDigestQ := by

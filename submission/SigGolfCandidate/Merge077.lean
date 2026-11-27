@@ -1164,14 +1164,14 @@ theorem frame_readWordsL {s t : MachineState} {W : Nat → Prop} (h : Frame s t 
       readWords_one, readWords_one, h.get (by omega) (hW m (by omega))]
 /-- img-v6 (topfold-v6): cycles of one top node below the root at level `j` (height `j + 1`): the node step with
 the nonce search, at most `topNonceCap (j + 1) - 1` failed trials of 22 cycles each. -/
-def topNodeW (j : Nat) : Nat := 173 + 22 * (T3.topNonceCap (j + 1) - 1)
+def topNodeW (j : Nat) : Nat := 192 + 22 * (T3.topNonceCap (j + 1) - 1)
 /-- U16b: cycles of lower fold `j` of layer `lay` (heap class `2 ^ (height lay - j - 1)`): the node step with the grind
 stub (`Grind.stubW`: 72 off the ground, `118 + 16 (cap - 1)` on a ground heap). -/
-def lowFoldW (lay : Layer) (j : Nat) : Nat := 80 + SharedRecover.Grind.stubW lay.val (2 ^ (height lay - j - 1))
+def lowFoldW (lay : Layer) (j : Nat) : Nat := 92 + SharedRecover.Grind.stubW lay.val (2 ^ (height lay - j - 1))
 /-- Cycles of the node climb (img-v6: the hook 1139 adds 4 (lower) / 6 (top root) cycles per plain node, 81 total;
 the 11 top nodes below the root take `topNodeW`). -/
 def climbW (lay : Layer) : Nat :=
-  if lay = 0 then ((List.range' 0 11).map topNodeW).sum + 125 else ((List.range' 0 (height lay - 1)).map (lowFoldW lay)).sum + 81
+  if lay = 0 then ((List.range' 0 11).map topNodeW).sum + 144 else ((List.range' 0 (height lay - 1)).map (lowFoldW lay)).sum + 81
 def rlCost (lay : Layer) : Nat := hpK lay + chainCount lay * 507 + 10 + 8 * leafBlocks' lay + 13 + climbW lay
 /-- The top layer's 11 node nonces at `0x66700 + 8 k` and the leaf at `0x66758` (read by the pad writer). -/
 def NoncesAt (t : MachineState) (nonces : List Nat) (leaf : Nat) : Prop :=
@@ -1235,11 +1235,11 @@ theorem rl1117_continue (s : MachineState) (hpc : s.pc = pcOf 1117)
     (lay tree leaf hh j : Nat) (hlay : lay < 4) (htree : tree < 2 ^ 32)
     (htrH : lay ≠ 0 → tree < 2 ^ T3.hyperW (lay - 1))
     (hl : leaf < 2 ^ 32) (hj : j < hh) (hh' : hh ≤ 12) (hc : j + 1 < hh ∨ lay = 0)
-    (htopl : lay = 0 → leaf < 2 ^ hh)
+    (htopl : lay = 0 → leaf < 2 ^ hh) (hlowh : lay ≠ 0 → 2 ^ (hh - j - 1) + leaf / 2 ^ (j + 1) < 128)
     (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) (h9 : s.getReg .x9 = BitVec.ofNat 64 tree)
     (h18 : s.getReg .x18 = BitVec.ofNat 64 leaf) (h15 : s.getReg .x15 = BitVec.ofNat 64 hh)
     (h20 : s.getReg .x20 = BitVec.ofNat 64 j) :
-    ∃ t k, Steps im s k k t ∧ k ≤ (if lay = 0 then 56 else 44) ∧ t.pc = pcOf 1138 ∧
+    ∃ t k, Steps im s k k t ∧ k ≤ (if lay = 0 then 66 else 56) ∧ t.pc = pcOf 1138 ∧
       t.getMem (BitVec.ofNat 64 (NODE + 16)) =
         (ClaudeWCT.WCT9.merkleTweak lay tree (2 ^ (hh - j - 1) + leaf / 2 ^ (j + 1))).extractLsb' 0 64 ∧
       t.getMem (BitVec.ofNat 64 (NODE + 24)) =
@@ -1261,7 +1261,7 @@ theorem rl1117_continue (s : MachineState) (hpc : s.pc = pcOf 1117)
     · right; rw [h8, hc]; rfl
   obtain ⟨u, k, su, hk, up, u28, ur, uf⟩ := BCBlocks.continue_spec (im := im) s hpc hcont
   obtain ⟨t, n, hn, ut, tp, m16, m24, t10, t11, t12, tr, tf⟩ := rl1119_spec (im := im) u up lay tree leaf hh j
-    hlay htree htrH hl hj hh' htopl
+    hlay htree htrH hl hj hh' htopl hlowh
     (by rw [ur.get (by decide)]; exact h8) (by rw [ur.get (by decide)]; exact h9)
     (by rw [ur.get (by decide)]; exact h18) (by rw [ur.get (by decide)]; exact h15)
     (by rw [ur.get (by decide)]; exact h20) (u28.trans he)
@@ -1380,7 +1380,7 @@ theorem rl_mk_step {tc : MachineState} {sig : Signature} {lay : Layer} {tree lea
     (cpath : DigAt tc (P + 16 * chainCount lay + 16 * j) (lpath sig lay j))
     (cn32 : tc.getMem (BitVec.ofNat 64 (NODE + 32)) = 0) (cn40 : tc.getMem (BitVec.ofNat 64 (NODE + 40)) = 0)
     (hI : MkInv tc sig lay leaf P WM j value u) (hskip : lay ≠ 0 ∨ 11 ≤ j) (htop : lay = 0) :
-    TBSim im sk u 125 (let other := (sig.layers lay).path ⟨j, hj⟩
+    TBSim im sk u 144 (let other := (sig.layers lay).path ⟨j, hj⟩
         let pair := if leaf / 2 ^ j % 2 = 0 then (value, other) else (other, value)
         ClaudeWCT.WCT9.lowerNodeHash lay.val tree (2 ^ (height lay - j - 1) + leaf / 2 ^ (j + 1)) pair.1 pair.2)
       (fun v' u' => MkInv tc sig lay leaf P WM (j + 1) v' u' ∧
@@ -1454,10 +1454,11 @@ theorem rl_mk_step {tc : MachineState} {sig : Signature} {lay : Layer} {tree lea
   have g3 : ∀ r, r ∉ mkRegs → t3.getReg r = tc.getReg r := fun r h => g3'.get h
   obtain ⟨t4, k4, s4, hk4, p4, h16, h24', h10, h11, h12, r4, f4⟩ := rl1117_continue (im := im) t3 p3 lay.val tree leaf (height lay) j
     (by omega) htree htrH (by omega) hj hH (by simpa using hc) (fun _ => hleaf)
+    (fun h => absurd (show lay.val = 0 by rw [htop]; rfl) h)
     (by rw [g3 _ (by decide)]; exact c8) (by rw [g3 _ (by decide)]; exact c9)
     (by rw [g3 _ (by decide)]; exact c18) (by rw [g3 _ (by decide)]; exact c15)
     (by rw [r3.get (by decide), ru2.get (by decide)]; exact hI.x20)
-  rw [if_pos (show lay.val = 0 by rw [htop]; rfl)] at hk4
+  have hk4' : k4 ≤ 66 := by split_ifs at hk4 <;> omega
   set heap := 2 ^ (height lay - j - 1) + leaf / 2 ^ (j + 1) with hheap
   have hheap' : heap < 2 ^ 32 := by
     have : 2 ^ (height lay - j - 1) ≤ 2 ^ 12 := Nat.pow_le_pow_right (by norm_num) (by omega)
@@ -1514,7 +1515,8 @@ theorem rl_mk_step {tc : MachineState} {sig : Signature} {lay : Layer} {tree lea
   have hT : t4.getMem (BitVec.ofNat 64 (NODE + 16)) = BitVec.ofNat 64 (T3.topNodeWord heap) := by rw [h16, hl0]; exact w16
   refine (TBSim.steps (s1.trans (s2.trans (s3.trans s4))) (Grind.stub_pass (im := im) (sk := sk) _ p4 h5 h12 h10 h11
     (block4_length _ _ _) hblk4 (T3.topNodeWord heap) (lt_trans (T3.topNodeWord_lt heap) (by norm_num)) hT
-    (fun h => by have := T3.topNodeWord_small_or_ra heap; omega) (W := 10) (fun a ws hws => ?_))).mono ?_ (fun _ _ h => h)
+    (fun h => by have := T3.topNodeWord_small_or_ra heap; omega) (Grind.bandHeap_top heap) (W := 10)
+    (fun a ws hws => ?_))).mono ?_ (fun _ _ h => h)
   rotate_left
   · rw [pad64_of_aligned _ (by rw [block4_length]), blocks_toQ ⟨by rw [block4_length]; omega,
       by rw [block4_length]⟩, block4_length]; omega
@@ -1614,11 +1616,23 @@ theorem rl_mk_step {tc : MachineState} {sig : Signature} {lay : Layer} {tree lea
       have hMb : M ≤ WM := by rw [hMdef]; exact Nat.sub_le _ _
       intro hx; simp only [NODE, NOUT, RecW, false_or, or_false] at hx; omega)]
 
+/-- A lower fold's heap is below 128 (heights `≤ 7`). -/
+theorem lowHeap_lt {lay : Layer} (hlow : lay ≠ 0) {j leaf : Nat} (hj : j < height lay)
+    (hleaf : leaf < 2 ^ height lay) : 2 ^ (height lay - j - 1) + leaf / 2 ^ (j + 1) < 128 := by
+  have hH7 : height lay ≤ 7 := by fin_cases lay <;> simp_all [height]
+  have e : 2 ^ height lay = 2 ^ (j + 1) * 2 ^ (height lay - j - 1) := by rw [← Nat.pow_add]; congr 1; omega
+  have hq : leaf / 2 ^ (j + 1) < 2 ^ (height lay - j - 1) := by
+    rw [Nat.div_lt_iff_lt_mul (Nat.two_pow_pos _), Nat.mul_comm, ← e]; exact hleaf
+  have hp : 2 ^ (height lay - j - 1) ≤ 2 ^ 6 := Nat.pow_le_pow_right (by norm_num) (by omega)
+  have h6 : (2 : Nat) ^ 6 = 64 := by norm_num
+  rw [h6] at hp
+  generalize 2 ^ (height lay - j - 1) = X at hq hp ⊢
+  omega
 theorem merkleTweak_words_low (lay tree heap : Nat) (h1 : 1 ≤ lay) (h3 : lay ≤ 3) (ht : tree < 2 ^ T3.hyperW (lay - 1))
     (hh : heap < 128) :
-    (ClaudeWCT.WCT9.merkleTweak lay tree heap).extractLsb' 0 64 = BitVec.ofNat 64 (Grind.lowTw lay tree heap) ∧
+    (ClaudeWCT.WCT9.merkleTweak lay tree heap).extractLsb' 0 64 = BitVec.ofNat 64 (Grind.labW lay tree heap) ∧
     (ClaudeWCT.WCT9.merkleTweak lay tree heap).extractLsb' 64 64 = 0 := by
-  have e : ClaudeWCT.WCT9.merkleTweak lay tree heap = 0#64 ++ BitVec.ofNat 64 (Grind.lowTw lay tree heap) := by
+  have e : ClaudeWCT.WCT9.merkleTweak lay tree heap = 0#64 ++ BitVec.ofNat 64 (Grind.labW lay tree heap) := by
     unfold ClaudeWCT.WCT9.merkleTweak ClaudeWCT.WCT9.lowerTweak
     rw [if_neg (by omega), Grind.lowerNodeWord_eq lay tree heap h1 h3 ht hh]
   rw [e]
@@ -1729,10 +1743,13 @@ theorem rl_mk_stepL {tc : MachineState} {sig : Signature} {lay : Layer} {tree le
   have g3 : ∀ r, r ∉ mkRegs → t3.getReg r = tc.getReg r := fun r h => g3'.get h
   obtain ⟨t4, k4, s4, hk4, p4, h16, h24', h10, h11, h12, r4, f4⟩ := rl1117_continue (im := im) t3 p3 lay.val tree leaf (height lay) j
     (by omega) htree htrH (by omega) hj hH (by simpa using hc) (fun _ => hleaf)
+    (fun _ => lowHeap_lt hlow hj hleaf)
     (by rw [g3 _ (by decide)]; exact c8) (by rw [g3 _ (by decide)]; exact c9)
     (by rw [g3 _ (by decide)]; exact c18) (by rw [g3 _ (by decide)]; exact c15)
     (by rw [r3.get (by decide), ru2.get (by decide)]; exact hI.x20)
-  rw [if_neg (show lay.val ≠ 0 from fun h => hlow (Fin.ext h))] at hk4
+  have hk4' : k4 ≤ 56 := by
+    have hl0 : lay.val ≠ 0 := fun h => hlow (Fin.ext h)
+    rw [if_neg hl0] at hk4; exact hk4
   set heap := 2 ^ (height lay - j - 1) + leaf / 2 ^ (j + 1) with hheap
   have hheap' : heap < 2 ^ 32 := by
     have : 2 ^ (height lay - j - 1) ≤ 2 ^ 12 := Nat.pow_le_pow_right (by norm_num) (by omega)
@@ -2031,10 +2048,11 @@ theorem rl_mk_stepN {tc : MachineState} {sig : Signature} {lay : Layer} {tree le
   have g3 : ∀ r, r ∉ mkRegs → t3.getReg r = tc.getReg r := fun r h => g3'.get h
   obtain ⟨t4, k4, s4, hk4, p4, h16, h24', h10, h11, h12, r4, f4⟩ := rl1117_continue (im := im) t3 p3 lay.val tree leaf (height lay) j
     (by omega) htree htrH (by omega) hj hH (by simpa using hc) (fun _ => hleaf)
+    (fun h => absurd (show lay.val = 0 by rw [htop]; rfl) h)
     (by rw [g3 _ (by decide)]; exact c8) (by rw [g3 _ (by decide)]; exact c9)
     (by rw [g3 _ (by decide)]; exact c18) (by rw [g3 _ (by decide)]; exact c15)
     (by rw [r3.get (by decide), ru2.get (by decide)]; exact hI.x20)
-  rw [if_pos (show lay.val = 0 by rw [htop]; rfl)] at hk4
+  have hk4' : k4 ≤ 66 := by split_ifs at hk4 <;> omega
   set heap := 2 ^ (height lay - j - 1) + leaf / 2 ^ (j + 1) with hheap
   have hheap' : heap < 2 ^ 32 := by
     have : 2 ^ (height lay - j - 1) ≤ 2 ^ 12 := Nat.pow_le_pow_right (by norm_num) (by omega)
@@ -2135,7 +2153,7 @@ theorem rl_mk_stepN {tc : MachineState} {sig : Signature} {lay : Layer} {tree le
   have hwN : t4.readWords (BitVec.ofNat 64 NODE) 8 = wordsOf (topNodeInput heap 0 L R) := by rw [hin]; exact hblk4
   refine (TBSim.steps (s1.trans (s2.trans (s3.trans s4))) (Grind.stub_pass_pub (im := im) (sk := sk) p4 h5 h12 h10 h11
     (ne_topNodeInput_length _ _ _ _) hwN (T3.topNodeWord heap) (lt_trans (T3.topNodeWord_lt heap) (by norm_num)) hT
-    (fun h => by have := T3.topNodeWord_small_or_ra heap; omega)
+    (fun h => by have := T3.topNodeWord_small_or_ra heap; omega) (Grind.bandHeap_top heap)
     (W := 38 + (22 * (topNonceCap (j + 1) - 1) + 20))
     (fun a ws hws => (nonce_run (im := im) sk F a ws hws).mono le_rfl (fun res w hw => ?_)))).mono
     (by rw [ne_topNodeInput_blocks] <;> unfold topNodeW <;> omega) (fun _ _ h => h)
@@ -2368,7 +2386,7 @@ theorem recoverTop_tbsim {s0 : MachineState} {sig : Signature} {index : Nat} {la
     ((List.finRange (height lay)).take 11) 0 (ClaudeWCT.WCT9.halfOf (T3.leafHalfHigh lay leaf) a, []) v4 hmap
     (by rw [hlen11]) ⟨hM0, rfl, fun k hk => absurd hk (by omega), fun h => absurd h (by omega)⟩
   rw [hlen11] at hfold
-  refine (TBSim.steps sv4 (TBSim.bind (W₂ := 125 + 10) hfold (fun vn w0 hw0 => ?_))).mono
+  refine (TBSim.steps sv4 (TBSim.bind (W₂ := 144 + 10) hfold (fun vn w0 hw0 => ?_))).mono
     (by unfold climbW; rw [if_pos htop]; omega) (fun _ _ h => h)
   obtain ⟨hw0, hlen0, hn0, hlf0⟩ := hw0
   refine (TBSim.bind (W₂ := 10) (rl_mk_step (im := im) hT11 (Or.inr htop) htree (fun h => absurd (by rw [htop]; rfl) h) hleaf hpre.hP hpre.hP' hpre.hP8 hpre.hWM8 hpre.hWM

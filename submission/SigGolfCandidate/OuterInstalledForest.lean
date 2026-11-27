@@ -11,6 +11,12 @@ namespace OuterInstalledForest
 open OracleComp RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv SigGolfCandidate.T3M W9Machine
 open ClaudeWCT.W9.Machine.Expand
 
+/-- C42: the dispatch step stub (expand words 88780..88789) in the submitted image (unpatched window `88339..`). -/
+theorem stub : CodeAt OuterImages.expandImage (pcOf 88780) SharedDispatch.stub :=
+  codeAt_of_window_eq (source:=Images.expandImage) (target:=OuterImages.expandImage) (start:=88339) (count:=147437)
+    (by decide) (by decide) (by decide) (OuterImageWindows.high_window 88339 147437 (by decide) (by decide)).symm
+    SharedDispatch.installed_stub
+
 theorem run (sk : BitVec 256) (w : W9Machine.WBytes) (index : Nat) (hi : index<2^31)
     (raw : Fin 9 → Fin 128) (ranks : Fin 9 → Fin 563) (initial : MachineState)
     (h0 : OuterForestInv.Inv w index raw ranks initial 0 (SharedV3.initialPair w) initial) :
@@ -18,7 +24,7 @@ theorem run (sk : BitVec 256) (w : W9Machine.WBytes) (index : Nat) (hi : index<2
       (OuterForestRun.ForestPost initial index raw ranks) := by
   apply OuterForestRun.forest_tbsim OuterImages.expandImage sk w index raw ranks initial ?_ h0
   intro k prev u hu
-  apply OuterForestStep.step_tbsim OuterImages.expandImage sk SharedDispatch.checked OuterInstalledDispatch.code W9Drv.slot_entry ?_
+  apply OuterForestStep.step_tbsim OuterImages.expandImage sk stub OuterInstalledDispatch.code W9Drv.slot_entry ?_
     w index hi raw ranks initial k prev u hu
   intro L k j rank himage hc hb hcw w index hi snapshot u padL padR hpre hL hR
   have codes : OuterSharedBank.Codes L.image := by

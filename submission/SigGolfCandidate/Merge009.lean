@@ -135,20 +135,25 @@ theorem leafHalfHigh_top (leaf : Nat) : leafHalfHigh 0 leaf = decide (leaf % 2 =
 theorem leafHalfHigh_lower {lay : Layer} (h : lay ≠ 0) (leaf : Nat) : leafHalfHigh lay leaf = false := by
   simp only [leafHalfHigh, decide_eq_false_iff_not]
   exact fun h' => h (Fin.ext h'.1)
-/-- C4 top fold word: the heap itself for the real heaps `1..4095` (`topNodeWord_eq`), except the special labels
-that the verifier stores straight from a register: heap 1 `14336` (tp), heap 7 `520192` (t1) and (C40) the eight
-height-9 heaps 8..15: the constants s11 = 0x3fe00 (heap 8) and ra = 0x71c71c71c71c71c7 (heap 9), and for heaps
-10..15 the fold's own window/answer pointer `11920 + 16 * slot` (slots 9, 20, 6, 3, 15, 12). -/
-def topNodeWord (heap : Nat) : Nat :=
-  let n := (heap - 1) % 4095 + 1
+/- C4 top fold word: the heap itself for the real heaps `1..4095` (`topNodeWord_eq`), except the special labels
+that the verifier stores straight from a register: heap 1 `14336` (tp), heap 7 `520192` (t1), (C42) heaps 4/5/6 `930564`/`989957`/`108112779336744966` (s4/s5/s10,
+which now hold the FTS path-table bases and the FTS OR constant) and (C40) the eight
+height-9 heaps 8..15: the constants 0 (heap 8, C41: the zero register, which frees s11's value `0x3fe00` for the
+layer-1 pair labels) and ra = 0x71c71c71c71c71c7 (heap 9), and for heaps 10..15 the fold's own window/answer pointer
+`11920 + 16 * slot` (slots 9, 20, 6, 3, 15, 12). -/
+/-- C42: the top label as a function of the reduced heap `n = (heap - 1) % 4095 + 1`. -/
+def topWordN (n : Nat) : Nat :=
   if n = 1 then 14336 else if n = 7 then 520192
-  else if n = 8 then 261632 else if n = 9 then 8198552921648689607 else if n = 10 then 12064
+  else if n = 4 then 930564 else if n = 5 then 989957 else if n = 6 then 108112779336744966
+  else if n = 8 then 0 else if n = 9 then 8198552921648689607 else if n = 10 then 12064
   else if n = 11 then 12240 else if n = 12 then 12016 else if n = 13 then 11968 else if n = 14 then 12160
   else if n = 15 then 12112 else n
+def topNodeWord (heap : Nat) : Nat := topWordN ((heap - 1) % 4095 + 1)
 /-- Inverse of the special top-node label on the valid top-label image. -/
 def topNodeHeap (word : Nat) : Nat :=
   if word = 14336 then 1 else if word = 520192 then 7
-  else if word = 261632 then 8 else if word = 8198552921648689607 then 9 else if word = 12064 then 10
+  else if word = 930564 then 4 else if word = 989957 then 5 else if word = 108112779336744966 then 6
+  else if word = 0 then 8 else if word = 8198552921648689607 then 9 else if word = 12064 then 10
   else if word = 12240 then 11 else if word = 12016 then 12 else if word = 11968 then 13 else if word = 12160 then 14
   else if word = 12112 then 15 else word
 def privatePair (tag lay tree position index : Nat) : M (Digest × Digest) := do
@@ -272,7 +277,11 @@ theorem ftsBiasN_range {n : Nat} (hn : n < 2^58) :
 /-- FTS node word of the two-word labels. C4: coordinate nibble `coord + 1` (every FTS word is `≥ 2 ^ 16`). Y6 R-odd:
 the instance field sits at bit 33 (bits 26..32 carry the odd coordinates' child in chain and leaf words). -/
 -- A label permutation that makes heap7 use the existing hash-length constant.
-def ftsHeapLabel (heap : Nat) : Nat := if heap = 1 then 1048321 else if heap = 1048321 then 1 else if heap = 7 then 64 else if heap = 64 then 7 else heap
+-- C42: heaps 4/5/6 take the verifier's step registers s4/s5/s10, which now hold the FTS path-table bases
+-- `0xe3304`/`0xf1b05` and the FTS OR constant `0x01801800000c0006` (low bytes 4/5/6 are the WOTS step bytes).
+def ftsHeapLabel (heap : Nat) : Nat := if heap = 1 then 1048321 else if heap = 1048321 then 1 else if heap = 7 then 64 else if heap = 64 then 7
+  else if heap = 4 then 930564 else if heap = 930564 then 4 else if heap = 5 then 989957 else if heap = 989957 then 5
+  else if heap = 6 then 108112779336744966 else if heap = 108112779336744966 then 6 else heap
 def ftsNodeWord (coord index : Nat) : BitVec 64 :=
   BitVec.ofNat 64 (ftsBiasN (1 + 6 * 2 ^ 8 + (2 ^ 16 - 2 ^ 11 * (coord % 16)) + index % 2 ^ 31 * 2 ^ 33))
 /-- Packed FTS node word (heaps `8..127`, the four lower child levels): the heap is folded into the low word

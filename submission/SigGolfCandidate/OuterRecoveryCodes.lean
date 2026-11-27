@@ -129,6 +129,10 @@ theorem code : SigGolfCandidate.T3M.Expand.SharedRecover.Code OuterImages.expand
   · exact OuterImageTransfers.code (b:=1105) (words:=e_lcD) (by decide +kernel) SigGolfCandidate.T3M.Expand.SharedRecover.installed_code.e_lcD_at
   · exact OuterImageTransfers.code (b:=231593) (words:=ExpandLabel.remapCode) (by decide +kernel) SigGolfCandidate.T3M.Expand.SharedRecover.installed_code.e_hdrRemap_at
   · exact OuterImageTransfers.code (b:=88600) (words:=ExpandLabel.chain) (by decide +kernel) SigGolfCandidate.T3M.Expand.SharedRecover.installed_code.e_hdrChain_at
+  · exact OuterImageTransfers.code (b:=88800) (words:=ExpandLabel.chain2) (by decide +kernel) SigGolfCandidate.T3M.Expand.SharedRecover.installed_code.e_hdrChain2_at
+  · exact OuterImageTransfers.code (b:=88700) (words:=e_l1) (by decide +kernel) SigGolfCandidate.T3M.Expand.SharedRecover.installed_code.e_l1_at
+  · exact OuterImageTransfers.code (b:=88730) (words:=cBand) (by decide +kernel) SigGolfCandidate.T3M.Expand.SharedRecover.installed_code.codeAt_band
+  · exact OuterImageTransfers.code (b:=88760) (words:=cSlot) (by decide +kernel) SigGolfCandidate.T3M.Expand.SharedRecover.installed_code.codeAt_slot
 
 #print axioms code
 end Core

@@ -969,14 +969,14 @@ variable {P : SigGolfCandidate.Legacy.Hash → Prop}
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
 open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify W9Machine
 def words (k : Nat) : List (BitVec 32) :=
-  [[0x1b87233,0xf20fb3,0xd25b93,0x1cb8bb3,0x987733,0x700e7],
-    [0x1287233,0x803803,0x1886833,0x80078793,0xf20fb3,0x1225b93,0x1db8bb3,0xcb040413,0x1985713,0x977733,0x700e7],
-    [0x1b87233,0x80078793,0xf20fb3,0xd25b93,0x1cb8bb3,0xcb040413,0x987733,0x700e7],
-    [0x1287233,0x80078793,0xf20fb3,0x1225b93,0x1db8bb3,0xcb040413,0x2585713,0x977733,0x700e7],
-    [0x1003803,0x1886833,0x1b87233,0x80078793,0xf20fb3,0xd25b93,0x1cb8bb3,0xcb040413,0x987733,0x700e7],
-    [0x1287233,0x80078793,0xf20fb3,0x1225b93,0x1db8bb3,0xcb040413,0x1985713,0x977733,0x700e7],
-    [0x188e8b3,0x1b8f233,0x80078793,0xf20fb3,0xd25b93,0x1cb8bb3,0xcb040413,0x98f733,0x700e7],
-    [0x128f233,0x80078793,0xf20fb3,0x1225b93,0x1db8bb3,0xcb040413,0x198d713,0x977733,0x700e7],
+  [[0x1b87233,0xf20fb3,0xd25b93,0x14b8bb3,0x987733,0x700e7],
+    [0x1287233,0x803803,0x1a86833,0x80078793,0xf20fb3,0x1225b93,0x15b8bb3,0xcb040413,0x1985713,0x977733,0x700e7],
+    [0x1b87233,0x80078793,0xf20fb3,0xd25b93,0x14b8bb3,0xcb040413,0x987733,0x700e7],
+    [0x1287233,0x80078793,0xf20fb3,0x1225b93,0x15b8bb3,0xcb040413,0x2585713,0x977733,0x700e7],
+    [0x1003803,0x1a86833,0x1b87233,0x80078793,0xf20fb3,0xd25b93,0x14b8bb3,0xcb040413,0x987733,0x700e7],
+    [0x1287233,0x80078793,0xf20fb3,0x1225b93,0x15b8bb3,0xcb040413,0x1985713,0x977733,0x700e7],
+    [0x1a8e8b3,0x1b8f233,0x80078793,0xf20fb3,0xd25b93,0x14b8bb3,0xcb040413,0x98f733,0x700e7],
+    [0x128f233,0x80078793,0xf20fb3,0x1225b93,0x15b8bb3,0xcb040413,0x198d713,0x977733,0x700e7],
     [0x2585213,0x927733,0x1b27233,0x80078793,0xf20fb3,0x4013c83,0xc25b93,0x19b8bb3,0xcb040413,0x700e7]].getD k []
 def start (k : Nat) : Nat := [298,806,1320,1830,2342,2854,3366,3877,4389].getD k 4900
 def length (k : Nat) : Nat := [6,11,8,9,10,9,9,9,10].getD k 0
@@ -984,8 +984,8 @@ def first (k : Nat) : Bool := decide (k < 8 ∧ k % 2 = 0)
 def rankPosition (k : Nat) : Nat := [8,33,8,45,8,33,8,33,45].getD k 13
 def result (k : Nat) : Result :=
   let fresh : E := if k = 1 then .ld (.c 8) else .ld (.c 16)
-  let padded := mkBin .or fresh (.reg .x24)
-  let lastPadded := mkBin .or (.reg .x17) (.reg .x24)
+  let padded := mkBin .or fresh (.reg .x26)
+  let lastPadded := mkBin .or (.reg .x17) (.reg .x26)
   -- Repack: the A child sits at bits 20..26 of its word (masked in place), the B child at 26..32 (`srli 6`), and
   -- ranks at 8/33/45 (`and a4,a6,s1` needs no shift at 8). Coordinate 6 pads `a7`; coordinate 8 starts with
   -- `srli tp,a6,37` (child 57, rank 45 of word 2), so no register is hoisted from coordinate 7.
@@ -1002,7 +1002,7 @@ def result (k : Nat) : Result :=
   let header := mkBin .add child node
   let singletonBase := .ld (addC (.reg .x2) 64)
   let childPC := mkAdd (mkBin .srl child (.c (if first k then 13 else if k = 8 then 12 else 18)))
-    (if first k then .reg .x28 else if k = 8 then singletonBase else .reg .x29)
+    (if first k then .reg .x20 else if k = 8 then singletonBase else .reg .x21)
   let field := mkBin .and (if rankPosition k = 8 then rankDig
     else mkBin .srl rankDig (.c (BitVec.ofNat 64 (rankPosition k - 8)))) (.reg .x9)
   let regs := if k = 1 ∨ k = 4 then RegFile.init.set .x16 padded else RegFile.init
@@ -1041,15 +1041,15 @@ def childOfWord (k : Fin 9) (x : Word) : Word := (x >>> childPos k.val) &&& 127#
 
 def childDig (k : Nat) : E :=
   let fresh : E := if k = 1 then .ld (.c 8) else .ld (.c 16)
-  let padded := mkBin .or fresh (.reg .x24)
-  let lastPadded := mkBin .or (.reg .x17) (.reg .x24)
+  let padded := mkBin .or fresh (.reg .x26)
+  let lastPadded := mkBin .or (.reg .x17) (.reg .x26)
   if k = 4 then padded else if k = 6 then lastPadded
     else if k = 7 then .reg .x17 else .reg .x16
 
 def rankDig (k : Nat) : E :=
   let fresh : E := if k = 1 then .ld (.c 8) else .ld (.c 16)
-  let padded := mkBin .or fresh (.reg .x24)
-  let lastPadded := mkBin .or (.reg .x17) (.reg .x24)
+  let padded := mkBin .or fresh (.reg .x26)
+  let lastPadded := mkBin .or (.reg .x17) (.reg .x26)
   if k = 1 ∨ k = 4 then padded else if k = 6 then lastPadded
     else if k = 7 then .reg .x17 else .reg .x16
 
@@ -1234,10 +1234,46 @@ theorem leaf (k : Fin 9) (u : MachineState)
     rfl
   rw [he, packed_result k u hm hm18]
 
+/-- C42: clearing bit 0 of an even value plus `b < 2`. -/
+theorem clear_low_add (n b : Nat) (hn : n % 2 = 0) (hb : b < 2) (hlt : n + b < 2 ^ 64) :
+    BitVec.ofNat 64 (n + b) &&& ~~~1#64 = BitVec.ofNat 64 n := by
+  apply BitVec.eq_of_toNat_eq
+  have e1 : (BitVec.ofNat 64 (n + b)).toNat = n + b := by
+    rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt hlt]
+  have e2 : (BitVec.ofNat 64 n).toNat = n := by
+    rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (show n < 2 ^ 64 by omega)]
+  have e3 : (1#64).toNat = 1 := rfl
+  rw [BitVec.toNat_and, BitVec.toNat_not, e1, e2, e3]
+  apply Nat.eq_of_testBit_eq
+  intro i
+  rw [Nat.testBit_and]
+  rcases i with _ | i
+  · simp [Nat.testBit_zero]; omega
+  · rw [Nat.testBit_succ, Nat.testBit_succ, Nat.testBit_succ,
+      show (n + b) / 2 = n / 2 by omega]
+    by_cases hi : i + 1 < 64
+    · rw [show (2 ^ 64 - 1 - 1) / 2 = 2 ^ 63 - 1 by norm_num, Nat.testBit_two_pow_sub_one]
+      simp [show i < 63 by omega]
+    · have hlt2 : n / 2 < 2 ^ i := by
+        have : n / 2 < 2 ^ 63 := by omega
+        exact lt_of_lt_of_le this (Nat.pow_le_pow_right (by norm_num) (by omega))
+      rw [Nat.testBit_lt_two_pow hlt2]
+      simp
+
+/-- C42: a biased child-table address `j << s + base` (`base` = table base `+ 4` or `+ 5`) lands on word `n` once
+`jalr` clears bit 0. -/
+theorem child_clear (j s base n b : Nat) (hb : b < 2) (he : j <<< s + base = 0x1000 + 4 * n + b)
+    (hlt : 0x1000 + 4 * n + b < 2 ^ 64) :
+    (BitVec.ofNat 64 j <<< s + BitVec.ofNat 64 base) &&& ~~~1#64 = pcOf n := by
+  rw [W9Drv.shl_ofNat, ← BitVec.ofNat_add, he]
+  exact clear_low_add _ b (by omega) hb hlt
+
+/-- C42: `s7` is the child word `+ 1` plus 0 (even tables, coordinate 8) or 1 (odd table); the routine exit
+`jalr zero,0(s7)` clears bit 0. -/
 theorem child_pc (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (k : Fin 9)
     (pairs : List (Digest × Digest)) (u : MachineState) (hu : SharedCoord.Pre pk w a k.val pairs u) :
-    ((result k.val).toState u).getReg .x23 =
-      pcOf ((SharedLayout.layout k).childWord (SharedForest.rawChildFromOutput a k)) := by
+    ((result k.val).toState u).getReg .x23 &&& ~~~1#64 =
+      pcOf ((SharedLayout.layout k).childWord (SharedForest.rawChildFromOutput a k) + 1) := by
   have hraw := raw_eval pk w a k pairs u hu
   have hm := hu.childMask
   have hA := hu.aTable
@@ -1247,12 +1283,12 @@ theorem child_pc (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (k
   have hj := (SharedForest.rawChildFromOutput a k).isLt
   have hpc : ((result k.val).toState u).getReg .x23 =
       (childOfWord k ((childDig k.val).eval u) <<< (if first k.val then 7 else 8)) +
-      (if first k.val then u.getReg .x28 else if k.val = 8 then
-        u.getMem (BitVec.ofNat 64 (dataBase7 + 64)) else u.getReg .x29) := by
+      (if first k.val then u.getReg .x20 else if k.val = 8 then
+        u.getMem (BitVec.ofNat 64 (dataBase7 + 64)) else u.getReg .x21) := by
     have he : ((result k.val).toState u).getReg .x23 =
         ((childE k.val).eval u >>> (if first k.val then 13 else if k.val = 8 then 12 else 18)) +
-        (if first k.val then u.getReg .x28 else if k.val = 8 then
-          u.getMem (u.getReg .x2 + 64) else u.getReg .x29) := by
+        (if first k.val then u.getReg .x20 else if k.val = 8 then
+          u.getMem (u.getReg .x2 + 64) else u.getReg .x21) := by
       fin_cases k <;> rfl
     rw [he, packed_result k u hm hu.oddMask, h9]
     have ha : BitVec.ofNat 64 dataBase7 + (64 : Word) =
@@ -1266,11 +1302,12 @@ theorem child_pc (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (k
   have hcw : (SharedLayout.layout k).childWord j = SharedLayout.childWord k.val j.val := rfl
   rw [hcw]
   generalize k.val = n at hk ⊢
-  simp only [SharedLayout.childWord, first, pcOf, decide_eq_true_eq]
+  simp only [SharedLayout.childWord, first, decide_eq_true_eq]
   split_ifs <;>
     first
     | omega
-    | (rw [W9Drv.shl_ofNat, ← BitVec.ofNat_add]; congr 1; rw [Nat.shiftLeft_eq]; omega)
+    | exact child_clear _ _ _ _ 0 (by decide) (by rw [Nat.shiftLeft_eq]; omega) (by omega)
+    | exact child_clear _ _ _ _ 1 (by decide) (by rw [Nat.shiftLeft_eq]; omega) (by omega)
 
 end W9Drv.SharedDispatch
 
@@ -1683,10 +1720,10 @@ theorem next (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (k : F
     cached := ?_
     mask := (hr .x9 (by decide)).trans ((hd .x9 (by decide)).trans hu.mask)
     childMask := (hr .x27 (by decide)).trans ((hd .x27 (by decide)).trans hu.childMask)
-    aTable := (hr .x28 (by decide)).trans ((hd .x28 (by decide)).trans hu.aTable)
+    aTable := (hr .x20 (by decide)).trans ((hd .x20 (by decide)).trans hu.aTable)
     singletonTable := (hm _ (by unfold dataBase7; omega) (Or.inr (by unfold dataBase7; omega))).trans hu.singletonTable
-    jt := (hr .x24 (by decide)).trans ((hd .x24 (by decide)).trans hu.jt)
-    childBlock := (hr .x29 (by decide)).trans ((hd .x29 (by decide)).trans hu.childBlock)
+    jt := (hr .x26 (by decide)).trans ((hd .x26 (by decide)).trans hu.jt)
+    childBlock := (hr .x21 (by decide)).trans ((hd .x21 (by decide)).trans hu.childBlock)
     oddMask := (hr .x18 (by decide)).trans ((hd .x18 (by decide)).trans hu.oddMask)
     baseReg := ?_
     pairPtr := ?_
@@ -1991,9 +2028,9 @@ theorem final (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
     (pairs : List (Digest × Digest)) (u : MachineState) (hu : Pre pk w a 9 pairs u) :
     FtsOut ⟨pk,w,a⟩ (prevOf w pairs) u := by
   refine ⟨hu.glob, hu.index, ?_, ?_, ?_, hu.layer, ?_, hu.hashLen,
-    hu.heaps 6 (by decide) (by decide), hu.stepOne, hu.stepTwo,
-    hu.heaps 3 (by decide) (by decide),
-    hu.heaps 4 (by decide) (by decide), hu.heaps 5 (by decide) (by decide),
+    (hu.heaps 6 (by decide) (by decide)).trans rfl, hu.stepOne, hu.stepTwo,
+    (hu.heaps 3 (by decide) (by decide)).trans rfl,
+    (hu.heaps 4 (by decide) (by decide)).trans rfl, (hu.heaps 5 (by decide) (by decide)).trans rfl,
     hu.coordStep, hu.pairPtr, hu.bank.top, hu.bank.top8, ?_, hu.d0⟩
   · exact hu.pc
   · have h := hu.prevL
@@ -2024,14 +2061,15 @@ def FtsGoodByCost (acceptCost : HashOutput → Nat) (P : Hash → Prop := HashOk
     GoodQFor (P := P) Frozen.image u (N+2023) (C+2023) Q (A+acceptCost a)
       (ccM (if SharedGate.gateOk a then ftsN w a else pure none) K)
 
-/-- C1 (stage 1) + digest-field repack: 20 (gate and setup; C31: the stride `lui t1,0x10` is gone, -1; Z6 option F: +1 for `addi a5,a5,-2048`; Y6 R-odd: +1 for
-`slli s2,s11,6`) + 81 (dispatch; Y6 R-odd: the four B coordinates mask their child in place, −4)
-+ 4 x 77 + 5 x 89 (child fixed parts) = 855, plus the joint accounting cost (`≤ 776` on accepted digests). -/
-def ftsAcceptCost (a : HashOutput) : Nat := 854 + SharedForest.jointAccountingCost a
+/-- C1 (stage 1) + digest-field repack: 17 (gate and setup; C31: the stride `lui t1,0x10` is gone, -1; Z6 option F: +1 for `addi a5,a5,-2048`; Y6 R-odd: +1 for
+`slli s2,s11,6`; C42: the three step-register `addi`s are gone, -3) + 81 (dispatch; Y6 R-odd: the four B coordinates
+mask their child in place, −4) + 4 x 77 + 5 x 89 (child fixed parts) = 851, plus the joint accounting cost
+(`≤ 776` on accepted digests). -/
+def ftsAcceptCost (a : HashOutput) : Nat := 851 + SharedForest.jointAccountingCost a
 
 theorem fts_good_of
     (checkLink : sliceChecked 4 SharedGate.gCheckWords = true)
-    (setupLink : sliceChecked 281 SharedGate.gSetupWords = true)
+    (setupLink : sliceChecked 284 SharedGate.gSetupWords = true)
     (links : ∀ k : Fin 9, sliceChecked (SharedDispatch.start k.val) (SharedDispatch.words k.val) = true)
     (chains : ∀ k : Fin 9, N600.AllGood (P := P) (SharedLayout.layout k))
     (childs : ∀ (k : Fin 9) (raw : Fin 128), SharedChild.Good (P := P) (SharedLayout.layout k) k raw) :
@@ -2054,8 +2092,8 @@ theorem fts_good_of
         (List.finRange 9).foldlM (stepN w a) (some []) >>= f)
       funext state
       cases state <;> rfl)
-  change GoodQFor (P := P) Frozen.image u (N + 1766) (C + 1766) Q
-    (A + (834 + SharedForest.jointAccountingCost a) + 20) (KG (SharedGate.gateOk a)) at hg
+  change GoodQFor (P := P) Frozen.image u (N + 1763) (C + 1763) Q
+    (A + (834 + SharedForest.jointAccountingCost a) + 17) (KG (SharedGate.gateOk a)) at hg
   apply (hg.mono (by omega) (by omega) (fun hq => ⟨hq, by simp only [ftsAcceptCost]; omega⟩)).congr
   cases SharedGate.gateOk a <;> simp [KG, ccM_pure]
 

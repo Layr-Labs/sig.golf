@@ -4404,12 +4404,11 @@ theorem notEnc_lowerLeafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest
   have e := ClaudeWCT.W9.T3M.leafInputW_length lay tree leaf 0 0 ends
   unfold ClaudeWCT.WCT9.lowerLeafHash ClaudeWCT.WCT9.leafHashW ClaudeWCT.WCT9.lowerHash
   exact notEnc_halfHash _ _ (by rw [e]; omega) (nonEnc_pad64_long _ (by rw [e]; exact hl))
-/-- C2: a packed lower node word has marker `128 + heap`, so it is no hyper word. -/
+/-- C2: a packed lower node word has marker `128 + heap`, so it is no hyper word. C41: a layer-1 pair label is below
+`2 ^ 18`, a hyper word `≥ 2 ^ 28`. -/
 theorem lowerTweak_notHyper (lay tree heap : Nat) (hh : heap < 128) :
-    NotHyper (ClaudeWCT.WCT9.lowerTweak lay tree heap) := by
-  apply notHyper_of_marker
-  rw [ClaudeWCT.WCT9.lowerTweak_marker hh]
-  omega
+    NotHyper (ClaudeWCT.WCT9.lowerTweak lay tree heap) :=
+  SigGolfCandidate.T3.Security.Wots.Enc.notHyper_lowerTweak hh lay tree
 theorem notEnc_lowerNodeHash (lay tree heap : Nat) (left right : Digest) (hh : lay ≠ 0 → heap < 128) :
     AllQueriesSatisfy (ClaudeWCT.WCT9.lowerNodeHash lay tree heap left right) NotEncS := by
   unfold ClaudeWCT.WCT9.lowerNodeHash ClaudeWCT.WCT9.lowerHash ClaudeWCT.WCT9.merkleNodeInput

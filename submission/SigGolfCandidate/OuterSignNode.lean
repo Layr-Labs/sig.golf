@@ -139,7 +139,7 @@ theorem hash_unit {sk : BitVec 256} {c index h : Nat} {pad L R : Digest}
           · exact hnOld (Or.inr (Or.inl h'))
           all_goals exact hsv (by simp only[saveCell];omega)
         rw[ho.frame.get hX (by unfold OuterSignInterface.Writes;tauto),m1.get hX id,fu.get hX hnw]
-  · have:=cycles_le c (mode h)
+  · have:=cycles_le c (mode h) (lab h)
     have:=signW_le c h (decide (c<4))
     unfold unitC
     omega

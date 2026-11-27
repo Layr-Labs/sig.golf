@@ -3692,8 +3692,9 @@ structure TLevInv (s0 : MachineState) (B : LevArgs) (ℓ : Nat) (levels : List (
 def topNodeProg (level heap : Nat) (l r : Digest) : T3.M Digest :=
   if level = 12 then nodeHash 3 0 0 heap l r else Prod.snd <$> topNodeAt level heap l r
 
-/-- Cycle bound of one node at height `h` (`h = 12`: the root, no nonce). -/
-def nodeW (h : Nat) : Nat := if h = 12 then 81 else 107 + 21 * (topNonceCap h - 1)
+/-- Cycle bound of one node at height `h` (`h = 12`: the root, no nonce). C42: the label remap of heaps 4/5/6 adds up
+to 10 steps (`KeygenLabel.result_count`). -/
+def nodeW (h : Nat) : Nat := if h = 12 then 91 else 117 + 21 * (topNonceCap h - 1)
 
 theorem nonceBytes_zero : nonceBytes 0 = zero16 := by decide
 theorem nodeHash_top (heap : Nat) (l r : Digest) :
@@ -3725,7 +3726,7 @@ include hpre htop hh12
 theorem node_prefix {ℓ : Nat} (hl : ℓ < 12) {levels : List (List Digest)} {pre : List Digest}
     (hi : pre.length < 2 ^ (12 - ℓ - 1)) {t : MachineState} (ht : TNodeInv s0 B ℓ levels pre t)
     (hpc : t.pc = pcOf 235) :
-    ∃ t2 n, n ≤ 58 ∧ Steps image t n n t2 ∧ t2.pc = pcOf 263 ∧
+    ∃ t2 n, n ≤ 68 ∧ Steps image t n n t2 ∧ t2.pc = pcOf 263 ∧
       t2.getReg .x10 = BitVec.ofNat 64 NODE ∧ t2.getReg .x11 = BitVec.ofNat 64 64 ∧
       t2.getMem (BitVec.ofNat 64 (NODE + 32)) = 0 ∧
       T2Facts t2 B.arena (2 ^ (12 - ℓ - 1) + pre.length) ((levels.getD ℓ []).getD (2 * pre.length) 0)

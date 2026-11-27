@@ -782,12 +782,12 @@ theorem verify_good
 
 theorem verify_good_6997
     (hprefix : W9Fin.V7.PrefixGood GatePre)
-    (fts : ∀ w : WB, FtsGoodByCost GatePre FtsOut ftsProgram (fun a => 854 + cost a) (P w))
+    (fts : ∀ w : WB, FtsGoodByCost GatePre FtsOut ftsProgram (fun a => 851 + cost a) (P w))
     (after : AfterGoodBudget FtsOut afterProgram 5231 P)
     (hnone : ∀ pk w i, afterProgram pk w i none = pure false)
     (m : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (w : WB) (s : MachineState)
     (hs : initialState submission .verify (m,pk,w) = some s) :
-    GoodQP (Pre (P w) cost 776 m w) s 10083 15784 True 6872
+    GoodQP (Pre (P w) cost 776 m w) s 10083 15784 True 6869
       (ccM (verifyP ftsProgram afterProgram m pk w) Kb) :=
   verify_good hprefix fts after hnone m pk w s hs
 end
@@ -825,7 +825,7 @@ theorem goodQP_frozen {P : Hash → Prop} {s : MachineState} {N C A : Nat} {Q : 
 
 theorem fts_installed {P : Hash → Prop} :
     FtsGoodByCost W9Drv.SharedGate.Pre installedOut installedFts
-      (fun answer => 854 + SigGolfCandidate.Research.SharedForest.jointAccountingCost answer) P := by
+      (fun answer => 851 + SigGolfCandidate.Research.SharedForest.jointAccountingCost answer) P := by
   intro pk w answer state N C A Q K hstate hnone hnext
   have h := W9Drv.SharedCoord.fts_good (P := P) pk w answer state N C A Q K hstate hnone
     (fun top next hnextState => goodQP_frozen.mpr (hnext top next hnextState))

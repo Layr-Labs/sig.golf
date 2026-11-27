@@ -175,15 +175,15 @@ theorem posOf_digest (rho : Digest) (message : Message) (counter : BitVec 32) :
       · subst h0
         rw [show ((0 : Layer).val) = 0 from rfl, WCT9.merkleTweak_top] at hh
         exact digestHeader_ne_nodeTweak _ _ _ _ _ hh
-      · -- C2: a lower node word has marker `128 + heap`, the digest header marker 0.
+      · -- C2: a lower node word has marker `128 + heap`, the digest header marker 0. C41: no lower node word (pair
+        -- label or packed word) is the digest label 25984.
         obtain ⟨-, -, -, -, hnd⟩ := hb
         have h7 : height lay ≤ 7 := by revert h0; fin_cases lay <;> decide
         have hhp := Extract.node_heap_lt128 hnd h7
         rw [Extract.merkleTweak_layer_lower h0] at hh
-        have hpos : 0 < 2 ^ (height lay - level - 1) := by positivity
-        have hn := congrArg (fun x : Digest => x.toNat % 256) hh
-        simp only [digestHeader_firstByte, WCT9.lowerTweak_firstByte hhp] at hn
-        omega
+        have hn := congrArg tweakLow hh
+        rw [digestHeader_lowNat] at hn
+        exact WCT9.lowerTweak_low_ne_digest hhp lay.val tree hn.symm
   | wctLeaf index coord child => exact (WCT9.ftsLeafHeader_ne_digestHeader _ _ _ _).symm hh
   | forest index => simp only [Extract.Pos.hdr] at hh; exact digestHeader_ne_header _ _ _ _ _ _ hh
 theorem sat_layerCounterSearch (T : Answers) (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) :
@@ -227,9 +227,8 @@ theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Dig
     rw [WCT9.chainInputW_padded, Extract.hdrBlock, WCT9.chainInputW_header, Extract.topLow_bytesLE_iff, Extract.tweakLow_eq_low,
       chainHeader_low, chainHeaderFlaggedLow_toNat]
     have := chainHeaderLow_band lay tree leaf i step
-    -- C40: a chain word is below `2 ^ 56` or in the legacy band, never ra.
-    unfold SigGolfCandidate.T3.TopNine
-    split_ifs <;> omega
+    -- C40: a chain word is below `2 ^ 56` or in the legacy band, never ra. C41: and `≥ 2 ^ 28` (no pair label).
+    apply ClaudeWCT.W9.T3M.Extract.not_topLowWord_of_ge <;> split_ifs <;> omega
   rw [Extract.hdrKey_of_len64 hlen hT, WCT9.chainInputW_padded, Extract.hdrBlock, WCT9.chainInputW_header] at he
   have hn := congrArg (List.take 8) he
   rw [canonicalHeader_low] at hn
@@ -267,8 +266,13 @@ theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Dig
         rw [Extract.merkleTweak_layer_lower h0, BitVec.extractLsb'_toNat, Nat.shiftRight_zero] at hbit
         have h1 := Nat.mod_lt tree' (show 0 < 2 ^ 32 by decide)
         have h2 : (lay'.val - 1) % 256 ≤ 2 := by have := lay'.isLt; omega
+        -- C41: a layer-1 pair label is below `2 ^ 18` (bit 55 clear).
+        by_cases hP : WCT9.LowerPair (lay'.val - 1) tree' (2 ^ (height lay' - level - 1) + nd)
+        · rcases WCT9.lowerTweak_cases hh lay'.val tree' with ⟨-, hc⟩ | ⟨hn, -⟩
+          · omega
+          · exact absurd hP hn
         by_cases hA : hyperHonest (lay'.val - 1) tree'
-        · rw [WCT9.lowerTweak_toNat_honest hh hA] at hbit
+        · rw [WCT9.lowerTweak_toNat_honest hh hA hP] at hbit
           have hr := hA.2
           have h31 : 2 ^ hyperW ((lay'.val - 1) % 256) ≤ 2 ^ 31 := Nat.pow_le_pow_right (by norm_num) (hyperW_le _)
           generalize tree' % 2 ^ 32 = R at hr hbit
@@ -1019,15 +1023,15 @@ theorem posOf_digest (rho : Digest) (message : Message) (counter : BitVec 32) :
       · subst h0
         rw [show ((0 : Layer).val) = 0 from rfl, WCT9.merkleTweak_top] at hh
         exact digestHeader_ne_nodeTweak _ _ _ _ _ hh
-      · -- C2: a lower node word has marker `128 + heap`, the digest header marker 0.
+      · -- C2: a lower node word has marker `128 + heap`, the digest header marker 0. C41: no lower node word (pair
+        -- label or packed word) is the digest label 25984.
         obtain ⟨-, -, -, -, hnd⟩ := hb
         have h7 : height lay ≤ 7 := by revert h0; fin_cases lay <;> decide
         have hhp := Extract.node_heap_lt128 hnd h7
         rw [Extract.merkleTweak_layer_lower h0] at hh
-        have hpos : 0 < 2 ^ (height lay - level - 1) := by positivity
-        have hn := congrArg (fun x : Digest => x.toNat % 256) hh
-        simp only [digestHeader_firstByte, WCT9.lowerTweak_firstByte hhp] at hn
-        omega
+        have hn := congrArg tweakLow hh
+        rw [digestHeader_lowNat] at hn
+        exact WCT9.lowerTweak_low_ne_digest hhp lay.val tree hn.symm
   | wctLeaf index coord child => exact (WCT9.ftsLeafHeader_ne_digestHeader _ _ _ _).symm hh
   | forest index => simp only [Extract.Pos.hdr] at hh; exact digestHeader_ne_header _ _ _ _ _ _ hh
 theorem sat_layerCounterSearch (T : Answers) (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) :
@@ -1071,9 +1075,8 @@ theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Dig
     rw [WCT9.chainInputW_padded, Extract.hdrBlock, WCT9.chainInputW_header, Extract.topLow_bytesLE_iff, Extract.tweakLow_eq_low,
       chainHeader_low, chainHeaderFlaggedLow_toNat]
     have := chainHeaderLow_band lay tree leaf i step
-    -- C40: a chain word is below `2 ^ 56` or in the legacy band, never ra.
-    unfold SigGolfCandidate.T3.TopNine
-    split_ifs <;> omega
+    -- C40: a chain word is below `2 ^ 56` or in the legacy band, never ra. C41: and `≥ 2 ^ 28` (no pair label).
+    apply ClaudeWCT.W9.T3M.Extract.not_topLowWord_of_ge <;> split_ifs <;> omega
   rw [Extract.hdrKey_of_len64 hlen hT, WCT9.chainInputW_padded, Extract.hdrBlock, WCT9.chainInputW_header] at he
   have hn := congrArg (List.take 8) he
   rw [canonicalHeader_low] at hn
@@ -1111,8 +1114,13 @@ theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Dig
         rw [Extract.merkleTweak_layer_lower h0, BitVec.extractLsb'_toNat, Nat.shiftRight_zero] at hbit
         have h1 := Nat.mod_lt tree' (show 0 < 2 ^ 32 by decide)
         have h2 : (lay'.val - 1) % 256 ≤ 2 := by have := lay'.isLt; omega
+        -- C41: a layer-1 pair label is below `2 ^ 18` (bit 55 clear).
+        by_cases hP : WCT9.LowerPair (lay'.val - 1) tree' (2 ^ (height lay' - level - 1) + nd)
+        · rcases WCT9.lowerTweak_cases hh lay'.val tree' with ⟨-, hc⟩ | ⟨hn, -⟩
+          · omega
+          · exact absurd hP hn
         by_cases hA : hyperHonest (lay'.val - 1) tree'
-        · rw [WCT9.lowerTweak_toNat_honest hh hA] at hbit
+        · rw [WCT9.lowerTweak_toNat_honest hh hA hP] at hbit
           have hr := hA.2
           have h31 : 2 ^ hyperW ((lay'.val - 1) % 256) ≤ 2 ^ 31 := Nat.pow_le_pow_right (by norm_num) (hyperW_le _)
           generalize tree' % 2 ^ 32 = R at hr hbit
