@@ -108,8 +108,8 @@ theorem posOf_row_none {x : HashInput} {lay : Layer} {tree leaf : Nat} {hi : Bit
       Nat.mod_mod_of_dvd _ (by norm_num)
     omega
   have ht : ¬ ((hi ++ (rowTweak lay tree leaf).extractLsb' 0 64).toNat % 256 < 4 ∧
-      250 ≤ (hi ++ (rowTweak lay tree leaf).extractLsb' 0 64).toNat / 256 % 256 ∧
-      (hi ++ (rowTweak lay tree leaf).extractLsb' 0 64).toNat / 256 % 256 < 256) := by
+      130 ≤ (hi ++ (rowTweak lay tree leaf).extractLsb' 0 64).toNat / 256 % 256 ∧
+      2 ≤ (hi ++ (rowTweak lay tree leaf).extractLsb' 0 64).toNat / 256 % 256 % 8) := by
     have htag := append64_tag hi ((rowTweak lay tree leaf).extractLsb' 0 64)
     have hrow := rowTweak_tag lay tree leaf
     unfold tweakTag at htag hrow
@@ -946,8 +946,8 @@ theorem posOf_row_none {x : HashInput} {lay : Layer} {tree leaf : Nat} {hi : Bit
       Nat.mod_mod_of_dvd _ (by norm_num)
     omega
   have ht : ¬ ((hi ++ (rowTweak lay tree leaf).extractLsb' 0 64).toNat % 256 < 4 ∧
-      250 ≤ (hi ++ (rowTweak lay tree leaf).extractLsb' 0 64).toNat / 256 % 256 ∧
-      (hi ++ (rowTweak lay tree leaf).extractLsb' 0 64).toNat / 256 % 256 < 256) := by
+      130 ≤ (hi ++ (rowTweak lay tree leaf).extractLsb' 0 64).toNat / 256 % 256 ∧
+      2 ≤ (hi ++ (rowTweak lay tree leaf).extractLsb' 0 64).toNat / 256 % 256 % 8) := by
     have htag := append64_tag hi ((rowTweak lay tree leaf).extractLsb' 0 64)
     have hrow := rowTweak_tag lay tree leaf
     unfold tweakTag at htag hrow

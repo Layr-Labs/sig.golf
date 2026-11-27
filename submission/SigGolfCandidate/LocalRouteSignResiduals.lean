@@ -7,13 +7,12 @@ set_option linter.all false
 namespace LocalSignResidual
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv SigGolfCandidate.T3M
 open ClaudeWCT.WCT9.CanonicalPolicy
-def topPreCode : List (BitVec 32) := [0x66e37,0xe0e13,0x8e3303,0x3290306f]
+def topPreCode : List (BitVec 32) := [0x66e37,0xe0e13,0x8e3303,0xb90ec06f]
 sym_block topPre := symRun {noAlias:=true} topPreCode (pcOf 22230) 10
 def topTestCode : List (BitVec 32) := [0x63e663]
 sym_block topTest := symRun {noAlias:=true} topTestCode (pcOf 22234) 10
 structure TopCode (im : Image) : Prop where
   pre : CodeAt im (pcOf 22230) topPreCode
-  helperJump : CodeAt im (pcOf 26019) LocalRouteMachineHelpers.signTopJumpCode
   helper : CodeAt im (pcOf 1981) LocalRouteMachineHelpers.signTopCode
   test : CodeAt im (pcOf 22234) topTestCode
 
@@ -29,14 +28,14 @@ theorem readTop_steps {im : Image} (hc : TopCode im)
       t.getReg .x28=0x66000#64 ∧ RegsExcept s t [.x3,.x6,.x7,.x28] ∧ Frame s t (fun _=>False) := by
   let u := topPre.res.toState s
   have su : Steps im s 4 4 u := symRun_sound topPre hc.pre s hp (by simp [topPre.res,rv_simp])
-  have pu : u.pc=pcOf 26019 := rfl
+  have pu : u.pc=pcOf 1981 := rfl
   have u6 : u.getReg .x6=BitVec.ofNat 64 r := by simpa [u,topPre.res,rv_simp] using hrm
   have u28 : u.getReg .x28=0x66000#64 := rfl
   have um : u.getMem (0x66018#64)=BitVec.ofNat 64 c := by simpa [u,topPre.res,rv_simp] using hcm
   have ui : u.getMem (0x20550#64)=BitVec.ofNat 64 index := by simpa [u,topPre.res,rv_simp] using hmidx
   have ru : RegsExcept s u [.x6,.x28] := by intro q hq;cases q <;> simp at hq <;> rfl
   have fu : Frame s u (fun _=>False) := by intro A ha hn;rfl
-  obtain ⟨v,sv,pv,v7,v28,rv,fv⟩:=LocalRouteMachineHelpers.signTop_steps hc.helperJump hc.helper u pu index c r hi (by omega) (by omega) u6 u28 um ui
+  obtain ⟨v,sv,pv,v7,v28,rv,fv⟩:=LocalRouteMachineHelpers.signTop_steps hc.helper u pu index c r hi (by omega) (by omega) u6 u28 um ui
   simp only [Nat.reducePow] at v7
   have v6 : v.getReg .x6=BitVec.ofNat 64 r := (rv.get (by decide)).trans u6
   let t:=topTest.res.toState v

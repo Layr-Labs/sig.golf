@@ -9,7 +9,7 @@ namespace OuterPostFrame
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv SigGolfCandidate.T3M
 open ClaudeWCT.W9.Machine.Expand ClaudeWCT.W9.Machine.Expand.SharedCompactMain
 
-theorem record_bounds (m : Fin 9) : 0x7f0000≤OuterSharedPost.record m.val ∧ OuterSharedPost.record m.val<0x7f8000 := by
+theorem record_bounds (m : Fin 9) : 0x7f0000≤OuterSharedPost.record m.val ∧ OuterSharedPost.record m.val<0x800000 := by
   unfold OuterSharedPost.record
   have:=m.isLt
   omega
@@ -19,7 +19,7 @@ theorem of_memory {s t : MachineState} {ns : List Nat} (h : OuterForestCompactRe
     OuterForestCompactRecords.Inv 9 ns t :=
   ⟨h.len,fun m hn hf=>(hm m).trans (h.record m hn hf)⟩
 
-theorem pp_mem (leaf : Nat) (M : Nat → Word) (A : Nat) (h1 : 0x7f0000 ≤ A) (h2 : A < 0x7f8000) :
+theorem pp_mem (leaf : Nat) (M : Nat → Word) (A : Nat) (h1 : 0x7f0000 ≤ A) (h2 : A < 0x800000) :
     PostPass.ppMem leaf M A = M A := by
   rw [PostPass.ppMem_out _ _ _ (by omega), PostPass.stage7_unfold, PostPass.zfill_miss _ _ _ _ (by omega),
     PostPass.bmv_miss _ _ _ _ _ (by omega), PostPass.dmv_miss _ _ _ _ (by omega), PostPass.fcp_miss _ _ _ _ _ (by omega),

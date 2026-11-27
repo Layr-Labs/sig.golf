@@ -7,8 +7,10 @@ namespace OuterPreparedFacts
 open OracleComp OracleSpec SigGolfCandidate.T3 SigGolfCandidate.T3.Correctness
 open ClaudeWCT.WCT9 SigGolfCandidate.Research.SharedForest
 
-theorem old_root_floor (index : Nat) : Policy75Safe23.threshold 0 (SigGolfCandidate.Research.SharedForest.requiredCredit index)=OuterSigning.rootFloor index :=
-  OuterSigning.shared_root_floor index
+/-- The shared-forest root pool is the same `74 - topPathSave` pool, so its floor is the same 16/17. -/
+theorem old_root_floor (index : Nat) : Policy75Safe23.threshold 0 (SigGolfCandidate.Research.SharedForest.requiredCredit index)=
+    if CanonicalPolicy.topPathSave (route index 0).1=0 then 17 else 16 :=
+  OuterSigning.root_floor index
 
 def preparedResidual1 (index : Nat) (result : CanonicalLayers) : Nat :=
   routeResidual index ((OuterSigning.requiredCredit index)) 0 (result.lows.getD 0 true) (result.digits.getD 0 [])

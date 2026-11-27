@@ -4720,23 +4720,24 @@ theorem queryPathSave_source (index : Nat) (hi : index<2^31) (lay : Layer)
     rfl
   · simp only [queryPathSave,if_neg hl]
     rw [SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave_layer]
-    by_cases hl1 : lay.val = 1
-    · apply ClaudeWCT.WCT9.CanonicalPolicy.lowerPathSave_mod128
-      have hh := TopRouteQueryLeaf.qLeaf_mod128_of_header
-        (pad64 (ClaudeWCT.WCT9.layerEncodingInput lay (route index lay).2 (route index lay).1 msg c))
-        (pad64_aligned' _ (encInput_pos lay _ _ msg c)) lay
-        ((route index lay).2*2^height lay+(route index lay).1)
-        (by fin_cases lay <;> simp [SigGolfCandidate.T3.route, SigGolfCandidate.T3.height, SigGolfCandidate.T3.hyperW] <;> omega) 1 (by rw [encInput_hdr];rfl)
-      rw [hh]
-      fin_cases lay <;> simp at hl1 <;> norm_num [height] <;> omega
-    · apply ClaudeWCT.WCT9.CanonicalPolicy.lowerPathSave_mod8_of _ _ _ hl1
-      have hh := TopRouteQueryLeaf.qLeaf_mod8_of_header
+    apply ClaudeWCT.WCT9.CanonicalPolicy.lowerPathSave_congr
+    · have hh := TopRouteQueryLeaf.qLeaf_mod8_of_header
         (pad64 (ClaudeWCT.WCT9.layerEncodingInput lay (route index lay).2 (route index lay).1 msg c))
         (pad64_aligned' _ (encInput_pos lay _ _ msg c)) lay
         ((route index lay).2*2^height lay+(route index lay).1)
         (by fin_cases lay <;> simp [SigGolfCandidate.T3.route, SigGolfCandidate.T3.height, SigGolfCandidate.T3.hyperW] <;> omega) 1 (by rw [encInput_hdr];rfl)
       rw [hh]
       fin_cases lay <;> norm_num [height] <;> omega
+    · intro hl1
+      have hlay : lay = 1 := Fin.ext hl1
+      subst hlay
+      have hh := TopRouteQueryLeaf.qLeaf_mod128_of_header
+        (pad64 (ClaudeWCT.WCT9.layerEncodingInput 1 (route index 1).2 (route index 1).1 msg c))
+        (pad64_aligned' _ (encInput_pos 1 _ _ msg c)) 1
+        ((route index 1).2*2^height (1 : Layer)+(route index 1).1)
+        (by simp [SigGolfCandidate.T3.route, SigGolfCandidate.T3.height, SigGolfCandidate.T3.hyperW]; omega) 1 (by rw [encInput_hdr];rfl)
+      rw [hh, show height (1 : Layer) = 7 from rfl]
+      omega
 
 theorem okHashBy_accepted_credit (floors : Layer → Nat) (high : Bool) (hash : Hash) (lay : Layer)
     (floor tree leaf : Nat) (msg : ClaudeWCT.WCT9.LayerMsg) (c : BitVec 32)
@@ -4966,7 +4967,7 @@ theorem notEnc_ftsLeaf (index coord selected : Nat) (pad : Digest) (ends : List 
   unfold leafInputP
   rw [List.append_assoc (bytesLE 16 _ ++ _)]
   exact nonEnc_of_hdr _ _ (hdrBlock_pad64_prefix _ _ _ (bytesLE_length _ _))
-    (notHyper_of_tag (by rw [ftsLeafHeader_tweakTag]; decide))
+    (notHyper_of_tag (by rw [ftsLeafHeader_tweakTag]; omega))
 
 /-- C1: the paired leaf of heap `heap` (either half) makes the same non-encoding query. -/
 theorem notEnc_ftsLeafH (heap index coord selected : Nat) (pad : Digest) (ends : List Digest) :
@@ -4977,7 +4978,7 @@ theorem notEnc_topLow (coord index heap : Nat) (hcoord : coord < 9) (left pad ri
     AllQueriesSatisfy (shortHash (wctTopInput coord index heap left pad right)) NotEncS := by
   apply notEnc_shortHash _ (by simp [wctTopInput, bytesLE_length])
   apply nonEnc_of_hdr _ (wctNodeHeader coord index heap) ?_
-    (notHyper_of_tag (by rw [wctNodeHeader_tweakTag hcoord]; split <;> decide))
+    (notHyper_of_tag (by rw [wctNodeHeader_tweakTag hcoord]; split <;> omega))
   unfold wctTopInput
   rw [List.append_assoc (bytesLE 16 left ++ bytesLE 16 _)]
   exact hdrBlock_pad64_prefix _ _ _ (bytesLE_length _ _)

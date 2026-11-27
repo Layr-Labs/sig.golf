@@ -131,8 +131,8 @@ theorem canonicalHeader_ftsChainHeaderP (step : Nat) (pb : BitVec 64) (ht : t < 
   have hm : (BitVec.ofNat 64 (WCT9.ftsChainLow index coord child t step)).toNat % 256 < 4 := by
     rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (WCT9.ftsChainLow_lt ..), WCT9.ftsChainLow_byte0]
     omega
-  have htag : 250 ≤ (BitVec.ofNat 64 (WCT9.ftsChainLow index coord child t step)).toNat / 256 % 256 ∧
-      (BitVec.ofNat 64 (WCT9.ftsChainLow index coord child t step)).toNat / 256 % 256 < 256 := by
+  have htag : 130 ≤ (BitVec.ofNat 64 (WCT9.ftsChainLow index coord child t step)).toNat / 256 % 256 ∧
+      2 ≤ (BitVec.ofNat 64 (WCT9.ftsChainLow index coord child t step)).toNat / 256 % 256 % 8 := by
     rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (WCT9.ftsChainLow_lt ..), WCT9.ftsChainLow_tag,
       Nat.mod_eq_of_lt (by omega : t < 8)]
     omega
@@ -2567,7 +2567,7 @@ theorem posOf_padded_chain (index coord raw t step : Nat)
   have hlen : (pad64 (wctChainInputP index coord raw t step pa pb pc value)).length = 64 := by
     rw [wctChainInputP_block4,pad64_block4,block4_length]
   apply posOf_key_eq hb hlen
-  -- C4: an FTS chain word is at least 2^16 (coordinate nibble `coord + 1`), so it is no top label.
+  -- C31: an FTS chain word is at least 4096 and its tag byte is no top label's, so it is no top label.
   have hT : ¬ TopLow (hdrBlock (pad64 (wctChainInputP index coord raw t step pa pb pc value))) := by
     rw [wctChainInputP_block4, pad64_block4, hdrBlock_block4W, topLow_bytesLE_iff]
     unfold SigGolfCandidate.T3.tweakLow
@@ -2575,6 +2575,10 @@ theorem posOf_padded_chain (index coord raw t step : Nat)
     have hge := ClaudeWCT.WCT9.ftsChainLow_ge (coord := coord) (by have := hb.2.1; omega) index raw t step hb.2.2.2.1
     have hlt := ClaudeWCT.WCT9.ftsChainLow_lt index coord raw t step
     have htag := ClaudeWCT.WCT9.ftsChainLow_tag index coord raw t step
+    -- C31: chain tags are (506 + t - 8 coord) mod 256 in [186, 255] and never 240 (= 520192's) for t < 6.
+    have hc9 := hb.2.1
+    have ht6 := hb.2.2.2.1
+    rw [Nat.mod_eq_of_lt (show coord < 16 by omega), Nat.mod_eq_of_lt (show t < 8 by omega)] at htag
     rw [Nat.mul_add_mod_self_right, Nat.mod_eq_of_lt hlt]
     omega
   rw [hdrKey_of_len64 hlen hT,wctChainInputP_block4,pad64_block4,hdrBlock_block4W,
@@ -2598,6 +2602,10 @@ theorem posOf_padded_chainW (index coord raw t step : Nat)
     have hge := ClaudeWCT.WCT9.ftsChainLow_ge (coord := coord) (by have := hb.2.1; omega) index raw t step hb.2.2.2.1
     have hlt := ClaudeWCT.WCT9.ftsChainLow_lt index coord raw t step
     have htag := ClaudeWCT.WCT9.ftsChainLow_tag index coord raw t step
+    -- C31: chain tags are (506 + t - 8 coord) mod 256 in [186, 255] and never 240 (= 520192's) for t < 6.
+    have hc9 := hb.2.1
+    have ht6 := hb.2.2.2.1
+    rw [Nat.mod_eq_of_lt (show coord < 16 by omega), Nat.mod_eq_of_lt (show t < 8 by omega)] at htag
     rw [Nat.mul_add_mod_self_right, Nat.mod_eq_of_lt hlt]
     omega
   rw [hdrKey_of_len64 hlen hT, pad64_wctChainInputPW, hdrBlock_wctChainInputPW,
@@ -13700,7 +13708,7 @@ theorem ftsPos_low {p : Extract.Pos} (hb : p.Bounded) (h : FtsPos p) :
       have hge := WCT9.ftsLeafLow_zero_or_ge (show coord < 15 by omega) index 0
       have hlt := WCT9.ftsLeafLow_lt index coord 0
       have hgeN : 4096 ≤ WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) := by
-        rw [WCT9.ftsNodeLowN_eq, Nat.mod_eq_of_lt (show coord + 1 < 16 by omega)]; unfold SigGolfCandidate.T3.ftsBiasN; have := Nat.mod_lt index (by decide : 0 < 2^31); omega
+        rw [WCT9.ftsNodeLowN_eq, Nat.mod_eq_of_lt (show coord < 16 by omega)]; unfold SigGolfCandidate.T3.ftsBiasN; have := Nat.mod_lt index (by decide : 0 < 2^31); omega
       have hltN := WCT9.ftsNodeLowN_lt index coord (2 ^ (7 - level - 1) + nd)
       have hneL : WCT9.ftsLeafLow index coord 0 ≠ 520192 := by
         unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN

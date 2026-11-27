@@ -16,7 +16,6 @@ theorem code : OuterValidate.Code OuterImages.expandImage := by
   · exact OuterInstalledPool.expand
   · constructor
     · exact OuterImageTransfers.code (b:=46933) (words:=pre0Code) (by decide +kernel) ClaudeWCT.W9.Machine.Expand.SharedValidateV6.installed_code.r0.pre
-    · exact OuterImageTransfers.code (b:=88060) (words:=LocalRouteMachineHelpers.expand1JumpCode) (by decide +kernel) ClaudeWCT.W9.Machine.Expand.SharedValidateV6.installed_code.r0.helperJump
     · exact OuterImageTransfers.code (b:=88106) (words:=LocalRouteMachineHelpers.expand1Code) (by decide +kernel) ClaudeWCT.W9.Machine.Expand.SharedValidateV6.installed_code.r0.helper
     · exact OuterImageTransfers.code (b:=46936) (words:=test0Code) (by decide +kernel) ClaudeWCT.W9.Machine.Expand.SharedValidateV6.installed_code.r0.test
     · exact OuterImageTransfers.code (b:=46937) (words:=LocalRouteResiduals.zero0Code) (by decide +kernel) ClaudeWCT.W9.Machine.Expand.SharedValidateV6.installed_code.r0.zero

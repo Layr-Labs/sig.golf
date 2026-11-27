@@ -884,7 +884,7 @@ theorem ofNat_mod64 (n : Nat) : BitVec.ofNat 64 (n % 2^64) = BitVec.ofNat 64 n :
 theorem ftsChainLow_eq (index c j i st : Nat) (hc : c < 9) (hidx : index < 2 ^ 31) (hst : st < 4) (hi : i < 6)
     (hj : j < 128) : WCT9.ftsChainLow index c j i st = chainW0 c i j index st % 2^64 := by
   unfold WCT9.ftsChainLow chainW0 chainK SigGolfCandidate.T3.ftsBias
-  rw [Nat.mod_eq_of_lt (show i < 8 by omega), Nat.mod_eq_of_lt hst, Nat.mod_eq_of_lt (show c + 1 < 16 by omega),
+  rw [Nat.mod_eq_of_lt (show i < 8 by omega), Nat.mod_eq_of_lt hst, Nat.mod_eq_of_lt (show c < 16 by omega),
     Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hidx, Nat.mul_comm (WCT9.ftsSelMul c) j]
   apply congrArg (fun n : Nat => n % 2^64)
   generalize j * WCT9.ftsSelMul c = X
@@ -930,7 +930,7 @@ theorem ftsLeafHeader_words (index c j : Nat) (hc : c < 9) (hidx : index < 2 ^ 3
     apply BitVec.eq_of_toNat_eq
     simp only [BitVec.toNat_ofNat]
     unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN leafLo7
-    rw [Nat.mod_eq_of_lt (show c+1<16 by omega), Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hidx]
+    rw [Nat.mod_eq_of_lt (show c<16 by omega), Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hidx]
     simp only [Nat.mod_mod]
     generalize WCT9.ftsSelMul c * j = X
     omega
@@ -977,7 +977,7 @@ theorem wordsOf_node (c index h : Nat) (pad L R : Digest) (hc : c < 9) (hidx : i
     by_cases h8 : 8 ≤ h
     · rw [if_pos (show SigGolfCandidate.T3.FtsNew h from ⟨h8, hh⟩), if_pos h8]
       unfold nodeLo7 WCT9.ftsNodeLowN
-      rw [Nat.mod_eq_of_lt (show c + 1 < 16 by omega), Nat.mod_eq_of_lt hidx]
+      rw [Nat.mod_eq_of_lt (show c < 16 by omega), Nat.mod_eq_of_lt hidx]
       apply BitVec.eq_of_toNat_eq
       simp only [BitVec.toNat_ofNat]
       unfold SigGolfCandidate.T3.ftsBiasN
@@ -985,7 +985,7 @@ theorem wordsOf_node (c index h : Nat) (pad L R : Digest) (hc : c < 9) (hidx : i
       omega
     · rw [if_neg (show ¬ SigGolfCandidate.T3.FtsNew h from fun h' => h8 h'.1), if_neg h8]
       unfold nodeLo7
-      rw [WCT9.ftsLeafLow_zero, Nat.mod_eq_of_lt (show c + 1 < 16 by omega), Nat.mod_eq_of_lt hidx]
+      rw [WCT9.ftsLeafLow_zero, Nat.mod_eq_of_lt (show c < 16 by omega), Nat.mod_eq_of_lt hidx]
       apply BitVec.eq_of_toNat_eq
       simp only [BitVec.toNat_ofNat]
       unfold SigGolfCandidate.T3.ftsBiasN

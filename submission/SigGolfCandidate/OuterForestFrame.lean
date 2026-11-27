@@ -9,7 +9,7 @@ open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify W9Mach
 open SigGolfCandidate.T3 (Digest M)
 open ClaudeWCT.W9.Machine.Expand
 
-def writes (X : Nat) : Prop := SharedForestRun.writes X ∨ 8323072≤X ∧ X<8355840
+def writes (X : Nat) : Prop := SharedForestRun.writes X ∨ 8351744≤X ∧ X<8388608
 
 def childW (L : W9Machine.Layout) (k : Fin 9) (raw : Fin 128) (X : Nat) : Prop :=
   SharedForestRun.childW L k raw X ∨ OuterSharedPost.Extra k.val X

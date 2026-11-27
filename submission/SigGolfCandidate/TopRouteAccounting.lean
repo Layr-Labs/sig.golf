@@ -35,6 +35,7 @@ theorem qLeaf_mod8_of_header (input : List UInt8) (hi : Aligned input)
   simp only [hyperWord,if_pos hh,BitVec.toNat_ofNat,Nat.mod_eq_of_lt hr32,Nat.mod_eq_of_lt hlay]
   fin_cases lay <;> norm_num [hyperW] at * <;> omega
 
+/-- C38: the same query leaf agrees with the routed index modulo 128 (the layer-1 save reads 7 bits). -/
 theorem qLeaf_mod128_of_header (input : List UInt8) (hi : Aligned input)
     (lay : Layer) (routed : Nat) (hr : routed<2^hyperW lay.val) (hp : BitVec 64)
     (hhdr : (input.drop 16).take 16 = SphincsSecurity.bytesLE 16 (hp ++ hyperWord lay.val routed)) :

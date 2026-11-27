@@ -8,7 +8,7 @@ open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGol
 open SigGolfCandidate.T3M
 def saveCode : List (BitVec 32) := [0x48603023,0x48703423]
 sym_block save := symRun {noAlias:=true} saveCode (pcOf 26156) 40
-def dispatchCode : List (BitVec 32) := [0x50337,0x30030313,0xa651663,0x1053383,0x3039393,0x303d393,0x10337,0x80030313,0x8639a63,0x1853383,0x400313,0x863f463,0x1053383,0x103d393,0xf3f393,0x700313,0x2638863]
+def dispatchCode : List (BitVec 32) := [0x50337,0x30030313,0xa651663,0x1053383,0x3539393,0xa039063,0x1053383,0x3039393,0x3b3d393,0x1700313,0x863e663,0x1853303,0x433313,0x8030063,0x1700313,0x13,0x2638863]
 def b_startCode : List (BitVec 32) := [0x313,0x2053423]
 sym_block b_start := symRun {noAlias:=true} b_startCode (pcOf 26175) 40
 def b_preCode : List (BitVec 32) := [0x2653023,0x73]
@@ -36,12 +36,16 @@ sym_block done := symRun {noAlias:=true} doneCode (pcOf 26204) 40
 
 def addrCode : List (BitVec 32) := dispatchCode.take 3
 sym_block addr := symRun {noAlias:=true} addrCode (pcOf 26158) 40
-def headerCode : List (BitVec 32) := (dispatchCode.drop 3).take 6
-sym_block header := symRun {noAlias:=true} headerCode (pcOf 26161) 40
-def heapCode : List (BitVec 32) := (dispatchCode.drop 9).take 3
-sym_block heap := symRun {noAlias:=true} heapCode (pcOf 26167) 40
-def coordCode : List (BitVec 32) := dispatchCode.drop 12
-sym_block coord := symRun {noAlias:=true} coordCode (pcOf 26170) 40
+/-- C31: the hook tests the low 11 bits (zero for a two-word FTS node word), then the coordinate field
+(bits 11..15 = 31 - coordinate, at least 23), then the heap label (< 4), then the singleton (field 23). -/
+def lowCode : List (BitVec 32) := (dispatchCode.drop 3).take 3
+sym_block low := symRun {noAlias:=true} lowCode (pcOf 26161) 40
+def fieldCode : List (BitVec 32) := (dispatchCode.drop 6).take 5
+sym_block field := symRun {noAlias:=true} fieldCode (pcOf 26164) 40
+def heapCode : List (BitVec 32) := (dispatchCode.drop 11).take 3
+sym_block heap := symRun {noAlias:=true} heapCode (pcOf 26169) 40
+def coordCode : List (BitVec 32) := dispatchCode.drop 14
+sym_block coord := symRun {noAlias:=true} coordCode (pcOf 26172) 40
 
 #print cleanup.res
 #print done.res

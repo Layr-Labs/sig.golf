@@ -8,8 +8,30 @@ open Finset
 namespace ClaudeWCT.Numerics.LocalRouteUniform
 
 def pairSave (n : Nat) : Nat := if n%4=1 ∨ n%4=2 then 1 else 0
-def oneDiff (n : Nat) : Nat := ((n % 128) ^^^ ((n % 128) / 2)) % 64
-def oneSave (n : Nat) : Nat := (if oneDiff n = 0 then 0 else 1) + (if oneDiff n % 2 = 1 ∧ 4 ≤ oneDiff n then 1 else 0)
+/-- Layer-1 save of leaf `n`: the expression of `CanonicalPolicy.lowerPathSave 1 n`
+(low six Gray-code bits `d`; `d ≠ 0` saves one, an odd `d ≥ 4` saves another). -/
+def oneSave (n : Nat) : Nat :=
+  (if (n ^^^ n/2)%64≠0 then 1 else 0) + (if (n ^^^ n/2)%64%2=1 ∧ 4≤(n ^^^ n/2)%64 then 1 else 0)
+
+theorem oneSave_le_two (n : Nat) : oneSave n ≤ 2 := by
+  unfold oneSave
+  split_ifs <;> omega
+
+theorem gray_mod64 (a : Nat) : (a ^^^ a/2)%64=((a%128) ^^^ (a%128)/2)%64 := by
+  apply Nat.eq_of_testBit_eq
+  intro i
+  rw [show (64:Nat)=2^6 from rfl, show (128:Nat)=2^7 from rfl]
+  simp only [Nat.testBit_mod_two_pow,Nat.testBit_xor,Nat.testBit_div_two]
+  by_cases hi : i<6
+  · have h7 : i<7 := by omega
+    have h7' : i+1<7 := by omega
+    simp [hi,h7,h7']
+  · simp [hi]
+
+theorem oneSave_mod128 (a b : Nat) (h : a%128=b%128) : oneSave a = oneSave b := by
+  have hg : (a ^^^ a/2)%64=(b ^^^ b/2)%64 := by rw [gray_mod64 a,gray_mod64 b,h]
+  unfold oneSave
+  simp only [hg]
 
 theorem sum_binary {n : Nat} (g : Fin n → Nat) (h : ∀ i, g i ≤ 1) (f : Nat → Nat) :
     (∑ i : Fin n, f (g i)) =
@@ -22,12 +44,6 @@ theorem sum_binary {n : Nat} (g : Fin n → Nat) (h : ∀ i, g i ≤ 1) (f : Nat
   simp only [Finset.sum_add_distrib, Finset.sum_ite, Finset.sum_const_zero, add_zero,
     Finset.sum_const, nsmul_eq_mul]
   simp
-
-theorem pair_zero_count : ((univ : Finset (Fin 64)).filter fun i => pairSave i.val=0).card=32 := by decide +kernel
-theorem pair_one_count : ((univ : Finset (Fin 64)).filter fun i => pairSave i.val=1).card=32 := by decide +kernel
-theorem one_zero_count : ((univ : Finset (Fin 128)).filter fun i => oneSave i.val=0).card=2 := by decide +kernel
-theorem one_one_count : ((univ : Finset (Fin 128)).filter fun i => oneSave i.val=1).card=66 := by decide +kernel
-theorem one_two_count : ((univ : Finset (Fin 128)).filter fun i => oneSave i.val=2).card=60 := by decide +kernel
 
 theorem sum_ternary {n : Nat} (g : Fin n → Nat) (h : ∀ i, g i ≤ 2) (f : Nat → Nat) :
     (∑ i : Fin n, f (g i)) =
@@ -43,6 +59,12 @@ theorem sum_ternary {n : Nat} (g : Fin n → Nat) (h : ∀ i, g i ≤ 2) (f : Na
     Finset.sum_const, nsmul_eq_mul]
   simp
 
+theorem pair_zero_count : ((univ : Finset (Fin 64)).filter fun i => pairSave i.val=0).card=32 := by decide +kernel
+theorem pair_one_count : ((univ : Finset (Fin 64)).filter fun i => pairSave i.val=1).card=32 := by decide +kernel
+theorem one_zero_count : ((univ : Finset (Fin 128)).filter fun i => oneSave i.val=0).card=2 := by decide +kernel
+theorem one_one_count : ((univ : Finset (Fin 128)).filter fun i => oneSave i.val=1).card=66 := by decide +kernel
+theorem one_two_count : ((univ : Finset (Fin 128)).filter fun i => oneSave i.val=2).card=60 := by decide +kernel
+
 def sum64 (f : Nat → Nat) : Nat := ∑ i : Fin 64, f (pairSave i.val)
 def sum128 (f : Nat → Nat) : Nat := ∑ i : Fin 128, f (oneSave i.val)
 theorem sum64_eq (f : Nat → Nat) : sum64 f=32*(f 0+f 1) := by
@@ -51,21 +73,22 @@ theorem sum64_eq (f : Nat → Nat) : sum64 f=32*(f 0+f 1) := by
   rw [pair_zero_count,pair_one_count]
   omega
 
-theorem oneSave_le_two (n : Nat) : oneSave n ≤ 2 := by
-  unfold oneSave; split_ifs <;> omega
-
 theorem sum128_eq (f : Nat → Nat) : sum128 f=2*f 0+66*f 1+60*f 2 := by
   unfold sum128
-  rw [sum_ternary (fun i : Fin 128 => oneSave i.val) (fun i => oneSave_le_two _)]
+  rw [sum_ternary (fun i : Fin 128 => oneSave i.val) (fun i => oneSave_le_two i.val)]
   rw [one_zero_count,one_one_count,one_two_count]
 
 def nested (F : Nat → Nat → Nat → Nat → Nat) : Nat :=
   sum64 fun a => sum64 fun b => sum128 fun c => sum64 fun d => sum64 fun e => F (a+b) c d e
 
+/-- The layer-1 save is ternary with weights 2/66/60 out of 128. -/
+def weighted (F : Nat → Nat → Nat → Nat → Nat) (r d e : Nat) : Nat :=
+  2*F r 0 d e+66*F r 1 d e+60*F r 2 d e
+
 theorem nested_eq (F : Nat → Nat → Nat → Nat → Nat) :
     nested F = 2^20 * (∑ a : Fin 2, ∑ b : Fin 2, ∑ d : Fin 2, ∑ e : Fin 2,
-      (2*F (a.val+b.val) 0 d.val e.val + 66*F (a.val+b.val) 1 d.val e.val + 60*F (a.val+b.val) 2 d.val e.val)) := by
-  simp only [nested,sum64_eq,sum128_eq]
+      weighted F (a.val+b.val) d.val e.val) := by
+  simp only [nested,sum64_eq,sum128_eq,weighted]
   simp only [Fin.sum_univ_two,Fin.val_zero,Fin.val_one]
   ring
 
@@ -90,8 +113,9 @@ theorem eval_join (F : Nat → Nat → Nat → Nat → Nat)
   have h3 : n/64%4=d.val%4 := by dsimp [n]; omega
   have h4 : n%4=e.val%4 := by dsimp [n]; omega
   change evalIndex F n = _
-  simp only [evalIndex,pairSave,oneSave,oneDiff,h0,h1,h2,h3,h4]
-  rfl
+  unfold evalIndex
+  rw [oneSave_mod128 (n/4096) c.val h2]
+  simp only [pairSave,h0,h1,h3,h4]
 
 theorem sum_split (n m : Nat) (f : Nat → Nat) :
     (∑ i : Fin (n*m), f i.val) = ∑ a : Fin n, ∑ b : Fin m, f (a.val*m+b.val) := by
@@ -123,7 +147,7 @@ theorem index_nested (F : Nat → Nat → Nat → Nat → Nat) :
 theorem index_uniform (F : Nat → Nat → Nat → Nat → Nat) :
     (∑ i : Fin (2^31), evalIndex F i.val) =
       2^20 * (∑ a : Fin 2, ∑ b : Fin 2, ∑ d : Fin 2, ∑ e : Fin 2,
-        (2*F (a.val+b.val) 0 d.val e.val + 66*F (a.val+b.val) 1 d.val e.val + 60*F (a.val+b.val) 2 d.val e.val)) := by
+        weighted F (a.val+b.val) d.val e.val) := by
   rw [index_nested,nested_eq]
 #print axioms index_uniform
 end ClaudeWCT.Numerics.LocalRouteUniform

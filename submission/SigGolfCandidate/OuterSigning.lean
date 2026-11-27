@@ -16,26 +16,24 @@ theorem rootPool_bounds (leaf : Nat) : 72≤rootPool leaf ∧ rootPool leaf≤74
   split_ifs <;> omega
 
 theorem requiredCredit_bounds (index : Nat) : 72≤requiredCredit index ∧ requiredCredit index≤74 := rootPool_bounds _
-/-- Leaf-dependent top floor: 17 when the top path has no saved updates (pool 74), else 16. -/
-def rootFloor (index : Nat) : Nat := if CanonicalPolicy.topPathSave (route index 0).1 = 0 then 17 else 16
-theorem rootFloor_bounds (index : Nat) : 16≤rootFloor index ∧ rootFloor index≤17 := by
-  unfold rootFloor; split_ifs <;> omega
-theorem topPathSave_le_two (leaf : Nat) : CanonicalPolicy.topPathSave leaf ≤ 2 := by
-  unfold CanonicalPolicy.topPathSave CanonicalPolicy.topPairSave
-  split_ifs <;> omega
-theorem root_floor (index : Nat) : Policy75Safe23.threshold 0 (requiredCredit index)=rootFloor index := by
+
+/-- The top floor `max 16 (pool-57)` is 17 exactly when the top path saves nothing (pool 74). -/
+theorem rootPool_floor (leaf : Nat) :
+    Policy75Safe23.threshold 0 (rootPool leaf)=if CanonicalPolicy.topPathSave leaf=0 then 17 else 16 := by
+  have h : CanonicalPolicy.topPathSave leaf≤2 := by
+    unfold CanonicalPolicy.topPathSave CanonicalPolicy.topPairSave
+    split_ifs <;> omega
   rw [Policy75Safe23.threshold_top]
-  have h := topPathSave_le_two (route index 0).1
-  unfold rootFloor requiredCredit rootPool
+  unfold rootPool
   split_ifs <;> omega
-theorem shared_root_floor (index : Nat) :
-    Policy75Safe23.threshold 0 (SigGolfCandidate.Research.SharedForest.requiredCredit index)=rootFloor index := by
-  rw [Policy75Safe23.threshold_top]
-  have h := topPathSave_le_two (route index 0).1
-  unfold rootFloor SigGolfCandidate.Research.SharedForest.requiredCredit SigGolfCandidate.Research.SharedForest.LocalRoute.pool
+
+theorem root_floor (index : Nat) : Policy75Safe23.threshold 0 (requiredCredit index)=
+    if CanonicalPolicy.topPathSave (route index 0).1=0 then 17 else 16 := rootPool_floor _
+
+theorem root_floor_bounds (index : Nat) :
+    16≤Policy75Safe23.threshold 0 (requiredCredit index) ∧ Policy75Safe23.threshold 0 (requiredCredit index)≤17 := by
+  rw [root_floor]
   split_ifs <;> omega
-theorem requiredCredit_eq (index : Nat) :
-    requiredCredit index=SigGolfCandidate.Research.SharedForest.requiredCredit index := rfl
 
 def searchPreparedLayers (cache : SigGolfCandidate.T3.Cache) (index : Nat) (prepared : PreparedRoots)
     (forest : PairRoot) : M (Option CanonicalLayers) := do
@@ -116,4 +114,5 @@ def policyHintsValid (index : Nat) (hints : BitVec 16) (digits : List (List Nat)
 
 
 #print axioms root_floor
+#print axioms root_floor_bounds
 end OuterSigning

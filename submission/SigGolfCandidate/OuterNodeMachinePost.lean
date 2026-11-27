@@ -7,7 +7,7 @@ open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGol
 open SigGolfCandidate.T3M OuterNodeMachineBlocks
 
 def recordAddr (s : MachineState) : Word :=
-  (((s.getMem (s.getReg .x10+16#64) >>> 16) &&& 15#64) ||| 2032#64) <<< 12
+  (((s.getMem (s.getReg .x10+16#64) >>> 11) &&& 15#64) ||| 2032#64) <<< 12
 
 theorem b_post_obligs (s : MachineState) (input record : Nat) (ha : s.getReg .x10=BitVec.ofNat 64 input)
     (hi : input < 2^20) (hl : 2048 ≤ input) (hm : input % 8 = 0)

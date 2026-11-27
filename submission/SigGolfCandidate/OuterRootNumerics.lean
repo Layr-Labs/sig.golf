@@ -16,11 +16,15 @@ def initial72 (mask : Nat) : Nat :=
   | 4 => OuterGroundNumerics.initial72_4
   | 5 => OuterGroundNumerics.initial72_5
   | 6 => OuterGroundNumerics.initial72_6
-  | _ => OuterGroundNumerics.initial72_7
+  | 7 => OuterGroundNumerics.initial72_7
+  | 8 => OuterGroundNumerics.initial72_8
+  | 9 => OuterGroundNumerics.initial72_9
+  | 10 => OuterGroundNumerics.initial72_10
+  | _ => OuterGroundNumerics.initial72_11
 
 def initialAt (pool mask : Nat) : Nat := Tables.initialAt pool mask
 
-theorem root_checks72 : (List.range 8).all (fun mask => ClaudeWCT.Numerics.CanonicalCompression.recurrenceCheck ClaudeWCT.Numerics.CanonicalCompression.topDen
+theorem root_checks72 : (List.range 12).all (fun mask => ClaudeWCT.Numerics.CanonicalCompression.recurrenceCheck ClaudeWCT.Numerics.CanonicalCompression.topDen
     ClaudeWCT.Numerics.TopZero.topAcceptedHistogram 16 72 (Checks.row1 mask) (initial72 mask))=true := by decide +kernel
 
 theorem root_check_at (pool mask : Nat) (hlo : 72≤pool) (hhi : pool≤74) (hm : mask<12) :

@@ -803,12 +803,15 @@ theorem topTweak_ne_fts (heap' : Nat) {coord index heap : Nat} (hp : FP coord in
   have hn : FtsNew heap := ⟨hp.heap.1, by have := hp.heap.2; omega⟩
   have ht := congrArg tweakTag he
   rw [nodeTweak_top_tag, ClaudeWCT.WCT9.wctNodeHeader_tweakTag hp.1, if_pos hn] at ht
+  have hc9 := hp.1
   rcases topNodeWord_small_or_special heap' with hs | hs | hs
   · omega
   · rw [hs] at ht
     norm_num at ht
+    omega
   · rw [hs] at ht
     norm_num at ht
+    omega
 
 section FAvoid
 variable (secret : BitVec 256) (target : HashInput) (coord index heap : Nat) (ht : FQ coord index heap target)

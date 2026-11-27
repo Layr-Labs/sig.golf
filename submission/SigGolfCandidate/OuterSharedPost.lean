@@ -9,7 +9,7 @@ open RiscvZkvm.Rv64 SigGolfCandidate.T3
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv SigGolfCandidate.T3M
 open W9Machine
 
-def record (coord : Nat) : Nat := 8323072+(coord-1)*4096
+def record (coord : Nat) : Nat := 8323072+(15-coord)*4096
 def Extra (coord X : Nat) : Prop := X=1152 ∨ X=1160 ∨ X=record coord
 
 def Writes (L : W9Machine.Layout) (k : Fin 9) (raw : Fin 128) (X : Nat) : Prop :=

@@ -9152,7 +9152,7 @@ theorem ftsChainLow_lt (index coord selected chain step : Nat) :
   unfold ftsChainLow SigGolfCandidate.T3.ftsBias
   have := Nat.mod_lt chain (show 0 < 8 by decide)
   have := Nat.mod_lt step (show 0 < 4 by decide)
-  have := Nat.mod_lt (coord + 1) (show 0 < 16 by decide)
+  have := Nat.mod_lt coord (show 0 < 16 by decide)
   have := Nat.mod_lt selected (show 0 < 128 by decide)
   have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
   have hX := ftsSelMul_mul_facts coord selected
@@ -9167,7 +9167,8 @@ theorem ftsChainLow_byte0 (index coord selected chain step : Nat) :
   have := Nat.mod_lt chain (show 0 < 8 by decide)
   omega
 theorem ftsChainLow_tag (index coord selected chain step : Nat) :
-    ftsChainLow index coord selected chain step / 256 % 256 = (250 + chain % 8) % 256 := by
+    ftsChainLow index coord selected chain step / 256 % 256 = (506 + chain % 8 - 8 * (coord % 16)) % 256 := by
+  have := Nat.mod_lt coord (show 0 < 16 by decide)
   unfold ftsChainLow SigGolfCandidate.T3.ftsBias
   have hX := ftsSelMul_mul_facts coord selected
   generalize ftsSelMul coord * (selected % 128) = X at *
@@ -9223,7 +9224,7 @@ theorem chainInput_eq (index coord selected chain step : Nat) (value : Digest) :
         zero16 ++ bytesLE 16 value := rfl
 theorem ftsLeafLow_lt (index coord selected : Nat) : ftsLeafLow index coord selected < 2 ^ 64 := by
   unfold ftsLeafLow SigGolfCandidate.T3.ftsBiasN
-  have := Nat.mod_lt (coord + 1) (show 0 < 16 by decide)
+  have := Nat.mod_lt coord (show 0 < 16 by decide)
   have := Nat.mod_lt selected (show 0 < 128 by decide)
   have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
   have hX := ftsSelMul_mul_facts coord selected
@@ -9235,7 +9236,8 @@ theorem ftsLeafLow_byte0 (index coord selected : Nat) : ftsLeafLow index coord s
   have hX := ftsSelMul_mul_facts coord selected
   generalize ftsSelMul coord * (selected % 128) = X at *
   omega
-theorem ftsLeafLow_byte1 (index coord selected : Nat) : ftsLeafLow index coord selected / 2 ^ 8 % 256 = 248 := by
+theorem ftsLeafLow_byte1 (index coord selected : Nat) : ftsLeafLow index coord selected / 2 ^ 8 % 256 = 248 - 8 * (coord % 16) := by
+  have := Nat.mod_lt coord (show 0 < 16 by decide)
   unfold ftsLeafLow SigGolfCandidate.T3.ftsBiasN
   have hX := ftsSelMul_mul_facts coord selected
   generalize ftsSelMul coord * (selected % 128) = X at *
@@ -9265,7 +9267,7 @@ theorem ftsLeafHeader_firstByte (index coord selected : Nat) :
     (ftsLeafHeader index coord selected).toNat % 256 = 0 := by
   rw [ftsLeafHeader_toNat, ftsLeafLow_byte0]
 theorem ftsLeafHeader_byte1 (index coord selected : Nat) :
-    (ftsLeafHeader index coord selected).toNat / 2 ^ 8 % 256 = 248 := by
+    (ftsLeafHeader index coord selected).toNat / 2 ^ 8 % 256 = 248 - 8 * (coord % 16) := by
   rw [ftsLeafHeader_toNat, ftsLeafLow_byte1]
 theorem ftsLeafHeader_injective {i k j i' k' j' : Nat}
     (hi : i < 2 ^ 31) (hk : k < 16) (hj : j < 128) (hi' : i' < 2 ^ 31) (hk' : k' < 16) (hj' : j' < 128)
@@ -9279,12 +9281,12 @@ theorem wctNodeHeader_eq {coord : Nat} (hk : coord < 9) (index : Nat) {heap : Na
   rw [nodeTweak_fts (by omega) (by omega) _ hn, show 4 + coord - 4 = coord by omega]
   rfl
 /-- Packed FTS node low word (heaps `8..127`): `ftsLeafLow index coord 0 - heap`. -/
-def ftsNodeLowN (index coord heap : Nat) : Nat := SigGolfCandidate.T3.ftsBiasN (1537 - heap + (coord + 1) % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 33)
+def ftsNodeLowN (index coord heap : Nat) : Nat := SigGolfCandidate.T3.ftsBiasN (1537 - heap + (2 ^ 16 - 2 ^ 11 * (coord % 16)) + index % 2 ^ 31 * 2 ^ 33)
 theorem ftsNodeLowN_eq (index coord heap : Nat) :
-    ftsNodeLowN index coord heap = SigGolfCandidate.T3.ftsBiasN (1537 - heap + (coord + 1) % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 33) := rfl
+    ftsNodeLowN index coord heap = SigGolfCandidate.T3.ftsBiasN (1537 - heap + (2 ^ 16 - 2 ^ 11 * (coord % 16)) + index % 2 ^ 31 * 2 ^ 33) := rfl
 theorem ftsNodeLowN_lt (index coord heap : Nat) : ftsNodeLowN index coord heap < 2 ^ 64 := by
   rw [ftsNodeLowN_eq]; unfold SigGolfCandidate.T3.ftsBiasN
-  have := Nat.mod_lt (coord + 1) (show 0 < 16 by decide)
+  have := Nat.mod_lt coord (show 0 < 16 by decide)
   have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
   omega
 theorem wctNodeHeader_eqN {coord : Nat} (hk : coord < 9) (index : Nat) {heap : Nat} (hn : FtsNew heap) :
@@ -9350,8 +9352,9 @@ theorem wctNodeHeader_firstByteN {coord : Nat} (hk : coord < 9) (index : Nat) {h
   rw [wctNodeHeader_firstByte, if_pos hk, if_pos hn]
 
 theorem wctNodeHeader_byte1 {coord : Nat} (hk : coord < 9) (index heap : Nat) :
-    (wctNodeHeader coord index heap).toNat / 2 ^ 8 % 256 = if FtsNew heap then 247 else 248 := by
+    (wctNodeHeader coord index heap).toNat / 2 ^ 8 % 256 = (if FtsNew heap then 247 else 248) - 8 * coord := by
   rw [wctNodeHeader_toNat hk]
+  have hm : coord % 16 = coord := Nat.mod_eq_of_lt (by omega)
   by_cases hn : FtsNew heap
   · rw [if_pos hn, if_pos hn, ftsNodeLowN_eq]; unfold SigGolfCandidate.T3.ftsBiasN; obtain ⟨h8, h128⟩ := hn; omega
   · rw [if_neg hn, if_neg hn]

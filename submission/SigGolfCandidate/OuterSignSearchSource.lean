@@ -31,7 +31,7 @@ theorem top_pre (index : Nat) (hi : index<2^31) (pair : Digest×Digest)
     omega
   refine ⟨h.pc,h.ret,ht.x5,h.x8,?_,?_,h.x17,h.x26,h.x27,?_,?_,?_,Or.inl hr,
     h.left.1,h.left.2,hc,ht.z40,h.right.1,h.right.2,ht.table,ht.cf,ht.reward,ht.zt,
-    hf,(by intro;dsimp only [topArgs];rw [OuterSigning.root_floor,LocalRouteMachineHelpers.rootFloor_eq];simp only [OuterSigning.rootFloor,SigGolfCandidate.Route16Guard.floor,SigGolfCandidate.Route16Guard.pathSave,SigGolfCandidate.Route16Guard.pairSave,ClaudeWCT.WCT9.CanonicalPolicy.topPathSave,ClaudeWCT.WCT9.CanonicalPolicy.topPairSave,hl]),?_,fun _ => ht.t51⟩
+    hf,(by intro;dsimp only [topArgs];rw [Policy75Safe23.threshold_top];simp only [LocalRouteMachineHelpers.rootFloor,LocalRouteMachineHelpers.poolForLeaf,OuterSigning.requiredCredit,OuterSigning.rootPool]),?_,fun _ => ht.t51⟩
   · simpa [topArgs,hr] using h.x9
   · simpa only [topArgs,hl] using h.x18
   · change (route index 0).2<2^32;rw [hr];decide

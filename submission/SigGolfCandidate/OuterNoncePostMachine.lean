@@ -5,7 +5,7 @@ set_option maxRecDepth 100000
 namespace OuterNoncePostMachine
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 open SigGolfCandidate.T3M
-def postCode : List (BitVec 32) := [0x7f03b7,0x3b303,0x33b7,0xb463b823,0x7f23b7,0x3b303,0x23b7,0x4a63b823,0x7f43b7,0x3b303,0x23b7,0xe063b823,0x7f63b7,0x3b303,0x13b7,0x7663b823,0x7f73b7,0x3b303,0x13b7,0x4263b023]
+def postCode : List (BitVec 32) := [0x7fe3b7,0x3b303,0x33b7,0xb463b823,0x7fc3b7,0x3b303,0x23b7,0x4a63b823,0x7fa3b7,0x3b303,0x23b7,0xe063b823,0x7f83b7,0x3b303,0x13b7,0x7663b823,0x7f73b7,0x3b303,0x13b7,0x4263b023]
 sym_block postBlock := symRun {noAlias:=true} postCode (pcOf 88260) 30
 theorem counts : postBlock.res.steps=20 ∧ postBlock.res.cycles=20 := by decide +kernel
 theorem obligs (s : MachineState) : postBlock.res.obligs s := by
@@ -24,20 +24,20 @@ theorem frame (s : MachineState) (a : Word) (ha : a∉destinations) :
     simp only [Addr.eval,E.eval] at he
     subst a
     decide
-theorem nonce0 (s : MachineState) : (postBlock.res.toState s).getMem 11088=s.getMem 8323072 := by
+theorem nonce0 (s : MachineState) : (postBlock.res.toState s).getMem 11088=s.getMem 8380416 := by
   simp [Result.toState_getMem,postBlock.res,memEval_cons,memEval_nil,Addr.eval,E.eval]
-theorem nonce1 (s : MachineState) : (postBlock.res.toState s).getMem 9392=s.getMem 8331264 := by
+theorem nonce1 (s : MachineState) : (postBlock.res.toState s).getMem 9392=s.getMem 8372224 := by
   simp [Result.toState_getMem,postBlock.res,memEval_cons,memEval_nil,Addr.eval,E.eval]
-theorem nonce2 (s : MachineState) : (postBlock.res.toState s).getMem 7696=s.getMem 8339456 := by
+theorem nonce2 (s : MachineState) : (postBlock.res.toState s).getMem 7696=s.getMem 8364032 := by
   simp [Result.toState_getMem,postBlock.res,memEval_cons,memEval_nil,Addr.eval,E.eval]
-theorem nonce3 (s : MachineState) : (postBlock.res.toState s).getMem 6000=s.getMem 8347648 := by
+theorem nonce3 (s : MachineState) : (postBlock.res.toState s).getMem 6000=s.getMem 8355840 := by
   simp [Result.toState_getMem,postBlock.res,memEval_cons,memEval_nil,Addr.eval,E.eval]
 theorem nonce4 (s : MachineState) : (postBlock.res.toState s).getMem 5152=s.getMem 8351744 := by
   simp [Result.toState_getMem,postBlock.res,memEval_cons,memEval_nil,Addr.eval,E.eval]
 theorem run {im : Image} (hc : CodeAt im (pcOf 88260) postCode) (s : MachineState) (hp : s.pc=pcOf 88260) :
     ∃ t,Steps im s 20 20 t ∧ t.pc=pcOf 88280 ∧ RegsExcept s t [.x6,.x7] ∧
-      t.getMem 11088=s.getMem 8323072 ∧ t.getMem 9392=s.getMem 8331264 ∧
-      t.getMem 7696=s.getMem 8339456 ∧ t.getMem 6000=s.getMem 8347648 ∧ t.getMem 5152=s.getMem 8351744 ∧
+      t.getMem 11088=s.getMem 8380416 ∧ t.getMem 9392=s.getMem 8372224 ∧
+      t.getMem 7696=s.getMem 8364032 ∧ t.getMem 6000=s.getMem 8355840 ∧ t.getMem 5152=s.getMem 8351744 ∧
       ∀ a,a∉destinations→t.getMem a=s.getMem a := by
   refine ⟨postBlock.res.toState s,symRun_sound postBlock hc s hp (obligs s),rfl,?_,
     nonce0 s,nonce1 s,nonce2 s,nonce3 s,nonce4 s,frame s⟩

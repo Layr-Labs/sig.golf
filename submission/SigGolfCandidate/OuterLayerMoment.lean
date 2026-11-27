@@ -104,6 +104,13 @@ theorem V_layers (secret : BitVec 256) (z : ENNReal) (hz : 1 ≤ z)
   · decide
   · exact hfresh
 
+/-- `Tables.shift1_checked` over the 12 layer-1 masks (`s1 ≤ 2`). -/
+theorem shift1_12 (mask r : Nat) (hm : mask<12) (hr : r<58) :
+    (Checks.row1 mask)[r]?.getD 0 = (Checks.row1 (mask%4))[r-mask/4]?.getD 0 := by
+  have h := (List.all_eq_true.mp Tables.shift1_checked) mask (List.mem_range.mpr hm)
+  have hh := (List.all_eq_true.mp h) r (List.mem_range.mpr hr)
+  simpa only [Checks.row1,Tables.value1] using of_decide_eq_true hh
+
 noncomputable def initialValue (pool s1 s2 s3 : Nat) : ENNReal :=
   (OuterRootNumerics.initialAt pool (4*s1+2*s2+s3) : ENNReal)/ClaudeWCT.Numerics.CanonicalCompression.scale
 
@@ -132,7 +139,7 @@ theorem root_step (pool s1 s2 s3 : Nat) (hlo : 72 ≤ pool) (hhi : pool ≤ 74)
     have hres : pool-dcredit 0 dl<58 := hh
     have hm : (4*s1+2*s2+s3)%4=2*s2+s3 := by omega
     have hdiv : (4*s1+2*s2+s3)/4=s1 := by omega
-    rw [shift1 (4*s1+2*s2+s3) _ (by omega) hres,hm,hdiv]
+    rw [shift1_12 (4*s1+2*s2+s3) _ (by omega) hres,hm,hdiv]
     rfl
   rw [he] at h
   exact h
@@ -152,9 +159,9 @@ theorem V_layers_certified (secret : BitVec 256) (cache : SigGolfCandidate.T3.Ca
   let s1 := SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1
   let s2 := SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 2
   let s3 := SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 3
-  have hs1 : s1≤2 := SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave_le_two _ _
-  have hs2 : s2≤1 := SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave_le_one_of _ 2 (by decide)
-  have hs3 : s3≤1 := SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave_le_one_of _ 3 (by decide)
+  have hs1 : s1≤2 := CanonicalPolicy.lowerPathSave_le_two 1 _
+  have hs2 : s2≤1 := CanonicalPolicy.lowerPathSave_le_one 2 _
+  have hs3 : s3≤1 := CanonicalPolicy.lowerPathSave_le_one 3 _
   let E := (ClaudeWCT.W9.T3.CanonicalSearch.LocalRoute.envelope s2 s3 hs2 hs3).mono_z signing_z_ratio
   have hb := OuterSigning.requiredCredit_bounds index
   have hi := root_step (OuterSigning.requiredCredit index)

@@ -94,7 +94,7 @@ open SphincsSecurity (bytesLE bytesLE_injective)
 set_option debug.skipKernelTC true in
 theorem decodeProbe_of_hdrBlock_tagOutside {x : HashInput} {h : BitVec 128}
     (hx : hdrBlock x = bytesLE 16 h)
-    (ht : h.toNat / 256 % 256 < 250 ∨ 256 ≤ h.toNat / 256 % 256) : decodeProbe x = none := by
+    (ht : h.toNat / 256 % 256 < 130 ∨ h.toNat / 256 % 256 % 8 < 2) : decodeProbe x = none := by
   rw [decodeProbe_eq_none]
   intro a p c he
   rw [he, hdrBlock_probeInput] at hx
@@ -2257,7 +2257,7 @@ theorem topInput_nonEnc (coord index heap : Nat) (hcoord : coord < 9) (left pad 
     NonEnc (.inl (.inr (pad64 (WCT9.wctTopInput coord index heap left pad right)))) := by
   apply nonEnc_of_hdr _ (WCT9.wctNodeHeader coord index heap) ?_
     (SigGolfCandidate.T3.Security.Wots.Enc.notHyper_of_tag (by
-      rw [WCT9.wctNodeHeader_tweakTag hcoord]; split <;> decide))
+      rw [WCT9.wctNodeHeader_tweakTag hcoord]; split <;> omega))
   unfold WCT9.wctTopInput
   rw [List.append_assoc (SphincsSecurity.bytesLE 16 left ++ SphincsSecurity.bytesLE 16 _)]
   exact WCT9.hdrBlock_pad64_prefix _ _ _ (SphincsSecurity.bytesLE_length _ _)
@@ -9795,11 +9795,11 @@ theorem hdrBlock_pad64_prefix (a : Digest) (h : BitVec 128) (rest : HashInput) :
     Guess.hdrBlock (pad64 (bytesLE 16 a ++ bytesLE 16 h ++ rest)) = bytesLE 16 h := by
   unfold Guess.hdrBlock pad64
   rw [List.append_assoc, List.append_assoc, List.drop_left' (bytesLE_length _ _), List.take_left' (bytesLE_length _ _)]
-theorem decodeProbe_prefix (a : Digest) {h : BitVec 128} (rest : HashInput) (ht : (h.toNat / 256 % 256 < 250 ∨ 256 ≤ h.toNat / 256 % 256)) :
+theorem decodeProbe_prefix (a : Digest) {h : BitVec 128} (rest : HashInput) (ht : (h.toNat / 256 % 256 < 130 ∨ h.toNat / 256 % 256 % 8 < 2)) :
     Guess.decodeProbe (pad64 (bytesLE 16 a ++ bytesLE 16 h ++ rest)) = none :=
   Guess.decodeProbe_of_hdrBlock_tagOutside (hdrBlock_pad64_prefix a h rest) ht
-theorem firstByte_header (t l tr p ix : Nat) (ht : t % 256 < 250) :
-    (header t l tr p ix).toNat / 256 % 256 < 250 ∨ 256 ≤ (header t l tr p ix).toNat / 256 % 256 := by
+theorem firstByte_header (t l tr p ix : Nat) (ht : t % 256 < 130) :
+    (header t l tr p ix).toNat / 256 % 256 < 130 ∨ (header t l tr p ix).toNat / 256 % 256 % 8 < 2 := by
   have h := header_tag t l tr p ix
   unfold tweakTag at h
   exact Or.inl (by omega)
@@ -9818,7 +9818,7 @@ theorem eval_congr_allowed {P : SigGolfCandidate.T3.Spec.Domain → Prop} {α : 
 section Free
 open SourceQueries
 theorem zero16_eq : zero16 = bytesLE 16 (0 : Digest) := by decide
-theorem shortHash_free (a : Digest) {h : BitVec 128} (rest : HashInput) (ht : (h.toNat / 256 % 256 < 250 ∨ 256 ≤ h.toNat / 256 % 256)) :
+theorem shortHash_free (a : Digest) {h : BitVec 128} (rest : HashInput) (ht : (h.toNat / 256 % 256 < 130 ∨ h.toNat / 256 % 256 % 8 < 2)) :
     AllQueriesSatisfy (shortHash (bytesLE 16 a ++ bytesLE 16 h ++ rest)) WFree := by
   unfold shortHash publicHash
   exact bind_allowed WFree ((allQueriesSatisfy_query_iff _ _).mpr (decodeProbe_prefix a rest ht))
@@ -9835,10 +9835,10 @@ theorem decodeProbe_of_hdrBlock_low {x : HashInput} {h : BitVec 128} (hx : Guess
   have hl := WCT9.ftsChainLow_lt a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val p.val
   rw [← hh, WCT9.ftsChainHeader_toNat, Nat.mod_eq_of_lt (by omega)] at ht
   omega
-/-- Probe separation: chain tags occupy 250 through 255, step bytes occupy 0 through 3,
+/-- Probe separation (C31): chain tags are at least 130 with tag % 8 in 2..7, step bytes occupy 0 through 3,
 and every translated FTS word is at least 4096. -/
 theorem shortHash_free' (a : Digest) {h : BitVec 128} (rest : HashInput)
-    (ht : (h.toNat / 256 % 256 < 250 ∨ 256 ≤ h.toNat / 256 % 256) ∨ 4 ≤ h.toNat % 256 ∨ h.toNat % 2 ^ 64 < 4096) :
+    (ht : (h.toNat / 256 % 256 < 130 ∨ h.toNat / 256 % 256 % 8 < 2) ∨ 4 ≤ h.toNat % 256 ∨ h.toNat % 2 ^ 64 < 4096) :
     AllQueriesSatisfy (shortHash (bytesLE 16 a ++ bytesLE 16 h ++ rest)) WFree := by
   rcases ht with ht | ht | ht
   · exact shortHash_free a rest ht
@@ -9850,7 +9850,7 @@ theorem shortHash_free' (a : Digest) {h : BitVec 128} (rest : HashInput)
       (decodeProbe_of_hdrBlock_low (hdrBlock_pad64_prefix a h rest) ht)) fun _ => pure_allowed _ _
 /-- C4: `shortHash_free'` for a hash keeping either half. -/
 theorem projHash_free' (high : Bool) (a : Digest) {h : BitVec 128} (rest : HashInput)
-    (ht : (h.toNat / 256 % 256 < 250 ∨ 256 ≤ h.toNat / 256 % 256) ∨ 4 ≤ h.toNat % 256 ∨ h.toNat % 2 ^ 64 < 4096) :
+    (ht : (h.toNat / 256 % 256 < 130 ∨ h.toNat / 256 % 256 % 8 < 2) ∨ 4 ≤ h.toNat % 256 ∨ h.toNat % 2 ^ 64 < 4096) :
     AllQueriesSatisfy (projHash high (bytesLE 16 a ++ bytesLE 16 h ++ rest)) WFree := by
   have hs := shortHash_free' a rest ht
   unfold shortHash publicHash at hs
@@ -9860,9 +9860,8 @@ theorem projHash_free' (high : Bool) (a : Digest) {h : BitVec 128} (rest : HashI
 /- C4 (b3cc11b's `nodeTweak_probe_safeS`): every node tweak is probe-safe; the top labels by their low word
 `topNodeWord heap < 4096`. -/
 set_option debug.skipKernelTC true in
-theorem nodeTweak_probe_safeS (tag lay tree heap : Nat) (htag : tag % 256 < 250) :
-    ((nodeTweak tag lay tree heap).toNat / 256 % 256 < 250 ∨
-      256 ≤ (nodeTweak tag lay tree heap).toNat / 256 % 256) ∨
+theorem nodeTweak_probe_safeS (tag lay tree heap : Nat) (htag : tag % 256 < 130) :
+    ((nodeTweak tag lay tree heap).toNat / 256 % 256 < 130 ∨ (nodeTweak tag lay tree heap).toNat / 256 % 256 % 8 < 2) ∨
     4 ≤ (nodeTweak tag lay tree heap).toNat % 256 ∨
       (nodeTweak tag lay tree heap).toNat % 2 ^ 64 < 4096 := by
   by_cases ht : tag = 3 ∧ lay = 0
@@ -9871,14 +9870,14 @@ theorem nodeTweak_probe_safeS (tag lay tree heap : Nat) (htag : tag % 256 < 250)
     unfold tweakLow topNodeWord at hl
     dsimp only at hl
     split_ifs at hl
-    · left; left; omega
-    · left; left; omega
+    · left; omega
+    · left; omega
     · right; right; omega
   · by_cases hlow : tag = 3 ∧ lay < 4
     · obtain ⟨rfl,h4⟩ := hlow
       have hg := nodeTweak_lower_tag (by omega : lay ≠ 0) h4 tree heap
       unfold tweakTag at hg
-      exact Or.inl (Or.inl (by omega))
+      exact Or.inl (by omega)
     · by_cases hf : tag = 3 ∧ lay < 13
       · obtain ⟨rfl,h13⟩ := hf
         have h4 : 4 ≤ lay := by omega
@@ -9891,12 +9890,12 @@ theorem nodeTweak_probe_safeS (tag lay tree heap : Nat) (htag : tag % 256 < 250)
           unfold FtsNew at hn
           exact Or.inr (Or.inl (by omega))
         · rw [if_neg hn] at htag
-          exact Or.inl (Or.inl (by omega))
+          exact Or.inl (by omega)
       · rw [nodeTweak_other hf]
         have hg := header_tag tag lay tree 0 heap
         unfold tweakTag at hg
-        exact Or.inl (Or.inl (by omega))
-theorem shortHash_header_free (a : Digest) (t l tr p ix : Nat) (rest : HashInput) (ht : t % 256 < 250) :
+        exact Or.inl (by omega)
+theorem shortHash_header_free (a : Digest) (t l tr p ix : Nat) (rest : HashInput) (ht : t % 256 < 130) :
     AllQueriesSatisfy (shortHash (bytesLE 16 a ++ bytesLE 16 (header t l tr p ix) ++ rest)) WFree :=
   shortHash_free a rest (firstByte_header t l tr p ix ht)
 theorem privatePair_free {t : Nat} (l tr p ix : Nat) (ht : t % 256 ≠ 8) :
@@ -9960,9 +9959,9 @@ theorem leafHash_free (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
   · apply (allQueriesSatisfy_query_iff _ _).mpr
     change Guess.decodeProbe (pad64 (leafInput lay tree leaf ends)) = none
     exact Guess.decodeProbe_of_hdrBlock_tagOutside (ClaudeWCT.W9.T3M.Extract.hdrBlock_leafInput lay tree leaf ends)
-      (by have := leafTweak_tag lay tree leaf; unfold tweakTag at this; exact Or.inl (by omega))
+      (by have := leafTweak_tag lay tree leaf; unfold tweakTag at this; omega)
   · intro _; exact pure_allowed _ _
-theorem nodeHash_free (tag lay tree heap : Nat) (left right : Digest) (ht : tag % 256 < 250) :
+theorem nodeHash_free (tag lay tree heap : Nat) (left right : Digest) (ht : tag % 256 < 130) :
     AllQueriesSatisfy (nodeHash tag lay tree heap left right) WFree := by
   unfold nodeHash
   rw [List.append_assoc]
@@ -9995,11 +9994,11 @@ theorem buildLeaf_free (lay : Layer) (tree leaf : Nat) (digits : List Nat) (sign
     split
     · exact pure_allowed _ _
     · exact bind_allowed WFree (leafHash_free _ _ _ _) fun _ => pure_allowed _ _
-theorem buildLevel_free (tag lay tree h level : Nat) (nodes : List Digest) (ht : tag % 256 < 250) :
+theorem buildLevel_free (tag lay tree h level : Nat) (nodes : List Digest) (ht : tag % 256 < 130) :
     AllQueriesSatisfy (buildLevel tag lay tree h level nodes) WFree := by
   unfold buildLevel
   exact mapM_allowed WFree _ _ fun _ => nodeHash_free _ _ _ _ _ _ ht
-theorem buildLevels_free (tag lay tree h : Nat) (leaves : List Digest) (ht : tag % 256 < 250) :
+theorem buildLevels_free (tag lay tree h : Nat) (leaves : List Digest) (ht : tag % 256 < 130) :
     AllQueriesSatisfy (buildLevels tag lay tree h leaves) WFree := by
   unfold buildLevels
   exact foldlM_allowed WFree _ _ (fun levels level =>
@@ -10186,7 +10185,7 @@ theorem counterSearch_free (lay : Layer) (tree leaf : Nat) (message : Digest) (c
       unfold counterSearch
       apply bind_allowed WFree
       · unfold encodingInput
-        exact shortHash_free _ _ (by have := rowTweak_tag lay tree leaf; unfold tweakTag at this; exact Or.inl (by omega))
+        exact shortHash_free _ _ (by have := rowTweak_tag lay tree leaf; unfold tweakTag at this; omega)
       · intro answer
         split
         · exact ih _
@@ -10195,7 +10194,7 @@ theorem digest_free (rho : Digest) (message : Message) (counter : BitVec 32) :
     AllQueriesSatisfy (digest rho message counter) WFree := by
   unfold digest publicHash digestInput
   exact (allQueriesSatisfy_query_iff _ _).mpr
-    (decodeProbe_prefix _ _ (by have := digestHeader_tag counter; unfold tweakTag at this; exact Or.inl (by omega)))
+    (decodeProbe_prefix _ _ (by have := digestHeader_tag counter; unfold tweakTag at this; omega))
 theorem wctDigestSearch_free (rho : Digest) (message : Message) (counter fuel : Nat) :
     AllQueriesSatisfy (WCT9.digestSearch rho message counter fuel) WFree := by
   induction fuel generalizing counter with
@@ -10223,7 +10222,7 @@ theorem layerEncodingPublic_free (lay : Layer) (tree leaf : Nat) (msg : WCT9.Lay
   apply (allQueriesSatisfy_query_iff _ _).mpr
   change Guess.decodeProbe (pad64 (WCT9.layerEncodingInput lay tree leaf msg counter)) = none
   exact Guess.decodeProbe_of_hdrBlock_tagOutside (ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInput lay tree leaf msg counter)
-    (by have := rowTweak_tag lay tree leaf; unfold tweakTag at this; exact Or.inl (by omega))
+    (by have := rowTweak_tag lay tree leaf; unfold tweakTag at this; omega)
 theorem layerEncoding_free (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (counter : BitVec 32) :
     AllQueriesSatisfy (ClaudeWCT.WCT9.encodingHash lay (WCT9.layerEncodingInput lay tree leaf msg counter)) WFree := by
   rw [ClaudeWCT.WCT9.allQueries_encodingHash_iff]
@@ -10232,7 +10231,7 @@ theorem layerEncoding_free (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg)
   · apply (allQueriesSatisfy_query_iff _ _).mpr
     change Guess.decodeProbe (pad64 (WCT9.layerEncodingInput lay tree leaf msg counter)) = none
     exact Guess.decodeProbe_of_hdrBlock_tagOutside (ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInput lay tree leaf msg counter)
-      (by have := rowTweak_tag lay tree leaf; unfold tweakTag at this; exact Or.inl (by omega))
+      (by have := rowTweak_tag lay tree leaf; unfold tweakTag at this; omega)
   · intro _; exact pure_allowed _ _
 theorem signLayersBC_free (cache : SigGolfCandidate.T3.Cache) (index n : Nat) (msg : WCT9.LayerMsg) :
     AllQueriesSatisfy (WCT9.signLayersBC cache index n msg) WFree :=
@@ -10241,7 +10240,7 @@ set_option debug.skipKernelTC true in
 theorem wctLeafHash_free (index coord selected : Nat) (ends : List Digest) :
     AllQueriesSatisfy (WCT9.leafHash index coord selected ends) WFree := by
   unfold WCT9.leafHash
-  exact shortHash_free _ _ (by have := WCT9.ftsLeafHeader_tweakTag index coord selected; unfold tweakTag at this; exact Or.inl (by omega))
+  exact shortHash_free _ _ (by have := WCT9.ftsLeafHeader_tweakTag index coord selected; unfold tweakTag at this; omega)
 theorem wctForestPk_free (index : Nat) (pairs : List (Digest × Digest)) :
     AllQueriesSatisfy (WCT9.forestPk index pairs) WFree := by
   unfold WCT9.forestPk WCT9.forestInput
@@ -10252,9 +10251,9 @@ theorem wctLeafHashP_free (index coord selected : Nat) (pad : Digest) (ends : Li
     AllQueriesSatisfy (WCT9.leafHashP index coord selected pad ends) WFree := by
   unfold WCT9.leafHashP WCT9.leafInputP
   rw [List.append_assoc (bytesLE 16 _ ++ bytesLE 16 _) (bytesLE 16 pad)]
-  exact shortHash_free _ _ (by have := WCT9.ftsLeafHeader_tweakTag index coord selected; unfold tweakTag at this; exact Or.inl (by omega))
+  exact shortHash_free _ _ (by have := WCT9.ftsLeafHeader_tweakTag index coord selected; unfold tweakTag at this; omega)
 theorem highHash_free' (a : Digest) {h : BitVec 128} (rest : HashInput)
-    (ht : (h.toNat / 256 % 256 < 250 ∨ 256 ≤ h.toNat / 256 % 256) ∨ 4 ≤ h.toNat % 256) :
+    (ht : (h.toNat / 256 % 256 < 130 ∨ h.toNat / 256 % 256 % 8 < 2) ∨ 4 ≤ h.toNat % 256) :
     AllQueriesSatisfy (WCT9.highHash (bytesLE 16 a ++ bytesLE 16 h ++ rest)) WFree := by
   unfold WCT9.highHash publicHash
   rcases ht with ht | ht
@@ -10269,8 +10268,8 @@ theorem wctLeafHashH_free (heap index coord selected : Nat) (pad : Digest) (ends
   unfold WCT9.leafHashH WCT9.leafInputP
   rw [List.append_assoc (bytesLE 16 _ ++ bytesLE 16 _) (bytesLE 16 pad), WCT9.ftsHash_eq]
   split
-  · exact highHash_free' _ _ (Or.inl (by have := WCT9.ftsLeafHeader_tweakTag index coord selected; unfold tweakTag at this; exact Or.inl (by omega)))
-  · exact shortHash_free _ _ (by have := WCT9.ftsLeafHeader_tweakTag index coord selected; unfold tweakTag at this; exact Or.inl (by omega))
+  · exact highHash_free' _ _ (Or.inl (by have := WCT9.ftsLeafHeader_tweakTag index coord selected; unfold tweakTag at this; omega))
+  · exact shortHash_free _ _ (by have := WCT9.ftsLeafHeader_tweakTag index coord selected; unfold tweakTag at this; omega)
 set_option debug.skipKernelTC true in
 theorem wctTopHash_free (coord index heap : Nat) (left pad right : Digest) :
     AllQueriesSatisfy (WCT9.wctTopHash coord index heap left pad right) WFree := by
@@ -10290,7 +10289,7 @@ theorem wctTopHash_free (coord index heap : Nat) (left pad right : Digest) :
       have hg := nodeTweak_fts_tag (lay := WCT9.nodeLayer coord) (by unfold WCT9.nodeLayer; omega) (by unfold WCT9.nodeLayer; omega) index heap
       rw [if_neg hn] at hg
       unfold tweakTag at hg
-      exact Or.inl (by omega)
+      omega
   · left; left
     rw [nodeTweak_other (by unfold WCT9.nodeLayer; omega)]
     have ht := header_tag 3 (WCT9.nodeLayer coord) index 0 heap

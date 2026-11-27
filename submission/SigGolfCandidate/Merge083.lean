@@ -543,10 +543,10 @@ theorem eval_pathE (s : MachineState) {sel : Nat} (h24 : s.getReg .x24 = BitVec.
   congr 1; ring
 theorem chainK_lt (c i : Nat) (hc : c < 9) (hi : i < 6) : chainK c i < 2 ^ 65 := by unfold chainK; omega
 theorem eval_qE (s : MachineState) {c i j index : Nat} (h18 : s.getReg .x18 = BitVec.ofNat 64 j)
-    (h22 : s.getReg .x22 = BitVec.ofNat 64 index) (hj : j < 128) (hk : chainK c i < 2 ^ 65) :
-    (qE c i).eval s = BitVec.ofNat 64 (index * 2 ^ 27 + j * 2 ^ 20 + chainK c i) := by
+    (h22 : s.getReg .x22 = BitVec.ofNat 64 index) (hj : j < 128) (hk : chainKR c i < 2 ^ 65) :
+    (qE c i).eval s = BitVec.ofNat 64 (index * 2 ^ 27 + j * 2 ^ 20 + chainKR c i) := by
   show BinOp.eval .add (BinOp.eval .or (BinOp.eval .sll (s.getReg .x22) (BitVec.ofNat 64 27))
-    (BinOp.eval .sll (s.getReg .x18) (BitVec.ofNat 64 20))) (BitVec.ofNat 64 (chainK c i)) = _
+    (BinOp.eval .sll (s.getReg .x18) (BitVec.ofNat 64 20))) (BitVec.ofNat 64 (chainKR c i)) = _
   rw [binop_sll _ _ (by norm_num), binop_sll _ _ (by norm_num), h18, h22, ofNat_shl, ofNat_shl]
   simp only [BinOp.eval]
   rw [ofNat_or_add (j * 2 ^ 20) index 27 (by omega), ofNat_add_ofNat]
@@ -781,7 +781,7 @@ theorem headerE_eval (s : MachineState) {c j index : Nat}
   have hs : ClaudeWCT.WCT9.ftsSelShift c < 64 := by unfold ClaudeWCT.WCT9.ftsSelShift; split_ifs <;> decide
   rw [mkAdd_eval,eval_bin,eval_sll_reg s h22 33 (by decide),eval_sll_reg s h18 _ hs,eval_cE]
   change (BitVec.ofNat 64 (index*2^33)+BitVec.ofNat 64 (j*2^ClaudeWCT.WCT9.ftsSelShift c))+
-    BitVec.ofNat 64 ((2^64-2048)+65536*c) = _
+    BitVec.ofNat 64 (2^64-2048-2048*c) = _
   rw [ofNat_add_ofNat,ofNat_add_ofNat]
   apply congrArg (BitVec.ofNat 64)
   unfold leafLo7
@@ -810,7 +810,7 @@ theorem loE_eval (s : MachineState) {c index : Nat} (h22:s.getReg .x22=BitVec.of
     (loE c).eval s=BitVec.ofNat 64 (nodeLo7 c index) := by
   unfold loE
   rw[mkAdd_eval,eval_bin,eval_cE,binop_sll _ _ (by decide)]
-  change ((s.getReg .x22) <<< 33)+BitVec.ofNat 64 ((2^64-2048)+65536*c)=_
+  change ((s.getReg .x22) <<< 33)+BitVec.ofNat 64 (2^64-2048-2048*c)=_
   rw[h22,ofNat_shl,ofNat_add_ofNat]
   apply congrArg (BitVec.ofNat 64)
   unfold nodeLo7

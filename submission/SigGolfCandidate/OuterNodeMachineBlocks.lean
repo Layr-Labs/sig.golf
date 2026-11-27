@@ -20,7 +20,7 @@ theorem b_failure_counts : b_failure.res.steps=3 ∧ b_failure.res.cycles=3 := b
 def b_lastCode : List (BitVec 32) := [0xfff30313]
 sym_block b_last := symRun {noAlias:=true} b_lastCode (pcOf 246511) 40
 theorem b_last_counts : b_last.res.steps=1 ∧ b_last.res.cycles=1 := by decide +kernel
-def b_postCode : List (BitVec 32) := [0x1053383,0x103d393,0xf3f393,0x7f03e393,0xc39393,0x63b023,0x48003303,0x48803383,0xfa9ff06f]
+def b_postCode : List (BitVec 32) := [0x1053383,0xb3d393,0xf3f393,0x7f03e393,0xc39393,0x63b023,0x48003303,0x48803383,0xfa9ff06f]
 sym_block b_post := symRun {noAlias:=true} b_postCode (pcOf 246512) 40
 theorem b_post_counts : b_post.res.steps=9 ∧ b_post.res.cycles=9 := by decide +kernel
 def c_saveCode : List (BitVec 32) := [0x48603023,0x48703423,0x313,0x2053423]
@@ -38,7 +38,7 @@ theorem c_failure_counts : c_failure.res.steps=3 ∧ c_failure.res.cycles=3 := b
 def c_lastCode : List (BitVec 32) := [0xfff30313]
 sym_block c_last := symRun {noAlias:=true} c_lastCode (pcOf 235827) 40
 theorem c_last_counts : c_last.res.steps=1 ∧ c_last.res.cycles=1 := by decide +kernel
-def c_postCode : List (BitVec 32) := [0x1053383,0x103d393,0xf3f393,0x7f03e393,0xc39393,0x63b023,0x48003303,0x48803383,0xf99ff06f]
+def c_postCode : List (BitVec 32) := [0x1053383,0xb3d393,0xf3f393,0x7f03e393,0xc39393,0x63b023,0x48003303,0x48803383,0xf99ff06f]
 sym_block c_post := symRun {noAlias:=true} c_postCode (pcOf 235828) 40
 theorem c_post_counts : c_post.res.steps=9 ∧ c_post.res.cycles=9 := by decide +kernel
 #print axioms b_check_counts

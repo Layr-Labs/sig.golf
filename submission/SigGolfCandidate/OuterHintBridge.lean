@@ -17,10 +17,7 @@ theorem hintFloor_eq (index : Nat) (hints : BitVec 16) (lay : Layer) :
   by_cases h : lay=0
   · subst lay
     rw [if_pos rfl,if_pos rfl]
-    first
-    | rfl
-    | (rw [OuterSigning.root_floor]; exact (OuterSigning.shared_root_floor index).symm)
-    | (rw [OuterSigning.shared_root_floor, OuterSigning.root_floor])
+    rfl
   · rw [if_neg h,if_neg h]
 
 theorem valid_eq (index : Nat) (hints : BitVec 16) (ds : List (List Nat)) (ls : List Bool) :

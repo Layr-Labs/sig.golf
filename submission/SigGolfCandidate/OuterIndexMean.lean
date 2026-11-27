@@ -13,9 +13,9 @@ def meanInitial : Nat := OuterGroundNumerics.mean74
 def initialF (rootSave s1 s2 s3 : Nat) : Nat := OuterRootNumerics.initialAt (74-rootSave) (4*s1+2*s2+s3)
 def indexInitial (index : Nat) : Nat := LocalRouteUniform.evalIndex initialF index
 
+/-- Layer-1 saves 0/1/2 carry weights 2/66/60 (of 128); `2048 = 4*128*4`. -/
 theorem cases_checked : (∑ a : Fin 2,∑ b : Fin 2,∑ d : Fin 2,∑ e : Fin 2,
-    (2*initialF (a.val+b.val) 0 d.val e.val + 66*initialF (a.val+b.val) 1 d.val e.val +
-      60*initialF (a.val+b.val) 2 d.val e.val))≤2048*meanInitial := by decide +kernel
+    LocalRouteUniform.weighted initialF (a.val+b.val) d.val e.val)≤2048*meanInitial := by decide +kernel
 
 theorem index_initial_sum : (∑ i : Fin (2^31),indexInitial i.val)≤2^31*meanInitial := by
   unfold indexInitial

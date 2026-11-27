@@ -40,6 +40,27 @@ theorem qLeaf_mod8_of_row (a : Digest) (lay : Layer) (routed : Nat) (hr : routed
   rw [List.append_assoc,List.append_assoc,List.drop_left' (bytesLE_length 16 a),
     List.take_left' (bytesLE_length 16 _)]
 
+/-- C38: mod-128 versions (the layer-1 save depends on the leaf modulo 128). -/
+theorem qLeaf_mod128_of_row (a : Digest) (lay : Layer) (routed : Nat) (hr : routed<2^hyperW lay.val)
+    (hi : BitVec 64) (rest : List UInt8) :
+    qLeaf (toQ (pad64 (bytesLE 16 a ++ bytesLE 16 (hi ++ hyperWord lay.val routed) ++ rest)))%128 = routed%128 := by
+  apply qLeaf_mod128_of_header _ (pad64_aligned' _ (by simp [bytesLE_length])) lay routed hr hi
+  unfold pad64
+  rw [List.append_assoc,List.append_assoc,List.drop_left' (bytesLE_length 16 a),
+    List.take_left' (bytesLE_length 16 _)]
+
+theorem qLeaf_encodingP_mod128 (lay : Layer) (tree leaf : Nat)
+    (hr : tree*2^height lay+leaf<2^hyperW lay.val) (M : LayerMsg) (c : BitVec 32)
+    (pad : BitVec 96) (padR : Digest) (hi : BitVec 64) :
+    qLeaf (toQ (pad64 (ClaudeWCT.W9.T3M.layerEncodingInputP lay tree leaf M c pad padR hi)))%128 =
+      (tree*2^height lay+leaf)%128 := by
+  cases M with
+  | forest root =>
+    simpa only [ClaudeWCT.W9.T3M.layerEncodingInputP,pairEncodingInputH,List.append_assoc] using
+      qLeaf_mod128_of_row root lay _ hr hi (bytesLE 4 c ++ bytesLE 12 pad ++ bytesLE 16 padR)
+  | pair left right =>
+    simpa only [ClaudeWCT.W9.T3M.layerEncodingInputP,pairEncodingInputH,List.append_assoc] using
+      qLeaf_mod128_of_row left lay _ hr hi (bytesLE 4 c ++ bytesLE 12 pad ++ bytesLE 16 right)
 
 theorem qLeaf_encodingP_mod8 (lay : Layer) (tree leaf : Nat)
     (hr : tree*2^height lay+leaf<2^hyperW lay.val) (M : LayerMsg) (c : BitVec 32) (pad : BitVec 96)
@@ -57,40 +78,19 @@ theorem qLeaf_encodingP_mod8 (lay : Layer) (tree leaf : Nat)
   rw [hq]
   fin_cases lay <;> norm_num [height] <;> omega
 
-theorem qLeaf_mod128_of_row (a : Digest) (lay : Layer) (routed : Nat) (hr : routed<2^hyperW lay.val)
-    (hi : BitVec 64) (rest : List UInt8) :
-    qLeaf (toQ (pad64 (bytesLE 16 a ++ bytesLE 16 (hi ++ hyperWord lay.val routed) ++ rest)))%128 = routed%128 := by
-  apply qLeaf_mod128_of_header _ (pad64_aligned' _ (by simp [bytesLE_length])) lay routed hr hi
-  unfold pad64
-  rw [List.append_assoc,List.append_assoc,List.drop_left' (bytesLE_length 16 a),
-    List.take_left' (bytesLE_length 16 _)]
-
-
-theorem qLeaf_encodingP_mod128 (lay : Layer) (hl1 : lay.val = 1) (tree leaf : Nat)
-    (hr : tree*2^height lay+leaf<2^hyperW lay.val) (M : LayerMsg) (c : BitVec 32) (pad : BitVec 96)
-    (padR : Digest) (hi : BitVec 64) :
-    qLeaf (toQ (pad64 (ClaudeWCT.W9.T3M.layerEncodingInputP lay tree leaf M c pad padR hi)))%128 = leaf%128 := by
-  have hq : qLeaf (toQ (pad64 (ClaudeWCT.W9.T3M.layerEncodingInputP lay tree leaf M c pad padR hi)))%128 =
-      (tree*2^height lay+leaf)%128 := by
-    cases M with
-    | forest root =>
-      simpa only [ClaudeWCT.W9.T3M.layerEncodingInputP,pairEncodingInputH,List.append_assoc] using
-        qLeaf_mod128_of_row root lay _ hr hi (bytesLE 4 c ++ bytesLE 12 pad ++ bytesLE 16 padR)
-    | pair left right =>
-      simpa only [ClaudeWCT.W9.T3M.layerEncodingInputP,pairEncodingInputH,List.append_assoc] using
-        qLeaf_mod128_of_row left lay _ hr hi (bytesLE 4 c ++ bytesLE 12 pad ++ bytesLE 16 right)
-  rw [hq]
-  fin_cases lay <;> simp at hl1 <;> norm_num [height] <;> omega
-
 theorem lower_save_encodingP (lay : Layer) (tree leaf : Nat)
     (hr : tree*2^height lay+leaf<2^hyperW lay.val) (M : LayerMsg) (c : BitVec 32) (pad : BitVec 96)
     (padR : Digest) (hi : BitVec 64) :
     CanonicalPolicy.lowerPathSave lay.val
       (qLeaf (toQ (pad64 (ClaudeWCT.W9.T3M.layerEncodingInputP lay tree leaf M c pad padR hi)))) =
       CanonicalPolicy.lowerPathSave lay.val leaf := by
-  by_cases hl1 : lay.val = 1
-  · exact CanonicalPolicy.lowerPathSave_mod128 _ _ _ (qLeaf_encodingP_mod128 lay hl1 tree leaf hr M c pad padR hi)
-  · exact CanonicalPolicy.lowerPathSave_mod8_of _ _ _ hl1 (qLeaf_encodingP_mod8 lay tree leaf hr M c pad padR hi)
+  apply CanonicalPolicy.lowerPathSave_congr _ _ _ (qLeaf_encodingP_mod8 lay tree leaf hr M c pad padR hi)
+  intro hl
+  have hlay : lay = 1 := Fin.ext hl
+  subst hlay
+  have h := qLeaf_encodingP_mod128 1 tree leaf hr M c pad padR hi
+  rw [h, show height (1 : Layer) = 7 from rfl]
+  omega
 #print axioms lower_save_encodingP
 end TopRouteQueryLeaf
 
@@ -1522,7 +1522,7 @@ theorem layerIn_of_fts (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (idx : Nat) (
     (hbase8 : u.getReg .x8 = BitVec.ofNat 64 (WIT - 161)) (ha1 : u.getReg .x11 = 64)
     (hs10 : u.getReg .x26 = 6) (hTwo : u.getReg .x13 = 2)
     (hThree : u.getReg .x19 = 3) (hFour : u.getReg .x20 = 4) (hFive : u.getReg .x21 = 5)
-    (hCoord : u.getReg .x6 = 0x10000)
+    (hCoord : u.getReg .x6 = 0)
     (hbase : u.getReg .x2 = BitVec.ofNat 64 0xffbde0)
     (htop : ∀ k, k < 5 → u.getMem (BitVec.ofNat 64 (TOPLOAD + 8 * k)) =
       BitVec.ofNat 64 (topWords.getD k 0))
@@ -1531,7 +1531,7 @@ theorem layerIn_of_fts (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (idx : Nat) (
     (hd0 : u.getMem (BitVec.ofNat 64 (TOPB9 - 304)) = 0xFFF) :
     ∃ t, Steps image u 0 0 t ∧ LayerIn w pk idx 3 (.pair left right) t := by
   have hpk : preK 3 = [(.x5, 0)] ++ [(.x8, BitVec.ofNat 64 4095), (.x11, 64), (.x26, 6), (.x13, 2),
-      (.x2, BitVec.ofNat 64 0xffbde0), (.x19, 3), (.x20, 4), (.x21, 5), (.x6, 0x10000)] := rfl
+      (.x2, BitVec.ofNat 64 0xffbde0), (.x19, 3), (.x20, 4), (.x21, 5), (.x6, 0)] := rfl
   have hk : ∀ p ∈ preK 3, u.getReg p.1 = p.2 := by
     intro p hp
     rw [hpk] at hp
@@ -2590,7 +2590,7 @@ def mkFuelR (lay leaf : Nat) : Nat → Nat → Nat
   | _, 0 => 0
   | k, n + 1 => mkLvlSt lay leaf k + 1 + mkFuelR lay leaf (k + 1) n
 theorem mkLevelSkip_zero (lay k : Nat) : mkLevelSkip lay 0 k = 0 := by
-  simp [mkLevelSkip, mkSh, mkPairSkip, lowerSkipAt, ClaudeWCT.WCT9.CanonicalPolicy.topPairSave, l1SkipMask]
+  simp [mkLevelSkip, mkSh, mkPairSkip, lowerSkipAt, l1SkipMask, ClaudeWCT.WCT9.CanonicalPolicy.topPairSave]
 theorem mkLvlSt_le_zero (lay leaf k : Nat) : mkLvlSt lay leaf k ≤ mkLvlSt lay 0 k := by
   unfold mkLvlSt
   rw [mkLevelSkip_zero]
@@ -2689,14 +2689,14 @@ theorem mkCycAt_lower_saved (lay : T3.Layer) (leaf : Nat) (hl : lay≠0)
   · change leaf<64 at hLeaf
     have h := mkCycAt_lower2_checked ⟨leaf,hLeaf⟩
     simp only [Fin.val_mk] at h
-    have hs := ClaudeWCT.WCT9.CanonicalPolicy.lowerPathSave_le_one_of 2 leaf (by decide)
+    have hs := ClaudeWCT.WCT9.CanonicalPolicy.lowerPathSave_le_two 2 leaf
     have hm : mkCyc 2=151 := by decide +kernel
     change mkCycAt 2 leaf+ClaudeWCT.WCT9.CanonicalPolicy.lowerPathSave 2 leaf=mkCyc 2
     omega
   · change leaf<64 at hLeaf
     have h := mkCycAt_lower3_checked ⟨leaf,hLeaf⟩
     simp only [Fin.val_mk] at h
-    have hs := ClaudeWCT.WCT9.CanonicalPolicy.lowerPathSave_le_one_of 3 leaf (by decide)
+    have hs := ClaudeWCT.WCT9.CanonicalPolicy.lowerPathSave_le_two 3 leaf
     have hm : mkCyc 3=151 := by decide +kernel
     change mkCycAt 3 leaf+ClaudeWCT.WCT9.CanonicalPolicy.lowerPathSave 3 leaf=mkCyc 3
     omega

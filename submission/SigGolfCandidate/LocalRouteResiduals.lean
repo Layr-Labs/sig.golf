@@ -8,7 +8,7 @@ set_option linter.all false
 namespace LocalRouteResiduals
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv SigGolfCandidate.T3M
 open ClaudeWCT.WCT9.CanonicalPolicy
-def pre0Code : List (BitVec 32) := [0x66e37,0xe0e13,0x2942806f]
+def pre0Code : List (BitVec 32) := [0x66e37,0xe0e13,0x34c2806f]
 sym_block pre0 := symRun {noAlias:=true} pre0Code (pcOf 46933) 10
 def test0Code : List (BitVec 32) := [0x1536663]
 sym_block test0 := symRun {noAlias:=true} test0Code (pcOf 46936) 10
@@ -18,7 +18,6 @@ def sub0Code : List (BitVec 32) := [0x406a8ab3]
 sym_block sub0 := symRun {noAlias:=true} sub0Code (pcOf 46939) 10
 structure Code0 (im : Image) : Prop where
   pre : CodeAt im (pcOf 46933) pre0Code
-  helperJump : CodeAt im (pcOf 88060) LocalRouteMachineHelpers.expand1JumpCode
   helper : CodeAt im (pcOf 88106) LocalRouteMachineHelpers.expand1Code
   test : CodeAt im (pcOf 46936) test0Code
   zero : CodeAt im (pcOf 46937) zero0Code
@@ -35,14 +34,14 @@ theorem first0_steps {im : Image} (hc : Code0 im)
       RegsExcept s t [.x6,.x7,.x28] ∧ Frame s t (fun _=>False) := by
   let u := pre0.res.toState s
   have su : Steps im s 3 3 u := symRun_sound pre0 hc.pre s hp (by simp [pre0.res,rv_simp])
-  have pu : u.pc=pcOf 88060 := rfl
+  have pu : u.pc=pcOf 88106 := rfl
   have u28 : u.getReg .x28=0x66000#64 := rfl
   have u21 : u.getReg .x21=BitVec.ofNat 64 R := by simpa [u,pre0.res,rv_simp] using h21
   have um : u.getMem 417856#64=BitVec.ofNat 64 C := by simpa [u,pre0.res,rv_simp] using hm
   have ui : u.getMem 0x20550#64=BitVec.ofNat 64 index := by simpa [u,pre0.res,rv_simp] using hindex
   have ru : RegsExcept s u [.x28] := by intro r hr;cases r <;> simp at hr <;> rfl
   have fu : Frame s u (fun _=>False) := by intro A ha hn;rfl
-  obtain ⟨v,sv,pv,v6,rv,fv⟩ := LocalRouteMachineHelpers.expand1_steps hc.helperJump hc.helper u pu index C R
+  obtain ⟨v,sv,pv,v6,rv,fv⟩ := LocalRouteMachineHelpers.expand1_steps hc.helper u pu index C R
     hi hC (by omega) u28 u21 um ui
   let t := test0.res.toState v
   have st : Steps im v 1 1 t := symRun_sound test0 hc.test v pv (by simp [test0.res,rv_simp])

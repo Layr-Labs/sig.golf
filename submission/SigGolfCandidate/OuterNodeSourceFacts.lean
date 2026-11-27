@@ -21,7 +21,7 @@ theorem record {coord index heap A D : Nat} {left right : Digest} {s t : Machine
     (hh : heap=2 ∨ heap=3)
     (F : Input A D (OuterNodeRawModel.pre coord index heap left) (OuterNodeRawModel.rightBytes right) s)
     (hout : SourceOut coord heap s A D ret res t) :
-    t.getMem (BitVec.ofNat 64 (8323072+(coord-1)*4096))=BitVec.ofNat 64 res.1 := by
+    t.getMem (BitVec.ofNat 64 (8323072+(15-coord)*4096))=BitVec.ofNat 64 res.1 := by
   obtain ⟨raw,hkeep,ho⟩:=hout
   have hw:=OuterNodeInputHeader.input_header F hc9 hh
   have hrec:=OuterNodeRecordHeader.record_address s coord index hc hc9 hi (by

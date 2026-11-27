@@ -14,8 +14,8 @@ theorem length : code.length=51 := by decide +kernel
 
 def At (im : Image) : Prop :=
   CodeAt im (pcOf 26156) saveCode ∧ CodeAt im (pcOf 26158) addrCode ∧
-  CodeAt im (pcOf 26161) headerCode ∧ CodeAt im (pcOf 26167) heapCode ∧
-  CodeAt im (pcOf 26170) coordCode ∧ CodeAt im (pcOf 26175) b_startCode ∧
+  CodeAt im (pcOf 26161) lowCode ∧ CodeAt im (pcOf 26164) fieldCode ∧ CodeAt im (pcOf 26169) heapCode ∧
+  CodeAt im (pcOf 26172) coordCode ∧ CodeAt im (pcOf 26175) b_startCode ∧
   CodeAt im (pcOf 26177) b_preCode ∧ CodeAt im (pcOf 26179) b_checkCode ∧
   CodeAt im (pcOf 26182) b_retryCode ∧ CodeAt im (pcOf 26185) b_exhaustCode ∧
   CodeAt im (pcOf 26186) c_startCode ∧ CodeAt im (pcOf 26188) c_preCode ∧
@@ -25,8 +25,8 @@ def At (im : Image) : Prop :=
 
 theorem slices {im : Image} (hc : CodeAt im (pcOf 26156) code) : At im := by
   refine ⟨codeAt_sub 0 hc (by decide) (by rfl),codeAt_sub 2 hc (by decide) (by rfl),
-    codeAt_sub 5 hc (by decide) (by rfl),codeAt_sub 11 hc (by decide) (by rfl),
-    codeAt_sub 14 hc (by decide) (by rfl),codeAt_sub 19 hc (by decide) (by rfl),
+    codeAt_sub 5 hc (by decide) (by rfl),codeAt_sub 8 hc (by decide) (by rfl),codeAt_sub 13 hc (by decide) (by rfl),
+    codeAt_sub 16 hc (by decide) (by rfl),codeAt_sub 19 hc (by decide) (by rfl),
     codeAt_sub 21 hc (by decide) (by rfl),codeAt_sub 23 hc (by decide) (by rfl),
     codeAt_sub 26 hc (by decide) (by rfl),codeAt_sub 29 hc (by decide) (by rfl),
     codeAt_sub 30 hc (by decide) (by rfl),codeAt_sub 32 hc (by decide) (by rfl),

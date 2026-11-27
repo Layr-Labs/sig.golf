@@ -18,9 +18,9 @@ theorem run_raw {im : Image} {sk : BitVec 256} {A D coord index heap : Nat} {lef
     (hcode : CodeAt im (pcOf 26156) OuterSignImageLayout.code) (hp : s.pc=pcOf 26156) :
     TBSim im sk s 77855 (OuterNodeRawModel.raw coord index heap left right (cap coord-1) 0)
       (OuterSignExit.Out s A D) := by
-  obtain ⟨c0,ca,ch,ce,cc,bs,bq,bc,bf,bj,cs,cq,cck,cf,cj,cp,cd⟩:=OuterSignImageLayout.slices hcode
+  obtain ⟨c0,ca,cl,cfd,ce,cc,bs,bq,bc,bf,bj,cs,cq,cck,cf,cj,cp,cd⟩:=OuterSignImageLayout.slices hcode
   obtain ⟨u,hs,hu⟩:=OuterSignEntry.save_run (A:=A) (D:=D) c0 s hp
-  obtain ⟨v,hr,hv⟩:=OuterSignDispatch.route F hA hc hc9 hi hh ca ch ce cc hu
+  obtain ⟨v,hr,hv⟩:=OuterSignDispatch.route F hA hc hc9 hi hh ca cl cfd ce cc hu
   by_cases h8 : coord=8
   · subst coord
     simp only [if_pos rfl] at hv

@@ -11,7 +11,7 @@ open SigGolfCandidate.T3M.Search (ENC EOUT DIGITS NODE NOUT OutAt)
 open SigGolfCandidate.T3M.Expand (lD lk lWC lWM RlWit CHAIN LEAFPK)
 open SigGolfCandidate.T3M.Expand.BC (ltable rlWit_range)
 open ClaudeWCT.W9.Machine.Expand ClaudeWCT.W9.Machine.Expand.SharedCompactMain
-theorem not_outer (index A : Nat) (h1 : 0x7f0000 ≤ A) (h2 : A < 0x7f8000) :
+theorem not_outer (index A : Nat) (h1 : 0x7f0000 ≤ A) (h2 : A < 0x800000) :
     ¬SigGolfCandidate.T3M.Expand.SharedLayers.LW index 4 A := by
   rintro (h|h|⟨lay,_,h|h|h|h⟩)
   · unfold Search.CsW Search.DigW at h;simp only [ENC,EOUT,DIGITS] at h;omega

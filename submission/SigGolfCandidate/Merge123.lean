@@ -484,7 +484,8 @@ theorem gatePre_of_dgOut (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WB
       rw [hu.zero CTRW (by unfold CTRW WIT; omega) (by unfold CTRW; omega) (by unfold CTRW; omega)]
       rfl
   exact ⟨hu.pc, hglob, hu.known (.x11, 64) (by decide +kernel),
-    hu.bank.1, hu.digest, hu.bank.2.1, fun j hj hp => hu.wit j hj (by omega), hu.bank.2.2.1, hu.sp⟩
+    hu.bank.1, hu.digest, hu.bank.2.1, fun j hj hp => hu.wit j hj (by omega), hu.bank.2.2.1, hu.sp,
+    hu.known (.x6, 0) (by decide +kernel)⟩
 theorem prefixGood : PrefixGood W9Drv.SharedGate.Pre := by
   intro m pk w s hs P N C A Q K hK hcont
   have h := digestP_good m pk w s (init_ok m pk w s hs) (init_bank m pk w s hs) (P := P) (N := N + 1)
@@ -781,12 +782,12 @@ theorem verify_good
 
 theorem verify_good_6997
     (hprefix : W9Fin.V7.PrefixGood GatePre)
-    (fts : ∀ w : WB, FtsGoodByCost GatePre FtsOut ftsProgram (fun a => 855 + cost a) (P w))
+    (fts : ∀ w : WB, FtsGoodByCost GatePre FtsOut ftsProgram (fun a => 854 + cost a) (P w))
     (after : AfterGoodBudget FtsOut afterProgram 5231 P)
     (hnone : ∀ pk w i, afterProgram pk w i none = pure false)
     (m : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (w : WB) (s : MachineState)
     (hs : initialState submission .verify (m,pk,w) = some s) :
-    GoodQP (Pre (P w) cost 776 m w) s 10083 15784 True 6873
+    GoodQP (Pre (P w) cost 776 m w) s 10083 15784 True 6872
       (ccM (verifyP ftsProgram afterProgram m pk w) Kb) :=
   verify_good hprefix fts after hnone m pk w s hs
 end
@@ -824,7 +825,7 @@ theorem goodQP_frozen {P : Hash → Prop} {s : MachineState} {N C A : Nat} {Q : 
 
 theorem fts_installed {P : Hash → Prop} :
     FtsGoodByCost W9Drv.SharedGate.Pre installedOut installedFts
-      (fun answer => 855 + SigGolfCandidate.Research.SharedForest.jointAccountingCost answer) P := by
+      (fun answer => 854 + SigGolfCandidate.Research.SharedForest.jointAccountingCost answer) P := by
   intro pk w answer state N C A Q K hstate hnone hnext
   have h := W9Drv.SharedCoord.fts_good (P := P) pk w answer state N C A Q K hstate hnone
     (fun top next hnextState => goodQP_frozen.mpr (hnext top next hnextState))
@@ -887,7 +888,7 @@ abbrev pairedSubmission := ClaudeWCT.W9.T3M.Paired.submission
 def Inputs : Prop := ∀ (floors : SigGolfCandidate.T3.Layer→Nat), CreditFloors floors →
   ∀ (m : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (w : Bytes 21756) (s : MachineState),
   initialState SigGolfCandidate.T3M.submission .verify (m,pk,w)=some s →
-  GoodQP (fun hash => HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w) hash ∧ DigestCapOk hash m w) s 10083 15784 True 6873
+  GoodQP (fun hash => HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w) hash ∧ DigestCapOk hash m w) s 10083 15784 True 6872
     (ccM (ClaudeWCT.W9.T3M.Paired.verifyP m pk w) Kb)
 
 theorem init_paired (I : ClaudeWCT.W9.T3M.Images) (hI : I.verify=Images.verifyImage)
