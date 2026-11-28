@@ -15,7 +15,7 @@ open ClaudeWCT.W9.Machine.Sign
 theorem forestLook : LookOK OuterImages.signImage SharedBoundary.forLook :=
   OuterSignLook.transfer _ SharedBoundary.installed_forLook (OuterSignLook.gap0 _ (by decide +kernel)) (by decide +kernel) (by decide +kernel) (by decide +kernel)
 
-def work : Nat:=SigGolfCandidate.T3M.Sign.frontC+(1+((11*2^17)*200+20+OuterSignOutput.work))
+def work : Nat:=SigGolfCandidate.T3M.Sign.frontC+(1+((11*2^17)*200+28+OuterSignOutput.work))
 
 theorem sign (sk : SecretKey) (cache : Bytes 131072) (msg : SigGolfCandidate.T3.Message) :
     TBSim OuterImages.signImage sk (sinit sk cache msg) work
@@ -31,7 +31,7 @@ theorem sign (sk : SecretKey) (cache : Bytes 131072) (msg : SigGolfCandidate.T3.
   obtain ⟨hp,hb,hz⟩:=hfront
   obtain ⟨he,hb,hr,hz,hi,hranks⟩:=SharedState.digest_state hp hb hz hj
   exact OuterSignOutput.forest_tbsim OuterSignCoordinateCode.reuse OuterSignCoordinateCode.installed
-    forestLook t he hb hr hz hi (ClaudeWCT.WCT9.digestIndex_lt a) hranks
+    forestLook t he hb hr hz hi (SigGolfCandidate.T3.hyperIndex_lt (ClaudeWCT.WCT9.digestIndex a)) hranks
 #print axioms forestLook
 #print axioms sign
 end OuterSignMachine

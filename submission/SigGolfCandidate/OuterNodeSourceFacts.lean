@@ -11,20 +11,20 @@ open SigGolfCandidate.FtsGrind OuterNodeSearchInvariant OuterGroundCore OuterNod
 theorem runC {im : Image} {sk : BitVec 256} {b A D index heap : Nat} {left right : Digest}
     {s : MachineState} (hheap : heap=2 ∨ heap=3)
     (F : Input A D (OuterNodeRawModel.pre 8 index heap left) (OuterNodeRawModel.rightBytes right) s)
-    (hc : CodeAt im (pcOf b) OuterNodeHelper.cCode) (hp : s.pc=pcOf b) :
+    (hb : b+25<2^18) (hc : CodeAt im (pcOf b) (OuterNodeHelper.cCode b)) (hp : s.pc=pcOf b) :
     TBSim im sk s 77838 (nodeAt 8 index heap left right)
-      (SourceOut 8 heap s A D (pcOf b-4#64)) := by
-  exact OuterNodeSourceSim.runC hheap (OuterNodeInputHeader.input_label F (by decide) hheap (Or.inr rfl)) F hc hp
+      (SourceOutC heap s A D (pcOf 46862)) := by
+  exact OuterNodeSourceSim.runC hheap (OuterNodeInputHeader.input_hi8 F hheap) F hb hc hp
 
 theorem record {coord index heap A D : Nat} {left right : Digest} {s t : MachineState}
-    {ret : Word} {res : Nat × Digest} (hc : 1≤coord) (hc9 : coord<9) (hi : index<2^31)
+    {ret : Word} {res : Nat × Digest} (hc : 1≤coord) (hc9 : coord<9) (hc8 : coord≠8) (hi : index<2^31)
     (hh : heap=2 ∨ heap=3)
     (F : Input A D (OuterNodeRawModel.pre coord index heap left) (OuterNodeRawModel.rightBytes right) s)
     (hout : SourceOut coord heap s A D ret res t) :
     t.getMem (BitVec.ofNat 64 (8323072+(15-coord/2)*4096))=BitVec.ofNat 64 res.1 := by
   obtain ⟨raw,hkeep,ho⟩:=hout
-  have hw:=OuterNodeInputHeader.input_header F hc9 hh
-  have hrec:=OuterNodeRecordHeader.record_address s coord index hc hc9 hi (by
+  have hw:=OuterNodeInputHeader.input_header F hc9 hh (fun h=>hc8 h.1)
+  have hrec:=OuterNodeRecordHeader.record_address s coord index hc hc9 hc8 hi (by
     rw [F.x10,ofNat_add_ofNat];exact hw.1)
   have hn : raw.1=res.1 := congrArg Prod.fst hkeep
   have hr:=ho.record

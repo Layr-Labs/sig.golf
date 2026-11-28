@@ -21,85 +21,107 @@ theorem addr_run {im : Image} {A D : Nat} {s u : MachineState}
   refine ⟨t,symRun_sound addr hc u hu.at_pc (by simp [addr.res,Result.obligs,Oblig.all]),hu.readOnly hp hr ?_⟩
   intro a;rfl
 
-theorem header_words {A D coord index heap : Nat} {left right : Digest} {s u : MachineState} {pc : Word}
-    (F : Input A D (OuterNodeRawModel.pre coord index heap left) (OuterNodeRawModel.rightBytes right) s)
-    (hu : Ready s A D pc u) (hc : coord<9) (hh : heap=2 ∨ heap=3) :
-    u.getMem (u.getReg .x10+16#64)=ftsNodeWord coord index ∧
-    u.getMem (u.getReg .x10+24#64)=BitVec.ofNat 64 (ftsHeapLabelC coord heap) := by
-  have hw:=OuterNodeInputHeader.input_header F hc hh
+theorem read_word {A D : Nat} {pre right : List UInt8} {s u : MachineState} {pc : Word}
+    (F : Input A D pre right s) (hu : Ready s A D pc u) (off : Nat) (hoff : off=16 ∨ off=24) :
+    u.getMem (u.getReg .x10+BitVec.ofNat 64 off)=s.getMem (BitVec.ofNat 64 (A+off)) := by
   have gx : u.getReg .x10=BitVec.ofNat 64 A := by rw [hu.regs.get (by decide)];exact F.x10
   have ha:=F.ahi;have hlo:=F.alo;have hsep:=F.disjoint
-  constructor
-  · rw [gx,ofNat_add_ofNat,hu.frame.get (by omega) (by unfold Work;omega)];exact hw.1
-  · rw [gx,ofNat_add_ofNat,hu.frame.get (by omega) (by unfold Work;omega)];exact hw.2
+  rw [gx,ofNat_add_ofNat,hu.frame.get (by rcases hoff with rfl|rfl <;> omega)
+    (by unfold Work;rcases hoff with rfl|rfl <;> omega)]
 
-/-- C46: the label test: heap 3 (`3`) passes the first compare, heap 2 (`0xf1b02`) the second. -/
-theorem label_run {im : Image} {A D coord index heap : Nat} {left right : Digest} {s u : MachineState}
-    (F : Input A D (OuterNodeRawModel.pre coord index heap left) (OuterNodeRawModel.rightBytes right) s)
-    (hc9 : coord<9) (hh : heap=2 ∨ heap=3) (hco : coord%2=1 ∨ coord=8) (cls : ClsAt im)
-    (hu : Ready s A D (pcOf 26654) u) :
-    ∃ t,Steps im u (if heap=2 then 6 else 3) (if heap=2 then 6 else 3) t ∧ Ready s A D (pcOf 26660) t := by
-  have ua : u.getReg .x10=BitVec.ofNat 64 A := by rw [hu.regs.get (by decide)];exact F.x10
-  have hw:=(header_words F hu hc9 hh).2
-  rw [OuterNodeInputHeader.label_outer hco hh] at hw
-  obtain ⟨v,hs,hv,h6⟩:=clsA_step cls.a hu ua F.ahi F.alo F.aa
-  rcases hh with rfl|rfl
-  · have hn : ¬ u.getMem (u.getReg .x10+24#64)=3#64 := by rw [hw];decide
-    rw [if_neg hn] at hv
-    obtain ⟨t,ht,htv⟩:=clsB_step cls.b hv h6
-    have hy : u.getMem (u.getReg .x10+24#64)=989954#64 := by rw [hw];decide
-    rw [if_pos hy] at htv
-    exact ⟨t,hs.trans ht,htv⟩
-  · have hy : u.getMem (u.getReg .x10+24#64)=3#64 := by rw [hw];decide
-    rw [if_pos hy] at hv
-    exact ⟨v,hs,hv⟩
+/-- C47: steps of the outer-root route (address test, hook, classifier): coordinate 8 heap 2 / 3 `10` / `11`, odd
+coordinates heap 2 / 3 `23` / `28`. -/
+def routeSteps (coord heap : Nat) : Nat :=
+  if coord=8 then (if heap=2 then 10 else 11) else (if heap=2 then 23 else 28)
 
-/-- C46: steps of the outer-root route (heap 2 also runs the compare against `0xf1b02`). -/
-def routeSteps (heap : Nat) : Nat := if heap=2 then 20 else 17
-
-theorem routeSteps_le (heap : Nat) : routeSteps heap≤20 := by unfold routeSteps;split_ifs <;> omega
+theorem routeSteps_le (coord heap : Nat) : routeSteps coord heap≤28 := by unfold routeSteps;split_ifs <;> omega
+theorem routeSteps_le8 (heap : Nat) : routeSteps 8 heap≤11 := by unfold routeSteps;split_ifs <;> omega
 
 theorem route {im : Image} {A D coord index heap : Nat} {left right : Digest} {s u : MachineState}
     (F : Input A D (OuterNodeRawModel.pre coord index heap left) (OuterNodeRawModel.rightBytes right) s)
     (hA : A=328448) (hc : 1≤coord) (hc9 : coord<9) (hi : index<2^31) (hh : heap=2 ∨ heap=3)
     (hco : coord%2=1 ∨ coord=8) (ca : CodeAt im (pcOf 26158) addrCode) (ck : CodeAt im (pcOf 26161) hookCode) (cls : ClsAt im)
     (hu : Ready s A D (pcOf 26158) u) :
-    ∃ t,Steps im u (routeSteps heap) (routeSteps heap) t ∧
+    ∃ t,Steps im u (routeSteps coord heap) (routeSteps coord heap) t ∧
       Ready s A D (if coord=8 then pcOf 26186 else pcOf 26175) t := by
   have ga : u.getReg .x10=328448#64 := by
     rw [hu.regs.get (by decide),F.x10,hA]
   obtain ⟨v,hs,hv⟩:=addr_run ca hu ga
   obtain ⟨w,hw,hwv⟩:=hook_step ck hv
-  obtain ⟨x,hx,hxv⟩:=label_run F hc9 hh hco cls hwv
+  have wa : w.getReg .x10=BitVec.ofNat 64 A := by rw [hwv.regs.get (by decide)];exact F.x10
+  obtain ⟨x,hx,hxv⟩:=clsA_step cls.a hwv wa F.ahi F.alo F.aa
+  rw [read_word F hwv 24 (Or.inr rfl)] at hxv
   have xa : x.getReg .x10=BitVec.ofNat 64 A := by rw [hxv.regs.get (by decide)];exact F.x10
-  obtain ⟨y,hy,hyv⟩:=clsC_step cls.c hxv xa F.ahi F.alo F.aa
-  have lo : x.getMem (x.getReg .x10+16#64) <<< 53=0#64 := by
-    rw [(header_words F hxv hc9 hh).1];exact OuterSignFields.fts_low11 coord index hc9
-  rw [if_pos lo] at hyv
-  have ya : y.getReg .x10=BitVec.ofNat 64 A := by rw [hyv.regs.get (by decide)];exact F.x10
-  obtain ⟨z,hz,hzv,hz7,hz6⟩:=clsD_step cls.d hyv ya F.ahi F.alo F.aa
-  have fld : (y.getMem (y.getReg .x10+16#64) <<< 48) >>> 59=BitVec.ofNat 64 (31-coord/2) := by
-    rw [(header_words F hyv hc9 hh).1];exact OuterSignFields.fts_field coord index hc9
-  have hge : ¬ ((y.getMem (y.getReg .x10+16#64) <<< 48) >>> 59).toNat<27 := by
-    rw [fld,BitVec.toNat_ofNat,Nat.mod_eq_of_lt (by omega)];omega
-  rw [if_neg hge] at hzv
-  obtain ⟨e,he,hev⟩:=clsE_step cls.e hzv
-  have hcmp : z.getReg .x7=z.getReg .x6 ↔ coord=8 := by
-    rw [hz7,hz6,fld];exact OuterSignFields.coordinate coord hc9
-  have hst : routeSteps heap=3+(1+((if heap=2 then 6 else 3)+(3+(5+(1+1))))) := by
-    unfold routeSteps;split_ifs <;> rfl
   by_cases h8 : coord=8
-  · rw [if_pos (hcmp.mpr h8)] at hev
-    obtain ⟨t,ht,htv⟩:=clsCJ_step cls.cj hev
-    rw [if_pos h8]
-    exact ⟨t,by rw [hst];exact hs.trans (hw.trans (hx.trans (hy.trans (hz.trans (he.trans ht))))),htv⟩
-  · rw [if_neg (fun h=>h8 (hcmp.mp h))] at hev
-    obtain ⟨t,ht,htv⟩:=clsBJ_step cls.bj hev
+  · subst coord
+    obtain ⟨hlo,hhi⟩:=OuterNodeInputHeader.input_eight F hh
+    rw [if_pos rfl]
+    rcases hh with rfl|rfl
+    · simp only [↓reduceIte] at hlo hhi
+      rw [hhi,if_pos rfl] at hxv
+      obtain ⟨y,hy,hyv⟩:=clsZ_step cls.z hxv xa F.ahi F.alo F.aa
+      rw [read_word F hxv 16 (Or.inl rfl),hlo,if_pos (OuterSignFields.fts_low11 8 index (by decide))] at hyv
+      obtain ⟨t,ht,htv⟩:=clsCJ_step cls.cj hyv
+      refine ⟨t,?_,htv⟩
+      rw [show routeSteps 8 2=3+(1+(2+(3+1))) from rfl]
+      exact hs.trans (hw.trans (hx.trans (hy.trans ht)))
+    · have hne : ¬ ftsNodeWord 8 index=0#64 := fun he=>ftsNodeWord_ne_zero 8 index (by rw [he];rfl)
+      simp only [show ¬ (3:Nat)=2 by decide,if_false] at hlo hhi
+      rw [hhi,if_neg hne] at hxv
+      obtain ⟨y,hy,hyv⟩:=clsT_step cls.t hxv xa F.ahi F.alo F.aa
+      rw [read_word F hxv 16 (Or.inl rfl),hlo,if_pos rfl] at hyv
+      obtain ⟨t,ht,htv⟩:=clsCJ_step cls.cj hyv
+      refine ⟨t,?_,htv⟩
+      rw [show routeSteps 8 3=3+(1+(2+(4+1))) from rfl]
+      exact hs.trans (hw.trans (hx.trans (hy.trans ht)))
+  · have ho : coord%2=1 := by omega
     rw [if_neg h8]
-    exact ⟨t,by rw [hst];exact hs.trans (hw.trans (hx.trans (hy.trans (hz.trans (he.trans ht))))),htv⟩
+    -- the field tests from 26771
+    have tail : ∀ v : MachineState,Ready s A D (pcOf 26771) v →
+        ∃ t,Steps im v 9 9 t ∧ Ready s A D (pcOf 26175) t := by
+      intro v hv
+      have hlo:=(OuterNodeInputHeader.input_odd F hc9 hh ho).1
+      have va : v.getReg .x10=BitVec.ofNat 64 A := by rw [hv.regs.get (by decide)];exact F.x10
+      obtain ⟨p,hp,hpv⟩:=clsC_step cls.c hv va F.ahi F.alo F.aa
+      rw [read_word F hv 16 (Or.inl rfl),hlo,if_pos (OuterSignFields.fts_low11 coord index hc9)] at hpv
+      have pa : p.getReg .x10=BitVec.ofNat 64 A := by rw [hpv.regs.get (by decide)];exact F.x10
+      obtain ⟨q,hq,hqv⟩:=clsD_step cls.d hpv pa F.ahi F.alo F.aa
+      rw [read_word F hpv 16 (Or.inl rfl),hlo,if_neg (OuterSignFields.field_ge coord index hc9)] at hqv
+      obtain ⟨t,ht,htv⟩:=clsBJ_step cls.bj hqv
+      exact ⟨t,hp.trans (hq.trans ht),htv⟩
+    -- the label tests from 26758 (`hi` the high word: `0xf1b02` on heap 2, `K` on heap 3)
+    have front : ∀ hi : BitVec 64, s.getMem (BitVec.ofNat 64 (A+24))=hi → hi≠0#64 →
+        ∃ z,Steps im u 14 14 z ∧ Ready s A D (if hi=989954#64 then pcOf 26771 else pcOf 26766) z ∧
+          z.getReg .x6=hi := by
+      intro hi hhi hnz
+      have hlo:=(OuterNodeInputHeader.input_odd F hc9 hh ho).1
+      rw [hhi,if_neg hnz] at hxv
+      obtain ⟨y,hy,hyv⟩:=clsT_step cls.t hxv xa F.ahi F.alo F.aa
+      rw [read_word F hxv 16 (Or.inl rfl),hlo,if_neg (OuterSignFields.ne_T4 coord index hc9)] at hyv
+      have ya : y.getReg .x10=BitVec.ofNat 64 A := by rw [hyv.regs.get (by decide)];exact F.x10
+      obtain ⟨z,hz,hzv,hz6⟩:=clsH_step cls.h hyv ya F.ahi F.alo F.aa
+      rw [read_word F hyv 24 (Or.inr rfl),hhi] at hzv hz6
+      exact ⟨z,hs.trans (hw.trans (hx.trans (hy.trans hz))),hzv,hz6⟩
+    have hhi:=(OuterNodeInputHeader.input_odd F hc9 hh ho).2
+    rcases hh with rfl|rfl
+    · simp only [↓reduceIte] at hhi
+      obtain ⟨z,hz,hzv,-⟩:=front 989954#64 hhi (by decide)
+      rw [if_pos rfl] at hzv
+      obtain ⟨t,ht,htv⟩:=tail z hzv
+      refine ⟨t,?_,htv⟩
+      have e : routeSteps coord 2=14+9 := by unfold routeSteps;rw [if_neg h8,if_pos rfl]
+      rw [e];exact hz.trans ht
+    · simp only [show ¬ (3:Nat)=2 by decide,if_false] at hhi
+      obtain ⟨z,hz,hzv,hz6⟩:=front 3879747587#64 hhi (by decide)
+      rw [if_neg (by decide)] at hzv
+      obtain ⟨k,hk,hkv⟩:=clsK_step cls.k hzv hz6
+      rw [if_pos rfl] at hkv
+      obtain ⟨t,ht,htv⟩:=tail k hkv
+      refine ⟨t,?_,htv⟩
+      have e : routeSteps coord 3=14+(5+9) := by unfold routeSteps;rw [if_neg h8,if_neg (by decide)]
+      rw [e];exact hz.trans (hk.trans ht)
 
 #print axioms route
 
 #print axioms addr_run
-#print axioms label_run
 end OuterSignDispatch

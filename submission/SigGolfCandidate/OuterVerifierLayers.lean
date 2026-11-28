@@ -44,9 +44,9 @@ theorem dig (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Wi
 
 theorem layers (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness) (ns : List Nat)
     (n : Nat) (left right : Digest) (hn : n≤4) :
-    layersCanonicalBC (witEncOuter output w ns) (digestIndex output) n (.pair left right)=
-      SigGolfCandidate.Research.SharedForest.verifyLayers w (digestIndex output) n (.pair left right) := by
-  have hrow (lay : Layer):=ClaudeWCT.W9.T3M.PairedNonce.rowBlock_out (digestIndex output) lay
+    layersCanonicalBC (witEncOuter output w ns) (hyperIndex (digestIndex output)) n (.pair left right)=
+      SigGolfCandidate.Research.SharedForest.verifyLayers w (hyperIndex (digestIndex output)) n (.pair left right) := by
+  have hrow (lay : Layer):=ClaudeWCT.W9.T3M.PairedNonce.rowBlock_out (hyperIndex (digestIndex output)) lay
   rw [layersCanonicalBC_eq_H,topHigh,
     layersCanonicalBCH_tail _ (witEncOuter output w ns) (witEncF16 output w) _
       (fun off h1 _=>dig output w ns off (Or.inr h1))

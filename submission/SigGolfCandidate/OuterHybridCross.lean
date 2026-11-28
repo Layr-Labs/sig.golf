@@ -35,18 +35,12 @@ theorem xF_chain (coord selected k start count : Nat) (value : Digest) (hi : k <
 theorem xF_buildChildH (hS : HybridSet j S) (heap coord selected : Nat) (word : Rank) (coefs : List Digest)
     (pad : Digest) :
     AllQueriesSatisfy (ClaudeWCT.WCT9.buildChildH heap i coord selected word coefs pad) (NotF secret j S) := by
+  -- C47 (C): the leaf of the six chain ends is longer than an FTS node trial (`notF_leafHash_long`).
   unfold ClaudeWCT.WCT9.buildChildH
-  refine allQ_bind (allQ_foldlM _ _ (fun st k => ?_) _) fun st => ?_
-  · exact allQ_bind (xF_chain _ _ _ _ _ _ (by omega)) fun _ => allQ_bind (xF_chain _ _ _ _ _ _ (by omega)) fun _ => allQ_pure _
-  · refine allQ_bind ?_ fun _ => allQ_pure _
-    unfold ClaudeWCT.WCT9.leafHashH
-    refine notF_ftsHash heap (hdr := ClaudeWCT.WCT9.ftsLeafHeader i coord selected) ?_
-      (fun c x hs he => ClaudeWCT.WCT9.ftsLeafHeader_ne_wctNodeHeader i coord selected (hS c x hs).1 j x
-        (by have := (hS c x hs).heap; omega) he)
-    unfold ClaudeWCT.WCT9.leafInputP
-    simpa only [List.append_assoc] using
-      queryHeader_padded (bytesLE 16 (st.1.getD 0 0)) (bytesLE 16 pad ++ (st.1.drop 1).flatMap (bytesLE 16))
-        (bytesLE_length ..) (ClaudeWCT.WCT9.ftsLeafHeader i coord selected)
+  rw [show List.finRange 6 = [0, 1, 2, 3, 4, 5] from rfl]
+  simp only [List.foldlM_cons, List.foldlM_nil, bind_assoc, pure_bind]
+  repeat (refine allQ_bind (xF_chain _ _ _ _ _ _ (Fin.isLt _)) fun _ => ?_)
+  exact allQ_bind (OuterGroundAvoid.notF_leafHash_long _ _ _ _ _ _ (by simp)) fun _ => allQ_pure _
 
 theorem xF_ftsCoefs (hS : HybridSet j S) (coord : Nat) :
     AllQueriesSatisfy (ClaudeWCT.WCT9.ftsCoefs i coord) (NotF secret j S) := by

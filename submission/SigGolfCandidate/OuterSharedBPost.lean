@@ -29,10 +29,9 @@ theorem post_of {L : W9Machine.Layout} (w : ClaudeWCT.W9.T3M.WBytes) (index : Na
     omega
   have hsel:=(OuterChildModel.widths k).2
   refine ⟨?_,ht.a1,?_,?_,?_,?_,?_,?_,?_,?_,ht.nle16,?_,fun _=>ht.outer,?_,ht.saves,ht.scr,?_,?_⟩
-  · rw [ht.pc]
+  · rw [ht.pc,if_neg hc]
     change (x.getReg .x1+_) &&& _=_
     rw [hx.returnPC]
-    simp only [hc,↓reduceIte]
     change (pcOf (L.returnWord k)+BitVec.ofNat 64 (4*503)) &&& ~~~1#64=_
     rw [W9Drv.SharedBank.pcOf_add_words,pcOf_and_not1]
   · rw [←hh,hbase];exact ht.top

@@ -9147,32 +9147,58 @@ theorem forest_header_plain (index : Nat) :
     header 15 0 index 0 0 = wctHeader 15 0 index 0 0 :=
   (wctHeader_eq_header 15 0 index 0 0 (by decide)).symm
 theorem wct_tags_plain : ¬ packedNodeTag 6 ∧ ¬ packedNodeTag 15 ∧ packedNodeTag 3 := by decide
+/-- C47 (C): coordinate 8's chain word is reflected around pair 3's base (`child * 2^20 + 8704 + 256 chain + step -
+index * 2^33`); the other coordinates keep the C46 word. -/
+theorem ftsChainLow_eight (index selected chain step : Nat) :
+    ftsChainLow index 8 selected chain step =
+      (selected % 128 * 2 ^ 20 + 8704 + chain % 8 * 2 ^ 8 + step % 4 + (2 ^ 64 - index % 2 ^ 31 * 2 ^ 33)) % 2 ^ 64 := by
+  unfold ftsChainLow; rw [if_pos rfl]
+theorem ftsChainLow_of_ne {coord : Nat} (h8 : coord ≠ 8) (index selected chain step : Nat) :
+    ftsChainLow index coord selected chain step = SigGolfCandidate.T3.ftsBias (chain % 8 * 2 ^ 8 + step % 4 +
+      (2 ^ 16 - 2 ^ 11 * (coord % 16 / 2)) + 786432 * (coord % 2) + ftsSelMul coord * (selected % 128) +
+      index % 2 ^ 31 * 2 ^ 33 + 1) := by
+  unfold ftsChainLow; rw [if_neg h8]
+theorem ftsLeafLow_eight (index selected : Nat) :
+    ftsLeafLow index 8 selected = (selected % 128 * 2 ^ 20 + 8192 + (2 ^ 64 - index % 2 ^ 31 * 2 ^ 33)) % 2 ^ 64 := by
+  unfold ftsLeafLow; rw [if_pos rfl]
+theorem ftsLeafLow_of_ne {coord : Nat} (h8 : coord ≠ 8) (index selected : Nat) :
+    ftsLeafLow index coord selected = SigGolfCandidate.T3.ftsBiasN (1 + 6 * 2 ^ 8 + (2 ^ 16 - 2 ^ 11 * (coord % 16 / 2)) +
+      786432 * (coord % 2) + ftsSelMul coord * (selected % 128) + index % 2 ^ 31 * 2 ^ 33) := by
+  unfold ftsLeafLow; rw [if_neg h8]
 theorem ftsChainLow_lt (index coord selected chain step : Nat) :
     ftsChainLow index coord selected chain step < 2 ^ 64 := by
-  unfold ftsChainLow SigGolfCandidate.T3.ftsBias
-  have := Nat.mod_lt chain (show 0 < 8 by decide)
-  have := Nat.mod_lt step (show 0 < 4 by decide)
-  have := Nat.mod_lt coord (show 0 < 16 by decide)
-  have := Nat.mod_lt selected (show 0 < 128 by decide)
-  have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
-  have hX := ftsSelMul_mul_facts coord selected
-  generalize ftsSelMul coord * (selected % 128) = X at *
-  norm_num only at *
-  omega
+  by_cases h8 : coord = 8
+  · subst h8; rw [ftsChainLow_eight]; exact Nat.mod_lt _ (by decide)
+  · rw [ftsChainLow_of_ne h8]; exact SigGolfCandidate.T3.ftsBias_lt _
 theorem ftsChainLow_byte0 (index coord selected chain step : Nat) :
     ftsChainLow index coord selected chain step % 256 = step % 4 := by
-  unfold ftsChainLow SigGolfCandidate.T3.ftsBias
-  have hX := ftsSelMul_mul_facts coord selected
-  generalize ftsSelMul coord * (selected % 128) = X at *
-  have := Nat.mod_lt chain (show 0 < 8 by decide)
-  omega
+  by_cases h8 : coord = 8
+  · subst h8; rw [ftsChainLow_eight]
+    have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
+    have := Nat.mod_lt chain (show 0 < 8 by decide)
+    omega
+  · rw [ftsChainLow_of_ne h8]
+    unfold SigGolfCandidate.T3.ftsBias
+    have hX := ftsSelMul_mul_facts coord selected
+    generalize ftsSelMul coord * (selected % 128) = X at *
+    have := Nat.mod_lt chain (show 0 < 8 by decide)
+    omega
+/-- C47: chain tags `(506 + chain - 8 p) % 256` off coordinate 8, `34 + chain` on coordinate 8. -/
 theorem ftsChainLow_tag (index coord selected chain step : Nat) :
-    ftsChainLow index coord selected chain step / 256 % 256 = (506 + chain % 8 - 8 * (coord % 16 / 2)) % 256 := by
-  have := Nat.mod_lt coord (show 0 < 16 by decide)
-  unfold ftsChainLow SigGolfCandidate.T3.ftsBias
-  have hX := ftsSelMul_mul_facts coord selected
-  generalize ftsSelMul coord * (selected % 128) = X at *
-  omega
+    ftsChainLow index coord selected chain step / 256 % 256 =
+      if coord = 8 then 34 + chain % 8 else (506 + chain % 8 - 8 * (coord % 16 / 2)) % 256 := by
+  by_cases h8 : coord = 8
+  · subst h8; rw [ftsChainLow_eight, if_pos rfl]
+    have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
+    have := Nat.mod_lt chain (show 0 < 8 by decide)
+    have := Nat.mod_lt selected (show 0 < 128 by decide)
+    omega
+  · rw [ftsChainLow_of_ne h8, if_neg h8]
+    have := Nat.mod_lt coord (show 0 < 16 by decide)
+    unfold SigGolfCandidate.T3.ftsBias
+    have hX := ftsSelMul_mul_facts coord selected
+    generalize ftsSelMul coord * (selected % 128) = X at *
+    omega
 /-- C46 (F13): the field split of a chain word below the `ftsBias` translation, by parity cases (pure `Nat`; the
 old one-shot `norm_num; split_ifs; omega` over the translated word made the kernel recurse too deep). -/
 private theorem chainLow_core {i k t s j i' k' t' s' j' : Nat}
@@ -9184,31 +9210,60 @@ private theorem chainLow_core {i k t s j i' k' t' s' j' : Nat}
   unfold ftsSelMul at h
   rcases Nat.mod_two_eq_zero_or_one k with hp | hp <;> rcases Nat.mod_two_eq_zero_or_one k' with hp' | hp' <;>
     simp only [hp, hp', show (0 : Nat) ≠ 1 from by decide, if_true, if_false] at h <;> omega
-/-- C46 (F13): the field split of a leaf word below the `ftsBiasN` translation. -/
-private theorem leafLow_core {i k j i' k' j' : Nat}
-    (hk : k < 16) (hj : j < 128) (hk' : k' < 16) (hj' : j' < 128)
-    (h : 1 + 6 * 2 ^ 8 + (2 ^ 16 - 2 ^ 11 * (k % 16 / 2)) + 786432 * (k % 2) + ftsSelMul k * j + i * 2 ^ 33 =
-      1 + 6 * 2 ^ 8 + (2 ^ 16 - 2 ^ 11 * (k' % 16 / 2)) + 786432 * (k' % 2) + ftsSelMul k' * j' + i' * 2 ^ 33) :
-    i = i' ∧ k = k' ∧ j = j' := by
-  unfold ftsSelMul at h
-  rcases Nat.mod_two_eq_zero_or_one k with hp | hp <;> rcases Nat.mod_two_eq_zero_or_one k' with hp' | hp' <;>
-    simp only [hp, hp', show (0 : Nat) ≠ 1 from by decide, if_true, if_false] at h <;> omega
+/-- C47 (C): the field split of coordinate 8's reflected chain word (pure `Nat`). -/
+private theorem chainLow8_core {i t s j i' t' s' j' : Nat} (hi : i < 2 ^ 31) (ht : t < 8) (hs : s < 4)
+    (hj : j < 128) (hi' : i' < 2 ^ 31) (ht' : t' < 8) (hs' : s' < 4) (hj' : j' < 128)
+    (h : (j * 2 ^ 20 + 8704 + t * 2 ^ 8 + s + (2 ^ 64 - i * 2 ^ 33)) % 2 ^ 64 =
+      (j' * 2 ^ 20 + 8704 + t' * 2 ^ 8 + s' + (2 ^ 64 - i' * 2 ^ 33)) % 2 ^ 64) :
+    i = i' ∧ t = t' ∧ s = s' ∧ j = j' := by
+  omega
+/-- C47 (C): a reflected coordinate-8 chain word (low 20 bits in `[8704, 10752)`) is no other coordinate's chain word
+(low 20 bits below `2 ^ 9` or in `[2 ^ 20 - 2 ^ 15, 2 ^ 20)` / `[0xb8000, 0xc0200)`). -/
+private theorem chainLow8_ne {i t s j i' k' t' s' X' : Nat} (hi : i < 2 ^ 31) (ht : t < 8) (hs : s < 4)
+    (hj : j < 128) (hi' : i' < 2 ^ 31) (hk' : k' < 16) (ht' : t' < 8) (hs' : s' < 4) (hX : X' % 2 ^ 20 = 0)
+    (hX2 : X' < 2 ^ 33)
+    (h : (j * 2 ^ 20 + 8704 + t * 2 ^ 8 + s + (2 ^ 64 - i * 2 ^ 33)) % 2 ^ 64 =
+      (t' * 2 ^ 8 + s' + (2 ^ 16 - 2 ^ 11 * (k' % 16 / 2)) + 786432 * (k' % 2) + X' + i' * 2 ^ 33 + 1 +
+        2 ^ 64 - 67073) % 2 ^ 64) : False := by
+  omega
 theorem ftsChainLow_injective {i k j t s i' k' j' t' s' : Nat}
     (hi : i < 2 ^ 31) (hk : k < 16) (hj : j < 128) (ht : t < 8) (hs : s < 4)
     (hi' : i' < 2 ^ 31) (hk' : k' < 16) (hj' : j' < 128) (ht' : t' < 8) (hs' : s' < 4)
     (h : ftsChainLow i k j t s = ftsChainLow i' k' j' t' s') :
     i = i' ∧ k = k' ∧ j = j' ∧ t = t' ∧ s = s' := by
-  unfold ftsChainLow at h
-  rw [Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt ht,
-    Nat.mod_eq_of_lt hs, Nat.mod_eq_of_lt hi', Nat.mod_eq_of_lt hj',
-    Nat.mod_eq_of_lt ht', Nat.mod_eq_of_lt hs'] at h
-  have hF := ftsSelMul_mul_facts k j
-  have hF' := ftsSelMul_mul_facts k' j'
-  rw [Nat.mod_eq_of_lt hj] at hF
-  rw [Nat.mod_eq_of_lt hj'] at hF'
-  have hA := SigGolfCandidate.T3.ftsBias_injective (by omega) (by omega) h
-  obtain ⟨e1, e2, e3, e4, e5⟩ := chainLow_core hk ht hs hj hk' ht' hs' hj' hA
-  exact ⟨e1, e2, e5, e3, e4⟩
+  by_cases e : k = 8 <;> by_cases e' : k' = 8
+  · subst e; subst e'
+    rw [ftsChainLow_eight, ftsChainLow_eight, Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt ht,
+      Nat.mod_eq_of_lt hs, Nat.mod_eq_of_lt hi', Nat.mod_eq_of_lt hj', Nat.mod_eq_of_lt ht',
+      Nat.mod_eq_of_lt hs'] at h
+    obtain ⟨e1, e2, e3, e4⟩ := chainLow8_core hi ht hs hj hi' ht' hs' hj' h
+    exact ⟨e1, rfl, e4, e2, e3⟩
+  · exfalso; subst e
+    rw [ftsChainLow_eight, ftsChainLow_of_ne e', Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt ht,
+      Nat.mod_eq_of_lt hs, Nat.mod_eq_of_lt hi', Nat.mod_eq_of_lt hj', Nat.mod_eq_of_lt ht',
+      Nat.mod_eq_of_lt hs'] at h
+    unfold SigGolfCandidate.T3.ftsBias at h
+    have hF' := ftsSelMul_mul_facts k' j'
+    rw [Nat.mod_eq_of_lt hj'] at hF'
+    exact chainLow8_ne hi ht hs hj hi' hk' ht' hs' hF'.1 hF'.2 h
+  · exfalso; subst e'
+    rw [ftsChainLow_eight, ftsChainLow_of_ne e, Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt ht,
+      Nat.mod_eq_of_lt hs, Nat.mod_eq_of_lt hi', Nat.mod_eq_of_lt hj', Nat.mod_eq_of_lt ht',
+      Nat.mod_eq_of_lt hs'] at h
+    unfold SigGolfCandidate.T3.ftsBias at h
+    have hF := ftsSelMul_mul_facts k j
+    rw [Nat.mod_eq_of_lt hj] at hF
+    exact chainLow8_ne hi' ht' hs' hj' hi hk ht hs hF.1 hF.2 h.symm
+  · rw [ftsChainLow_of_ne e, ftsChainLow_of_ne e', Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt ht,
+      Nat.mod_eq_of_lt hs, Nat.mod_eq_of_lt hi', Nat.mod_eq_of_lt hj', Nat.mod_eq_of_lt ht',
+      Nat.mod_eq_of_lt hs'] at h
+    have hF := ftsSelMul_mul_facts k j
+    have hF' := ftsSelMul_mul_facts k' j'
+    rw [Nat.mod_eq_of_lt hj] at hF
+    rw [Nat.mod_eq_of_lt hj'] at hF'
+    have hA := SigGolfCandidate.T3.ftsBias_injective (by omega) (by omega) h
+    obtain ⟨e1, e2, e3, e4, e5⟩ := chainLow_core hk ht hs hj hk' ht' hs' hj' hA
+    exact ⟨e1, e2, e5, e3, e4⟩
 theorem ftsChainHeaderP_toNat (index coord selected chain step : Nat) (high : BitVec 64) :
     (ftsChainHeaderP index coord selected chain step high).toNat =
       high.toNat * 2 ^ 64 + ftsChainLow index coord selected chain step := by
@@ -9247,40 +9302,87 @@ theorem chainInput_eq (index coord selected chain step : Nat) (value : Digest) :
       zero16 ++ bytesLE 16 (ftsChainHeader index coord selected chain step) ++
         zero16 ++ bytesLE 16 value := rfl
 theorem ftsLeafLow_lt (index coord selected : Nat) : ftsLeafLow index coord selected < 2 ^ 64 := by
-  unfold ftsLeafLow SigGolfCandidate.T3.ftsBiasN
-  have := Nat.mod_lt coord (show 0 < 16 by decide)
-  have := Nat.mod_lt selected (show 0 < 128 by decide)
-  have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
-  have hX := ftsSelMul_mul_facts coord selected
-  generalize ftsSelMul coord * (selected % 128) = X at *
-  norm_num only at *
-  omega
+  by_cases h8 : coord = 8
+  · subst h8; rw [ftsLeafLow_eight]; exact Nat.mod_lt _ (by decide)
+  · rw [ftsLeafLow_of_ne h8]; exact SigGolfCandidate.T3.ftsBiasN_lt _
 theorem ftsLeafLow_byte0 (index coord selected : Nat) : ftsLeafLow index coord selected % 256 = 0 := by
-  unfold ftsLeafLow SigGolfCandidate.T3.ftsBiasN
-  have hX := ftsSelMul_mul_facts coord selected
-  generalize ftsSelMul coord * (selected % 128) = X at *
+  by_cases h8 : coord = 8
+  · subst h8; rw [ftsLeafLow_eight]
+    have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
+    omega
+  · rw [ftsLeafLow_of_ne h8]
+    unfold SigGolfCandidate.T3.ftsBiasN
+    have hX := ftsSelMul_mul_facts coord selected
+    generalize ftsSelMul coord * (selected % 128) = X at *
+    omega
+/-- C47: leaf tags `248 - 8 p` off coordinate 8, `32` on coordinate 8. -/
+theorem ftsLeafLow_byte1 (index coord selected : Nat) : ftsLeafLow index coord selected / 2 ^ 8 % 256 =
+    if coord = 8 then 32 else 248 - 8 * (coord % 16 / 2) := by
+  by_cases h8 : coord = 8
+  · subst h8; rw [ftsLeafLow_eight, if_pos rfl]
+    have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
+    have := Nat.mod_lt selected (show 0 < 128 by decide)
+    omega
+  · rw [ftsLeafLow_of_ne h8, if_neg h8]
+    have := Nat.mod_lt coord (show 0 < 16 by decide)
+    unfold SigGolfCandidate.T3.ftsBiasN
+    have hX := ftsSelMul_mul_facts coord selected
+    generalize ftsSelMul coord * (selected % 128) = X at *
+    omega
+/-- C46 (F13): the field split of a leaf word below the `ftsBiasN` translation. -/
+private theorem leafLow_core {i k j i' k' j' : Nat}
+    (hk : k < 16) (hj : j < 128) (hk' : k' < 16) (hj' : j' < 128)
+    (h : 1 + 6 * 2 ^ 8 + (2 ^ 16 - 2 ^ 11 * (k % 16 / 2)) + 786432 * (k % 2) + ftsSelMul k * j + i * 2 ^ 33 =
+      1 + 6 * 2 ^ 8 + (2 ^ 16 - 2 ^ 11 * (k' % 16 / 2)) + 786432 * (k' % 2) + ftsSelMul k' * j' + i' * 2 ^ 33) :
+    i = i' ∧ k = k' ∧ j = j' := by
+  unfold ftsSelMul at h
+  rcases Nat.mod_two_eq_zero_or_one k with hp | hp <;> rcases Nat.mod_two_eq_zero_or_one k' with hp' | hp' <;>
+    simp only [hp, hp', show (0 : Nat) ≠ 1 from by decide, if_true, if_false] at h <;> omega
+private theorem leafLow8_core {i j i' j' : Nat} (hi : i < 2 ^ 31) (hj : j < 128) (hi' : i' < 2 ^ 31) (hj' : j' < 128)
+    (h : (j * 2 ^ 20 + 8192 + (2 ^ 64 - i * 2 ^ 33)) % 2 ^ 64 = (j' * 2 ^ 20 + 8192 + (2 ^ 64 - i' * 2 ^ 33)) % 2 ^ 64) :
+    i = i' ∧ j = j' := by
   omega
-theorem ftsLeafLow_byte1 (index coord selected : Nat) : ftsLeafLow index coord selected / 2 ^ 8 % 256 = 248 - 8 * (coord % 16 / 2) := by
-  have := Nat.mod_lt coord (show 0 < 16 by decide)
-  unfold ftsLeafLow SigGolfCandidate.T3.ftsBiasN
-  have hX := ftsSelMul_mul_facts coord selected
-  generalize ftsSelMul coord * (selected % 128) = X at *
+/-- C47 (C): a reflected coordinate-8 leaf word (low 20 bits `8192`) is no other coordinate's leaf word. -/
+private theorem leafLow8_ne {i j i' k' X' : Nat} (hi : i < 2 ^ 31) (hj : j < 128) (hi' : i' < 2 ^ 31) (hk' : k' < 16)
+    (hX : X' % 2 ^ 20 = 0) (hX2 : X' < 2 ^ 33)
+    (h : (j * 2 ^ 20 + 8192 + (2 ^ 64 - i * 2 ^ 33)) % 2 ^ 64 =
+      (1 + 6 * 2 ^ 8 + (2 ^ 16 - 2 ^ 11 * (k' % 16 / 2)) + 786432 * (k' % 2) + X' + i' * 2 ^ 33 + 2 ^ 64 - 69121) %
+        2 ^ 64) : False := by
   omega
 theorem ftsLeafLow_injective {i k j i' k' j' : Nat}
     (hi : i < 2 ^ 31) (hk : k < 16) (hj : j < 128) (hi' : i' < 2 ^ 31) (hk' : k' < 16) (hj' : j' < 128)
     (h : ftsLeafLow i k j = ftsLeafLow i' k' j') : i = i' ∧ k = k' ∧ j = j' := by
-  unfold ftsLeafLow at h
-  rw [Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hi',
-    Nat.mod_eq_of_lt hj'] at h
-  have hF := ftsSelMul_mul_facts k j
-  have hF' := ftsSelMul_mul_facts k' j'
-  rw [Nat.mod_eq_of_lt hj] at hF
-  rw [Nat.mod_eq_of_lt hj'] at hF'
-  have hA := SigGolfCandidate.T3.ftsBiasN_injective (by omega) (by omega) h
-  have hA2 : 1 + 6 * 2 ^ 8 + (2 ^ 16 - 2 ^ 11 * (k % 16 / 2)) + 786432 * (k % 2) + ftsSelMul k * j + i * 2 ^ 33 =
-      1 + 6 * 2 ^ 8 + (2 ^ 16 - 2 ^ 11 * (k' % 16 / 2)) + 786432 * (k' % 2) + ftsSelMul k' * j' + i' * 2 ^ 33 := by
-    omega
-  exact leafLow_core hk hj hk' hj' hA2
+  by_cases e : k = 8 <;> by_cases e' : k' = 8
+  · subst e; subst e'
+    rw [ftsLeafLow_eight, ftsLeafLow_eight, Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hi',
+      Nat.mod_eq_of_lt hj'] at h
+    obtain ⟨e1, e2⟩ := leafLow8_core hi hj hi' hj' h
+    exact ⟨e1, rfl, e2⟩
+  · exfalso; subst e
+    rw [ftsLeafLow_eight, ftsLeafLow_of_ne e', Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hi',
+      Nat.mod_eq_of_lt hj'] at h
+    unfold SigGolfCandidate.T3.ftsBiasN at h
+    have hF' := ftsSelMul_mul_facts k' j'
+    rw [Nat.mod_eq_of_lt hj'] at hF'
+    exact leafLow8_ne hi hj hi' hk' hF'.1 hF'.2 h
+  · exfalso; subst e'
+    rw [ftsLeafLow_eight, ftsLeafLow_of_ne e, Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hi',
+      Nat.mod_eq_of_lt hj'] at h
+    unfold SigGolfCandidate.T3.ftsBiasN at h
+    have hF := ftsSelMul_mul_facts k j
+    rw [Nat.mod_eq_of_lt hj] at hF
+    exact leafLow8_ne hi' hj' hi hk hF.1 hF.2 h.symm
+  · rw [ftsLeafLow_of_ne e, ftsLeafLow_of_ne e', Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hi',
+      Nat.mod_eq_of_lt hj'] at h
+    have hF := ftsSelMul_mul_facts k j
+    have hF' := ftsSelMul_mul_facts k' j'
+    rw [Nat.mod_eq_of_lt hj] at hF
+    rw [Nat.mod_eq_of_lt hj'] at hF'
+    have hA := SigGolfCandidate.T3.ftsBiasN_injective (by omega) (by omega) h
+    have hA2 : 1 + 6 * 2 ^ 8 + (2 ^ 16 - 2 ^ 11 * (k % 16 / 2)) + 786432 * (k % 2) + ftsSelMul k * j + i * 2 ^ 33 =
+        1 + 6 * 2 ^ 8 + (2 ^ 16 - 2 ^ 11 * (k' % 16 / 2)) + 786432 * (k' % 2) + ftsSelMul k' * j' + i' * 2 ^ 33 := by
+      omega
+    exact leafLow_core hk hj hk' hj' hA2
 theorem ftsLeafHeader_toNat (index coord selected : Nat) :
     (ftsLeafHeader index coord selected).toNat = ftsLeafLow index coord selected := by
   have hq := ftsLeafLow_lt index coord selected
@@ -9297,7 +9399,7 @@ theorem ftsLeafHeader_firstByte (index coord selected : Nat) :
     (ftsLeafHeader index coord selected).toNat % 256 = 0 := by
   rw [ftsLeafHeader_toNat, ftsLeafLow_byte0]
 theorem ftsLeafHeader_byte1 (index coord selected : Nat) :
-    (ftsLeafHeader index coord selected).toNat / 2 ^ 8 % 256 = 248 - 8 * (coord % 16 / 2) := by
+    (ftsLeafHeader index coord selected).toNat / 2 ^ 8 % 256 = if coord = 8 then 32 else 248 - 8 * (coord % 16 / 2) := by
   rw [ftsLeafHeader_toNat, ftsLeafLow_byte1]
 theorem ftsLeafHeader_injective {i k j i' k' j' : Nat}
     (hi : i < 2 ^ 31) (hk : k < 16) (hj : j < 128) (hi' : i' < 2 ^ 31) (hk' : k' < 16) (hj' : j' < 128)
@@ -9305,73 +9407,138 @@ theorem ftsLeafHeader_injective {i k j i' k' j' : Nat}
   have hq := congrArg BitVec.toNat h
   rw [ftsLeafHeader_toNat, ftsLeafHeader_toNat] at hq
   exact ftsLeafLow_injective hi hk hj hi' hk' hj' hq
-/-- C46: two-word FTS node low word (the pair-shared base; for odd coordinates it is NOT the child-0 leaf word). -/
+/-- C46: two-word FTS node low word (the pair-shared base; for odd coordinates it is NOT the child-0 leaf word).
+C47: coordinate 8 shares pair 3's base (`+ 2 ^ 11 * (coord % 16 / 8)`, which is `0` below coordinate 8). -/
 def ftsNodeLow2 (index coord : Nat) : Nat :=
-  SigGolfCandidate.T3.ftsBiasN (1 + 6 * 2 ^ 8 + (2 ^ 16 - 2 ^ 11 * (coord % 16 / 2)) + index % 2 ^ 31 * 2 ^ 33)
+  SigGolfCandidate.T3.ftsBiasN (1 + 6 * 2 ^ 8 + (2 ^ 16 - 2 ^ 11 * (coord % 16 / 2)) + 2 ^ 11 * (coord % 16 / 8) +
+    index % 2 ^ 31 * 2 ^ 33)
 theorem ftsNodeLow2_lt (index coord : Nat) : ftsNodeLow2 index coord < 2 ^ 64 := by
-  unfold ftsNodeLow2 SigGolfCandidate.T3.ftsBiasN
-  have := Nat.mod_lt coord (show 0 < 16 by decide)
-  have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
-  omega
-theorem ftsNodeLow2_byte1 (index coord : Nat) : ftsNodeLow2 index coord / 2 ^ 8 % 256 = 248 - 8 * (coord % 16 / 2) := by
+  unfold ftsNodeLow2; exact SigGolfCandidate.T3.ftsBiasN_lt _
+theorem ftsNodeLow2_byte1 (index coord : Nat) :
+    ftsNodeLow2 index coord / 2 ^ 8 % 256 = 248 - 8 * (coord % 16 / 2) + 8 * (coord % 16 / 8) := by
   have := Nat.mod_lt coord (show 0 < 16 by decide)
   unfold ftsNodeLow2 SigGolfCandidate.T3.ftsBiasN
   omega
-/-- C46: on even coordinates the two-word low word is still the child-0 leaf word. -/
-theorem ftsNodeLow2_even {coord : Nat} (hc : coord % 2 = 0) (index : Nat) : ftsNodeLow2 index coord = ftsLeafLow index coord 0 := by
-  unfold ftsNodeLow2; rw [ftsLeafLow_zero, hc]; simp
-theorem wctNodeHeader_eq {coord : Nat} (hk : coord < 9) (index : Nat) {heap : Nat} (hn : ¬ FtsNew heap) :
+/-- C47: the low 16 bits of a two-word node low word are not 0 and not coordinate 8's ra label `21684`. -/
+theorem ftsNodeLow2_low16 (index coord : Nat) :
+    ftsNodeLow2 index coord % 2 ^ 16 = 63488 - 2048 * (coord % 16 / 2) + 2048 * (coord % 16 / 8) := by
+  have := Nat.mod_lt coord (show 0 < 16 by decide)
+  unfold ftsNodeLow2 SigGolfCandidate.T3.ftsBiasN
+  omega
+theorem ftsNodeLow2_ne_zero (index coord : Nat) : ftsNodeLow2 index coord ≠ 0 := by
+  have := ftsNodeLow2_low16 index coord
+  have := Nat.mod_lt coord (show 0 < 16 by decide)
+  omega
+/-- C46: on even coordinates below 8 the two-word low word is still the child-0 leaf word. -/
+theorem ftsNodeLow2_even {coord : Nat} (hc : coord % 2 = 0) (h8 : coord < 8) (index : Nat) :
+    ftsNodeLow2 index coord = ftsLeafLow index coord 0 := by
+  unfold ftsNodeLow2; rw [ftsLeafLow_zero index coord (by omega), hc]
+  rw [show coord % 16 / 8 = 0 by omega]; simp
+/-- C47: the two-word node word is the node low word (for the coordinates `< 9`). -/
+theorem ftsNodeWord_eq_low2 {coord : Nat} (hk : coord < 9) (index : Nat) :
+    ftsNodeWord coord index = BitVec.ofNat 64 (ftsNodeLow2 index coord) := by
+  unfold ftsNodeWord ftsNodeLow2
+  by_cases h8 : coord = 8
+  · subst h8; rw [ftsPair_eight]; congr 2
+  · rw [ftsPair_of_ne h8, show coord % 16 / 8 = 0 by omega, Nat.mul_zero, Nat.add_zero]
+theorem ftsNodeWord_toNat_low2 {coord : Nat} (hk : coord < 9) (index : Nat) :
+    (ftsNodeWord coord index).toNat = ftsNodeLow2 index coord := by
+  rw [ftsNodeWord_eq_low2 hk, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (ftsNodeLow2_lt _ _)]
+/-- C46: the two-word node header (label high, node word low). C47: off coordinate 8's swapped heaps 3..6. -/
+theorem wctNodeHeader_eq {coord : Nat} (hk : coord < 9) (index : Nat) {heap : Nat} (hn : ¬ FtsNew heap)
+    (hs : ¬ ftsSwap8 coord heap) :
     wctNodeHeader coord index heap = BitVec.ofNat 64 (ftsHeapLabelC coord heap) ++ BitVec.ofNat 64 (ftsNodeLow2 index coord) := by
   unfold wctNodeHeader nodeLayer
-  rw [nodeTweak_fts (by omega) (by omega) _ hn, show 4 + coord - 4 = coord by omega]
-  rfl
-/-- Packed FTS node low word (heaps `8..127`): `ftsLeafLow index coord 0 - heap`. -/
-def ftsNodeLowN (index coord heap : Nat) : Nat := SigGolfCandidate.T3.ftsBiasN (1537 - heap - 1024 * (coord % 2) + (2 ^ 16 - 2 ^ 11 * (coord % 16 / 2)) + index % 2 ^ 31 * 2 ^ 33)
+  rw [nodeTweak_fts (by omega) (by omega) _ hn (by rw [show 4 + coord - 4 = coord by omega]; exact hs),
+    show 4 + coord - 4 = coord by omega, ftsNodeWord_eq_low2 hk]
+/-- C47 (C): coordinate 8's swapped heaps 3..6 (node word high, label low). -/
+theorem wctNodeHeader_eqS {heap : Nat} (h3 : 3 ≤ heap) (h6 : heap ≤ 6) (index : Nat) :
+    wctNodeHeader 8 index heap = BitVec.ofNat 64 (ftsNodeLow2 index 8) ++ BitVec.ofNat 64 (ftsSwapLabel8 heap) := by
+  unfold wctNodeHeader nodeLayer
+  rw [show 4 + 8 = 12 from rfl, nodeTweak_fts8 index h3 h6, ftsNodeWord_eq_low2 (by decide)]
+/-- Packed FTS node low word (heaps `8..127`): `ftsLeafLow index coord 0 - heap`. C47: coordinate 8 uses pair 3's
+base minus 512 (`+ 1536 * (coord % 16 / 8)`, which is `0` below coordinate 8). -/
+def ftsNodeLowN (index coord heap : Nat) : Nat := SigGolfCandidate.T3.ftsBiasN (1537 + 1536 * (coord % 16 / 8) - heap -
+  1024 * (coord % 2) + (2 ^ 16 - 2 ^ 11 * (coord % 16 / 2)) + index % 2 ^ 31 * 2 ^ 33)
 theorem ftsNodeLowN_eq (index coord heap : Nat) :
-    ftsNodeLowN index coord heap = SigGolfCandidate.T3.ftsBiasN (1537 - heap - 1024 * (coord % 2) + (2 ^ 16 - 2 ^ 11 * (coord % 16 / 2)) + index % 2 ^ 31 * 2 ^ 33) := rfl
+    ftsNodeLowN index coord heap = SigGolfCandidate.T3.ftsBiasN (1537 + 1536 * (coord % 16 / 8) - heap -
+      1024 * (coord % 2) + (2 ^ 16 - 2 ^ 11 * (coord % 16 / 2)) + index % 2 ^ 31 * 2 ^ 33) := rfl
 theorem ftsNodeLowN_lt (index coord heap : Nat) : ftsNodeLowN index coord heap < 2 ^ 64 := by
-  rw [ftsNodeLowN_eq]; unfold SigGolfCandidate.T3.ftsBiasN
-  have := Nat.mod_lt coord (show 0 < 16 by decide)
-  have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
-  omega
+  rw [ftsNodeLowN_eq]; exact SigGolfCandidate.T3.ftsBiasN_lt _
+/-- C47: the packed node word is `ftsNodeLowN` (for the coordinates `< 9`). -/
+theorem ftsNodeWordH_eq_lowN {coord : Nat} (hk : coord < 9) (index : Nat) {heap : Nat} (hn : FtsNew heap) :
+    ftsNodeWordH coord index heap = BitVec.ofNat 64 (ftsNodeLowN index coord heap) := by
+  obtain ⟨h8, h128⟩ := hn
+  unfold ftsNodeWordH ftsNodeLowN
+  have e : (if coord = 8 then 1025 else 1537 - 1024 * (coord % 2)) - heap + (2 ^ 16 - 2 ^ 11 * ftsPair coord) =
+      1537 + 1536 * (coord % 16 / 8) - heap - 1024 * (coord % 2) + (2 ^ 16 - 2 ^ 11 * (coord % 16 / 2)) := by
+    by_cases e : coord = 8
+    · subst e; rw [if_pos rfl, ftsPair_eight]; omega
+    · rw [if_neg e, ftsPair_of_ne e]; omega
+  rw [e]
 theorem wctNodeHeader_eqN {coord : Nat} (hk : coord < 9) (index : Nat) {heap : Nat} (hn : FtsNew heap) :
     wctNodeHeader coord index heap = 0#64 ++ BitVec.ofNat 64 (ftsNodeLowN index coord heap) := by
   unfold wctNodeHeader nodeLayer
-  rw [nodeTweak_ftsN (by omega) (by omega) _ hn, show 4 + coord - 4 = coord by omega]
-  rfl
+  rw [nodeTweak_ftsN (by omega) (by omega) _ hn, show 4 + coord - 4 = coord by omega, ftsNodeWordH_eq_lowN hk index hn]
 theorem wctNodeHeader_toNat {coord : Nat} (hk : coord < 9) (index heap : Nat) :
     (wctNodeHeader coord index heap).toNat =
-      if FtsNew heap then ftsNodeLowN index coord heap else ftsHeapLabelC coord heap % 2 ^ 64 * 2 ^ 64 + ftsNodeLow2 index coord := by
+      if FtsNew heap then ftsNodeLowN index coord heap
+      else if ftsSwap8 coord heap then ftsNodeLow2 index coord * 2 ^ 64 + ftsSwapLabel8 heap
+      else ftsHeapLabelC coord heap % 2 ^ 64 * 2 ^ 64 + ftsNodeLow2 index coord := by
   by_cases hn : FtsNew heap
   · rw [if_pos hn, wctNodeHeader_eqN hk index hn, append64_toNat]
     have := ftsNodeLowN_lt index coord heap
     simp only [BitVec.toNat_ofNat]; omega
-  · rw [if_neg hn, wctNodeHeader_eq hk index hn, append64_toNat, BitVec.toNat_ofNat, BitVec.toNat_ofNat,
-      Nat.mod_eq_of_lt (ftsNodeLow2_lt _ _)]
+  · rw [if_neg hn]
+    by_cases hs : ftsSwap8 coord heap
+    · obtain ⟨rfl, h3, h6⟩ := hs
+      rw [if_pos ⟨rfl, h3, h6⟩, wctNodeHeader_eqS h3 h6, append64_toNat, BitVec.toNat_ofNat, BitVec.toNat_ofNat,
+        Nat.mod_eq_of_lt (ftsNodeLow2_lt _ _),
+        Nat.mod_eq_of_lt (lt_trans (ftsSwapLabel8_lt h3 h6) (by decide))]
+    · rw [if_neg hs, wctNodeHeader_eq hk index hn hs, append64_toNat, BitVec.toNat_ofNat, BitVec.toNat_ofNat,
+        Nat.mod_eq_of_lt (ftsNodeLow2_lt _ _)]
 theorem wctNodeHeader_low {coord : Nat} (hk : coord < 9) (index heap : Nat) :
     (wctNodeHeader coord index heap).extractLsb' 0 64 =
-      BitVec.ofNat 64 (if FtsNew heap then ftsNodeLowN index coord heap else ftsNodeLow2 index coord) := by
+      BitVec.ofNat 64 (if FtsNew heap then ftsNodeLowN index coord heap
+        else if ftsSwap8 coord heap then ftsSwapLabel8 heap else ftsNodeLow2 index coord) := by
   by_cases hn : FtsNew heap
   · rw [if_pos hn, wctNodeHeader_eqN hk index hn]; exact BitVec.extractLsb'_append_eq_right
-  · rw [if_neg hn, wctNodeHeader_eq hk index hn]; exact BitVec.extractLsb'_append_eq_right
+  · rw [if_neg hn]
+    by_cases hs : ftsSwap8 coord heap
+    · obtain ⟨rfl, h3, h6⟩ := hs
+      rw [if_pos ⟨rfl, h3, h6⟩, wctNodeHeader_eqS h3 h6]; exact BitVec.extractLsb'_append_eq_right
+    · rw [if_neg hs, wctNodeHeader_eq hk index hn hs]; exact BitVec.extractLsb'_append_eq_right
 theorem wctNodeHeader_high {coord : Nat} (hk : coord < 9) (index heap : Nat) :
-    (wctNodeHeader coord index heap).extractLsb' 64 64 = BitVec.ofNat 64 (if FtsNew heap then 0 else ftsHeapLabelC coord heap) := by
+    (wctNodeHeader coord index heap).extractLsb' 64 64 = BitVec.ofNat 64 (if FtsNew heap then 0
+      else if ftsSwap8 coord heap then ftsNodeLow2 index coord else ftsHeapLabelC coord heap) := by
   by_cases hn : FtsNew heap
   · rw [if_pos hn, wctNodeHeader_eqN hk index hn]; exact BitVec.extractLsb'_append_eq_left
-  · rw [if_neg hn, wctNodeHeader_eq hk index hn]; exact BitVec.extractLsb'_append_eq_left
+  · rw [if_neg hn]
+    by_cases hs : ftsSwap8 coord heap
+    · obtain ⟨rfl, h3, h6⟩ := hs
+      rw [if_pos ⟨rfl, h3, h6⟩, wctNodeHeader_eqS h3 h6]; exact BitVec.extractLsb'_append_eq_left
+    · rw [if_neg hs, wctNodeHeader_eq hk index hn hs]; exact BitVec.extractLsb'_append_eq_left
+/-- C47: node header first bytes: packed `256 - heap`, coordinate 8's swapped heap 6 `180`, other FTS `0`, else `1`. -/
 theorem wctNodeHeader_firstByte (coord index heap : Nat) :
     (wctNodeHeader coord index heap).toNat % 256 =
-      if coord < 9 then (if FtsNew heap then 256 - heap else 0) else 1 := by
+      if coord < 9 then (if FtsNew heap then 256 - heap else if coord = 8 ∧ heap = 6 then 180 else 0) else 1 := by
   have h := nodeTweak_marker 3 (nodeLayer coord) index heap
   unfold tweakMarker at h
   unfold wctNodeHeader
   rw [h, if_neg (by unfold nodeLayer; omega)]
   unfold nodeLayer
   by_cases hk : coord < 9
-  · have h13 : 4 + coord < 13 := by omega
-    simp [hk, h13]
-  · have h13 : ¬ 4 + coord < 13 := by omega
-    simp [hk, h13]
+  · rw [if_pos hk]
+    by_cases hn : FtsNew heap
+    · rw [if_pos ⟨rfl, by omega, by omega, hn⟩, if_pos hn]
+    · rw [if_neg (show ¬ (3 = 3 ∧ 4 ≤ 4 + coord ∧ 4 + coord < 13 ∧ FtsNew heap) from fun h' => hn h'.2.2.2), if_neg hn]
+      by_cases h6 : coord = 8 ∧ heap = 6
+      · rw [if_pos (show 3 = 3 ∧ 4 + coord = 12 ∧ heap = 6 by omega), if_pos h6]
+      · rw [if_neg (show ¬ (3 = 3 ∧ 4 + coord = 12 ∧ heap = 6) by omega), if_neg h6,
+          if_pos (show 3 = 3 ∧ 4 ≤ 4 + coord ∧ 4 + coord < 13 by omega)]
+  · rw [if_neg hk, if_neg (show ¬ (3 = 3 ∧ 4 ≤ 4 + coord ∧ 4 + coord < 13 ∧ FtsNew heap) from fun h' => by omega),
+      if_neg (show ¬ (3 = 3 ∧ 4 + coord = 12 ∧ heap = 6) by omega),
+      if_neg (show ¬ (3 = 3 ∧ 4 ≤ 4 + coord ∧ 4 + coord < 13) by omega)]
 
 theorem wctNodeHeader_firstByte_ne_digest (coord index heap : Nat) :
     (wctNodeHeader coord index heap).toNat % 256 ≠ 128 := by
@@ -9384,28 +9551,32 @@ theorem wctNodeHeader_firstByte_ne_digest (coord index heap : Nat) :
       obtain ⟨h8, h128⟩ := hn
       omega
     · rw [if_neg hn] at he
-      omega
+      split_ifs at he <;> omega
   · rw [if_neg hk] at he
     omega
 
 theorem wctNodeHeader_firstByte_lt (coord index heap : Nat) (hn : ¬ FtsNew heap) :
-    (wctNodeHeader coord index heap).toNat % 256 = if coord < 9 then 0 else 1 := by
+    (wctNodeHeader coord index heap).toNat % 256 = if coord < 9 then (if coord = 8 ∧ heap = 6 then 180 else 0) else 1 := by
   rw [wctNodeHeader_firstByte]; split_ifs <;> simp_all
 
 theorem wctNodeHeader_firstByteN {coord : Nat} (hk : coord < 9) (index : Nat) {heap : Nat} (hn : FtsNew heap) :
     (wctNodeHeader coord index heap).toNat % 256 = 256 - heap := by
   rw [wctNodeHeader_firstByte, if_pos hk, if_pos hn]
 
+/-- C47: node header tags: packed `247 - 8 p - 4 (coord % 2)` (coordinate 8: `221`), two-word `248 - 8 p`
+(coordinate 8: `224`), coordinate 8's swapped heaps 3..6 `0` (heap 6: `84`). -/
 theorem wctNodeHeader_byte1 {coord : Nat} (hk : coord < 9) (index heap : Nat) :
-    (wctNodeHeader coord index heap).toNat / 2 ^ 8 % 256 = (if FtsNew heap then 247 - 4 * (coord % 2) else 248) - 8 * (coord / 2) := by
-  rw [wctNodeHeader_toNat hk]
-  have hm : coord % 16 = coord := Nat.mod_eq_of_lt (by omega)
-  by_cases hn : FtsNew heap
-  · rw [if_pos hn, if_pos hn, ftsNodeLowN_eq]; unfold SigGolfCandidate.T3.ftsBiasN; obtain ⟨h8, h128⟩ := hn
-    rcases Nat.mod_two_eq_zero_or_one coord with hp | hp <;> rw [hp] <;> omega
-  · rw [if_neg hn, if_neg hn]
-    have := ftsNodeLow2_byte1 index coord
-    omega
+    (wctNodeHeader coord index heap).toNat / 2 ^ 8 % 256 =
+      if FtsNew heap then (if coord = 8 then 221 else (247 - 4 * (coord % 2)) - 8 * (coord / 2))
+      else if ftsSwap8 coord heap then (if heap = 6 then 84 else 0)
+      else if coord = 8 then 224 else 248 - 8 * (coord / 2) := by
+  have h := nodeTweak_fts_tag (lay := 4 + coord) (by omega) (by omega) index heap
+  unfold tweakTag at h
+  unfold wctNodeHeader nodeLayer
+  rw [show (2 : Nat) ^ 8 = 256 from rfl, h, show 4 + coord - 4 = coord by omega]
+  by_cases e : coord = 8
+  · subst e; rfl
+  · rw [if_neg (show 4 + coord ≠ 12 by omega), if_neg (show 4 + coord ≠ 12 by omega), if_neg e, if_neg e]
 theorem wctNodeHeader_injective {k i h k' i' h' : Nat}
     (hk : k < 9) (hi : i < 2 ^ 31) (hh : h < 2 ^ 64) (hk' : k' < 9) (hi' : i' < 2 ^ 31) (hh' : h' < 2 ^ 64)
     (hr : FtsTwoOk k h) (hr' : FtsTwoOk k' h')
@@ -9421,20 +9592,35 @@ theorem ftsTwoOk_of {coord heap : Nat} (h2 : 2 ≤ heap) (h128 : heap < 128) : F
 theorem ftsTwoOk_of_new {coord heap : Nat} (hn : FtsNew heap) : FtsTwoOk coord heap := by
   obtain ⟨h8, h128⟩ := hn
   exact ftsTwoOk_of (by omega) h128
-/-- C46: a packed and a two-word FTS node header never agree (marker byte). -/
+/-- C46: a packed and a two-word FTS node header never agree (marker byte; C47: coordinate 8's heap 6, marker 180,
+by its tag 84). -/
 theorem wctNodeHeader_ne_of_new {k i h k' i' h' : Nat} (hk : k < 9) (hk' : k' < 9) (hn : FtsNew h) (hn' : ¬ FtsNew h') :
     wctNodeHeader k i h ≠ wctNodeHeader k' i' h' := by
   intro he
   have h1 := wctNodeHeader_firstByteN hk i hn
+  have t1 := wctNodeHeader_byte1 hk i h
   rw [he, wctNodeHeader_firstByte_lt k' i' h' hn', if_pos hk'] at h1
-  obtain ⟨-, h128⟩ := hn; omega
+  rw [he, wctNodeHeader_byte1 hk' i' h', if_pos hn, if_neg hn'] at t1
+  obtain ⟨-, h128⟩ := hn
+  by_cases e : k' = 8 ∧ h' = 6
+  · rw [if_pos ((ftsSwap8_iff (lay := 4 + k') (by omega)).2 ⟨by omega, by omega, by omega⟩ |> fun hs => by
+      rw [show 4 + k' - 4 = k' by omega] at hs; exact hs), if_pos e.2] at t1
+    split_ifs at t1 <;> omega
+  · rw [if_neg e] at h1; omega
 /-- C46: two two-word FTS node headers with equal low words have the same index (and pair). -/
 theorem ftsNodeLow2_inj {k i k' i' : Nat} (hk : k < 9) (hi : i < 2 ^ 31) (hk' : k' < 9) (hi' : i' < 2 ^ 31)
-    (he : ftsNodeLow2 i k = ftsNodeLow2 i' k') : k / 2 = k' / 2 ∧ i = i' := by
-  unfold ftsNodeLow2 SigGolfCandidate.T3.ftsBiasN at he
-  rw [Nat.mod_eq_of_lt (show k < 16 by omega), Nat.mod_eq_of_lt (show k' < 16 by omega),
-    Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt hi'] at he
-  omega
+    (he : ftsNodeLow2 i k = ftsNodeLow2 i' k') : ftsPair k = ftsPair k' ∧ i = i' := by
+  rw [← ftsNodeWord_toNat_low2 hk, ← ftsNodeWord_toNat_low2 hk'] at he
+  exact ftsNodeWord_injective (by omega) hi (by omega) hi' (BitVec.eq_of_toNat_eq he)
+/-- C47: a two-word low word is never one of coordinate 8's swapped labels (low 16 bits). -/
+theorem ftsNodeLow2_ne_swap {heap : Nat} (h3 : 3 ≤ heap) (h6 : heap ≤ 6) (index coord : Nat) :
+    ftsNodeLow2 index coord ≠ ftsSwapLabel8 heap := by
+  intro e
+  have a := ftsSwapLabel8_low16 h3 h6
+  have b := ftsNodeLow2_low16 index coord
+  have := Nat.mod_lt coord (show 0 < 16 by decide)
+  rw [← e] at a
+  split_ifs at a <;> omega
 /-- C46: equal FTS node headers have equal indices (no heap hypothesis). -/
 theorem wctNodeHeader_index_eq {k i h k' i' h' : Nat} (hk : k < 9) (hi : i < 2 ^ 31) (hk' : k' < 9)
     (hi' : i' < 2 ^ 31) (he : wctNodeHeader k i h = wctNodeHeader k' i' h') : i = i' := by
@@ -9444,11 +9630,33 @@ theorem wctNodeHeader_index_eq {k i h k' i' h' : Nat} (hk : k < 9) (hi : i < 2 ^
     exact (wctNodeHeader_injective hk hi hh hk' hi' hh' (ftsTwoOk_of_new hn) (ftsTwoOk_of_new hn') he).2.1
   · exact absurd he (wctNodeHeader_ne_of_new hk hk' hn hn')
   · exact absurd he.symm (wctNodeHeader_ne_of_new hk' hk hn' hn)
-  · rw [wctNodeHeader_eq hk i hn, wctNodeHeader_eq hk' i' hn'] at he
-    have hl := congrArg BitVec.toNat (append64_inj he).2
-    rw [BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (ftsNodeLow2_lt _ _),
-      Nat.mod_eq_of_lt (ftsNodeLow2_lt _ _)] at hl
-    exact (ftsNodeLow2_inj hk hi hk' hi' hl).2
+  · have hL := congrArg (fun x : BitVec 128 => x.extractLsb' 0 64) he
+    have hH := congrArg (fun x : BitVec 128 => x.extractLsb' 64 64) he
+    simp only [wctNodeHeader_low hk, wctNodeHeader_low hk', wctNodeHeader_high hk, wctNodeHeader_high hk',
+      if_neg hn, if_neg hn'] at hL hH
+    have hl := congrArg BitVec.toNat hL
+    have hhh := congrArg BitVec.toNat hH
+    by_cases hs : ftsSwap8 k h <;> by_cases hs' : ftsSwap8 k' h'
+    · rw [if_pos hs, if_pos hs'] at hhh
+      rw [BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (ftsNodeLow2_lt _ _),
+        Nat.mod_eq_of_lt (ftsNodeLow2_lt _ _)] at hhh
+      exact (ftsNodeLow2_inj hk hi hk' hi' hhh).2
+    · exfalso
+      have ⟨_, h3, h6⟩ := hs
+      rw [if_pos hs, if_neg hs'] at hl
+      rw [BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (ftsNodeLow2_lt _ _),
+        Nat.mod_eq_of_lt (lt_trans (ftsSwapLabel8_lt h3 h6) (by decide))] at hl
+      exact ftsNodeLow2_ne_swap h3 h6 _ _ hl.symm
+    · exfalso
+      have ⟨_, h3, h6⟩ := hs'
+      rw [if_neg hs, if_pos hs'] at hl
+      rw [BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (ftsNodeLow2_lt _ _),
+        Nat.mod_eq_of_lt (lt_trans (ftsSwapLabel8_lt h3 h6) (by decide))] at hl
+      exact ftsNodeLow2_ne_swap h3 h6 _ _ hl
+    · rw [if_neg hs, if_neg hs'] at hl
+      rw [BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (ftsNodeLow2_lt _ _),
+        Nat.mod_eq_of_lt (ftsNodeLow2_lt _ _)] at hl
+      exact (ftsNodeLow2_inj hk hi hk' hi' hl).2
 /-- C46: FTS node header injectivity when the two positions are honest (`FtsTwoOk`), share the coordinate, or one of
 them is a packed heap. -/
 theorem wctNodeHeader_injective_of {k i h k' i' h' : Nat}
@@ -9461,19 +9669,50 @@ theorem wctNodeHeader_injective_of {k i h k' i' h' : Nat}
   · exact absurd he.symm (wctNodeHeader_ne_of_new hk' hk hn' hn)
   · rcases hr with hr | rfl | hr | hr
     · exact wctNodeHeader_injective hk hi hh hk' hi' hh' hr.1 hr.2 he
-    · rw [wctNodeHeader_eq hk i hn, wctNodeHeader_eq hk' i' hn'] at he
-      obtain ⟨hH, hL⟩ := append64_inj he
+    · have hi2 := wctNodeHeader_index_eq hk hi hk hi' he
+      subst hi2
+      refine ⟨rfl, rfl, ?_⟩
+      have hL := congrArg (fun x : BitVec 128 => x.extractLsb' 0 64) he
+      have hH := congrArg (fun x : BitVec 128 => x.extractLsb' 64 64) he
+      simp only [wctNodeHeader_low hk, wctNodeHeader_high hk, if_neg hn, if_neg hn'] at hL hH
       have hl := congrArg BitVec.toNat hL
-      rw [BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (ftsNodeLow2_lt _ _),
-        Nat.mod_eq_of_lt (ftsNodeLow2_lt _ _)] at hl
-      have hH' := congrArg BitVec.toNat hH
-      rw [BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (ftsHeapLabelC_lt _ hh),
-        Nat.mod_eq_of_lt (ftsHeapLabelC_lt _ hh')] at hH'
-      exact ⟨rfl, (ftsNodeLow2_inj hk hi hk hi' hl).2, ftsHeapLabelC_inj hH'⟩
+      have hhh := congrArg BitVec.toNat hH
+      by_cases hs : ftsSwap8 k h <;> by_cases hs' : ftsSwap8 k h'
+      · have ⟨_, h3, h6⟩ := hs
+        have ⟨_, h3', h6'⟩ := hs'
+        rw [if_pos hs, if_pos hs'] at hl
+        rw [BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (lt_trans (ftsSwapLabel8_lt h3 h6) (by decide)),
+          Nat.mod_eq_of_lt (lt_trans (ftsSwapLabel8_lt h3' h6') (by decide))] at hl
+        exact ftsSwapLabel8_inj hl
+      · exfalso
+        have ⟨_, h3, h6⟩ := hs
+        rw [if_pos hs, if_neg hs'] at hl
+        rw [BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (ftsNodeLow2_lt _ _),
+          Nat.mod_eq_of_lt (lt_trans (ftsSwapLabel8_lt h3 h6) (by decide))] at hl
+        exact ftsNodeLow2_ne_swap h3 h6 _ _ hl.symm
+      · exfalso
+        have ⟨_, h3, h6⟩ := hs'
+        rw [if_neg hs, if_pos hs'] at hl
+        rw [BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (ftsNodeLow2_lt _ _),
+          Nat.mod_eq_of_lt (lt_trans (ftsSwapLabel8_lt h3 h6) (by decide))] at hl
+        exact ftsNodeLow2_ne_swap h3 h6 _ _ hl
+      · rw [if_neg hs, if_neg hs'] at hhh
+        rw [BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (ftsHeapLabelC_lt _ hh),
+          Nat.mod_eq_of_lt (ftsHeapLabelC_lt _ hh')] at hhh
+        exact ftsHeapLabelC_inj hhh
     · exact absurd hr hn
     · exact absurd hr hn'
+/-- C47: coordinate 8's labels are nonzero mod `2 ^ 64` off heap 2. -/
+theorem ftsHeapLabel8_mod_ne {heap : Nat} (hh : heap % 2 ^ 64 ≠ 0) (h2 : heap ≠ 2) : ftsHeapLabel8 heap % 2 ^ 64 ≠ 0 := by
+  by_cases h : heap = 2 ∨ heap = 0 ∨ heap = 7 ∨ heap = 21684
+  · rcases h with rfl | rfl | rfl | rfl
+    all_goals first | exact absurd rfl h2 | exact absurd rfl hh | decide
+  · simp only [not_or] at h
+    rw [ftsHeapLabel8_of_not h]; exact hh
+/-- C47: FTS leaf headers (high word 0) differ from node headers off coordinate 8's heap 2 (whose label is 0 and whose
+low word is pair 3's base, the coordinate-6 child-0 leaf word). -/
 theorem ftsLeafHeader_ne_wctNodeHeader (index coord selected : Nat) {coord' : Nat} (hk : coord' < 9)
-    (index' heap : Nat) (hh : heap % 2 ^ 64 ≠ 0) :
+    (index' heap : Nat) (hh : heap % 2 ^ 64 ≠ 0) (h2 : heap ≠ 2) :
     ftsLeafHeader index coord selected ≠ wctNodeHeader coord' index' heap := by
   intro h
   by_cases hn : FtsNew heap
@@ -9481,8 +9720,15 @@ theorem ftsLeafHeader_ne_wctNodeHeader (index coord selected : Nat) {coord' : Na
     simp only [ftsLeafHeader_firstByte, wctNodeHeader_firstByteN hk _ hn] at hb
     obtain ⟨h8, h128⟩ := hn; omega
   · have hhi := congrArg BitVec.toNat (congrArg (fun x : BitVec 128 => x.extractLsb' 64 64) h)
-    simp only [ftsLeafHeader_high, wctNodeHeader_high hk, if_neg hn, BitVec.toNat_ofNat] at hhi
-    exact hh ((ftsHeapLabelC_mod_zero coord' heap).mp hhi.symm)
+    simp only [ftsLeafHeader_high, wctNodeHeader_high hk, if_neg hn] at hhi
+    by_cases hs : ftsSwap8 coord' heap
+    · rw [if_pos hs, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (ftsNodeLow2_lt _ _)] at hhi
+      exact ftsNodeLow2_ne_zero _ _ hhi.symm
+    · rw [if_neg hs, BitVec.toNat_ofNat] at hhi
+      by_cases e : coord' = 8
+      · subst e; rw [ftsHeapLabelC_eight] at hhi
+        exact ftsHeapLabel8_mod_ne hh h2 (by simpa using hhi.symm)
+      · exact hh ((ftsHeapLabelC_mod_zero coord' heap e hk).mp (by simpa using hhi.symm))
 theorem radix_inj {B a a' m m' : Nat} (h : a + B * m = a' + B * m') (ha : a < B) (ha' : a' < B) :
     a = a' ∧ m = m' := by
   have hB : 0 < B := by omega

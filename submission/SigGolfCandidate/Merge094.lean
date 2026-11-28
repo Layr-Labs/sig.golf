@@ -307,13 +307,13 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 20000
 
 theorem leafOf_output (output : HashOutput) :
-    PostPass.leafOf (output.extractLsb' 0 64) % 4096 = (route (WCT9.digestIndex output) 0).1 % 4096 := by
-  unfold PostPass.leafOf SigGolfCandidate.T3.route WCT9.digestIndex
-  simp only [BitVec.extractLsb'_toNat, Nat.shiftRight_zero]
-  have h : ∀ o : Nat, o % 2^64 / 2^52 % 4096 = o / 2^33 % 2^31 / 2^19 % 2^(SigGolfCandidate.T3.height 0) % 4096 := by
+    PostPass.leafOf (output.extractLsb' 0 64) % 4096 = (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0).1 % 4096 := by
+  unfold PostPass.leafOf SigGolfCandidate.T3.route SigGolfCandidate.T3.hyperIndex WCT9.digestIndex
+  simp only [BitVec.toNat_not, BitVec.extractLsb'_toNat, Nat.shiftRight_zero]
+  have h : ∀ o : Nat, (2^64 - 1 - o % 2^64) / 2^52 % 4096 =
+      (2^31 - 1 - o / 2^33 % 2^31 % 2^31) / 2^19 % 2^(SigGolfCandidate.T3.height 0) % 4096 := by
     intro o
     rw [show SigGolfCandidate.T3.height 0 = 12 by decide]
-    norm_num
     omega
   simpa using h output.toNat
 
@@ -325,7 +325,7 @@ structure Phase1 (output : HashOutput) (w : SharedForest.Witness) (s : MachineSt
     s.getMem (BitVec.ofNat 64 (2904 + 8 * j)) = PostEnc.oldWord output (Paired.mainWitness w) (8 * j)
   choice : s.getMem (BitVec.ofNat 64 (2904 + 8 * 2789)) =
     replaceByte (PostEnc.oldWord output (Paired.mainWitness w) (8 * 2789)) 0 (choiceByte w.topHigh).toBitVec
-  leaf : PostPass.leafOf (s.getMem (BitVec.ofNat 64 0x20160)) % 4096 = (route (WCT9.digestIndex output) 0).1 % 4096
+  leaf : PostPass.leafOf (s.getMem (BitVec.ofNat 64 0x20160)) % 4096 = (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0).1 % 4096
 
 theorem NoncesAt.frame {s t : MachineState} {n : List Nat} {l : Nat} {W : Nat → Prop}
     (h : SigGolfCandidate.T3M.Expand.NoncesAt s n l) (hf : Frame s t W)
@@ -891,7 +891,7 @@ theorem compact_main_steps {im : Image} (hc : CompactCodeAt im)
     (N : HashOutput) (w : WCT9.Witness) (s : MachineState) (hpc : s.pc = pcOf 41108)
     (hN : OutAt s 96 N) (hp : PlanAt s) (hlp : Compact2.LPlanAt s) (htp : Compact2.TopTabAt s)
     (hmain : ∀ i < 2873, (i ≤ 4  ∨  1161 ≤ i)  →  s.getMem (BitVec.ofNat 64 (2048+8*i))=(wordsOf (witListV5 N w)).getD i 0) :
-    ∃ t, Steps im s 65987 65987 t  ∧  t.pc = pcOf 43761  ∧
+    ∃ t, Steps im s 65993 65993 t  ∧  t.pc = pcOf 43761  ∧
       (∀ i,1012 ≤ i  →  i < 2905  →  t.getMem (BitVec.ofNat 64 (2904+8*i))=(wordsOf (ClaudeWCT.W9.Machine.Expand.OldW.witList N w)).getD i 0)  ∧
       t.getMem (BitVec.ofNat 64 1184)=s.getMem (BitVec.ofNat 64 2080)  ∧
       (∀ A < 2^64, Protected A  →  t.getMem (BitVec.ofNat 64 A)=s.getMem (BitVec.ofNat 64 A)) := by
@@ -923,7 +923,7 @@ theorem compact_main_steps {im : Image} (hc : CompactCodeAt im)
     apply Compact.finalWord_main_congr _ _ _ (fun j hj hm => ?_) i (by omega) (by omega)
     rw [hmain j hj hm,show (2048+8*j-2048)/8 = j by omega]
   have hout : ∀ o, o < 20136 → o % 8 = 0 → 8096 ≤ o → u.getMem (BitVec.ofNat 64 (2904 + o)) =
-      Compact2.out2old (Compact2.v6M N w) (WCT9.digestIndex N) (o + 856) := by
+      Compact2.out2old (Compact2.v6M N w) (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) (o + 856) := by
     intro o ho h8 hlo
     rw [mu _ (by omega), show 2904 + o = Compact2.WOUT + o from rfl, Compact2.run2_zone _ _ _ ho h8]
     unfold Compact2.out2
@@ -954,16 +954,21 @@ theorem compact_main_steps {im : Image} (hc : CompactCodeAt im)
       exact htp.1 k hk
     · rw [beforeKeep _ (by unfold Compact2.TOPB;omega) (by unfold Protected Compact.SNAP Compact2.SNAP2 Compact.InHold Compact2.TOPB Compact2.Buffer.Post.SCR;omega)]
       exact htp.2 k hk
-  have hleaf : (SigGolfCandidate.T3.route (WCT9.digestIndex N) 0).1 = WCT9.digestIndex N / 2^19 := by
-    have := WCT9.digestIndex_lt N
-    change WCT9.digestIndex N / 2^19 % 2^12 = _
+  have hleaf : (SigGolfCandidate.T3.route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) 0).1 =
+      SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N) / 2^19 := by
+    have := SigGolfCandidate.T3.hyperIndex_lt (WCT9.digestIndex N)
+    change SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N) / 2^19 % 2^12 = _
     omega
-  have hl : (SigGolfCandidate.T3.route (WCT9.digestIndex N) 0).1 < 4096 := by
-    rw [hleaf];have := WCT9.digestIndex_lt N;omega
-  have hix52 : u.getMem (BitVec.ofNat 64 96) >>> 52 = BitVec.ofNat 64 (SigGolfCandidate.T3.route (WCT9.digestIndex N) 0).1 := by
+  have hl : (SigGolfCandidate.T3.route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) 0).1 < 4096 := by
+    rw [hleaf];have := SigGolfCandidate.T3.hyperIndex_lt (WCT9.digestIndex N);omega
+  have hix52 : (~~~(u.getMem (BitVec.ofNat 64 96))) >>> 52 =
+      BitVec.ofNat 64 (SigGolfCandidate.T3.route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) 0).1 := by
     rw [beforeKeep 96 (by decide) (by unfold Protected Compact.SNAP Compact2.SNAP2 Compact.InHold Compact2.Buffer.Post.SCR;decide)]
-    rw [hN 0 (by decide), show (52:Nat)=33+19 from rfl, BitVec.shiftRight_add, Compact2.index_shr, hleaf,
-      SigGolfCandidate.T3M.ofNat_shr _ _ (by have := WCT9.digestIndex_lt N;omega)]
+    rw [hN 0 (by decide), show (52:Nat)=33+19 from rfl, BitVec.shiftRight_add, Compact2.not_shr33, Compact2.index_shr,
+      BitVec.toNat_ofNat, Nat.mod_eq_of_lt (WCT9.digestIndex_lt N |>.trans (by norm_num)), hleaf,
+      SigGolfCandidate.T3M.ofNat_shr _ _ (by have := WCT9.digestIndex_lt N; omega)]
+    unfold SigGolfCandidate.T3.hyperIndex
+    rw [Nat.mod_eq_of_lt (WCT9.digestIndex_lt N)]
   obtain ⟨q,tq,pq,mq⟩ := Compact2.Buffer.bufferPost_prefix_spec hc u pu _ hl hix52 htab
   refine ⟨q,((sv.trans su).trans tq).of_eq (by norm_num) (by norm_num),pq,?_,?_,?_⟩
   · intro i hi hi'
@@ -1078,7 +1083,7 @@ theorem finish_steps {im : Image} (hcompact : CompactCodeAt im)
     (hforest : witness.signature.forest=(SharedCodec.sigDecC b).forest)
     (hplan : SharedScatter.PlanAt s)
     (hflag : s.getMem (BitVec.ofNat 64 Search.FLAG)=BitVec.ofNat 64 (if witness.topHigh then 128 else 0)) :
-    ∃v,Steps im s 70972 71149 v ∧ v.pc=pcOf 49400 ∧ v.getReg .x5=1 ∧
+    ∃v,Steps im s 70978 71155 v ∧ v.pc=pcOf 49400 ∧ v.getReg .x5=1 ∧
       ClaudeWCT.W9.Machine.Expand.SharedCompactMain.Phase1 output witness v ∧
       (∀ A, (0x66700 ≤ A ∧ A < 0x66760 ∨ 0x700000 ≤ A ∧ A < 0x700160 ∨ 0x7e1750 ≤ A ∧ A < 0x7e4c60 ∨
         0x7eb870 ≤ A ∧ A < 0x7ecc60) → v.getMem (BitVec.ofNat 64 A)=s.getMem (BitVec.ofNat 64 A)) := by
@@ -1152,9 +1157,9 @@ theorem region_not_written (index : Nat) (lay : Layer) (A : Nat)
   · unfold SigGolfCandidate.T3M.Expand.RecW at h; have hb:=region_bounds lay; omega
 
 theorem layer_regions (N : HashOutput) (w : WCT9.Witness) (s t : MachineState)
-    (hout : ∀lay:Layer,LayerOut t w.signature (WCT9.digestIndex N) lay (w.counters lay))
+    (hout : ∀lay:Layer,LayerOut t w.signature (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) lay (w.counters lay))
     (hhalf : HalfFrame s t 4)
-    (hframe : Frame s t (SigGolfCandidate.T3M.Expand.SharedLayers.LW (WCT9.digestIndex N) 4))
+    (hframe : Frame s t (SigGolfCandidate.T3M.Expand.SharedLayers.LW (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) 4))
     (hz : ∀A,0x2c48 ≤ A → A<0x61c8 → s.getMem (BitVec.ofNat 64 A)=0) :
     ∀lay:Layer,t.readWords (BitVec.ofNat 64 (lBase lay)) (8*(height lay+chainSlotsV6 lay))=
       wordsOf (layerRegionV6 N w lay) := by
@@ -1163,12 +1168,12 @@ theorem layer_regions (N : HashOutput) (w : WCT9.Witness) (s t : MachineState)
   have hv : ∀i (h:i<chainCount lay),DigAt t (lWC lay-64*i+48) ((w.signature.layers lay).values ⟨i,h⟩) := by
     intro i hi
     simpa only [lval,dif_pos hi,WCT9.toT3Signature] using (hout lay).2.1 i hi
-  have hp : ∀j (h:j<height lay),DigAt t (lWM lay-64*j+SigGolfCandidate.T3M.Expand.sideOff (route (WCT9.digestIndex N) lay).1 j)
+  have hp : ∀j (h:j<height lay),DigAt t (lWM lay-64*j+SigGolfCandidate.T3M.Expand.sideOff (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) lay).1 j)
       ((w.signature.layers lay).path ⟨j,h⟩) := by
     intro j hj
     simpa only [lpath,dif_pos hj,WCT9.toT3Signature] using (hout lay).2.2 j hj
   have zero (A : Nat) (hlo : lBase lay ≤ A) (hhi : A<lBase lay+64*(height lay+chainSlotsV6 lay))
-      (hn : ¬RlWit lay (route (WCT9.digestIndex N) lay).1 (lWC lay) (lWM lay) A)
+      (hn : ¬RlWit lay (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) lay).1 (lWC lay) (lWM lay) A)
       (hc : A≠lBase lay+32) : t.getMem (BitVec.ofNat 64 A)=0 := by
     rw [hframe.get (by omega) (region_not_written _ lay A hlo hhi hn hc)]
     exact hz A (by omega) (by omega)
@@ -1222,20 +1227,20 @@ theorem regions_fillTop (N : HashOutput) (w : WCT9.Witness) (s t : MachineState)
     (hproj : WCT9.fillTop w.signature 0=w.signature)
     (hregions : ∀lay:Layer,s.readWords (BitVec.ofNat 64 (lBase lay)) (8*(height lay+chainSlotsV6 lay))=
       wordsOf (layerRegionV6 N w lay))
-    (hout : LayerOut s w.signature (WCT9.digestIndex N) 0 (w.counters 0))
+    (hout : LayerOut s w.signature (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) 0 (w.counters 0))
     (hz : ∀A,0x2c48 ≤ A → A<0x2c48+64*66 →
-      ¬RlWit 0 (route (WCT9.digestIndex N) 0).1 (lWC 0) (lWM 0) A → s.getMem (BitVec.ofNat 64 A)=0)
+      ¬RlWit 0 (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) 0).1 (lWC 0) (lWM 0) A → s.getMem (BitVec.ofNat 64 A)=0)
     (hzero : c=0 → Frame s t (fun _=>False))
-    (hwritten : c≠0 → t.getMem (BitVec.ofNat 64 (0x2c48+sOff (WCT9.digestIndex N)))=
+    (hwritten : c≠0 → t.getMem (BitVec.ofNat 64 (0x2c48+sOff (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N))))=
       hi64 (WCT9.setTop (WCT9.topSib w.signature) c))
-    (hf : Frame s t (fun A=>(NODE ≤ A ∧ A<NODE+64) ∨ (NOUT ≤ A ∧ A<NOUT+32) ∨ A=0x2c48+sOff (WCT9.digestIndex N))) :
+    (hf : Frame s t (fun A=>(NODE ≤ A ∧ A<NODE+64) ∨ (NOUT ≤ A ∧ A<NOUT+32) ∨ A=0x2c48+sOff (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)))) :
     ∀lay:Layer,t.readWords (BitVec.ofNat 64 (lBase lay)) (8*(height lay+chainSlotsV6 lay))=
       wordsOf (layerRegionV6 N {w with signature:=WCT9.fillTop w.signature c} lay) := by
   intro lay
   by_cases hc:c=0
   · subst hc
     rw [frame_readWords (hzero rfl) _ _ (by have:=region_bounds lay;omega) (by simp),hregions lay,hproj]
-  have hso:=sOff_cases (WCT9.digestIndex N)
+  have hso:=sOff_cases (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N))
   have hrb:=region_bounds lay
   by_cases hl0:lay.val=0
   swap
@@ -1247,7 +1252,7 @@ theorem regions_fillTop (N : HashOutput) (w : WCT9.Witness) (s t : MachineState)
     rw [WCT9.fillLayer_ne _ _ _ hl0]
   have h0:lay=0:=Fin.ext hl0
   subst h0
-  have hsoe:=sOff_eq (WCT9.digestIndex N)
+  have hsoe:=sOff_eq (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N))
   unfold layerRegionV6
   rw [if_pos (show (0:Layer).val=0 by rfl)]
   refine layer_words t 0 _ _ (fun i hi=>?_) (fun j hj=>?_) (fun A h1 h2 hn=>?_)
@@ -1260,7 +1265,7 @@ theorem regions_fillTop (N : HashOutput) (w : WCT9.Witness) (s t : MachineState)
   · have d:=hout.2.2 j hj
     simp only [lpath,dif_pos hj,WCT9.toT3Signature] at d
     have h12:j<12:=hj
-    have hs : sideOff (route (WCT9.digestIndex N) 0).1 j ≤ 48 := by unfold sideOff;split <;> omega
+    have hs : sideOff (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) 0).1 j ≤ 48 := by unfold sideOff;split <;> omega
     rw [show lWM (0:Layer)=0x2f08 by rfl] at d ⊢
     change DigAt t _ ((WCT9.fillLayer 0 (w.signature.layers 0) c).path ⟨j,hj⟩)
     unfold WCT9.fillLayer
@@ -1271,7 +1276,7 @@ theorem regions_fillTop (N : HashOutput) (w : WCT9.Witness) (s t : MachineState)
       constructor
       · rw [hf.get (by omega) (by simp only [NODE,NOUT];omega),d.1]
         exact (lo64_setTop _ c).symm
-      · rw [show 0x2f08-64*11+sideOff (route (WCT9.digestIndex N) 0).1 11+8=0x2c48+sOff (WCT9.digestIndex N) by omega,
+      · rw [show 0x2f08-64*11+sideOff (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) 0).1 11+8=0x2c48+sOff (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) by omega,
           hwritten hc]
         rfl
     · rw [if_neg (fun h=>hj11 h.2)]
@@ -1279,7 +1284,7 @@ theorem regions_fillTop (N : HashOutput) (w : WCT9.Witness) (s t : MachineState)
         (hf.get (by omega) (by simp only [NODE,NOUT];omega)).trans d.2⟩
   · have h1':0x2c48 ≤ A:=h1
     have h2':A<0x2c48+64*66:=h2
-    have hne:A≠0x2c48+sOff (WCT9.digestIndex N) := by
+    have hne:A≠0x2c48+sOff (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) := by
       intro he
       apply hn
       refine Or.inr ⟨11,by decide,Or.inr ?_⟩
@@ -1352,9 +1357,9 @@ theorem layer_not_fts (index A : Nat) (h1 : 0x7e1750 ≤ A) (h2 : A < 0x7e4c60) 
   · unfold SigGolfCandidate.T3M.Expand.RecW at h;omega
 
 theorem layer_header (N : HashOutput) (w : WCT9.Witness) (s t : MachineState)
-    (hout : LayerOut t w.signature (WCT9.digestIndex N) 3 (w.counters 3))
+    (hout : LayerOut t w.signature (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) 3 (w.counters 3))
     (hhalf : HalfFrame s t 4)
-    (hframe : Frame s t (SigGolfCandidate.T3M.Expand.SharedLayers.LW (WCT9.digestIndex N) 4))
+    (hframe : Frame s t (SigGolfCandidate.T3M.Expand.SharedLayers.LW (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) 4))
     (hr : DigAt s 2048 w.signature.rho)
     (hc : s.getMem 2064=BitVec.ofNat 64 w.digestCounter.toNat)
     (hz : ∀i,3 ≤ i → i<8 → s.getMem (BitVec.ofNat 64 (2048+8*i))=0) :
@@ -1403,7 +1408,7 @@ structure Stable (output : HashOutput) (b : SharedCodec.CBytes) (pk : Digest) (s
   toptab : Compact2.TopTabAt s
   scatterPlan : SharedScatter.PlanAt s
   pk : DigAt s 0xA0 pk
-  index : s.getMem (0x20550#64)=BitVec.ofNat 64 (WCT9.digestIndex output)
+  index : s.getMem (0x20550#64)=BitVec.ofNat 64 (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output))
   threshold1 : ∀r,r<58 → s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (WCT9.Policy75Safe23.threshold 1 r)
   threshold2 : ∀r,r<42 → s.getByte (BitVec.ofNat 64 (16749520+r))=BitVec.ofNat 8 (WCT9.Policy75Safe23.threshold 2 r)
   zt : SigGolfCandidate.T3M.Search.ZeroCap.ZtOK 354 s
@@ -1481,7 +1486,7 @@ set_option maxRecDepth 20000
 
 def topProgram (output : HashOutput) (w : SharedForest.Witness) (folded root pk : Digest) :
     M (Option (HashOutput × SharedForest.Witness)) :=
-  (if root=pk then pure (some 0) else WCT9.searchTop (WCT9.digestIndex output) folded (WCT9.topSib (SharedForest.mainSignature w.signature)) pk WCT9.searchFuel 1) >>= fun c=>
+  (if root=pk then pure (some 0) else WCT9.searchTop (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) folded (WCT9.topSib (SharedForest.mainSignature w.signature)) pk WCT9.searchFuel 1) >>= fun c=>
   pure (c.map fun c=>(output,{w with signature:=SharedForest.fillTopSignature w.signature c}))
 
 /-- `some`: the expander reached the post-pass entry (pc 49400) with the phase-1 witness image and the top-node
@@ -1490,7 +1495,7 @@ def Done (r : Option (HashOutput × SharedForest.Witness)) (s : MachineState) : 
   match r with
   | none => s.pc=pcOf 354
   | some (output,w) => s.pc=pcOf 49400 ∧ s.getReg .x5=1 ∧ Phase1 output w s ∧
-      SigGolfCandidate.T3M.Expand.NoncesAt s w.topNonces (route (WCT9.digestIndex output) 0).1 ∧
+      SigGolfCandidate.T3M.Expand.NoncesAt s w.topNonces (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0).1 ∧
       PadWit.RecTable s.getMem output w ∧ FtsRecsN output w.ftsNonces s ∧ FtsRecs16 output w.ftsNonces16 s
 
 structure TopReady (output : HashOutput) (w : SharedForest.Witness) (b : SharedCodec.CBytes)
@@ -1499,20 +1504,20 @@ structure TopReady (output : HashOutput) (w : SharedForest.Witness) (b : SharedC
   x5 : s.getReg .x5=0
   root : DigAt s ENC root
   stable : Stable output b pk s
-  indexLt : WCT9.digestIndex output<2^31
+  indexLt : SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)<2^31
   top : ∀i,i<8 → s.getMem (BitVec.ofNat 64 (NODE+8*i))=
-    (blkW (WCT9.digestIndex output) folded (WCT9.topSib (SharedForest.mainSignature w.signature))).getD i 0
+    (blkW (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) folded (WCT9.topSib (SharedForest.mainSignature w.signature))).getD i 0
   proj : WCT9.fillTop (SharedForest.mainSignature w.signature) 0=SharedForest.mainSignature w.signature
   header : s.readWords 2048 8=wordsOf (headerBytesV5 (Paired.mainWitness w))
   regions : ∀lay:Layer,s.readWords (BitVec.ofNat 64 (lBase lay)) (8*(height lay+chainSlotsV6 lay))=
     wordsOf (layerRegionV6 output (Paired.mainWitness w) lay)
-  layer : LayerOut s (SharedForest.mainSignature w.signature) (WCT9.digestIndex output) 0 (w.counters 0)
+  layer : LayerOut s (SharedForest.mainSignature w.signature) (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0 (w.counters 0)
   zero : ∀A,0x2c48 ≤ A → A<0x2c48+64*66 →
-    ¬RlWit 0 (route (WCT9.digestIndex output) 0).1 (lWC 0) (lWM 0) A → s.getMem (BitVec.ofNat 64 A)=0
+    ¬RlWit 0 (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0).1 (lWC 0) (lWM 0) A → s.getMem (BitVec.ofNat 64 A)=0
   ctr3 : s.getMem 2080=(w.counters 3).setWidth 64
   forest : w.signature.forest=(SharedCodec.sigDecC b).forest
   flag : s.getMem (BitVec.ofNat 64 Search.FLAG)=BitVec.ofNat 64 (if w.topHigh then 128 else 0)
-  nonces : SigGolfCandidate.T3M.Expand.NoncesAt s w.topNonces (route (WCT9.digestIndex output) 0).1
+  nonces : SigGolfCandidate.T3M.Expand.NoncesAt s w.topNonces (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0).1
   /-- U16b: the grind stub's record table (ground nonces, fold-0 heaps). -/
   recT : PadWit.RecTable s.getMem output w
   fts : FtsRecsN output w.ftsNonces s
@@ -1532,20 +1537,20 @@ theorem top_good {im : Image} {sk : BitVec 256} (hsearch : SrchCoreAt im)
   have hsib : WCT9.setTop (WCT9.topSib (SharedForest.mainSignature w.signature)) 0=
       WCT9.topSib (SharedForest.mainSignature w.signature) := by
     rw [←WCT9.topSib_fillTop,h.proj]
-  have call:=search_entry_core (sk:=sk) hsearch (WCT9.digestIndex output) h.indexLt folded
+  have call:=search_entry_core (sk:=sk) hsearch (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) h.indexLt folded
     (WCT9.topSib (SharedForest.mainSignature w.signature)) root pk hsib s h.pc h.x5 h.root
     h.stable.pk.1 h.stable.pk.2 h.stable.index h.top
   unfold topProgram
-  refine (TBSim.bind (W₂:=71150) call (fun result t ht=>?_)).mono (W':=31530000) (by norm_num) (fun _ _ h=>h)
+  refine (TBSim.bind (W₂:=71156) call (fun result t ht=>?_)).mono (W':=31530000) (by norm_num) (fun _ _ h=>h)
   cases result with
   | none => exact (TBSim.pure (Q:=Done) (a:=none) ht).mono (by omega) (fun _ _ h=>h)
   | some c =>
     obtain ⟨tp,tzero,tnonzero⟩:=ht
-    have frame : Frame s t (H2Writes (WCT9.digestIndex output)) := by
+    have frame : Frame s t (H2Writes (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output))) := by
       by_cases hz:c=0
       · exact (tzero hz).mono (by simp)
       · exact (tnonzero hz).2.2
-    have stable:=h.stable.frame frame (h2_keep (WCT9.digestIndex output))
+    have stable:=h.stable.frame frame (h2_keep (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)))
     let w' : SharedForest.Witness:={w with signature:=SharedForest.fillTopSignature w.signature c}
     have regs : ∀lay:Layer,t.readWords (BitVec.ofNat 64 (lBase lay)) (8*(height lay+chainSlotsV6 lay))=
         wordsOf (layerRegionV6 output (Paired.mainWitness w') lay) := by
@@ -1555,38 +1560,38 @@ theorem top_good {im : Image} {sk : BitVec 256} (hsearch : SrchCoreAt im)
       change t.readWords (BitVec.ofNat 64 2048) 8=_
       rw [frame_readWords frame 2048 8 (by decide) (by
         intro i hi hw;unfold H2Writes at hw;simp only [NODE,NOUT] at hw
-        have:=sOff_cases (WCT9.digestIndex output);omega)]
+        have:=sOff_cases (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output));omega)]
       exact h.header
     have ctr : t.getMem 2080=(w'.counters 3).setWidth 64 := by
       change t.getMem (BitVec.ofNat 64 2080)=_
-      rw [frame.get (A:=2080) (by decide) (by unfold H2Writes;simp only [NODE,NOUT];have:=sOff_cases (WCT9.digestIndex output);omega)]
+      rw [frame.get (A:=2080) (by decide) (by unfold H2Writes;simp only [NODE,NOUT];have:=sOff_cases (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output));omega)]
       exact h.ctr3
     have fields:=main_words_of_regions t output (Paired.mainWitness w') head regs
     obtain ⟨imm,hd,ho⟩:=jalTo_sound (show jalTo (0x4d52706f#32) 351=some 41108 by decide)
     have jump:=jal_x0_step hentry hd ho t tp
     have flag : t.getMem (BitVec.ofNat 64 Search.FLAG)=BitVec.ofNat 64 (if w'.topHigh then 128 else 0) := by
-      rw [frame.get (by decide) (by unfold H2Writes;simp only [NODE,NOUT,Search.FLAG];have:=sOff_cases (WCT9.digestIndex output);omega)]
+      rw [frame.get (by decide) (by unfold H2Writes;simp only [NODE,NOUT,Search.FLAG];have:=sOff_cases (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output));omega)]
       exact h.flag
     obtain ⟨v,tv,vp,v5,vph,vn⟩:=finish_steps hcompact hz hc ha hf he hj output w' b
       (t.setPC (pcOf 41108)) rfl stable.digest stable.plan stable.lplan stable.toptab fields ctr stable.forest
       h.forest stable.scatterPlan flag
     have tn := NoncesAt.frame h.nonces frame (by
       intro A h1 h2 hw; unfold H2Writes at hw; simp only [NODE,NOUT] at hw
-      have:=sOff_cases (WCT9.digestIndex output);omega)
-    have vnon : SigGolfCandidate.T3M.Expand.NoncesAt v w'.topNonces (route (WCT9.digestIndex output) 0).1 :=
+      have:=sOff_cases (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output));omega)
+    have vnon : SigGolfCandidate.T3M.Expand.NoncesAt v w'.topNonces (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0).1 :=
       ⟨tn.1, fun k hk => (vn _ (Or.inl ⟨by omega, by omega⟩)).trans (tn.2.1 k hk),
         (vn _ (Or.inl ⟨by norm_num, by norm_num⟩)).trans tn.2.2⟩
     have trec : PadWit.RecTable t.getMem output w := RecTable.frame h.recT (fun A h1 h2 => frame.get (by omega) (by
       intro hw; unfold H2Writes at hw; simp only [NODE,NOUT] at hw
-      have:=sOff_cases (WCT9.digestIndex output);omega))
+      have:=sOff_cases (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output));omega))
     have vrec : PadWit.RecTable v.getMem output w' := RecTable.frame trec (fun A h1 h2 => vn A (Or.inr (Or.inl ⟨h1, h2⟩)))
     have tfts : FtsRecsN output w.ftsNonces t := FtsRecsN.frame h.fts (fun A h1 h2 => frame.get (by omega) (by
       intro hw; unfold H2Writes at hw; simp only [NODE,NOUT] at hw
-      have:=sOff_cases (WCT9.digestIndex output);omega))
+      have:=sOff_cases (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output));omega))
     have vfts : FtsRecsN output w'.ftsNonces v := FtsRecsN.frame tfts (fun A h1 h2 => vn A (Or.inr (Or.inr (Or.inl ⟨h1, h2⟩))))
     have tfts16 : FtsRecs16 output w.ftsNonces16 t := FtsRecs16.frame h.fts16 (fun A h1 h2 => frame.get (by omega) (by
       intro hw; unfold H2Writes at hw; simp only [NODE,NOUT] at hw
-      have:=sOff_cases (WCT9.digestIndex output);omega))
+      have:=sOff_cases (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output));omega))
     have vfts16 : FtsRecs16 output w'.ftsNonces16 v := FtsRecs16.frame tfts16 (fun A h1 h2 => vn A (Or.inr (Or.inr (Or.inr ⟨h1, h2⟩))))
     exact TBSim.steps (jump.trans tv) (TBSim.pure ⟨vp,v5,vph,vnon,vrec,vfts,vfts16⟩)
 end ClaudeWCT.W9.Machine.Expand.SharedCompactMain
@@ -1636,7 +1641,7 @@ theorem top_not_written (index A : Nat) (ha : 0x2c48 ≤ A) (hb : A<0x2c48+64*66
 
 theorem ready_of_layers {output : HashOutput} {w : SharedForest.Witness} {b : SharedCodec.CBytes}
     {pk folded root : Digest} {s t u : MachineState}
-    (hi : WCT9.digestIndex output<2^31)
+    (hi : SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)<2^31)
     (stable : Stable output b pk s)
     (hr : DigAt s 2048 w.signature.rho)
     (hdc : s.getMem 2064=BitVec.ofNat 64 w.digestCounter.toNat)
@@ -1644,14 +1649,14 @@ theorem ready_of_layers {output : HashOutput} {w : SharedForest.Witness} {b : Sh
     (hzregions : ∀A,0x2c48 ≤ A → A<0x61c8 → s.getMem (BitVec.ofNat 64 A)=0)
     (hproj : WCT9.fillTop (SharedForest.mainSignature w.signature) 0=SharedForest.mainSignature w.signature)
     (hforest : w.signature.forest=(SharedCodec.sigDecC b).forest)
-    (hout : ∀lay:Layer,LayerOut t (SharedForest.mainSignature w.signature) (WCT9.digestIndex output) lay (w.counters lay))
+    (hout : ∀lay:Layer,LayerOut t (SharedForest.mainSignature w.signature) (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay (w.counters lay))
     (hhalf : HalfFrame s t 4)
-    (hframe : Frame s t (SigGolfCandidate.T3M.Expand.SharedLayers.LW (WCT9.digestIndex output) 4))
+    (hframe : Frame s t (SigGolfCandidate.T3M.Expand.SharedLayers.LW (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 4))
     (hroot : DigAt t ENC root)
-    (hblk : TopBlkG (WCT9.toT3Signature (SharedForest.mainSignature w.signature)) (WCT9.digestIndex output) 0 folded t)
+    (hblk : TopBlkG (WCT9.toT3Signature (SharedForest.mainSignature w.signature)) (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0 folded t)
     (hu : Frame t u (fun _=>False)) (up : u.pc=pcOf 42795) (u5 : u.getReg .x5=0)
     (hflag : t.getMem (BitVec.ofNat 64 Search.FLAG)=BitVec.ofNat 64 (if w.topHigh then 128 else 0))
-    (hnon : SigGolfCandidate.T3M.Expand.NoncesAt t w.topNonces (route (WCT9.digestIndex output) 0).1)
+    (hnon : SigGolfCandidate.T3M.Expand.NoncesAt t w.topNonces (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0).1)
     (hrec : PadWit.RecTable t.getMem output w) (hfts : FtsRecsN output w.ftsNonces t)
     (hfts16 : FtsRecs16 output w.ftsNonces16 t) :
     TopReady output w b folded root pk u := by
@@ -1666,7 +1671,7 @@ theorem ready_of_layers {output : HashOutput} {w : SharedForest.Witness} {b : Sh
   · exact hi
   · intro i hi
     rw [mem _ (by unfold NODE;omega)]
-    exact topBlk_get (SharedForest.mainSignature w.signature) (WCT9.digestIndex output) folded t hblk i hi
+    exact topBlk_get (SharedForest.mainSignature w.signature) (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) folded t hblk i hi
   · exact hproj
   · change u.readWords (BitVec.ofNat 64 2048) 8=_
     rw [frame_readWords hu 2048 8 (by decide) (by simp)]
@@ -1683,7 +1688,7 @@ theorem ready_of_layers {output : HashOutput} {w : SharedForest.Witness} {b : Sh
       exact ⟨(mem _ (by have:=ltable (0:Layer);omega)).trans (values i hi).1,
         (mem _ (by have:=ltable (0:Layer);omega)).trans (values i hi).2⟩
     · intro j hj
-      have hh:SigGolfCandidate.T3M.Expand.sideOff (route (WCT9.digestIndex output) 0).1 j ≤ 48 := by
+      have hh:SigGolfCandidate.T3M.Expand.sideOff (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0).1 j ≤ 48 := by
         unfold SigGolfCandidate.T3M.Expand.sideOff;split <;> omega
       exact ⟨(mem _ (by have:=ltable (0:Layer);omega)).trans (paths j hj).1,
         (mem _ (by have:=ltable (0:Layer);omega)).trans (paths j hj).2⟩
@@ -1719,10 +1724,12 @@ theorem ppCycles_le : ClaudeWCT.W9.Machine.Expand.PostPass.ppCycles ≤ 1000000 
   unfold ClaudeWCT.W9.Machine.Expand.PostPass.ppCycles
   first
   | decide
-  | (simp only [ClaudeWCT.W9.Machine.Expand.PostPass.RDA.res, ClaudeWCT.W9.Machine.Expand.PostPass.RDB.res,
+  | (simp only [ClaudeWCT.W9.Machine.Expand.PostPass.RDA.res, ClaudeWCT.W9.Machine.Expand.PostPass.RDAS.res,
+      ClaudeWCT.W9.Machine.Expand.PostPass.RDAB.res, ClaudeWCT.W9.Machine.Expand.PostPass.RDB.res,
       ClaudeWCT.W9.Machine.Expand.PostPass.RJ.res, ClaudeWCT.W9.Machine.Expand.PostPass.RJA.res,
       ClaudeWCT.W9.Machine.Expand.PostPass.RJB.res]; omega)
-  | (norm_num [ClaudeWCT.W9.Machine.Expand.PostPass.RDA.res, ClaudeWCT.W9.Machine.Expand.PostPass.RDB.res,
+  | (norm_num [ClaudeWCT.W9.Machine.Expand.PostPass.RDA.res, ClaudeWCT.W9.Machine.Expand.PostPass.RDAS.res,
+      ClaudeWCT.W9.Machine.Expand.PostPass.RDAB.res, ClaudeWCT.W9.Machine.Expand.PostPass.RDB.res,
       ClaudeWCT.W9.Machine.Expand.PostPass.RJ.res, ClaudeWCT.W9.Machine.Expand.PostPass.RJA.res,
       ClaudeWCT.W9.Machine.Expand.PostPass.RJB.res])
 theorem pairedExpandCost_lt : pairedExpandCost+1<CYCLE_LIMIT := by
@@ -1788,7 +1795,7 @@ structure LayersReady (output : HashOutput) (sig : SharedForest.Signature) (b : 
     (counter : BitVec 32) (forest : Digest × Digest) (ftsN ftsN16 : List Nat) (pk : Digest) (s : MachineState) :
     Prop where
   inv : SigGolfCandidate.T3M.Expand.SharedLayers.LInv (SharedForest.mainSignature sig) sig.policyHints
-    (WCT9.digestIndex output) 4 (.pair forest.1 forest.2) s
+    (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 4 (.pair forest.1 forest.2) s
   stable : Stable output b pk s
   rho : DigAt s 2048 sig.rho
   dc : s.getMem 2064=BitVec.ofNat 64 counter.toNat
@@ -1801,11 +1808,11 @@ structure LayersReady (output : HashOutput) (sig : SharedForest.Signature) (b : 
 
 def recoverProgram (output : HashOutput) (sig : SharedForest.Signature) (counter : BitVec 32)
     (forest : Digest × Digest) (ftsN ftsN16 : List Nat) (pk : Digest) : M (Option (HashOutput × SharedForest.Witness)) :=
-  SharedForest.recoverHintedLayers sig (WCT9.digestIndex output) (WCT9.topSib (SharedForest.mainSignature sig))
+  SharedForest.recoverHintedLayers sig (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) (WCT9.topSib (SharedForest.mainSignature sig))
     4 (.pair forest.1 forest.2) >>= fun result=>
   match result with
   | none => pure none
-  | some r => if SharedForest.policyHintsValid (WCT9.digestIndex output) sig.policyHints r.digits r.lows then
+  | some r => if SharedForest.policyHintsValid (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) sig.policyHints r.digits r.lows then
       topProgram output ⟨sig,counter,fun lay=>r.counters.getD lay.val 0,!(r.lows.getD 0 true),r.nonces,
         fun lay=>r.lowerNonces.getD lay.val [],ftsN,ftsN16⟩ r.foldedTop r.root pk
     else pure none
@@ -1837,13 +1844,13 @@ theorem layers_good {sk : BitVec 256} {output : HashOutput} {sig : SharedForest.
     have jump:=SharedControl.validate_step t tp
     let u:=t.setPC (pcOf 46929)
     obtain ⟨v,n,c,hn,hc,uv,vp,vr,vf⟩:=SharedValidateV6.validate_source_steps SharedValidateV6.installed_code
-      u rfl (WCT9.digestIndex output) h.inv.hidx (by simpa [u] using stable.index)
+      u rfl (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) h.inv.hidx (by simpa [u] using stable.index)
       sig.policyHints r.digits r.lows h.inv.hintsLt dlen (fun lay=>by
         simpa only [SigGolfCandidate.T3M.Search.CanonicalExpandHooks.hintFloor_source] using floors lay lay.isLt) hints
       (fun lay=>credits lay lay.isLt) SharedValidate.threshold1_lt SharedValidate.threshold2_lt
       stable.threshold1 stable.threshold2
     have tf : Frame t v (fun _=>False):=vf
-    by_cases valid:SharedForest.policyHintsValid (WCT9.digestIndex output) sig.policyHints r.digits r.lows=true
+    by_cases valid:SharedForest.policyHintsValid (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) sig.policyHints r.digits r.lows=true
     · rw [if_pos valid] at vp ⊢
       have v5:v.getReg .x5=0 := (vr.get (by decide)).trans t5
       have ready:TopReady output ⟨sig,counter,fun lay=>r.counters.getD lay.val 0,!(r.lows.getD 0 true),r.nonces,
@@ -1942,7 +1949,7 @@ theorem handoff_ready {output : HashOutput} {b : SharedCodec.CBytes} {counter : 
     (hfts16 : FtsRecs16 output ftsN16 s) :
     LayersReady output (SharedCodec.sigDecC b) b counter pair ftsN ftsN16 pk t := by
   constructor
-  · exact SharedHandoff.layer_inv hp h5 hi h.stable.index h.inflated hL hR hroots hmove hf h.c32 h.zero h.table h.cf h.reward h.hintsLt h.hints h.stable.zt h.stable.t51src
+  · exact SharedHandoff.layer_inv hp h5 (SigGolfCandidate.T3.hyperIndex_lt _) h.stable.index h.inflated hL hR hroots hmove hf h.c32 h.zero h.table h.cf h.reward h.hintsLt h.hints h.stable.zt h.stable.t51src
   · exact h.stable.frame hf (by intro A hk;unfold Keep at hk;unfold SharedHandoff.Writes;omega)
   · have d:=h.inflated.rho
     exact ⟨(hrho 0 (by decide)).trans d.1,(hrho 1 (by decide)).trans d.2⟩
@@ -1970,25 +1977,6 @@ def forestProgram (output : HashOutput) (b : SharedCodec.CBytes) (counter : BitV
     (SharedForest.forestWordsFromOutput output) (SharedCodec.sigDecC b).forest >>= fun pair=>
   recoverProgram output (SharedCodec.sigDecC b) counter pair.1 pair.2.1 pair.2.2 pk
 
-theorem forest_suffix_good {sk : BitVec 256} {output : HashOutput} {b : SharedCodec.CBytes}
-    {counter : BitVec 32} {pk : Digest} {s : MachineState}
-    (hi : WCT9.digestIndex output<2^31) (hm : ForestMemory output b counter pk s)
-    (hI : SharedForestRun.Inv (Paired.witEnc output ⟨SharedCompactMain.forestSig (SharedCodec.sigDecC b),counter,fun _=>0,false,[],fun _=>[],[],[]⟩)
-      (WCT9.digestIndex output) (SharedForest.rawChildFromOutput output)
-      (fun k=>SharedForest.forestRank output k.val) s 0
-      (W9Machine.SharedV3.initialPair (Paired.witEnc output ⟨SharedCompactMain.forestSig (SharedCodec.sigDecC b),counter,fun _=>0,false,[],fun _=>[],[],[]⟩)) s) :
-    TBSim Images.expandImage sk s 3821741577 (forestProgram output b counter pk) (SuffixDone Images.expandImage) := by
-  have call:=SharedForestRun.installed_forest_good sk output ⟨SharedCompactMain.forestSig (SharedCodec.sigDecC b),counter,fun _=>0,false,[],fun _=>[],[],[]⟩
-    (WCT9.digestIndex output) hi s hI
-  unfold forestProgram
-  rw [SharedForestRun.forestW_val] at call
-  refine TBSim.bind (W₂:=3821602689) call (fun pair t ht=>?_)
-  obtain ⟨tp,left,right,frame,fields,x8,recs,recs16⟩:=ht
-  have memory:=hm.frame (frame.mono (fun A _ h=>by
-    unfold SharedForestRun.writes W9Machine.SharedChild.scratchW SigGolfCandidate.FtsGrind.SCR SigGolfCandidate.FtsGrind.SCR16 at h; omega))
-  obtain ⟨u,tu,up,u2,u5,roots,rho,dc,zeros,moved,regs,fr⟩:=SharedHandoff.steps SharedHandoff.installed_code t tp x8
-  have ready:=handoff_ready memory hi up u5 left right roots rho dc zeros moved fr (ftsRecs_of_recInv recs) (ftsRecs16_of_recInv16 recs16)
-  exact TBSim.steps tu (layers_good ready)
 end ClaudeWCT.W9.Machine.Expand.SharedCompactMain
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedCompactMain
@@ -2020,24 +2008,24 @@ theorem expandN_source (message : Message) (pk : Digest) (b : SharedCodec.CBytes
       (SharedForest.forestSelectionFromOutput output) (SharedForest.forestWordsFromOutput output)
       (SharedCodec.sigDecC b).forest >>= k)
     funext forest
-    apply congrArg (fun k=>SharedForest.recoverHintedLayers (SharedCodec.sigDecC b) (WCT9.digestIndex output)
+    apply congrArg (fun k=>SharedForest.recoverHintedLayers (SharedCodec.sigDecC b) (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output))
       (WCT9.topSib (SharedForest.mainSignature (SharedCodec.sigDecC b))) 4 (.pair forest.1.1 forest.1.2) >>= k)
     funext layers
     cases layers with
     | none => rfl
     | some layers =>
       dsimp only
-      by_cases valid:SharedForest.policyHintsValid (WCT9.digestIndex output) (SharedCodec.sigDecC b).policyHints layers.digits layers.lows=true
+      by_cases valid:SharedForest.policyHintsValid (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) (SharedCodec.sigDecC b).policyHints layers.digits layers.lows=true
       · simp only [valid,Bool.not_true,Bool.false_eq_true,ite_false,ite_true]
         unfold topProgram
         by_cases root:layers.root=pk
         · simp only [root,ite_true,pure_bind,Option.map_some,hfill]
         · simp only [root,ite_false]
-          apply congrArg (fun k=>WCT9.searchTop (WCT9.digestIndex output) layers.foldedTop
+          apply congrArg (fun k=>WCT9.searchTop (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) layers.foldedTop
             (WCT9.topSib (SharedForest.mainSignature (SharedCodec.sigDecC b))) pk WCT9.searchFuel 1 >>= k)
           funext c
           cases c <;> rfl
-      · have vf : SharedForest.policyHintsValid (WCT9.digestIndex output) (SharedCodec.sigDecC b).policyHints layers.digits layers.lows=false :=
+      · have vf : SharedForest.policyHintsValid (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) (SharedCodec.sigDecC b).policyHints layers.digits layers.lows=false :=
           Bool.eq_false_iff.mpr valid
         simp only [vf,Bool.not_false,Bool.false_eq_true,ite_true,ite_false]
 end ClaudeWCT.W9.Machine.Expand.SharedCompactMain
@@ -2123,9 +2111,9 @@ theorem suffix_done {sk : BitVec 256} {r : Option (HashOutput × SharedForest.Wi
     obtain ⟨t,st,tp,tr,tbuf,tm⟩:=PostEnc.pp_witEnc s hp output w ph.fts ph.old ph.choice ph.leaf
     have hscr (A:Nat) (h1:0x66700 ≤ A) (h2:A<0x66760) : t.getMem (BitVec.ofNat 64 A)=s.getMem (BitVec.ofNat 64 A) := by
       rw [tm A (by omega)]; exact PostEnc.ppMem_scratch _ _ A h1 h2
-    have hl : (SigGolfCandidate.T3.route (WCT9.digestIndex output) 0).1<4096 := by
+    have hl : (SigGolfCandidate.T3.route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0).1<4096 := by
       unfold SigGolfCandidate.T3.route; simp [SigGolfCandidate.T3.height]; omega
-    have tleaf : (t.getMem (BitVec.ofNat 64 0x66758)).toNat % 4096=(SigGolfCandidate.T3.route (WCT9.digestIndex output) 0).1 % 4096 := by
+    have tleaf : (t.getMem (BitVec.ofNat 64 0x66758)).toNat % 4096=(SigGolfCandidate.T3.route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0).1 % 4096 := by
       rw [hscr _ (by norm_num) (by norm_num),hn.2.2,BitVec.toNat_ofNat,Nat.mod_eq_of_lt (show _ < 2^64 by omega)]
     have tnon : ∀ j, j < 11 → t.getMem (PadWriter.nonceAddr j)=BitVec.ofNat 64 (w.topNonces.getD j 0) := by
       intro j hj
@@ -2209,17 +2197,6 @@ theorem suffix_done {sk : BitVec 256} {r : Option (HashOutput × SharedForest.Wi
     exact (TBSim.steps (((st.trans su).trans sv).trans sv2) (TBSim.pure (Q:=ClaudeWCT.W9.Machine.ExpandLink.PairedExpPost)
       (a:=some (output,w)) ⟨vp2,v5,v10,rb,vfetch⟩)).mono (by unfold suffixW; omega) (fun _ _ h=>h)
 
-theorem forest_suffix_halted {sk : BitVec 256} {output : HashOutput} {b : SharedCodec.CBytes}
-    {counter : BitVec 32} {pk : Digest} {s : MachineState}
-    (hi : WCT9.digestIndex output<2^31) (hm : ForestMemory output b counter pk s)
-    (hI : SharedForestRun.Inv (Paired.witEnc output ⟨SharedCompactMain.forestSig (SharedCodec.sigDecC b),counter,fun _=>0,false,[],fun _=>[],[],[]⟩)
-      (WCT9.digestIndex output) (SharedForest.rawChildFromOutput output)
-      (fun k=>SharedForest.forestRank output k.val) s 0
-      (W9Machine.SharedV3.initialPair (Paired.witEnc output ⟨SharedCompactMain.forestSig (SharedCodec.sigDecC b),counter,fun _=>0,false,[],fun _=>[],[],[]⟩)) s) :
-    TBSim Images.expandImage sk s (3821741577+suffixW) (forestProgram output b counter pk)
-      ClaudeWCT.W9.Machine.ExpandLink.PairedExpPost := by
-  simpa only [bind_pure] using
-    (TBSim.bind (W₂:=suffixW) (forest_suffix_good hi hm hI) (fun _ _ h=>suffix_done h))
 end ClaudeWCT.W9.Machine.Expand.SharedCompactMain
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedCompactMain
@@ -2242,7 +2219,7 @@ theorem memory_after_clear {s0 s t:MachineState} {output:HashOutput} {b:SharedCo
     (hsetup:∀A,A=0x59B0 ∨ A=0x59B8 ∨ A=0x59C0 ∨ A=0x59C8 → s.getMem (BitVec.ofNat 64 A)=0)
     (hout:OutAt s NBUF output)
     (hctr:t.getMem 0x66008=BitVec.ofNat 64 counter.toNat)
-    (hindex:t.getMem 0x20550=s.getMem 0x20160 >>> 33)
+    (hindex:t.getMem 0x20550=BitVec.ofNat 64 (2^31 - 1 - (s.getMem 0x20160 >>> 33).toNat))
     (hdigest:∀i,i<4 → t.getMem (BitVec.ofNat 64 (96+8*i))=s.getMem (BitVec.ofNat 64 (NBUF+8*i)))
     (hf:Frame s t ClearWrites) : ForestMemory output b counter pk t := by
   have word (A:Nat) (ha:A<2^64) (hS:¬SharedFront.SearchWrites A) (hC:¬ClearWrites A) :
@@ -2280,7 +2257,10 @@ theorem memory_after_clear {s0 s t:MachineState} {output:HashOutput} {b:SharedCo
     · change t.getMem (0x20550:Word)=_
       rw[hindex]
       have ho:s.getMem (0x20160:Word)=output.extractLsb' 0 64:=hout 0 (by decide)
-      rw[ho];exact Compact2.index_shr output
+      rw[ho,Compact2.index_shr output,BitVec.toNat_ofNat,
+        Nat.mod_eq_of_lt ((WCT9.digestIndex_lt output).trans (by norm_num))]
+      unfold SigGolfCandidate.T3.hyperIndex
+      rw [Nat.mod_eq_of_lt (WCT9.digestIndex_lt output)]
     · intro r hr;rw[highByte _ (by omega) (by omega)];exact initial.threshold1 r hr
     · intro r hr;rw[highByte _ (by omega) (by omega)];exact initial.threshold2 r hr
     · intro r hr;rw[highByte _ (by rw [show SigGolfCandidate.T3M.Search.ZeroCap.ZT 354 = 16747280 from rfl];omega)
@@ -2332,7 +2312,7 @@ theorem cleared_front {s0 s:MachineState} {output:HashOutput} {b:SharedCodec.CBy
     (hsetup:∀A,A=0x59B0 ∨ A=0x59B8 ∨ A=0x59C0 ∨ A=0x59C8 → s.getMem (BitVec.ofNat 64 A)=0)
     (hout:OutAt s NBUF output) (h19:s.getReg .x19=BitVec.ofNat 64 counter.toNat)
     (h17:s.getReg .x17=0x20160) (hp:s.pc=pcOf 45226) :
-    ∃t,Steps Images.expandImage s 3740 3740 t ∧ t.pc=pcOf 45257 ∧
+    ∃t,Steps Images.expandImage s 3748 3748 t ∧ t.pc=pcOf 45257 ∧
       (∀ (off:Nat),off+8≤8160 → off%8=0 → t.getMem (BitVec.ofNat 64 (2904+off))=0) ∧
       t.getMem 417824=0 ∧ t.getMem 0x66010=BitVec.ofNat 64 (WCT9.digestIndex output) ∧
       OutAt t NBUF output ∧ ForestMemory output b counter pk t := by
@@ -2369,7 +2349,7 @@ theorem accepted_front {s0 s:MachineState} {output:HashOutput} {b:SharedCodec.CB
     (hout:OutAt s NBUF output) (h19:s.getReg .x19=BitVec.ofNat 64 counter.toNat)
     (h17:s.getReg .x17=0x20160) (hp:s.pc=pcOf 45226)
     (hrank:∀k:Fin 9,SharedForest.rawForestRank output k.val<563) :
-    ∃t,Steps Images.expandImage s 4996 5173 t ∧ ForestMemory output b counter pk t ∧
+    ∃t,Steps Images.expandImage s 5004 5181 t ∧ ForestMemory output b counter pk t ∧
       SharedForestRun.Inv (Paired.witEnc output ⟨SharedCompactMain.forestSig (SharedCodec.sigDecC b),counter,fun _=>0,false,[],fun _=>[],[],[]⟩)
         (WCT9.digestIndex output) (SharedForest.rawChildFromOutput output)
         (fun k=>SharedForest.forestRank output k.val) t 0
@@ -2407,30 +2387,9 @@ theorem initial_x5 (message : Message) (pk : PublicKey) (b : SharedCodec.CBytes)
 
 /-- Cycle budget after the digest search (layers + top + compaction/scatter + img-v6 witness tail). C42: the forest
 pass's 9 dispatches run the step stub (`+ 72`). -/
-def searchedW : Nat := 3821746750 + suffixW
-
-theorem searched_continue {sk : BitVec 256} {s0 s : MachineState} {pk : Digest} {b : SharedCodec.CBytes}
-    (initial : InitialMemory b pk s0) (hh:(SharedCodec.sigDecC b).policyHints.toNat<12288)
-    {r : Option (BitVec 32 × HashOutput)} (hs : SharedFront.Searched s0 b r s) :
-    TBSim Images.expandImage sk s searchedW
-      (match r with | none=>pure none | some (counter,output)=>forestProgram output b counter pk) PairedExpPost := by
-  cases r with
-  | none =>
-    obtain ⟨t,st,tp,t5,t10,regs,frame⟩:=Sign.SharedDigestBoundary.failure_steps true
-      SharedDigestCode.installed_failure s hs.result
-    have pc:t.pc=pcOf 45231:=tp
-    have hf:fetch Images.expandImage t=some (.base .ECALL):=
-      (SharedDigestCode.installed_failure_ecall.fetch t pc).trans rfl
-    exact (TBSim.steps st (TBSim.pure (Q:=PairedExpPost) (a:=none)
-      ⟨Or.inr pc,t5,t10,hf⟩)).mono (by unfold searchedW; omega) (fun _ _ h=>h)
-  | some result =>
-    rcases result with ⟨counter,output⟩
-    obtain ⟨hp,h19,hc,ha,hout⟩:=hs.result
-    have hrank:=((SharedForest.accepted_conditions output ha).2.1)
-    obtain ⟨t,st,memory,inv⟩:=accepted_front initial hs.inflated hh hs.hints hs.frame hs.setupZero hout h19
-      hs.resultR17 hp hrank
-    exact (TBSim.steps st (forest_suffix_halted (WCT9.digestIndex_lt output) memory inv)).mono
-      (by unfold searchedW; omega) (fun _ _ h=>h)
+-- C47: `forest_suffix_good`/`forest_suffix_halted`/`searched_continue`/`paired_expand_tbsim`/`paired_expand_pending`
+-- (reference image, unused by the certificate) are removed with `SharedForestRun.installed_forest_good` (Merge092).
+def searchedW : Nat := 3821746758 + suffixW
 
 end ClaudeWCT.W9.Machine.Expand.SharedCompactMain
 
@@ -2442,41 +2401,6 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 100000
 set_option Elab.async false
 
-theorem paired_expand_tbsim : PairedExpandSimulation := by
-  intro sk message pk b
-  -- T51: word 0 jumps to DEC (54569), which writes the inflated slot layout of the 5,195-byte signature at `0x7000`
-  -- and the hint at `0x66000` (a hint `≥ 12288` exits at word 354), then `j 1`; the front runs from word 1 on the
-  -- real initial state `w9init .. b`.
-  have hfill : SharedForest.fillTopSignature (SharedCodec.sigDecC b) 0=SharedCodec.sigDecC b :=
-    SharedCodec.fill_sigDecC b
-  rw [expandN_source message pk _ hfill]
-  by_cases bad:12288≤(SharedCodec.sigDecC b).policyHints.toNat
-  · rw [if_pos bad]
-    obtain ⟨t,st,tp⟩:=PrePass.dec_reject message pk b bad
-    exact (TBSim.steps st (suffix_done (r:=none) (Or.inl tp))).mono
-      (by unfold pairedExpandCost suffixW; omega) (fun _ _ h=>h)
-  · rw [if_neg bad]
-    have hh:(SharedCodec.sigDecC b).policyHints.toNat<12288:=by omega
-    -- N7g: a hint `< 12288` is exactly a canonical field `N < R * 360` (`policyHints_sigDecC_ge_iff`)
-    have hc:SharedCodec.nOfB b<PrePass.nCanon:=by
-      have h1:=(SharedCodec.policyHints_sigDecC_ge_iff b).not.mp bad
-      rw [SharedCodec.R_mul_360] at h1; unfold PrePass.nCanon; omega
-    obtain ⟨u,ku,cu,su,hcu,up,ureg,uin,uh,uf⟩:=PrePass.dec_init_r6 message pk b hc
-    have hmsg : ∀ k, k<4 → u.getMem (BitVec.ofNat 64 (0x65A0+8*k))=message.extractLsb' (64*k) 64 := fun k hk =>
-      (uf.get (by omega) (by omega)).trans
-        (SharedInit.msgWord Images.expandData_length SharedInit.installed_dataBase message pk _ k hk)
-    have u5 : u.getReg .x5=0 := (ureg .x5).trans (initial_x5 message pk _)
-    obtain ⟨t,st,ready⟩:=SharedFront.prepare SharedFront.installed_tail
-      SharedFront.installed_zero SharedFront.installed_jump _ u message b up u5 uin uh hmsg
-      ((SharedInit.initial_data message pk _).frame uf (by intro A h1 h2; unfold SharedInit.DB at h1 h2; omega)) uf
-    have search:=SharedFront.search_prepared (sk:=sk) SharedDigestCode.installed_look ready
-    have continuation:=TBSim.bind (W₂:=searchedW) search
-      (fun r s hs=>searched_continue (initial_memory message pk _ hfill) hh hs)
-    exact (TBSim.steps (su.trans st) continuation).mono
-      (by unfold pairedExpandCost SharedCompactMain.searchedW; omega) (fun _ _ h=>h)
-
-theorem paired_expand_pending : Final.Paired.ExpandRefines I0 ∧ Final.Paired.ExpandTerminates I0 :=
-  paired_expand_pending_of paired_expand_tbsim
 end ClaudeWCT.W9.Machine.ExpandLink
 end
 -- ==== merged from T3M_FullCache_MacPass ====

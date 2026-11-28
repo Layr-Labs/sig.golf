@@ -471,7 +471,7 @@ theorem steps_good (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
         (Verify.ccM (c.rest i (m + 1) (Verify.vHalf (stepHigh i m) a)) (fun v => K (acc ++ [v]))) := by
       intro a
       have hrun := c.chk_rung' i (m + 1) hi.2 (by omega) (by omega) (by omega) hck
-      obtain ⟨u, hu, hp⟩ := c.rung_step hc hk i (m + 1) hi (by omega) (hrc _ (by omega) (by omega)) hrun acc _ _
+      obtain ⟨u, hu, hp⟩ := c.rung_step hc hk i (m + 1) hi (by omega) (by omega) (hrc _ (by omega) (by omega)) hrun acc _ _
         ((hpost a).1 (by omega))
       have := ih (m + 1) (by omega) (by omega) _ _ hp
       exact Verify.GoodQP.stepsQ hu this (by unfold rLen; split <;> omega) (by omega) (fun hq => ⟨hq, by omega⟩)
@@ -1515,13 +1515,16 @@ theorem MsgAt.pair_top {w : ClaudeWCT.W9.T3M.WBytes} {index : Nat} {left right :
   simpa only [MsgAt, ↓reduceIte] using h
 /-- L-hyper A: the marker bit the routed register carries on entry to layer `lay` (layer 3's head ORs it in). -/
 def rMark (lay : Nat) : Nat := if lay = 3 then 0 else 2 ^ T3.hyperW lay
+/-- C47 (B): the routed register on entry to layer `lay` for the hypertree index `index`: layer 3 gets the digest index
+`2 ^ 31 - 1 - index` (its head complements it, `T3.hyperIndex`), a lower layer the routed field above its marker. -/
+def rVal (lay index : Nat) : Nat := if lay = 3 then 2 ^ 31 - 1 - index else index / 2 ^ below lay + rMark lay
 structure LayerIn (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index lay : Nat) (msg : LayerMsg)
     (s : MachineState) : Prop where
   lay4 : lay < 4
   idx : index < 2 ^ 31
   copy : s.pc = pcOf (T3M.setupPc lay (trPc lay (cpIdx index lay)))
   glob : Glob (preK lay) w pk s
-  route : s.getReg (rReg lay) = BitVec.ofNat 64 (index / 2 ^ below lay + rMark lay)
+  route : s.getReg (rReg lay) = BitVec.ofNat 64 (rVal lay index)
   word : lay < 3 → s.getReg .x28 = T3.hyperWord lay (index / 2 ^ below lay)
   msg : MsgAt w index lay msg s
   orig : Verify.Orig w (fun o => 7664 ≤ o ∧ o < layerEnd lay) s
@@ -1552,7 +1555,8 @@ structure EncPre (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index lay c : Nat)
   hdr3 : lay = 3 → t.getMem (BitVec.ofNat 64 (TOPLOAD + 32)) = BitVec.ofNat 64 (hyperBase 3) ∧
     t.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 24496 ∧
     (∀ k, k < 5 → t.getMem (BitVec.ofNat 64 (TOPLOAD + 8 * k)) = BitVec.ofNat 64 (topWords.getD k 0))
-  index3 : lay = 3 → t.getReg .x22 = BitVec.ofNat 64 (index + 2 ^ 31)
+  /-- C47 (B): after the L3 head's `xori s6,s6,-1`: the hypertree index above the run of ones at bits 31..63. -/
+  index3 : lay = 3 → t.getReg .x22 = BitVec.ofNat 64 (index + 2 ^ 64 - 2 ^ 31)
   /-- C2: the root window's left child is written 16 bytes low (its HIGH half lands on the window). -/
   dst : lay < 3 → ∃ d, t.getReg .x12 = BitVec.ofNat 64 d ∧
     ((d + 16 = rowA lay c ∧ WIT + bufferTop lay + 16 ≤ rowA lay c) ∨ d = rowA lay c + 48)
@@ -1688,6 +1692,47 @@ theorem route_evals (index : Nat) (lay : Layer) (hidx : index < 2 ^ 31) (s : Mac
       rw [hleaf h0]
       simp only [dispatchHeap, if_neg h0]
       rw [BitVec.ofNat_add_ofNat, Nat.add_comm]
+/-- C47 (B): layer 3's routed register after the head's `xori s6,s6,-1` (`j + 2^64 - 2^31` for the hypertree index
+`j`): `andi` gives the leaf `j % 64`, `srliw` the marked tree field `2^25 + j / 64` of layer 2. -/
+theorem route_evals3 (j : Nat) (hj : j < 2 ^ 31) (s : MachineState)
+    (h : s.getReg .x22 = BitVec.ofNat 64 (j + 2 ^ 64 - 2 ^ 31)) :
+    (leafE 3).eval s = BitVec.ofNat 64 (route j 3).1 ∧
+      treeE3.eval s = BitVec.ofNat 64 ((route j 3).2 + 2 ^ T3.hyperW (3 - 1)) ∧
+      (s7E 3).eval s = BitVec.ofNat 64 (dispatchHeap 3 (route j 3).1) := by
+  have hf : (route j 3).1 = j % 64 := by
+    rw [route_fst, show below (3 : Layer).val = 0 from rfl, show hL (3 : Layer).val = 6 from rfl, pow_zero,
+      Nat.div_one]
+    rfl
+  have hs : (route j 3).2 = j / 64 := by
+    rw [route_snd, show below (3 : Layer).val + hL (3 : Layer).val = 6 from rfl]
+    rfl
+  have hleaf : (leafE 3).eval s = BitVec.ofNat 64 (route j 3).1 := by
+    rw [hf]
+    simp only [leafE, show (3 : Nat) ≠ 0 by decide, if_false, rReg, if_true, E.eval, BinOp.eval, h, kw]
+    apply BitVec.eq_of_toNat_eq
+    rw [BitVec.toNat_and, BitVec.toNat_ofNat, BitVec.toNat_ofNat, BitVec.toNat_ofNat,
+      show (2 : Nat) ^ hL 3 - 1 = 2 ^ 6 - 1 from rfl, Nat.mod_eq_of_lt (show (2 : Nat) ^ 6 - 1 < 2 ^ 64 by norm_num),
+      Nat.and_two_pow_sub_one_eq_mod]
+    omega
+  refine ⟨hleaf, ?_, ?_⟩
+  · rw [hs, show T3.hyperW (3 - 1) = 25 from rfl]
+    simp only [treeE3, E.eval, BinOp.eval, h, kw]
+    have hx : (wordResult .srl ((BitVec.ofNat 64 (j + 2 ^ 64 - 2 ^ 31)).truncate 32)
+        ((BitVec.ofNat 64 6).truncate 32)).toNat = j / 64 + 2 ^ 25 := by
+      show ((BitVec.ofNat 64 (j + 2 ^ 64 - 2 ^ 31)).truncate 32 >>>
+        (((BitVec.ofNat 64 6).truncate 32).toNat % 32)).toNat = _
+      rw [BitVec.toNat_ushiftRight]
+      simp only [BitVec.truncate_eq_setWidth, BitVec.toNat_setWidth, BitVec.toNat_ofNat]
+      rw [Nat.shiftRight_eq_div_pow, show 6 % 2 ^ 64 % 2 ^ 32 % 32 = 6 from rfl]
+      omega
+    apply BitVec.eq_of_toNat_eq
+    rw [BitVec.toNat_signExtend, BitVec.msb_eq_decide, hx, BitVec.toNat_setWidth, hx, BitVec.toNat_ofNat]
+    rw [if_neg (by simp only [decide_eq_true_eq]; omega)]
+    omega
+  · simp only [s7E, show (3 : Nat) ≠ 0 by decide, if_false, E.eval, BinOp.eval, kw]
+    rw [hleaf]
+    simp only [dispatchHeap, show (3 : Nat) ≠ 0 by decide, if_false]
+    rw [BitVec.ofNat_add_ofNat, Nat.add_comm]
 /-- L-hyper A: the tree field of a lower layer fits below the next layer's marker. -/
 theorem tree_lt_hyperW (index : Nat) (lay : Layer) (h0 : lay.val ≠ 0) (hidx : index < 2 ^ 31) :
     (route index lay).2 < 2 ^ T3.hyperW (lay.val - 1) := by
@@ -2051,6 +2096,21 @@ theorem knownOK_sixteen (s : MachineState)
     rotate_left
   · intro q hq; cases hq
   all_goals assumption
+theorem knownOK_fourteen (s : MachineState)
+    {p0 p1 p2 p3 p4 p5 p6 p7 p8 p9 p10 p11 p12 p13 : Reg × Word}
+    (h0 : s.getReg p0.1 = p0.2) (h1 : s.getReg p1.1 = p1.2)
+    (h2 : s.getReg p2.1 = p2.2) (h3 : s.getReg p3.1 = p3.2)
+    (h4 : s.getReg p4.1 = p4.2) (h5 : s.getReg p5.1 = p5.2)
+    (h6 : s.getReg p6.1 = p6.2) (h7 : s.getReg p7.1 = p7.2)
+    (h8 : s.getReg p8.1 = p8.2) (h9 : s.getReg p9.1 = p9.2)
+    (h10 : s.getReg p10.1 = p10.2) (h11 : s.getReg p11.1 = p11.2)
+    (h12 : s.getReg p12.1 = p12.2) (h13 : s.getReg p13.1 = p13.2) :
+    KnownOK [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13] s := by
+  iterate 14
+    refine knownOK_cons _ _ _ ?_ ?_
+    rotate_left
+  · intro q hq; cases hq
+  all_goals assumption
 theorem knownOK_fifteen (s : MachineState)
     {p0 p1 p2 p3 p4 p5 p6 p7 p8 p9 p10 p11 p12 p13 p14 : Reg × Word}
     (h0 : s.getReg p0.1 = p0.2) (h1 : s.getReg p1.1 = p1.2)
@@ -2085,15 +2145,10 @@ theorem knownOK_seventeen (s : MachineState)
   all_goals assumption
 theorem hyperWord_packed (lay : Layer) (tree leaf : Nat) (hr : tree * 2 ^ height lay + leaf < 2 ^ T3.hyperW lay.val) :
     T3.hyperWord lay.val (tree * 2 ^ height lay + leaf) = BitVec.ofNat 64 (2 ^ 16 * packedHi lay tree leaf) := by
-  have hw : 2 ^ T3.hyperW lay.val ≤ 2 ^ 31 := Nat.pow_le_pow_right (by norm_num) (T3.hyperW_le _)
+  have hb := T3.hyperWord_honest_bound lay.isLt hr
   apply BitVec.eq_of_toNat_eq
-  rw [T3.hyperWord_toNat_honest lay.isLt hr, BitVec.toNat_ofNat]
-  unfold packedHi
-  rw [Nat.mod_eq_of_lt (show tree * 2 ^ height lay + leaf < 2 ^ 32 by omega),
-    show 2 ^ (T3.hyperW lay.val + 16) = 2 ^ T3.hyperW lay.val * 2 ^ 16 from pow_add _ _ _]
-  generalize tree * 2 ^ height lay + leaf = R at hr ⊢
-  generalize 2 ^ T3.hyperW lay.val = Q at hr hw ⊢
-  omega
+  rw [T3.hyperWord_toNat_honest lay.isLt hr, BitVec.toNat_ofNat, packedHi_eq lay tree leaf hr]
+  rw [Nat.mod_eq_of_lt (by rcases hb with ⟨-, h⟩ | ⟨-, -, h⟩ <;> omega)]
 theorem routed_eq (index : Nat) (lay : Layer) :
     (route index lay).2 * 2 ^ height lay + (route index lay).1 = index / 2 ^ below lay.val := by
   rw [route_fst, route_snd, ← hL_eq, Nat.pow_add, ← Nat.div_div_eq_div_mul]
@@ -2129,18 +2184,17 @@ theorem lctxOfCk_known (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer)
     (h29 : s.getReg .x29 = 201#64 - BitVec.ofNat 64 ck) :
     KnownOK (lctxOfCk w index lay a ck).known s := by
   unfold LCtx.known
-  refine knownOK_fifteen s ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
+  refine knownOK_fourteen s ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · exact knownOK_at _ s 0 (.x5, 0) hk rfl
   · exact knownOK_at _ s 6 (.x11, 64) hk rfl
   · exact knownOK_at _ s 7 (.x13, 989954) hk rfl
-  · exact knownOK_at _ s 8 (.x19, 3) hk rfl
+  · exact knownOK_at _ s 8 (.x19, 3879747587) hk rfl
   · exact knownOK_at _ s 9 (.x20, 930564) hk rfl
-  · exact knownOK_at _ s 10 (.x21, 989957) hk rfl
-  · exact knownOK_at _ s 11 (.x26, 108112779336744966) hk rfl
+  · exact knownOK_at _ s 10 (.x26, 108112779336744966) hk rfl
   · exact h28
   · exact knownOK_at _ s 3 (.x9, 0x7fc01) hk rfl
-  · exact knownOK_at _ s 13 (.x27, 0x3fe00) hk rfl
-  · exact knownOK_at _ s 12 (.x5, 0) hk rfl
+  · exact knownOK_at _ s 12 (.x27, 0x3fe00) hk rfl
+  · exact knownOK_at _ s 11 (.x5, 0) hk rfl
   · exact h16
   · exact h17
   · exact h29
@@ -2149,7 +2203,7 @@ theorem lctxOfCk_known (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer)
       · exact absurd rfl hlay
       all_goals rfl
     rw [e]
-    exact knownOK_at _ s 14 (.x4, BitVec.ofNat 64 (bufferBias lay.val)) hk rfl
+    exact knownOK_at _ s 13 (.x4, BitVec.ofNat 64 (bufferBias lay.val)) hk rfl
 theorem lctxOf_known (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer) (hlay : lay ≠ 0) (a : BitVec 256) (p : Nat)
     (s : MachineState) (hk : KnownOK (postBl lay.val p) s)
     (h28 : s.getReg .x28 = BitVec.ofNat 64 (lctxOf w index lay a).x28v)
@@ -2429,10 +2483,10 @@ theorem encB_step_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) 
         by_cases h3 : lay.val = 3
         · obtain rfl : lay = 3 := Fin.ext h3
           rw [if_pos h3]
-          have h22u : u.getReg (rReg 3) = BitVec.ofNat 64 (index / 2 ^ below 3 + 2 ^ T3.hyperW 3) := by
-            rw [show rReg 3 = .x22 from rfl, show below 3 = 0 from rfl, pow_zero, Nat.div_one, hu, writeHash_getReg]
+          have h22u : u.getReg .x22 = BitVec.ofNat 64 (index + 2 ^ 64 - 2 ^ 31) := by
+            rw [hu, writeHash_getReg]
             exact ht.index3 rfl
-          exact (route_evals index 3 hidx u h22u).2.2.2
+          exact (route_evals3 index hidx u h22u).2.2
         · rw [if_neg h3, hu, writeHash_getReg]
           exact ht.s7 lay rfl (by have := lay.isLt; omega)
       have hs23 : (s23E lay.val).eval u =
@@ -2453,11 +2507,11 @@ theorem encB_step_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) 
       rfl
     · by_cases h3 : lay.val = 3
       · obtain rfl : lay = 3 := Fin.ext h3
-        rw [hs0.regs (.x31, treeE 3) (by simp [specBl])]
-        have h22u : u.getReg (rReg 3) = BitVec.ofNat 64 (index / 2 ^ below 3 + 2 ^ T3.hyperW 3) := by
-          rw [show rReg 3 = .x22 from rfl, show below 3 = 0 from rfl, pow_zero, Nat.div_one, hu, writeHash_getReg]
+        rw [hs0.regs (.x31, treeE3) (by simp [specBl])]
+        have h22u : u.getReg .x22 = BitVec.ofNat 64 (index + 2 ^ 64 - 2 ^ 31) := by
+          rw [hu, writeHash_getReg]
           exact ht.index3 rfl
-        exact (route_evals index 3 hidx u h22u).2.1 (by decide)
+        exact (route_evals3 index hidx u h22u).2.1
       · rw [hkeep .x31 (by simp [keepB, h3]), hu, writeHash_getReg, (ht.t5 lay rfl).1 h0 (by have := lay.isLt; omega)]
     · exact hko (.x2, BitVec.ofNat 64 0xffbde0) (by simp [postBl])
 /-- SGV1: the extra steps (and cycles) over LOW of a non-spare answer's HIGH path: HIGH-a `hiA`, HIGH-b `hiX`. -/
@@ -2767,10 +2821,10 @@ theorem encB_step_hi (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (
         by_cases h3 : lay.val = 3
         · obtain rfl : lay = 3 := Fin.ext h3
           rw [if_pos h3]
-          have h22u : u.getReg (rReg 3) = BitVec.ofNat 64 (index / 2 ^ below 3 + 2 ^ T3.hyperW 3) := by
-            rw [show rReg 3 = .x22 from rfl, show below 3 = 0 from rfl, pow_zero, Nat.div_one, hu, writeHash_getReg]
+          have h22u : u.getReg .x22 = BitVec.ofNat 64 (index + 2 ^ 64 - 2 ^ 31) := by
+            rw [hu, writeHash_getReg]
             exact ht.index3 rfl
-          exact (route_evals index 3 hidx u h22u).2.2.2
+          exact (route_evals3 index hidx u h22u).2.2
         · rw [if_neg h3, hu, writeHash_getReg]
           exact ht.s7 lay rfl (by have := lay.isLt; omega)
       have hs23 : (s23E lay.val).eval u =
@@ -2791,11 +2845,11 @@ theorem encB_step_hi (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (
       rfl
     · by_cases h3 : lay.val = 3
       · obtain rfl : lay = 3 := Fin.ext h3
-        rw [hs0.regs (.x31, treeE 3) (by simp [specBlHiG])]
-        have h22u : u.getReg (rReg 3) = BitVec.ofNat 64 (index / 2 ^ below 3 + 2 ^ T3.hyperW 3) := by
-          rw [show rReg 3 = .x22 from rfl, show below 3 = 0 from rfl, pow_zero, Nat.div_one, hu, writeHash_getReg]
+        rw [hs0.regs (.x31, treeE3) (by simp [specBlHiG])]
+        have h22u : u.getReg .x22 = BitVec.ofNat 64 (index + 2 ^ 64 - 2 ^ 31) := by
+          rw [hu, writeHash_getReg]
           exact ht.index3 rfl
-        exact (route_evals index 3 hidx u h22u).2.1 (by decide)
+        exact (route_evals3 index hidx u h22u).2.1
       · rw [hkeep .x31 (by simp [keepB, h3]), hu, writeHash_getReg, (ht.t5 lay rfl).1 h0 (by have := lay.isLt; omega)]
     · exact hko (.x2, BitVec.ofNat 64 0xffbde0) (by simp [postBl])
 def selectedView (a : BitVec 256) : BitVec 256 := if lowerSpare (ansD a) then a else highView a
@@ -3093,7 +3147,7 @@ def lfBlocks (lay : Nat) : Nat := if lay = 0 then 13 else 11
 def lfSlot (lay j : Nat) : Nat := if lay = 0 then slotT j else bufferBias lay + slotL j
 def stabBits (lay : Nat) : Nat := if lay = 1 then 7 else 6
 def lfKeepK (lay : Nat) : List (Reg × Word) :=
-  [(.x9, 0x7fc01), (.x13, 989954), (.x19, 3), (.x20, 930564), (.x21, 989957), (.x26, 108112779336744966),
+  [(.x9, 0x7fc01), (.x13, 989954), (.x19, 3879747587), (.x20, 930564), (.x26, 108112779336744966),
    (if lay = 0 then (.x4, BitVec.ofNat 64 s3v) else (.x4, BitVec.ofNat 64 (bufferBias lay))),
    (.x2, BitVec.ofNat 64 0xffbde0)] ++
   (if lay = 0 then [(.x1, BitVec.ofNat 64 M1c), (.x27, 0x3fe00)] else [(.x1, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x6, 0), (.x27, 0x3fe00)])
@@ -4102,11 +4156,11 @@ def mkMove (lay level : Nat) : Nat := if lay = 0 ∧ level = 11 then 0 else 1
 def mkHeap (lay ci sh l : Nat) : Nat := (2 ^ hL lay + sh * 2 ^ mkLo lay ci) / 2 ^ (l + 1)
 def mkK (lay : Nat) : List (Reg × Word) :=
   gkL lay ++ (if lay = 0 then [(.x6, 520192), (.x1, BitVec.ofNat 64 M1c), (.x27, 0x3fe00)] else []) ++ [(if lay = 0 then (.x4, BitVec.ofNat 64 s3v) else (.x4, BitVec.ofNat 64 (bufferBias lay))), (.x13, 989954),
-    (.x19, 3), (.x20, 930564), (.x21, 989957), (.x26, 108112779336744966), (.x5, 0)] ++
+    (.x19, 3879747587), (.x20, 930564), (.x2, BitVec.ofNat 64 0xffbde0), (.x26, 108112779336744966), (.x5, 0)] ++
     (if lay = 0 then [] else [(.x2, BitVec.ofNat 64 0xffbde0)])
 def mkKc (lay : Nat) : List (Reg × Word) :=
   gkL lay ++ (if lay = 0 then [(.x6, 520192), (.x1, BitVec.ofNat 64 M1c), (.x27, 0x3fe00)] else []) ++ [(if lay = 0 then (.x4, BitVec.ofNat 64 s3v) else (.x4, BitVec.ofNat 64 (bufferBias lay))), (.x13, 989954),
-    (.x19, 3), (.x20, 930564), (.x21, 989957), (.x26, 108112779336744966), (.x5, 0)]
+    (.x19, 3879747587), (.x20, 930564), (.x2, BitVec.ofNat 64 0xffbde0), (.x26, 108112779336744966), (.x5, 0)]
 def mkKeep : List Reg := [.x4, .x1, .x2, .x16, .x17, .x9, .x24, .x23, .x6, .x25, .x27, .x29, .x31]
 def mkEntSpec (lay ci sh : Nat) : Spec := let st := 1; ⟨[], [], mkShp lay ci sh + 1, true, st, [], none, st⟩
 def mkEntPost (lay ci sh : Nat) : List (Reg × Word) :=

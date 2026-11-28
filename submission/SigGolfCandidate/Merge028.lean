@@ -6474,7 +6474,21 @@ theorem nodeTweak_not_search (tag lay tree heap : Nat) (htag : tag % 256 ≠ 2)
      rw [nodeTweak_fts_marker (by omega) h13, nodeTweak_fts_tag (by omega) h13]
      by_cases hn : FtsNew heap
      · rw [if_pos hn, if_pos hn]; obtain ⟨_, _⟩ := hn; omega
-     · rw [if_neg hn, if_neg hn]; omega
+     · rw [if_neg hn, if_neg hn]
+       -- C47: coordinate 8's swapped heaps 3..5 have marker 0 and tag 0; their high word is the node word (not 1).
+       rw [nodeTweak_fts_high (by omega) h13, if_neg hn]
+       by_cases hs : ftsSwap8 (lay - 4) heap
+       · have h16 := ftsNodeWord_low16 (lay - 4) tree
+         have hp := ftsPair_le (lay - 4)
+         have hs' := (ftsSwap8_iff (show 4 ≤ lay by omega)).1 hs
+         by_cases h6 : heap = 6
+         · simp only [if_pos hs, if_pos h6, if_pos (show lay = 12 ∧ heap = 6 from ⟨hs'.1, h6⟩)]; omega
+         · simp only [if_pos hs, if_neg h6, if_neg (show ¬ (lay = 12 ∧ heap = 6) by omega)]; omega
+       · have h6 : ¬ (lay = 12 ∧ heap = 6) := fun h' => hs ((ftsSwap8_iff (by omega)).2 ⟨h'.1, by omega, by omega⟩)
+         simp only [if_neg hs, if_neg h6]
+         by_cases h12 : lay = 12
+         · simp only [if_pos h12]; omega
+         · simp only [if_neg h12]; omega
    · rw [nodeTweak_other hf]; exact header_not_search _ _ _ _ _ htag
 @[simp] theorem rowQ_encoding (lay : Layer) (tree leaf : Nat) (message : Digest) (counter : Nat) :
  RowQ (encodingTrial lay tree leaf message counter) :=
@@ -11339,9 +11353,10 @@ def nodeInputP (tag lay tree heap : Nat) (left pad right : Digest) : HashInput :
 theorem ftsLeafP_eq_shortHash (index coord leaf : Nat) (pad0 secret pad1 : Digest) :
     ftsLeafP index coord leaf pad0 secret pad1 = shortHash (ftsLeafInputP index coord leaf pad0 secret pad1) := rfl
 /-- Replace the high word of a marked (byte0 >= 128) tweak by `hp`; unmarked tweaks are kept. For marked tweaks the
-high word is ignored by `canonicalHeader`, so the verifier may leave it to the witness. -/
+high word is ignored by `canonicalHeader`, so the verifier may leave it to the witness. C47: coordinate 8's swapped
+heap 6 (low word `21684`, byte 0 = 180) writes its high word (the node word) and is not marked. -/
 def withHigh (t : BitVec 128) (hp : BitVec 64) : BitVec 128 :=
-  if 128 ≤ t.toNat % 256 then hp ++ t.extractLsb' 0 64 else t
+  if 128 ≤ t.toNat % 256 ∧ t.toNat % 2 ^ 64 ≠ 21684 then hp ++ t.extractLsb' 0 64 else t
 theorem withHigh_zero_of_high {t : BitVec 128} (h : t.extractLsb' 64 64 = 0) : withHigh t 0 = t := by
   unfold withHigh
   split
@@ -11356,13 +11371,22 @@ theorem withHigh_nodeTweak_zero (tag lay tree heap : Nat) :
   unfold withHigh
   split
   · rename_i hm
+    obtain ⟨hm, hr⟩ := hm
     have hk := nodeTweak_marker tag lay tree heap
     unfold tweakMarker at hk
     rw [hk, if_neg htop] at hm
-    split_ifs at hm with hf
+    split_ifs at hm with hf h6
     · obtain ⟨rfl, h4, h13, hn⟩ := hf
       rw [nodeTweak_ftsN h4 h13 tree hn, append64_low]
       rfl
+    · -- C47: coordinate 8's heap 6 has low word 21684 (not marked).
+      exfalso; obtain ⟨rfl, rfl, rfl⟩ := h6
+      apply hr
+      have hl := nodeTweak_fts_low (lay := 12) (by decide) (by decide) tree 6
+      rw [if_neg (show ¬ FtsNew 6 by unfold FtsNew; decide),
+        if_pos ((ftsSwap8_iff (lay := 12) (heap := 6) (by decide)).2 ⟨rfl, by decide, by decide⟩)] at hl
+      unfold tweakLow at hl
+      rw [hl]; decide
     all_goals omega
   · rfl
 /-- FTS node input with a witness-supplied high tweak word (ignored for marked tweaks). -/
@@ -11878,13 +11902,18 @@ section
 
 namespace SigGolfCandidate.T3M.Extract
 open SigGolfCandidate.T3
+/-- FTS chain words (byte 0 = step < 4, high word a witness pad): tag byte `≥ 130` (C47: or coordinate 8's reflected
+chain tags `34..39`) and not `0` mod 8 (two-word FTS node words and leaf words have tags `0` mod 8). -/
 def ftsChainMark (hdr : HashInput) : Prop :=
-  (hdr.getD 0 0).toNat < 4 ∧ 130 ≤ (hdr.getD 1 0).toNat ∧ 2 ≤ (hdr.getD 1 0).toNat % 8
+  (hdr.getD 0 0).toNat < 4 ∧ (130 ≤ (hdr.getD 1 0).toNat ∨ (34 ≤ (hdr.getD 1 0).toNat ∧ (hdr.getD 1 0).toNat < 40)) ∧
+    2 ≤ (hdr.getD 1 0).toNat % 8
 instance (hdr : HashInput) : Decidable (ftsChainMark hdr) := inferInstanceAs (Decidable (_ ∧ _ ∧ _))
+/-- C47: the low word `21684` (coordinate 8's swapped heap 6, byte 0 = 180, whose high word the verifier writes) is
+not marked, like the digest's `25984`. -/
 def headerMarked (hdr : HashInput) : Prop :=
   (128 ≤ (hdr.getD 0 0).toNat ∨ ftsChainMark hdr) ∧
-    hdr.take 8 ≠ SphincsSecurity.bytesLE 8 (25984#64)
-instance (hdr : HashInput) : Decidable (headerMarked hdr) := inferInstanceAs (Decidable ((_ ∨ _) ∧ _))
+    hdr.take 8 ≠ SphincsSecurity.bytesLE 8 (25984#64) ∧ hdr.take 8 ≠ SphincsSecurity.bytesLE 8 (21684#64)
+instance (hdr : HashInput) : Decidable (headerMarked hdr) := inferInstanceAs (Decidable ((_ ∨ _) ∧ _ ∧ _))
 def canonicalHeader (hdr : HashInput) : HashInput :=
   if headerMarked hdr then hdr.take 8 ++ List.replicate 8 0 else hdr
 @[simp] theorem canonicalHeader_unmarked (hdr : HashInput) (h : ¬128 ≤ (hdr.getD 0 0).toNat)
@@ -11893,13 +11922,14 @@ def canonicalHeader (hdr : HashInput) : HashInput :=
   rw [if_neg (by simp only [headerMarked]; tauto)]
 theorem canonicalHeader_marked (low pad : HashInput) (hlen : low.length = 8)
     (hmark : 128 ≤ (low.getD 0 0).toNat)
-    (hne : low ≠ SphincsSecurity.bytesLE 8 (25984#64)) :
+    (hne : low ≠ SphincsSecurity.bytesLE 8 (25984#64)) (hne' : low ≠ SphincsSecurity.bytesLE 8 (21684#64)) :
     canonicalHeader (low ++ pad) = low ++ List.replicate 8 0 := by
   have hm : 128 ≤ ((low ++ pad).getD 0 0).toNat := by
     simpa only [List.getD_eq_getElem?_getD,
       List.getElem?_append_left (show 0 < low.length by omega)] using hmark
   unfold canonicalHeader
-  rw [if_pos (show headerMarked (low ++ pad) from ⟨Or.inl hm, by simpa [List.take_append, hlen] using hne⟩)]
+  rw [if_pos (show headerMarked (low ++ pad) from ⟨Or.inl hm, by simpa [List.take_append, hlen] using hne,
+    by simpa [List.take_append, hlen] using hne'⟩)]
   simp [List.take_append, hlen]
 theorem canonicalHeader_fts_marked (low pad : HashInput) (hlen : low.length = 8)
     (hmark : ftsChainMark low) :
@@ -11915,14 +11945,22 @@ theorem canonicalHeader_fts_marked (low pad : HashInput) (hlen : low.length = 8)
     have hd : ((SphincsSecurity.bytesLE 8 (25984#64)).getD 0 0).toNat = 128 := by decide +kernel
     rw [hd] at hfirst
     omega
+  have hne' : low ≠ SphincsSecurity.bytesLE 8 (21684#64) := by
+    intro he
+    rw [he] at hmark
+    have hfirst := hmark.1
+    have hd : ((SphincsSecurity.bytesLE 8 (21684#64)).getD 0 0).toNat = 180 := by decide +kernel
+    rw [hd] at hfirst
+    omega
   unfold canonicalHeader
-  rw [if_pos (show headerMarked (low ++ pad) from ⟨Or.inr hm, by simpa [List.take_append, hlen] using hne⟩)]
+  rw [if_pos (show headerMarked (low ++ pad) from ⟨Or.inr hm, by simpa [List.take_append, hlen] using hne,
+    by simpa [List.take_append, hlen] using hne'⟩)]
   simp [List.take_append, hlen]
 theorem canonicalHeader_pad_irrelevant (low pad pad' : HashInput) (hlen : low.length = 8)
     (hmark : 128 ≤ (low.getD 0 0).toNat)
-    (hne : low ≠ SphincsSecurity.bytesLE 8 (25984#64)) :
+    (hne : low ≠ SphincsSecurity.bytesLE 8 (25984#64)) (hne' : low ≠ SphincsSecurity.bytesLE 8 (21684#64)) :
     canonicalHeader (low ++ pad) = canonicalHeader (low ++ pad') := by
-  rw [canonicalHeader_marked low pad hlen hmark hne, canonicalHeader_marked low pad' hlen hmark hne]
+  rw [canonicalHeader_marked low pad hlen hmark hne hne', canonicalHeader_marked low pad' hlen hmark hne hne']
 theorem canonicalHeader_zero_pad (low : HashInput) (hlen : low.length = 8) :
     canonicalHeader (low ++ List.replicate 8 0) = low ++ List.replicate 8 0 := by
   unfold canonicalHeader

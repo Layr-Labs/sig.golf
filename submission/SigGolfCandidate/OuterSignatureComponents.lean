@@ -13,8 +13,8 @@ theorem signFromOutput_components (answers : Answers) (cache : SigGolfCandidate.
     (rho : Digest) (counter : BitVec 32) (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
     (he : evalWithAnswerFn answers (OuterSigning.signFromOutput cache rho counter output) = some w) :
     ∃ result : CanonicalLayers,
-      evalWithAnswerFn answers (OuterSigning.searchPreparedLayers cache (digestIndex output)
-        (evalWithAnswerFn answers (prepareRoots (digestIndex output)))
+      evalWithAnswerFn answers (OuterSigning.searchPreparedLayers cache (hyperIndex (digestIndex output))
+        (evalWithAnswerFn answers (prepareRoots (hyperIndex (digestIndex output))))
         (evalWithAnswerFn answers (OuterForestMoment.forest (digestIndex output)
           (forestSelectionFromOutput output) (forestWordsFromOutput output))).2) = some result ∧
       w.signature.rho = rho ∧ w.signature.policyHints = result.policyHints ∧
@@ -24,8 +24,8 @@ theorem signFromOutput_components (answers : Answers) (cache : SigGolfCandidate.
       w.digestCounter = counter ∧ ∀ lay, w.counters lay = result.counters.getD lay.val 0 := by
   unfold OuterSigning.signFromOutput at he
   simp only [evalWithAnswerFn_bind] at he
-  cases hs : evalWithAnswerFn answers (OuterSigning.searchPreparedLayers cache (digestIndex output)
-    (evalWithAnswerFn answers (prepareRoots (digestIndex output)))
+  cases hs : evalWithAnswerFn answers (OuterSigning.searchPreparedLayers cache (hyperIndex (digestIndex output))
+    (evalWithAnswerFn answers (prepareRoots (hyperIndex (digestIndex output))))
     (evalWithAnswerFn answers (OuterForestMoment.forest (digestIndex output)
       (forestSelectionFromOutput output) (forestWordsFromOutput output))).2) with
   | none => simp only [hs, evalWithAnswerFn_pure, reduceCtorEq] at he

@@ -20,7 +20,7 @@ theorem cleared_front {s0 s:MachineState} {output:HashOutput} {b:SharedCodec.CBy
     (hsetup:∀A,A=0x59B0 ∨ A=0x59B8 ∨ A=0x59C0 ∨ A=0x59C8 → s.getMem (BitVec.ofNat 64 A)=0)
     (hout:OutAt s NBUF output) (h19:s.getReg .x19=BitVec.ofNat 64 counter.toNat)
     (h17:s.getReg .x17=0x20160) (hp:s.pc=pcOf 45226) :
-    ∃t,Steps OuterImages.expandImage s 3740 3740 t ∧ t.pc=pcOf 45257 ∧
+    ∃t,Steps OuterImages.expandImage s 3748 3748 t ∧ t.pc=pcOf 45257 ∧
       (∀ (off:Nat),off+8≤8160 → off%8=0 → t.getMem (BitVec.ofNat 64 (2904+off))=0) ∧
       t.getMem 417824=0 ∧ t.getMem 0x66010=BitVec.ofNat 64 (WCT9.digestIndex output) ∧
       OutAt t NBUF output ∧ ForestMemory output b counter pk t := by
@@ -48,7 +48,7 @@ theorem accepted_front {s0 s:MachineState} {output:HashOutput} {b:SharedCodec.CB
     (hout:OutAt s NBUF output) (h19:s.getReg .x19=BitVec.ofNat 64 counter.toNat)
     (h17:s.getReg .x17=0x20160) (hp:s.pc=pcOf 45226)
     (hrank:∀k:Fin 9,SharedForest.rawForestRank output k.val<563) :
-    ∃t,Steps OuterImages.expandImage s 4996 5173 t ∧ ForestMemory output b counter pk t ∧
+    ∃t,Steps OuterImages.expandImage s 5004 5181 t ∧ ForestMemory output b counter pk t ∧
       SharedForestRun.Inv (Paired.witEnc output ⟨SharedCompactMain.forestSig (SharedCodec.sigDecC b),counter,fun _=>0,false,[],fun _=>[],[],[]⟩)
         (WCT9.digestIndex output) (SharedForest.rawChildFromOutput output)
         (fun k=>SharedForest.forestRank output k.val) t 0

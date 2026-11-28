@@ -10,12 +10,17 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv S
 open SigGolfCandidate.FtsGrind OuterNodeSearchInvariant OuterNodeMachineBlocks
 
 def bCode : List (BitVec 32) := b_saveCode++b_preHashCode++b_checkCode++b_failureCode++b_lastCode++b_postCode
-def cCode : List (BitVec 32) := c_saveCode++c_preHashCode++c_checkCode++c_failureCode++c_lastCode++c_postCode
+/-- C47: the c8 grinder installed at word `b`: its last word is `jal zero,46862` from word `b + 25` (straight to the
+expand continuation; `ra` holds the c8 heap-6 label), so the code depends on its site. -/
+def cJal (b : Nat) : BitVec 32 := encJal 0 (jOff (b+25) 46862)
+def cCode (b : Nat) : List (BitVec 32) :=
+  c_saveCode++c_preHashCode++c_checkCode++c_failureCode++c_lastCode++c_postCode++[cJal b]
 
 theorem pc_offset (b off : Nat) : pcOf (b+off)=pcOf b+BitVec.ofNat 64 (4*off) := by
   simp only [pcOf,Nat.mul_add,ofNat_add_ofNat,Nat.add_assoc]
 
-theorem sizes : bCode.length=22 ∧ cCode.length=26 := by decide +kernel
+theorem sizes : bCode.length=22 := by decide +kernel
+theorem cCode_length (b : Nat) : (cCode b).length=26 := rfl
 
 theorem runB {im : Image} {sk : BitVec 256} {b A D : Nat} {pre right : List UInt8} {s : MachineState}
     (F : Input A D pre right s) (hc : CodeAt im (pcOf b) bCode) (hp : s.pc=pcOf b) :
@@ -46,15 +51,18 @@ theorem runB {im : Image} {sk : BitVec 256} {b A D : Nat} {pre right : List UInt
 
 theorem runC {im : Image} {sk : BitVec 256} {b A D : Nat} {pre right : List UInt8} {s : MachineState}
     (F : Input A D pre right s) (heap : Nat) (hheap : heap=2 ∨ heap=3)
-    (hmem : s.getMem (BitVec.ofNat 64 (A+24))=BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap)) (hc : CodeAt im (pcOf b) cCode) (hp : s.pc=pcOf b) :
+    (hmem : s.getMem (BitVec.ofNat 64 (A+24))=0#64 ↔ heap=2) (hb : b+25<2^18)
+    (hc : CodeAt im (pcOf b) (cCode b)) (hp : s.pc=pcOf b) :
     TBSim im sk s 77838 (searchH (OuterNodeSearchC.high heap) 4 pre right 4095 0)
-      (OuterNodeSearchExit.Out s A D (pcOf b-4#64)) := by
-  have c0:=codeAt_sub (seg:=c_saveCode) 0 hc (by decide) (by rfl)
-  have c4:=codeAt_sub (seg:=c_preHashCode) 4 hc (by decide) (by rfl)
-  have c6:=codeAt_sub (seg:=c_checkCode) 6 hc (by decide) (by rfl)
-  have c13:=codeAt_sub (seg:=c_failureCode) 13 hc (by decide) (by rfl)
-  have c16:=codeAt_sub (seg:=c_lastCode) 16 hc (by decide) (by rfl)
-  have c17:=codeAt_sub (seg:=c_postCode) 17 hc (by decide) (by rfl)
+      (OuterNodeSearchExit.OutC s A D (pcOf 46862)) := by
+  have c0:=codeAt_sub (seg:=c_saveCode) 0 hc (by rw [cCode_length];decide) (by rfl)
+  have c4:=codeAt_sub (seg:=c_preHashCode) 4 hc (by rw [cCode_length];decide) (by rfl)
+  have c6:=codeAt_sub (seg:=c_checkCode) 6 hc (by rw [cCode_length];decide) (by rfl)
+  have c13:=codeAt_sub (seg:=c_failureCode) 13 hc (by rw [cCode_length];decide) (by rfl)
+  have c16:=codeAt_sub (seg:=c_lastCode) 16 hc (by rw [cCode_length];decide) (by rfl)
+  have c17:=codeAt_sub (seg:=c_postCode) 17 hc (by rw [cCode_length];decide) (by rfl)
+  have c25:=codeAt_sub (seg:=[cJal b]) 25 hc (by rw [cCode_length];rfl) (by rfl)
+  have hj:=OuterNodeSearchExit.jumpsTo_jal (t:=46862) c25 hb (by decide)
   obtain ⟨t,hs,ht⟩:=save F c0 hp
   have ht' : Stage s A D (pcOf (b+4)) 0 t := by
     simpa [pc_offset] using ht
@@ -66,11 +74,10 @@ theorem runC {im : Image} {sk : BitVec 256} {b A D : Nat} {pre right : List UInt
     simpa [pc_offset,BitVec.add_assoc] using c16
   have h17 : CodeAt im (pcOf (b+4)+52#64) c_postCode := by
     simpa [pc_offset,BitVec.add_assoc] using c17
-  have he:=OuterNodeSearchC.loop (sk:=sk) F heap hheap hmem c4 h6 h13 h16 h17 4095 0 t ht' (by decide)
-  have he' : TBSim im sk t 77834 (searchH (OuterNodeSearchC.high heap) 4 pre right 4095 0)
-      (OuterNodeSearchExit.Out s A D (pcOf b-4#64)) := by
-    simpa [pc_offset,BitVec.sub_eq_add_neg,BitVec.add_assoc] using he
-  exact TBSim.steps hs he'
+  have hj' : OuterNodeSearchExit.JumpsTo im (pcOf (b+4)+84#64) (pcOf 46862) := by
+    simpa [pc_offset,BitVec.add_assoc] using hj
+  have he:=OuterNodeSearchC.loop (sk:=sk) F heap hheap hmem c4 h6 h13 h16 h17 hj' 4095 0 t ht' (by decide)
+  exact TBSim.steps hs he
 
 #print axioms runB
 #print axioms runC

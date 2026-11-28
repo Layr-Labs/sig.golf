@@ -25,6 +25,17 @@ theorem index_initial_sum : (∑ i : Fin (2^31),indexInitial i.val)≤2^31*meanI
     _ ≤ 2^10*(2097152*meanInitial) := Nat.mul_le_mul_left _ cases_checked
     _ = _ := by ring
 
+/-- C47 (B): the layers are routed by `hyperIndex`, an involution of `[0, 2^31)`, so the sum is unchanged. -/
+theorem index_initial_sum_hyper :
+    (∑ i : Fin (2^31),indexInitial (SigGolfCandidate.T3.hyperIndex i.val))≤2^31*meanInitial := by
+  let e : Equiv.Perm (Fin (2^31)) := Function.Involutive.toPerm
+    (fun i => ⟨SigGolfCandidate.T3.hyperIndex i.val, SigGolfCandidate.T3.hyperIndex_lt _⟩)
+    (fun i => Fin.ext (SigGolfCandidate.T3.hyperIndex_invol i.isLt))
+  calc (∑ i : Fin (2^31),indexInitial (SigGolfCandidate.T3.hyperIndex i.val))
+      = ∑ i : Fin (2^31),indexInitial (e i).val := rfl
+    _ = ∑ i : Fin (2^31),indexInitial i.val := Equiv.sum_comp e (fun i => indexInitial i.val)
+    _ ≤ _ := index_initial_sum
+
 theorem index_initial_matches (index : Nat) : indexInitial index=
     OuterRootNumerics.initialAt (OuterSigning.requiredCredit index)
       (4*SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1+
@@ -37,4 +48,5 @@ theorem index_initial_matches (index : Nat) : indexInitial index=
     SigGolfCandidate.Research.SharedForest.LocalRoute.root_index index]
 #print axioms index_initial_sum
 #print axioms index_initial_matches
+#print axioms index_initial_sum_hyper
 end OuterIndexMean

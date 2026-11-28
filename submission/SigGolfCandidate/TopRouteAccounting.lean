@@ -17,7 +17,7 @@ theorem qLeaf_of_header (input : List UInt8) (hi : Aligned input) (leaf : Nat) (
     norm_num [hyperHonest, hyperW]
     omega
   rw [BitVec.toNat_append, ← Nat.shiftLeft_add_eq_or_of_lt (hyperWord 0 leaf).isLt, Nat.shiftLeft_eq]
-  norm_num [hyperWord, hh, hyperW]
+  norm_num [hyperWord, hh, hyperW, hyperMark]
   omega
 theorem qLeaf_mod8_of_header (input : List UInt8) (hi : Aligned input)
     (lay : Layer) (routed : Nat) (hr : routed<2^hyperW lay.val) (hp : BitVec 64)
@@ -33,7 +33,7 @@ theorem qLeaf_mod8_of_header (input : List UInt8) (hi : Aligned input)
     exact ⟨lay.isLt,hr⟩
   rw [BitVec.toNat_append, ← Nat.shiftLeft_add_eq_or_of_lt (hyperWord lay.val routed).isLt,Nat.shiftLeft_eq]
   simp only [hyperWord,if_pos hh,BitVec.toNat_ofNat,Nat.mod_eq_of_lt hr32,Nat.mod_eq_of_lt hlay]
-  fin_cases lay <;> norm_num [hyperW] at * <;> omega
+  fin_cases lay <;> norm_num [hyperW, hyperMark] at * <;> omega
 
 /-- C38: the same query leaf agrees with the routed index modulo 128 (the layer-1 save reads 7 bits). -/
 theorem qLeaf_mod128_of_header (input : List UInt8) (hi : Aligned input)
@@ -50,7 +50,7 @@ theorem qLeaf_mod128_of_header (input : List UInt8) (hi : Aligned input)
     exact ⟨lay.isLt,hr⟩
   rw [BitVec.toNat_append, ← Nat.shiftLeft_add_eq_or_of_lt (hyperWord lay.val routed).isLt,Nat.shiftLeft_eq]
   simp only [hyperWord,if_pos hh,BitVec.toNat_ofNat,Nat.mod_eq_of_lt hr32,Nat.mod_eq_of_lt hlay]
-  fin_cases lay <;> norm_num [hyperW] at * <;> omega
+  fin_cases lay <;> norm_num [hyperW, hyperMark] at * <;> omega
 
 end TopRouteQueryLeaf
 namespace SigGolfCandidate.T3M.Verify

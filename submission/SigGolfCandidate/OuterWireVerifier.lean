@@ -22,8 +22,9 @@ theorem source_of (answers : SigGolfCandidate.T3.Correctness.Answers)
       (fun k=>WCT9.embed (forestRank output k.val)) =
       OuterFixedForest.forest (WCT9.digestIndex output) (forestSelectionFromOutput output)
         (forestWordsFromOutput output) w.signature.forest w.ftsNonces w.ftsNonces16 ns5)
-    (hl : ∀left right,layersCanonicalBC wb (WCT9.digestIndex output) 4 (.pair left right)=
-      SigGolfCandidate.Research.SharedForest.verifyLayers w (WCT9.digestIndex output) 4 (.pair left right)) :
+    (hl : ∀left right,layersCanonicalBC wb (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 4 (.pair left right)=
+      SigGolfCandidate.Research.SharedForest.verifyLayers w (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 4
+        (.pair left right)) :
     evalWithAnswerFn answers (ClaudeWCT.W9.T3M.Paired.verifyP message pk wb)=
       evalWithAnswerFn answers (OuterVerifySource.verify message pk w ns5) := by
   have hd' : evalWithAnswerFn answers (digestP message wb)=some output := by

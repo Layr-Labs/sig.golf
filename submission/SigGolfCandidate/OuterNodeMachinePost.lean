@@ -62,14 +62,11 @@ theorem b_post_run {im : Image} (hc : CodeAt im (pcOf 246512) b_postCode) (s : M
     (b_post_values s).1,(b_post_values s).2.1,(b_post_values s).2.2.1,b_post_frame s⟩
   intro r hx;cases r <;> simp at hx <;> rfl
 
-theorem c_post_obligs (s : MachineState) (input record : Nat) (ha : s.getReg .x10=BitVec.ofNat 64 input)
-    (hi : input < 2^20) (hl : 2048 ≤ input) (hm : input % 8 = 0)
-    (hr : recordAddr s=BitVec.ofNat 64 record) (hrlo : 2^22 ≤ record) (hrhi : record < 2^23)
-    (hrm : record % 8 = 0) : c_post.res.obligs s :=
-  b_post_obligs s input record ha hi hl hm hr hrlo hrhi hrm
+/-- C47: the c8 grinder's ground-pad slot, the constant `0x7fb000` (`= 8323072 + (15 - 8 / 2) * 4096`, the old
+coordinate-8 slot). -/
+abbrev recordC : Word := BitVec.ofNat 64 (8323072+11*4096)
 
 #print axioms b_post_run
-#print axioms c_post_obligs
 #print axioms b_post_values
 #print axioms b_post_frame
 #print axioms b_post_obligs

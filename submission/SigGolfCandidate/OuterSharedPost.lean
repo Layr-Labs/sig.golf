@@ -16,7 +16,7 @@ def Writes (L : W9Machine.Layout) (k : Fin 9) (raw : Fin 128) (X : Nat) : Prop :
   (SharedChild.writes L k raw X ∨ SharedChild.recW (Chain.base L k) X ∨ SharedChild.scratchW X ∨ SharedChild.recW16 (Chain.base L k) X) ∨ Extra k.val X
 
 structure Post (L : W9Machine.Layout) (k : Fin 9) (raw : Fin 128) (u : MachineState) (res : Digest×Nat×Nat×Nat) (t : MachineState) : Prop where
-  pc : t.pc=pcOf (L.returnWord k+(if k.val=8 then 506 else 503))
+  pc : t.pc=(if k.val=8 then pcOf 46862 else pcOf (L.returnWord k+503))
   hashLen : t.getReg .x11=64
   top : DigAt t (SharedChild.handAddr L k raw) res.1
   a2 : t.getReg .x12=BitVec.ofNat 64 (SharedChild.outputAddr L k raw)
@@ -40,7 +40,9 @@ structure Post (L : W9Machine.Layout) (k : Fin 9) (raw : Fin 128) (u : MachineSt
 theorem of_first {L : W9Machine.Layout} {k : Fin 9} {raw : Fin 128} {u t : MachineState} {res : Digest×Nat×Nat}
     (hf : SharedV3.first k.val=true) (h : SharedChild.PostC L k raw u res t) :
     Post L k raw u (res.1,res.2.1,res.2.2,0) t := by
-  refine ⟨h.pc,h.hashLen,h.top,h.a2,h.keep,h.slot0,h.slot1,h.nle,h.rec0,h.rec1,h.nle16,h.n0,?_,fun _=>rfl,h.saves,h.scr,h.scr16,?_⟩
+  refine ⟨?_,h.hashLen,h.top,h.a2,h.keep,h.slot0,h.slot1,h.nle,h.rec0,h.rec1,h.nle16,h.n0,?_,fun _=>rfl,h.saves,h.scr,h.scr16,?_⟩
+  · have h8 : k.val≠8 := by intro he; simp [SharedV3.first,he] at hf
+    rw [h.pc]; simp only [if_neg h8]
   · intro he
     rw [hf] at he
     cases he

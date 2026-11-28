@@ -15,7 +15,9 @@ def patch (old : List (BitVec 32)) (site : Nat) (helper : List (BitVec 32)) : Li
   old.take site++[0x80006f]++(old.drop (site+1)).take 1++helper++old.drop (site+2+helper.length)
 
 def bWords (j : Nat) : List (BitVec 32) := patch (W9Drv.SharedBProof.childWords j) (bSite j) bCode
-def cWords (j : Nat) : List (BitVec 32) := patch (W9Drv.SharedCProof.childWords j) (cSite j) cCode
+/-- C47: the c8 grinder is site dependent (its last word jumps to the absolute word 46862). -/
+def cHelperAt (j : Nat) : Nat := W9Drv.SharedCProof.childBase j+cSite j+2
+def cWords (j : Nat) : List (BitVec 32) := patch (W9Drv.SharedCProof.childWords j) (cSite j) (cCode (cHelperAt j))
 
 theorem b_space : ∀ j : Fin 128,
     (W9Drv.SharedBProof.childWords j.val).length=64 ∧ bSite j.val+2+bCode.length≤64 ∧
@@ -23,9 +25,9 @@ theorem b_space : ∀ j : Fin 128,
       List.replicate bCode.length 0x13 := by decide +kernel
 
 theorem c_space : ∀ j : Fin 128,
-    (W9Drv.SharedCProof.childWords j.val).length=64 ∧ cSite j.val+2+cCode.length≤64 ∧
-    ((W9Drv.SharedCProof.childWords j.val).drop (cSite j.val+2)).take cCode.length=
-      List.replicate cCode.length 0x13 := by decide +kernel
+    (W9Drv.SharedCProof.childWords j.val).length=64 ∧ cSite j.val+2+26≤64 ∧
+    ((W9Drv.SharedCProof.childWords j.val).drop (cSite j.val+2)).take 26=
+      List.replicate 26 0x13 ∧ cHelperAt j.val+25<2^18 := by decide +kernel
 
 theorem b_slices : ∀ j : Fin 128,
     (bWords j.val).length=64 ∧
@@ -36,7 +38,7 @@ theorem b_slices : ∀ j : Fin 128,
 
 theorem c_slices : ∀ j : Fin 128,
     (cWords j.val).length=64 ∧
-    ((cWords j.val).drop (cSite j.val+2)).take cCode.length=cCode ∧
+    ((cWords j.val).drop (cSite j.val+2)).take 26=cCode (cHelperAt j.val) ∧
     (cWords j.val).take (cSite j.val)=(W9Drv.SharedCProof.childWords j.val).take (cSite j.val) ∧
     (cWords j.val)[cSite j.val]?=some 0x80006f ∧
     (cWords j.val)[cSite j.val+1]?=(W9Drv.SharedCProof.childWords j.val)[cSite j.val+1]? := by decide +kernel
@@ -51,14 +53,19 @@ theorem b_helper_code {im : Image} (j : Fin 128)
 
 theorem c_helper_code {im : Image} (j : Fin 128)
     (hc : CodeAt im (pcOf (W9Drv.SharedCProof.childBase j.val)) (cWords j.val)) :
-    CodeAt im (pcOf (W9Drv.SharedCProof.childBase j.val+cSite j.val+2)) cCode := by
+    CodeAt im (pcOf (cHelperAt j.val)) (cCode (cHelperAt j.val)) := by
   have hs:=c_slices j
   have hb:=c_space j
-  have h:=SigGolfCandidate.FtsGrind.codeAt_sub (cSite j.val+2) hc (by rw [hs.1];omega) hs.2.1
-  simpa only [Nat.add_assoc] using h
+  have h:=SigGolfCandidate.FtsGrind.codeAt_sub (seg:=cCode (cHelperAt j.val)) (cSite j.val+2) hc
+    (by rw [hs.1,cCode_length];omega) (by rw [cCode_length];exact hs.2.1)
+  simpa only [cHelperAt,Nat.add_assoc] using h
+
+/-- C47: the c8 grinder's `jal` lies below word `2 ^ 18`. -/
+theorem c_helper_lt (j : Fin 128) : cHelperAt j.val+25<2^18 := (c_space j).2.2.2
 
 #print axioms b_helper_code
 #print axioms c_helper_code
+#print axioms c_helper_lt
 
 #print axioms b_space
 #print axioms c_space

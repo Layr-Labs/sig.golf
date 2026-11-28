@@ -23,11 +23,11 @@ theorem validate_step (s : MachineState) (hp : s.pc=pcOf 342) :
 
 def recoverProgram (output : HashOutput) (sig : SharedForest.Signature) (counter : BitVec 32)
     (forest : Digest × Digest) (ftsN ftsN16 : List Nat) (pk : Digest) : M (Option (HashOutput × SharedForest.Witness)) :=
-  SharedForest.recoverHintedLayers sig (WCT9.digestIndex output) (WCT9.topSib (SharedForest.mainSignature sig))
+  SharedForest.recoverHintedLayers sig (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) (WCT9.topSib (SharedForest.mainSignature sig))
     4 (.pair forest.1 forest.2) >>= fun result=>
   match result with
   | none => pure none
-  | some r => if OuterSigning.policyHintsValid (WCT9.digestIndex output) sig.policyHints r.digits r.lows then
+  | some r => if OuterSigning.policyHintsValid (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) sig.policyHints r.digits r.lows then
       topProgram output ⟨sig,counter,fun lay=>r.counters.getD lay.val 0,!(r.lows.getD 0 true),r.nonces,
         fun lay=>r.lowerNonces.getD lay.val [],ftsN,ftsN16⟩ r.foldedTop r.root pk
     else pure none
@@ -64,13 +64,13 @@ theorem layers_good {sk : BitVec 256} {output : HashOutput} {sig : SharedForest.
     have jump:=validate_step t tp
     let u:=t.setPC (pcOf 46929)
     obtain ⟨v,n,c,hn,hc,uv,vp,vr,vf⟩:=OuterValidate.validate_source_steps OuterInstalledValidate.code
-      u rfl (WCT9.digestIndex output) h.inv.hidx (by simpa [u] using stable.index)
+      u rfl (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) h.inv.hidx (by simpa [u] using stable.index)
       sig.policyHints r.digits r.lows h.inv.hintsLt dlen (fun lay=>by
         simpa only [OuterHintFloor.eq,SigGolfCandidate.T3M.Search.CanonicalExpandHooks.hintFloor_source] using floors lay lay.isLt) hints
       (fun lay=>credits lay lay.isLt) SharedValidate.threshold1_lt SharedValidate.threshold2_lt
       stable.threshold1 stable.threshold2
     have tf : Frame t v (fun _=>False):=vf
-    by_cases valid:OuterSigning.policyHintsValid (WCT9.digestIndex output) sig.policyHints r.digits r.lows=true
+    by_cases valid:OuterSigning.policyHintsValid (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) sig.policyHints r.digits r.lows=true
     · rw [if_pos valid] at vp ⊢
       have v5:v.getReg .x5=0 := (vr.get (by decide)).trans t5
       have ready:TopReady output ⟨sig,counter,fun lay=>r.counters.getD lay.val 0,!(r.lows.getD 0 true),r.nonces,

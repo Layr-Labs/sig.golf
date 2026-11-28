@@ -144,16 +144,16 @@ layer-1 pair labels) and ra = 0x71c71c71c71c71c7 (heap 9), and for heaps 10..15 
 /-- C42: the top label as a function of the reduced heap `n = (heap - 1) % 4095 + 1`. -/
 def topWordN (n : Nat) : Nat :=
   if n = 1 then 14336 else if n = 7 then 520192
-  else if n = 4 then 930564 else if n = 5 then 989957 else if n = 6 then 108112779336744966
-  else if n = 8 then 0 else if n = 9 then 8198552921648689607 else if n = 10 then 12064
+  else if n = 4 then 930564 else if n = 5 then 16760288 else if n = 6 then 108112779336744966
+  else if n = 3 then 3879747587 else if n = 8 then 0 else if n = 9 then 8198552921648689607 else if n = 10 then 12064
   else if n = 11 then 12240 else if n = 12 then 12016 else if n = 13 then 11968 else if n = 14 then 12160
   else if n = 15 then 12112 else if n = 2 then 989954 else n
 def topNodeWord (heap : Nat) : Nat := topWordN ((heap - 1) % 4095 + 1)
 /-- Inverse of the special top-node label on the valid top-label image. -/
 def topNodeHeap (word : Nat) : Nat :=
   if word = 14336 then 1 else if word = 520192 then 7
-  else if word = 930564 then 4 else if word = 989957 then 5 else if word = 108112779336744966 then 6
-  else if word = 0 then 8 else if word = 8198552921648689607 then 9 else if word = 12064 then 10
+  else if word = 930564 then 4 else if word = 16760288 then 5 else if word = 108112779336744966 then 6
+  else if word = 3879747587 then 3 else if word = 0 then 8 else if word = 8198552921648689607 then 9 else if word = 12064 then 10
   else if word = 12240 then 11 else if word = 12016 then 12 else if word = 11968 then 13 else if word = 12160 then 14
   else if word = 12112 then 15 else if word = 989954 then 2 else word
 def privatePair (tag lay tree position index : Nat) : M (Digest × Digest) := do
@@ -204,6 +204,16 @@ def chainHeaderLowOld (lay : Layer) (tree leaf i step : Nat) : BitVec 64 :=
     extra % 2 * 2^6 + extra / 2 % 16 * 2^11 + extra / 64 * 2^50)
 /-- L-hyper: routed width of layer `lay` in the marker format (top 12, L1 19, L2 25, L3 31 bits). -/
 def hyperW (lay : Nat) : Nat := [12, 19, 25, 31].getD lay 0
+/-- C47 (A5): the honest lower/top WOTS step code: steps 0 and 5 swap their header byte (the verifier's step-5 rung
+stores the zero register; its step-3 register is the packed coordinate-8 path base, low byte 3). A permutation of
+`0..7`. -/
+def lowerStepCode (s : Nat) : Nat := if s = 0 then 5 else if s = 5 then 0 else s
+/-- C47 (B): the marker of the honest layer words. Layer 3's head complements its routed register (`xori s6,s6,-1`),
+so its marker is the run of ones `2 ^ 64 - 2 ^ 47` (bits 47..63) above the routed field instead of bit 47. -/
+def hyperMark (lay : Nat) : Nat := if lay = 3 then 2 ^ 64 - 2 ^ 47 else 2 ^ (hyperW lay + 16)
+/-- C47 (B): the hypertree (layers 3..0) is routed by the complemented digest index `2^31 - 1 - index` (the L3 head's
+`xori s6,s6,-1`, then `srliw`); the FTS keeps the digest index itself. -/
+def hyperIndex (index : Nat) : Nat := 2 ^ 31 - 1 - index % 2 ^ 31
 /-- L-hyper: the honest chain positions (the verifier's range, on the truncated fields), where the header carries
 the layer as the marker bit `2 ^ (hyperW lay + 16)` above the routed field. Every other position keeps the legacy
 header. -/
@@ -213,8 +223,8 @@ instance (lay : Layer) (tree leaf : Nat) : Decidable (chainHonest lay tree leaf)
   inferInstanceAs (Decidable (_ ∧ _))
 def chainHeaderLow (lay : Layer) (tree leaf i step : Nat) : BitVec 64 :=
   if chainHonest lay tree leaf then
-    BitVec.ofNat 64 (128 + i % 64 + step % 8 * 2 ^ 8 + (tree % 2 ^ 31 * 2 ^ height lay + leaf % 4096) * 2 ^ 16 +
-      2 ^ (hyperW lay.val + 16))
+    BitVec.ofNat 64 (128 + i % 64 + lowerStepCode (step % 8) * 2 ^ 8 +
+      (tree % 2 ^ 31 * 2 ^ height lay + leaf % 4096) * 2 ^ 16 + hyperMark lay.val)
   else chainHeaderLowOld lay tree leaf i step
 def chainHeaderSpill (tree leaf i step : Nat) : Nat :=
   tree % 2^40 / 2^31 + (leaf % 2^32 / 4096) * 2^9 +
@@ -239,7 +249,7 @@ instance (lay routed : Nat) : Decidable (hyperHonest lay routed) := inferInstanc
 elsewhere it keeps the legacy word (type byte 193, layer byte, low half `0x0201`). -/
 def hyperWord (lay routed : Nat) : BitVec 64 :=
   if hyperHonest lay routed then
-    BitVec.ofNat 64 (routed % 2 ^ 32 * 2 ^ 16 + 2 ^ (hyperW (lay % 256) + 16))
+    BitVec.ofNat 64 (routed % 2 ^ 32 * 2 ^ 16 + hyperMark (lay % 256))
   else hyperWordOld lay routed
 def leafTweak (lay : Layer) (tree leaf : Nat) : BitVec 128 :=
   0#64 ++ hyperWord lay.val (tree * 2 ^ height lay + leaf)
@@ -286,7 +296,7 @@ the instance field sits at bit 33 (bits 26..32 carry the odd coordinates' child 
 -- C42: heaps 4/5/6 take the verifier's step registers s4/s5/s10, which now hold the FTS path-table bases
 -- `0xe3304`/`0xf1b05` and the FTS OR constant `0x01801800000c0006` (low bytes 4/5/6 are the WOTS step bytes).
 def ftsHeapLabel (heap : Nat) : Nat := if heap = 1 then 1048321 else if heap = 1048321 then 1 else if heap = 7 then 64 else if heap = 64 then 7
-  else if heap = 4 then 930564 else if heap = 930564 then 4 else if heap = 5 then 989957 else if heap = 989957 then 5
+  else if heap = 4 then 930564 else if heap = 930564 then 4 else if heap = 5 then 16760288 else if heap = 16760288 then 5
   else if heap = 6 then 108112779336744966 else if heap = 108112779336744966 then 6
   else if heap = 2 then 989954 else if heap = 989954 then 2 else heap
 /-- C46: the odd member of an FTS pair (odd coordinate) shares its partner's tag base; its two-word labels for heaps
@@ -296,23 +306,41 @@ def ftsHeapLabelO (heap : Nat) : Nat := if heap = 2 then 989954 else if heap = 9
   else if heap = 4 then 1045961013456797696 else if heap = 1045961013456797696 then 4
   else if heap = 5 then 8523612160 else if heap = 8523612160 then 5
   else if heap = 6 then 133169152 else if heap = 133169152 then 6
-  else if heap = 7 then 1048321 else if heap = 1048321 then 7 else heap
+  else if heap = 7 then 1048321 else if heap = 1048321 then 7
+  else if heap = 3 then 3879747587 else if heap = 3879747587 then 3 else heap
 /-- C46: the even member of a pair (coordinates 0, 2, 4, 6) never folds heaps 2/3 (its top node is a heap-4..7 node),
 so its labels there are moved off the odd member's (`2 ^ 62`, `2 ^ 62 + 1`): the pair-mates then differ on every heap
 in `[2, 128)`. An injection of Nat (`ftsHeapLabel` after a swap). -/
 def ftsHeapLabelE (heap : Nat) : Nat := ftsHeapLabel (if heap = 2 then 2 ^ 62 else if heap = 2 ^ 62 then 2
   else if heap = 3 then 2 ^ 62 + 1 else if heap = 2 ^ 62 + 1 then 3 else heap)
-/-- C46: two-word FTS label of a coordinate (odd coordinates `ftsHeapLabelO`, even ones below 8 `ftsHeapLabelE`,
-coordinate 8 `ftsHeapLabel`). -/
+/-- C47 (C): coordinate 8 shares pair 3's tag base and is reflected (`sub t6,tp,a5`). Its two-word labels in the
+usual orientation (label HIGH over the node word): heap 2 `0` (the zero register) and heap 7 `21684` (ra, coordinate
+8's dispatch link). An involution of Nat (`2 <-> 0`, `7 <-> 21684`). -/
+def ftsHeapLabel8 (heap : Nat) : Nat := if heap = 2 then 0 else if heap = 0 then 2
+  else if heap = 7 then 21684 else if heap = 21684 then 7 else heap
+/-- C47 (C): coordinate 8's swapped heaps 3..6 (node word HIGH, label LOW): the verifier's FTS-phase constants
+t4 = 929 * 2^50, s2 = 0x1fc0c0000, s11 = 0x7f00000 and ra = 21684. An involution of Nat. -/
+def ftsSwapLabel8 (heap : Nat) : Nat := if heap = 3 then 1045961013456797696 else if heap = 1045961013456797696 then 3
+  else if heap = 4 then 8523612160 else if heap = 8523612160 then 4
+  else if heap = 5 then 133169152 else if heap = 133169152 then 5
+  else if heap = 6 then 21684 else if heap = 21684 then 6 else heap
+/-- C47 (C): coordinate 8's swapped two-word heaps. -/
+def ftsSwap8 (coord heap : Nat) : Prop := coord = 8 ∧ 3 ≤ heap ∧ heap ≤ 6
+instance (coord heap : Nat) : Decidable (ftsSwap8 coord heap) := inferInstanceAs (Decidable (_ ∧ _ ∧ _))
+/-- C46: two-word FTS label of a coordinate (odd coordinates `ftsHeapLabelO`, even ones below 8 `ftsHeapLabelE`);
+C47: coordinate 8 `ftsHeapLabel8`. -/
 def ftsHeapLabelC (coord heap : Nat) : Nat :=
-  if coord % 2 = 1 then ftsHeapLabelO heap else if coord < 8 then ftsHeapLabelE heap else ftsHeapLabel heap
+  if coord % 2 = 1 then ftsHeapLabelO heap else if coord < 8 then ftsHeapLabelE heap else ftsHeapLabel8 heap
+/-- C47 (C): the pair whose tag base a coordinate uses (coordinate 8 uses pair 3's). -/
+def ftsPair (coord : Nat) : Nat := if coord = 8 then 3 else coord % 16 / 2
 def ftsNodeWord (coord index : Nat) : BitVec 64 :=
-  BitVec.ofNat 64 (ftsBiasN (1 + 6 * 2 ^ 8 + (2 ^ 16 - 2 ^ 11 * (coord % 16 / 2)) + index % 2 ^ 31 * 2 ^ 33))
+  BitVec.ofNat 64 (ftsBiasN (1 + 6 * 2 ^ 8 + (2 ^ 16 - 2 ^ 11 * ftsPair coord) + index % 2 ^ 31 * 2 ^ 33))
 /-- Packed FTS node word (heaps `8..127`, the four lower child levels): the heap is folded into the low word
 (`ftsNodeWord - heap`, byte0 `257 - heap >= 130`, byte1 `5`), so the header is marked and its high word is
 ignored by `canonicalHeader` (honest value 0). C4: coordinate nibble `coord + 1`. -/
 def ftsNodeWordH (coord index heap : Nat) : BitVec 64 :=
-  BitVec.ofNat 64 (ftsBiasN (1537 - heap - 1024 * (coord % 2) + (2 ^ 16 - 2 ^ 11 * (coord % 16 / 2)) + index % 2 ^ 31 * 2 ^ 33))
+  BitVec.ofNat 64 (ftsBiasN ((if coord = 8 then 1025 else 1537 - 1024 * (coord % 2)) - heap +
+    (2 ^ 16 - 2 ^ 11 * ftsPair coord) + index % 2 ^ 31 * 2 ^ 33))
 /-- Node tweaks. C4: the top tree (`lay = 0`) has the one-word label `topNodeWord heap` (= heap) whose high word is a
 witness pad (honest 0); the legacy lower branch (`lay` 1..3) keeps its text. -/
 def nodeTweak (tag lay tree heap : Nat) : BitVec 128 :=
@@ -320,6 +348,7 @@ def nodeTweak (tag lay tree heap : Nat) : BitVec 128 :=
     (if lay = 0 then 0#64 ++ BitVec.ofNat 64 (topNodeWord heap) else BitVec.ofNat 64 heap ++ hyperWordOld (lay - 1) tree)
   else if tag = 3 ∧ lay < 13 then
     (if 8 ≤ heap ∧ heap < 128 then 0#64 ++ ftsNodeWordH (lay - 4) tree heap
+     else if ftsSwap8 (lay - 4) heap then ftsNodeWord (lay - 4) tree ++ BitVec.ofNat 64 (ftsSwapLabel8 heap)
      else BitVec.ofNat 64 (ftsHeapLabelC (lay - 4) heap) ++ ftsNodeWord (lay - 4) tree)
   else header tag lay tree 0 heap
 /-- Leaf input. Campaign T51 ("endpad"): the top leaf is `end_0 | tweak | end_1..end_50` (832 bytes, 13 blocks), the

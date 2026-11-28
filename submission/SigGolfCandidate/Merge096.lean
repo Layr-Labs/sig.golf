@@ -500,7 +500,7 @@ theorem chain_cont {im : Image}
     (t : MachineState) (seed carry : Digest)
     (hp : t.pc=pcOf (1013+61)) (ht : LeafInv s A j st t) (hs : HybOf s0 s t)
     (h28 : t.getReg .x28=0) (hseed : DigAt t SEEDS seed) (hcarry : DigAt t (SEEDS+16) carry) :
-    TBSim im sk t 728 (chainPrefixes A.lay A.tree A.leaf j 0 7 seed)
+    TBSim im sk t 812 (chainPrefixes A.lay A.tree A.leaf j 0 7 seed)
       (fun vs w => vs.length=8 ∧ w.pc=pcOf (1013+41) ∧
         ∃ base values, HybOf s0 base w ∧
           LeafInv base A (j+1) (st.1++[vs.getD 7 0],values) w ∧
@@ -873,7 +873,7 @@ def prefixStep (A : LeafArgs) (coefs : List Digest) (prefixes : List (List Diges
   let vs ← chainPrefixes A.lay A.tree A.leaf j 0 7 (WCT9.lowerFamilySeed coefs A.lay A.leaf j)
   pure (prefixes++[vs])
 
-def chainC : Nat := 5+lowerSeedC+728
+def chainC : Nat := 5+lowerSeedC+812
 
 end ClaudeWCT.W9.Machine.Sign.SharedLeafMemory
 
@@ -928,7 +928,7 @@ theorem chain_cont_unselected {im : Image}
     (hp : t.pc=pcOf (1013+61)) (ht : LeafInv s A j st t) (hs : HybOf s0 s t)
     (h28 : t.getReg .x28=0) (hseed : DigAt t SEEDS seed) (hcarry : DigAt t (SEEDS+16) carry)
     (hmiss : SharedPrefixes.selectionWord (t.getMem 0x20550) A.lay.val ≠ t.getReg .x18) :
-    TBSim im sk t 728 (chainPrefixes A.lay A.tree A.leaf j 0 7 seed)
+    TBSim im sk t 812 (chainPrefixes A.lay A.tree A.leaf j 0 7 seed)
       (fun vs w => vs.length=8 ∧ w.pc=pcOf (1013+41) ∧
         ∃ base values, HybOf s0 base w ∧
           LeafInv base A (j+1) (st.1++[vs.getD 7 0],values) w ∧
@@ -1140,7 +1140,7 @@ theorem chain_cont_guarded {im : Image}
     (t : MachineState) (seed carry : Digest)
     (hp : t.pc=pcOf (1013+61)) (ht : LeafInv s A j st t) (hs : HybOf s0 s t)
     (h28 : t.getReg .x28=0) (hseed : DigAt t SEEDS seed) (hcarry : DigAt t (SEEDS+16) carry) :
-    TBSim im sk t 728 (chainPrefixes A.lay A.tree A.leaf j 0 7 seed)
+    TBSim im sk t 812 (chainPrefixes A.lay A.tree A.leaf j 0 7 seed)
       (fun vs w => vs.length=8 ∧ w.pc=pcOf (1013+41) ∧
         ∃ base values, HybOf s0 base w ∧
           LeafInv base A (j+1) (st.1++[vs.getD 7 0],values) w ∧
@@ -1352,7 +1352,7 @@ theorem buildLeafPrefixes_precise {im : Image} (hsub : Sign.SharedLeafCode.Code 
       simp only [SharedSeed.FB, SharedSeed.FEND, COEF] at h1 h2; omega)
   unfold SigGolfCandidate.Research.SharedForest.buildLeafPrefixes
   refine TBSim.mono (TBSim.steps st1 (TBSim.bind (W₂ := 43 * chainC + 112)
-    (coef_phase hsub hnew hhook sk hpre hlay h0 hs1 t1pc hc1) (fun cs u hu => ?_))) (by unfold lowLeafC coefC chainC lowerSeedC hornStepC; omega)
+    (coef_phase hsub hnew hhook sk hpre hlay h0 hs1 t1pc hc1) (fun cs u hu => ?_))) (by unfold lowLeafC coefC chainC lowerSeedC hornStepC Keygen.mrkX; split_ifs <;> omega)
     (fun _ _ h => h)
   obtain ⟨upc, ucoef, ucarry, ur, uf⟩ := hu
   have hinvu : LeafInv (hyb s0 u) A 0 ([], []) u := LeafInv.rebase h0 hs1 (hyb_of s0 u) ur (by
@@ -4252,13 +4252,14 @@ theorem leaf_iter71 (hsub : Sign.SharedLeafCode.Code im 1013) (hchain : SharedCh
 Stage 2 (C3, #866): every rung also runs the chain-0 trampoline, so 350 -> 365.
 Pairing stage 1: every rung also runs the F step block (3 more steps), so 365 -> 386.
 Witness stack: the top step block 1760.. (G chains even `j ≤ 52`; `e ≤ maxDigit 0 j`), so 386 -> 469
-(`topChain_cost`). L-hyper A: the top header runs the marker trampoline (`headerK 0` 30 -> 37), so 469 -> 473. -/
-def topChainC : Nat := 5 + hornCT + 1 + 473
+(`topChain_cost`). L-hyper A: the top header runs the marker trampoline (`headerK 0` 30 -> 37), so 469 -> 473. C47:
+every rung also runs the L3 tag-marker stub (5) and the code-swap stub (`hdrX`), at most 59 more over 6 rungs: 532. -/
+def topChainC : Nat := 5 + hornCT + 1 + 532
 
 omit hpre in
 /-- Witness stack: the cycle bound of one top chain from `b + 71` (`e ≤ maxDigit 0 j`, at most 7 rungs). -/
 theorem topChain_cost : ∀ j, j < 51 → ∀ e, e ≤ maxDigit 0 j →
-    24 + selectorExtra 0 j + sumTo (SharedChain.topRungC j) e ≤ 473 := by
+    24 + selectorExtra 0 j + sumTo (SharedChain.topRungC j) e ≤ 532 := by
   decide +kernel
 
 structure FStT (s0 : MachineState) (A : LeafArgs) (coefs : List Digest) (j : Nat)
@@ -4329,7 +4330,7 @@ theorem top_chain_step (hcode : SharedTopSeed.Code im) (hsub : Sign.SharedLeafCo
       SigGolfCandidate.T3M.Sign.Packed.sumTo_le_sumTo _ _ _
         (fun m _ => by unfold SharedChain.topRungK SharedChain.topRungC; omega)
     omega
-  have hc : 24 + selectorExtra A.lay j + sumTo (SharedChain.topRungC j) (A.e j) ≤ 473 := by
+  have hc : 24 + selectorExtra A.lay j + sumTo (SharedChain.topRungC j) (A.e j) ≤ 532 := by
     rw [hlay]; exact topChain_cost j hj (A.e j) hdj
   rw [topStep_eq hlay hso htree]
   refine TBSim.mono (TBSim.steps (((((st1.trans st2).trans st3).trans st4).trans sw).trans sw2)
@@ -4394,7 +4395,7 @@ theorem topLeafSpec (hcode : SharedTopSeed.Code im) (hsub : Sign.SharedLeafCode.
   rw [hso, buildLeafTop_so]
   refine TBSim.mono (TBSim.steps ((st1.trans st2).trans st3) (TBSim.bind
     (W₂ := 2 + (51 * topChainC + 3)) hcg (fun coefs u hu => ?_))) (by
-      unfold topLeafC cgC cgStepC topChainC hornCT hstepC; omega) (fun _ _ h => h)
+      unfold topLeafC cgC cgStepC topChainC hornCT hstepC Keygen.mrkX; split_ifs <;> omega) (fun _ _ h => h)
   obtain ⟨upc, ulen, ucoef, u19, ur, uf⟩ := hu
   obtain ⟨v1, sv1, v1pc, v1r, v1f⟩ := j1053_spec hcode u upc
   obtain ⟨v, sv, vpc, v19, vr, vf⟩ := li19_spec hsub v1 v1pc
@@ -4872,8 +4873,8 @@ structure TreeInv (c index : Nat) (padR : Digest) (s0 : MachineState) (k : Nat) 
 def treeC : Nat := 42 + (8 + 25)
 theorem hashInput_node (t : MachineState) {c index h : Nat} {pad L R : Digest} (hc : c < 9) (hidx : index < 2 ^ 31)
     (hh : h < 128) (h10 : t.getReg .x10 = BitVec.ofNat 64 NODEW) (h11 : t.getReg .x11 = BitVec.ofNat 64 64)
-    (hL : DigAt t NODEW L) (m16 : t.getMem (BitVec.ofNat 64 (NODEW + 16)) = BitVec.ofNat 64 (nodeLoN c index h))
-    (m24 : t.getMem (BitVec.ofNat 64 (NODEW + 24)) = BitVec.ofNat 64 (if 8 ≤ h then 0 else SigGolfCandidate.T3.ftsHeapLabelC c h))
+    (hL : DigAt t NODEW L) (m16 : t.getMem (BitVec.ofNat 64 (NODEW + 16)) = BitVec.ofNat 64 (SharedNode.nodeW16 c index h))
+    (m24 : t.getMem (BitVec.ofNat 64 (NODEW + 24)) = BitVec.ofNat 64 (SharedNode.nodeW24 c index h))
     (hP : DigAt t (NODEW + 32) pad)
     (hR : DigAt t (NODEW + 48) R) : hashInput t = toQ (pad64 (nodeIn c index h pad L R)) := by
   refine hashInput_of_words t _ 0 NODEW (by rw [pad64_of_aligned _ (by rw [nodeIn_len]), nodeIn_len]) h10 (by ao)
@@ -5617,20 +5618,27 @@ def hashProgram (c index h : Nat) (pad L R : Digest) : M Digest :=
 
 /-- C42: at most `38 + 7 + 12` (an odd coordinate, heap 6: the heap-label stub's longest path). C46: on the paths
 the heaps take (`mode_lab`) the longest is `38 + 7 + 11` (an odd coordinate, heap 7). -/
-theorem cycles_le (c m p : Nat) (hmp : m=1 ↔ p<4) : cycles c m p≤57 := by
+theorem cycles_le (c m p : Nat) (hmp : pathOk c m p) : cycles c m p≤57 := by
+  unfold pathOk at hmp
   unfold cycles
-  by_cases hp : p<4
-  · have hm : m=1 := hmp.mpr hp
-    rw [if_pos hm,if_neg (by omega : m≠0)]
-    rcases Nat.mod_two_eq_zero_or_one c with hc|hc
-    · have hl : labN c p≤12 := by unfold labN;split_ifs <;> omega
-      split_ifs <;> omega
-    · have hl : labN c p≤11 := by unfold labN;split_ifs <;> omega
-      split_ifs <;> omega
-  · have hm : m≠1 := fun h=>hp (hmp.mp h)
-    have hl : labN c p≤13 := by unfold labN;split_ifs <;> omega
-    rw [if_neg hm]
+  by_cases h8 : c=8
+  · rw [if_pos h8] at hmp
+    subst h8
+    have hl : labN 8 p≤15 := by unfold labN;split_ifs <;> omega
     split_ifs <;> omega
+  · rw [if_neg h8] at hmp
+    by_cases hp : p<4
+    · have hm : m=1 := hmp.mpr hp
+      rw [if_pos hm,if_neg (by omega : m≠0)]
+      rcases Nat.mod_two_eq_zero_or_one c with hc|hc
+      · have hl : labN c p≤12 := by unfold labN;split_ifs <;> omega
+        split_ifs <;> omega
+      · have hl : labN c p≤11 := by unfold labN;split_ifs <;> omega
+        split_ifs <;> omega
+    · have hm : m≠1 := fun h=>hp (hmp.mp h)
+      have hl : labN c p≤16 := by unfold labN;split_ifs <;> omega
+      rw [if_neg hm]
+      split_ifs <;> omega
 
 theorem hashPc_tail (c : Nat) (hc:c<9) : pcOf (hashPc c)+4=pcOf (SharedTail.entry c) := by
   have h:∀c,c<9→pcOf (hashPc c)+4=pcOf (SharedTail.entry c):=by decide +kernel
@@ -5646,8 +5654,8 @@ theorem node_read (s : MachineState) {h : Nat} (h18:s.getReg .x18=BitVec.ofNat 6
 /-- E8: the node block's words (the input of `hashInput_node`, read as eight memory words). -/
 theorem readWords_node (t : MachineState) {c index h : Nat} {pad L R : Digest} (hc : c < 9) (hidx : index < 2 ^ 31)
     (hh : h < 128) (hL : DigAt t NODEW L)
-    (m16 : t.getMem (BitVec.ofNat 64 (NODEW + 16)) = BitVec.ofNat 64 (nodeLoN c index h))
-    (m24 : t.getMem (BitVec.ofNat 64 (NODEW + 24)) = BitVec.ofNat 64 (if 8 ≤ h then 0 else SigGolfCandidate.T3.ftsHeapLabelC c h))
+    (m16 : t.getMem (BitVec.ofNat 64 (NODEW + 16)) = BitVec.ofNat 64 (SharedNode.nodeW16 c index h))
+    (m24 : t.getMem (BitVec.ofNat 64 (NODEW + 24)) = BitVec.ofNat 64 (SharedNode.nodeW24 c index h))
     (hP : DigAt t (NODEW + 32) pad) (hR : DigAt t (NODEW + 48) R) :
     t.readWords (BitVec.ofNat 64 NODEW) 8 = wordsOf (nodeIn c index h pad L R) := by
   have e:=wordsOf_node c index h pad L R hc hidx hh
@@ -5666,11 +5674,11 @@ theorem readWords_node (t : MachineState) {c index h : Nat} {pad L R : Digest} (
   · exact hR.2
 
 theorem input_of_readout (s u : MachineState) {c index h : Nat} {pad L R : Digest}
-    (hc:c<9) (hi:index<2^31) (hh:h<128) (hne:h≠1) (hev:c%2=0 ∧ c<8 → 4≤h)
+    (hc:c<9) (hi:index<2^31) (hh1:1≤h) (hh:h<128) (hne:h≠1) (hev:c%2=0 ∧ c<8 → 4≤h)
     (h18:s.getReg .x18=BitVec.ofNat 64 h) (h22:s.getReg .x22=BitVec.ofNat 64 index)
     (hL:DigAt s (HEAPW+16*(2*h)) L) (hR:DigAt s (HEAPW+16*(2*h+1)) R)
     (hp:PadAt c h pad s)
-    (hm:∀k,k<8→u.getMem (BitVec.ofNat 64 (NODEW+8*k))=(value c (mode h) (lab h) (8*k)).eval s) :
+    (hm:∀k,k<8→u.getMem (BitVec.ofNat 64 (NODEW+8*k))=(value c (mode h) (labC c h) (8*k)).eval s) :
     u.readWords (BitVec.ofNat 64 NODEW) 8=wordsOf (nodeIn c index h pad L R) := by
   have hP:=padWord_eval s h18 hp
   refine readWords_node u hc hi hh ⟨?_,?_⟩ ?_ ?_ ⟨?_,?_⟩ ⟨?_,?_⟩
@@ -5684,10 +5692,10 @@ theorem input_of_readout (s u : MachineState) {c index h : Nat} {pad L R : Diges
     exact hL.2
   · rw[show NODEW+16=NODEW+8*2 by omega,hm 2 (by decide)]
     simp only[value,↓reduceIte]
-    exact hdrLo_eval s h22 h18 hc hi hh
+    exact loW_eval s h22 h18 hc hi hh (by omega)
   · rw[show NODEW+24=NODEW+8*3 by omega,hm 3 (by decide)]
     simp only[value,↓reduceIte]
-    exact hdrHi_eval s hc h18 hne hev
+    exact hiW_eval s hc h22 h18 (by omega) hev
   · rw[show NODEW+32=NODEW+8*4 by omega,hm 4 (by decide)]
     simp only[value,↓reduceIte]
     exact hP.1
@@ -5834,7 +5842,7 @@ theorem hash_unit {im : Image} {sk : BitVec 256} {c index h : Nat} {pad L R : Di
       t.getReg .x18=BitVec.ofNat 64 (h-1) ∧ DigAt t (HEAPW+16*h) root ∧
       RegsExcept s t [.x3,.x6,.x7,.x10,.x11,.x12,.x18,.x28,.x29] ∧ Frame s t (unitW h)) := by
   obtain ⟨u,su,upc,x10,x11,x12,um,ru,fu⟩:=step_node hn hc hh s hpc h18 h22
-  have hw:=input_of_readout s u hc hi hh hne hev h18 h22 hL hR hp um
+  have hw:=input_of_readout s u hc hi hh1 hh hne hev h18 h22 hL hR hp um
   obtain ⟨hpcb,hent⟩:=hashPc_lt c hc
   have hTv:SigGolfCandidate.FtsGrind.SIGN_TRAMP+5*c < 25390:=by
     simp only[SigGolfCandidate.FtsGrind.SIGN_TRAMP];omega
@@ -5933,7 +5941,7 @@ theorem hash_unit {im : Image} {sk : BitVec 256} {c index h : Nat} {pad L R : Di
           · exact hn (Or.inr (Or.inl h'))
           all_goals exact hsv (by simp only[saveCell];omega)
         rw[ho.frame.get hX hns,m1.get hX id,fu.get hX hnw]
-  · have:=cycles_le c (mode h) (lab h) (mode_lab h)
+  · have:=cycles_le c (mode h) (labC c h) (mode_labC c h)
     have:=signW_le c h (decide (c<4))
     unfold unitC
     omega
@@ -9549,7 +9557,7 @@ set_option maxHeartbeats 2000000
 set_option maxRecDepth 100000
 set_option Elab.async false
 theorem installed_kernel (P : Prop) (hP : P) : KernAt Images.signImage 543 P := by
-  refine ⟨⟨?_,?_⟩,Or.inr rfl,And.intro ?_ ?_,⟨?_,?_,?_⟩,?_,?_,?_,hP⟩
+  refine ⟨⟨?_,?_⟩,Or.inr rfl,⟨?_,?_,?_⟩,⟨?_,?_,?_⟩,?_,?_,?_,hP⟩
   all_goals sign_slice_fast
 
 
@@ -11008,9 +11016,15 @@ theorem installed_heapStubE : CodeAt Images.signImage (pcOf 26598) heapStubE := 
   sign_slice_fast
 theorem installed_heapStubO : CodeAt Images.signImage (pcOf 26627) heapStubO := by
   sign_slice_fast
+/-- C47: coordinate 8's two-word stub (26709) and the odd stub's heap-3 tail `kStub` (26747). -/
+theorem installed_heapStub8 : CodeAt Images.signImage (pcOf 26709) heapStub8 := by
+  sign_slice_fast
+theorem installed_kStub : CodeAt Images.signImage (pcOf kStubPc) kStub := by
+  sign_slice_fast
 theorem installed_heapStub (c : Nat) : CodeAt Images.signImage (pcOf (heapStubPc c)) (heapStub c) := by
   unfold heapStubPc heapStub
   split_ifs
+  · exact installed_heapStub8
   · exact installed_heapStubO
   · exact installed_heapStubE
 /-- C46: the odd packed-node stubs (`26586 + 3 (c / 2)`). -/
@@ -11021,6 +11035,10 @@ theorem installed_oddStub (c : Nat) (hc : c<9) (ho : c%2=1) :
 theorem installed_look (c : Nat) (hc : c<9) : LookOK Images.signImage (look c) := by
   intro n w hw
   unfold look at hw
+  split at hw
+  · rename_i hk
+    have he := SharedReuse.codeAt_get_word (by decide : kStubPc < 2^30) installed_kStub hw
+    simpa [Nat.add_sub_cancel' hk.2] using he
   split at hw
   · rename_i hheap
     have hb : heapStubPc c < 2^30 := by unfold heapStubPc; split_ifs <;> decide
@@ -11299,6 +11317,8 @@ set_option maxHeartbeats 4000000
 set_option maxRecDepth 100000
 set_option Elab.async false
 theorem installed_sign_success : CodeAt Images.signImage (pcOf 22754) signCode := by
+  sign_slice_fast
+theorem installed_sign_jstub : CodeAt Images.signImage (pcOf 26701) jStub := by
   sign_slice_fast
 theorem installed_sign_failure_jump : CodeAt Images.signImage (pcOf 22764) [0xcccea06f] := by
   sign_slice_fast
@@ -14212,23 +14232,14 @@ open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 set_option maxHeartbeats 1500000
 set_option maxRecDepth 10000
 
-theorem sign_steps_free {im : Image} (hc : CodeAt im (pcOf 22754) signCode)
+/-- C47: the index slot receives `j = 2^31 - 1 - index` (the stub `jStub`, 16 steps). -/
+theorem sign_steps_free {im : Image} (hc : CodeAt im (pcOf 22754) signCode) (hjs : CodeAt im (pcOf 26701) jStub)
     (s : MachineState) (hp : s.pc=pcOf 22754) :
-    ∃t,Steps im s 8 8 t ∧ t.pc=pcOf 11175 ∧
+    ∃t,Steps im s 16 16 t ∧ t.pc=pcOf 11175 ∧
       t.getReg .x22=s.getMem 0x20160 >>> 33 ∧
-      t.getMem 0x20550=s.getMem 0x20160 >>> 33 ∧
-      RegsExcept s t [.x22,.x28] ∧ Frame s t (fun A=>A=0x20550) := by
-  refine ⟨_,symRun_sound signRun hc s hp ?_,?_,?_,?_,?_,?_⟩
-  · simp [signRun.res,rv_simp,accessValid_iff,MEMORY_BYTES]
-  · rfl
-  · simp [signRun.res,rv_simp]
-  · simp [signRun.res,rv_simp]
-  · intro r hr
-    cases r <;> first | exact (hr (by decide)).elim | rfl
-  · intro A hA hn
-    simp only [Result.toState_getMem,signRun.res]
-    t3n []
-    rw [Nat.mod_eq_of_lt (show A<18446744073709551616 by simpa using hA),if_neg hn]
+      t.getMem 0x20550=BitVec.ofNat 64 (2^31 - 1 - (s.getMem 0x20160 >>> 33).toNat) ∧
+      RegsExcept s t [.x22,.x28] ∧ Frame s t (fun A=>A=0x20550) :=
+  sign_steps hc hjs s hp
 
 sym_block failJump := symRun {noAlias:=true} [0xcccea06f] (pcOf 22764) 2
 
@@ -14295,20 +14306,20 @@ def JoinedPost (im : Image) (s : MachineState) : Option (BitVec 32×BitVec 256)�
   | some (c,a),t => c.toNat<(11*2^17) ∧ SharedForest.digestAccepted a=true ∧
       t.pc=pcOf 11175 ∧ t.getReg .x5=0 ∧
       t.getReg .x22=BitVec.ofNat 64 (WCT9.digestIndex a) ∧
-      t.getMem 0x20550=BitVec.ofNat 64 (WCT9.digestIndex a) ∧ OutAt t NBUF a ∧
+      t.getMem 0x20550=BitVec.ofNat 64 (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex a)) ∧ OutAt t NBUF a ∧
       Frame s t (fun A=>SharedDigest.writes A ∨ A=0x20550)
 
 theorem search_to_forest {im : Image} {sk : BitVec 256} [DigestLabel.Code im false]
     (hl : LookOK im (SharedDigest.look false))
-    (hs : CodeAt im (pcOf 22754) signCode)
+    (hs : CodeAt im (pcOf 22754) signCode) (hjs : CodeAt im (pcOf 26701) jStub)
     (hj : CodeAt im (pcOf 22764) [0xcccea06f])
     (hf : CodeAt im (pcOf 543) failureCode)
     (he : CodeAt im (pcOf 545) [0x73])
     {s : MachineState} {rho : BitVec 128} {msg : SigGolfCandidate.T3.Message}
     (hp : SharedDigest.Pre false rho msg s) (hpc : s.pc=pcOf 22600) :
-    TBSim im sk s ((11*2^17)*200+20) (SharedForest.sharedDigestSearch rho msg 0 ((11*2^17))) (JoinedPost im s) := by
+    TBSim im sk s ((11*2^17)*200+28) (SharedForest.sharedDigestSearch rho msg 0 ((11*2^17))) (JoinedPost im s) := by
   rw [←bind_pure (SharedForest.sharedDigestSearch rho msg 0 ((11*2^17)))]
-  refine (TBSim.bind (SharedDigest.search_good false hl hp hpc) (W₂:=8) ?_).mono (by omega) (fun _ _ h=>h)
+  refine (TBSim.bind (SharedDigest.search_good false hl hp hpc) (W₂:=16) ?_).mono (by omega) (fun _ _ h=>h)
   intro r u hu
   cases r with
   | none =>
@@ -14318,7 +14329,7 @@ theorem search_to_forest {im : Image} {sk : BitVec 256} [DigestLabel.Code im fal
   | some r =>
     rcases r with ⟨c,a⟩
     obtain ⟨pcu,h19,hc,ha,hN⟩:=hu.result
-    obtain ⟨t,st,pt,h22,hidx,rt,ft⟩:=sign_steps_free hs u pcu
+    obtain ⟨t,st,pt,h22,hidx,rt,ft⟩:=sign_steps_free hs hjs u pcu
     have hword : u.getMem 0x20160 >>> 33=BitVec.ofNat 64 (WCT9.digestIndex a) := by
       have h0:=hN 0 (by decide)
       change u.getMem 0x20160=a.extractLsb' 0 64 at h0
@@ -14329,7 +14340,10 @@ theorem search_to_forest {im : Image} {sk : BitVec 256} [DigestLabel.Code im fal
       rw [ft.get (by unfold NBUF;omega) (by unfold NBUF;omega)]
       exact hN j hj
     have ht : JoinedPost im s (some (c,a)) t :=
-      ⟨hc,ha,pt,(rt.get (by decide)).trans hu.x5,h22.trans hword,hidx.trans hword,hNt,hu.frame.trans ft⟩
+      ⟨hc,ha,pt,(rt.get (by decide)).trans hu.x5,h22.trans hword,hidx.trans (by
+        rw [hword, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (lt_trans (WCT9.digestIndex_lt a) (by decide))]
+        unfold SigGolfCandidate.T3.hyperIndex
+        rw [Nat.mod_eq_of_lt (WCT9.digestIndex_lt a)]),hNt,hu.frame.trans ft⟩
     exact TBSim.pure_steps' st ht
 end ClaudeWCT.W9.Machine.Sign.SharedDigestBoundary
 namespace ClaudeWCT.W9.Machine.Sign.SharedState
@@ -14454,7 +14468,7 @@ theorem joined_prepend {im : Image} {s u t : MachineState} {r : Option (BitVec 3
 theorem nonce_search {sk : SecretKey} {cache : Bytes 131072} {msg : SigGolfCandidate.T3.Message}
     {α : Type} {W : Nat} {Q : Option α→MachineState→Prop}
     (hlook : LookOK Images.signImage (SharedDigest.look false))
-    (hs : CodeAt Images.signImage (pcOf 22754) signCode)
+    (hs : CodeAt Images.signImage (pcOf 22754) signCode) (hjs : CodeAt Images.signImage (pcOf 26701) jStub)
     (hj : CodeAt Images.signImage (pcOf 22764) [0xcccea06f])
     (hf : CodeAt Images.signImage (pcOf 543) failureCode)
     (he : CodeAt Images.signImage (pcOf 545) [0x73])
@@ -14463,7 +14477,7 @@ theorem nonce_search {sk : SecretKey} {cache : Bytes 131072} {msg : SigGolfCandi
     (hfail : ∀t,JoinedPost Images.signImage t none t → Q none t)
     (hrest : ∀rho s,NoncePost sk cache msg rho s → ∀c a t,
       JoinedPost Images.signImage s (some (c,a)) t → TBSim Images.signImage sk t W (K rho c a) Q) :
-    TBSim Images.signImage sk (sinit sk cache msg) (SigGolfCandidate.T3M.Sign.frontC+(1+((11*2^17)*200+20+W))) (do
+    TBSim Images.signImage sk (sinit sk cache msg) (SigGolfCandidate.T3M.Sign.frontC+(1+((11*2^17)*200+28+W))) (do
       let tag ← SigGolfCandidate.T3.privateMac (cacheDec cache).region
       if tag ≠ (cacheDec cache).tag then pure none else do
         let rho ← SigGolfCandidate.T3.privateNonce msg
@@ -14484,7 +14498,7 @@ theorem nonce_search {sk : SecretKey} {cache : Bytes 131072} {msg : SigGolfCandi
         exact hn.search.msg k hk
       · exact (htables rho s hn).frame (fu.mono (fun _ _ h=>h.elim))
     apply TBSim.steps su
-    refine TBSim.bind (search_to_forest hlook hs hj hf he hp pu) (W₂:=W) ?_
+    refine TBSim.bind (search_to_forest hlook hs hjs hj hf he hp pu) (W₂:=W) ?_
     intro r t ht
     cases r with
     | none => exact (TBSim.pure (hfail t ht)).mono (by omega) (fun _ _ h=>h)
@@ -14504,7 +14518,7 @@ theorem digest_state {im : Image} {sk : SecretKey} {cache : Bytes 131072} {cfFla
     (hj : SharedDigestBoundary.JoinedPost im s (some (c,a)) t) :
     SharedCoordinate.Entry sk a t ∧ Base (cfFlag:=cfFlag) sk cache t ∧ DigAt t SIG rho ∧
       t.getMem (BitVec.ofNat 64 (ENC+32))=0 ∧
-      t.getMem 0x20550=BitVec.ofNat 64 (WCT9.digestIndex a) ∧
+      t.getMem 0x20550=BitVec.ofNat 64 (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex a)) ∧
       (∀k,k<9 → SharedCoordinate.rank k a<563) := by
   rcases hj with ⟨hc,ha,hpc,h5,h22,hidx,hN,hf⟩
   have gm : ∀A,A<2^64 → ¬(SharedDigest.writes A ∨ A=0x20550) →
@@ -14700,20 +14714,20 @@ set_option maxRecDepth 100000
 def outputProgram (cache : Bytes 131072) (rho : Digest) (a : BitVec 256) :
     SigGolfCandidate.T3.M (Option SharedSignature) := do
   let forest ← buildForest (WCT9.digestIndex a) (forestSelectionFromOutput a) (forestWordsFromOutput a)
-  layersProgram cache rho (WCT9.digestIndex a) forest
+  layersProgram cache rho (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex a)) forest
 
 theorem forest_tbsim_with {im : Image} {sk a : BitVec 256} {cache : Bytes 131072}
     {cfFlag W : Nat} {rho : Digest}
     (hf : SharedReuse.Fetch im) (hc : ∀c,c<9 → SharedCoordinate.Code im c)
     (hl : LookOK im SharedBoundary.forLook)
     (hrest : ∀(forest : ForestOpening×PairRoot) (s : MachineState),s.pc=pcOf 370 →
-      Base (cfFlag:=cfFlag) sk cache s → s.getMem 0x20550=BitVec.ofNat 64 (WCT9.digestIndex a) →
+      Base (cfFlag:=cfFlag) sk cache s → s.getMem 0x20550=BitVec.ofNat 64 (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex a)) →
       (∃c<2^32,s.getMem (BitVec.ofNat 64 (ENC+32))=BitVec.ofNat 64 c) →
       DigAt s FOUT forest.2.1 → DigAt s (ENC+48) forest.2.2 → ForestFields rho forest.1 s →
-      TBSim im sk s W (layersProgram cache rho (WCT9.digestIndex a) forest) (FinalPost im))
+      TBSim im sk s W (layersProgram cache rho (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex a)) forest) (FinalPost im))
     (s : MachineState) (hp : SharedCoordinate.Entry sk a s) (hb : Base (cfFlag:=cfFlag) sk cache s)
     (hrho : DigAt s SIG rho) (hz : s.getMem (BitVec.ofNat 64 (ENC+32))=0)
-    (hi : s.getMem 0x20550=BitVec.ofNat 64 (WCT9.digestIndex a))
+    (hi : s.getMem 0x20550=BitVec.ofNat 64 (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex a)))
     (hranks : ∀c,c<9 → SharedCoordinate.rank c a<563) :
     TBSim im sk s ((9*SharedCoordinate.forestStepBound+23)+W) (outputProgram cache rho a) (FinalPost im) := by
   refine TBSim.bind (SharedCoordinate.forest_boundary_good hf hc hl hranks s hp) (W₂:=W) ?_
@@ -14882,6 +14896,7 @@ set_option maxRecDepth 100000
 theorem sign_tbsim_with {W : Nat}
     (hlook : LookOK Images.signImage (SharedDigest.look false))
     (hs : CodeAt Images.signImage (pcOf 22754) SharedDigestBoundary.signCode)
+    (hjs : CodeAt Images.signImage (pcOf 26701) SharedDigestBoundary.jStub)
     (hj : CodeAt Images.signImage (pcOf 22764) [0xcccea06f])
     (hf : CodeAt Images.signImage (pcOf 543) SharedDigestBoundary.failureCode)
     (he : CodeAt Images.signImage (pcOf 545) [0x73])
@@ -14891,13 +14906,13 @@ theorem sign_tbsim_with {W : Nat}
       Base sk cache s ∧ s.getMem (BitVec.ofNat 64 (ENC+32))=0)
     (houtput : ∀rho a t,SharedCoordinate.Entry sk a t → Base sk cache t → DigAt t SIG rho →
       t.getMem (BitVec.ofNat 64 (ENC+32))=0 →
-      t.getMem 0x20550=BitVec.ofNat 64 (WCT9.digestIndex a) →
+      t.getMem 0x20550=BitVec.ofNat 64 (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex a)) →
       (∀k,k<9 → SharedCoordinate.rank k a<563) →
       TBSim Images.signImage sk t W (outputProgram cache rho a) (FinalPost Images.signImage)) :
-    TBSim Images.signImage sk (sinit sk cache msg) (SigGolfCandidate.T3M.Sign.frontC+(1+((11*2^17)*200+20+W)))
+    TBSim Images.signImage sk (sinit sk cache msg) (SigGolfCandidate.T3M.Sign.frontC+(1+((11*2^17)*200+28+W)))
       (SigGolfCandidate.Research.SharedForest.sign (cacheDec cache) msg) (FinalPost Images.signImage) := by
   rw [sign_program]
-  refine SharedFront.nonce_search hlook hs hj hf he htables (fun rho _ a=>outputProgram cache rho a)
+  refine SharedFront.nonce_search hlook hs hjs hj hf he htables (fun rho _ a=>outputProgram cache rho a)
     (fun _ h=>h) ?_
   intro rho s hn c a t hj
   obtain ⟨hp,hb,hz⟩:=hfront rho s hn
@@ -14915,23 +14930,23 @@ set_option maxHeartbeats 1500000
 set_option maxRecDepth 100000
 
 def restCost : Nat := (9*SharedCoordinate.forestStepBound+23)+tailCost
-def signCost : Nat := SigGolfCandidate.T3M.Sign.frontC+(1+((11*2^17)*200+20+restCost))
+def signCost : Nat := SigGolfCandidate.T3M.Sign.frontC+(1+((11*2^17)*200+28+restCost))
 
 theorem forest_tbsim {sk a : BitVec 256} {cache : Bytes 131072} {rho : Digest}
     (s : MachineState) (hp : SharedCoordinate.Entry sk a s) (hb : Base sk cache s)
     (hrho : DigAt s SIG rho) (hz : s.getMem (BitVec.ofNat 64 (ENC+32))=0)
-    (hi : s.getMem 0x20550=BitVec.ofNat 64 (WCT9.digestIndex a))
+    (hi : s.getMem 0x20550=BitVec.ofNat 64 (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex a)))
     (hranks : ∀c,c<9 → SharedCoordinate.rank c a<563) :
     TBSim Images.signImage sk s restCost (outputProgram cache rho a) (FinalPost Images.signImage) := by
   exact forest_tbsim_with SharedReuse.installed_fetch SharedCoordinate.installed_Code
     SharedBoundary.installed_forLook
-    (fun _ t=>after_forest (WCT9.digestIndex_lt a) t) s hp hb hrho hz hi hranks
+    (fun _ t=>after_forest (SigGolfCandidate.T3.hyperIndex_lt (WCT9.digestIndex a)) t) s hp hb hrho hz hi hranks
 
 theorem sign_tbsim (sk : SecretKey) (cache : Bytes 131072) (msg : SigGolfCandidate.T3.Message) :
     TBSim Images.signImage sk (sinit sk cache msg) signCost
       (SigGolfCandidate.Research.SharedForest.sign (cacheDec cache) msg) (FinalPost Images.signImage) := by
   exact sign_tbsim_with SharedDigest.installed_sign_look SharedDigestBoundary.installed_sign_success
-    SharedDigestBoundary.installed_sign_failure_jump SharedDigestBoundary.installed_sign_failure
+    SharedDigestBoundary.installed_sign_jstub SharedDigestBoundary.installed_sign_failure_jump SharedDigestBoundary.installed_sign_failure
     SharedDigestBoundary.installed_sign_failure_ecall sk cache msg
     (fun _ _ hn=>SharedDigest.tables_of_costAt (SignLink.hook_v7 hn).search.cost)
     (fun _ _ hn=>⟨SignLink.hook_v7 hn,hn.inv⟩)

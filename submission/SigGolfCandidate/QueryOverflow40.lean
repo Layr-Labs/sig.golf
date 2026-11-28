@@ -172,8 +172,8 @@ theorem signFromOutput_calls_ge (answers : Answers) (cache : Cache) (rho : Diges
     (counter : BitVec 32) (output : HashOutput) :
     77056 ≤ calls answers (signFromOutput cache rho counter output) := by
   unfold signFromOutput
-  rw [calls_bind, calls_bind answers (prepareRoots (digestIndex output))]
-  have h := prepareRoots_calls_ge answers (digestIndex output)
+  rw [calls_bind, calls_bind answers (prepareRoots (SigGolfCandidate.T3.hyperIndex (digestIndex output)))]
+  have h := prepareRoots_calls_ge answers (SigGolfCandidate.T3.hyperIndex (digestIndex output))
   omega
 
 theorem digest_calls (answers : Answers) (rho : Digest) (message : Message) (counter : BitVec 32) :

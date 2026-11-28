@@ -83,8 +83,8 @@ def signFromOutput (cache : SigGolfCandidate.T3.Cache) (rho : Digest) (digestCou
     (output : HashOutput) : M (Option Witness) := do
   let index := digestIndex output
   let forest ← OuterForestMoment.forest index (forestSelectionFromOutput output) (forestWordsFromOutput output)
-  let prepared ← prepareRoots index
-  let some layers ← searchPreparedLayers cache index prepared forest.2 | pure none
+  let prepared ← prepareRoots (SigGolfCandidate.T3.hyperIndex index)
+  let some layers ← searchPreparedLayers cache (SigGolfCandidate.T3.hyperIndex index) prepared forest.2 | pure none
   let signature : Signature := ⟨rho, layers.policyHints, forest.1,
     fun lay => piecesSignature lay (layers.pieces.getD lay.val ([], []))⟩
   pure (some ⟨signature, digestCounter, fun lay => layers.counters.getD lay.val 0, !(layers.lows.getD 0 true), [],

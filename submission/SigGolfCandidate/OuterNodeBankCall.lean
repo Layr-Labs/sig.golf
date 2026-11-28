@@ -55,6 +55,19 @@ theorem out_of_equal {coord heap A D : Nat} {s u t : MachineState} {ret : Word} 
     apply ho.frame X hX
     simpa only [hr] using hn
 
+/-- C47: `out_of_equal` for the c8 grinder's exit (constant record slot). -/
+theorem outC_of_equal {heap A D : Nat} {s u t : MachineState} {ret : Word} {res : Nat×Digest}
+    (h : SourceOutC heap u A D ret res t)
+    (hg : ∀ r,u.getReg r=s.getReg r) (hm : ∀ a,u.getMem a=s.getMem a) :
+    SourceOutC heap s A D ret res t := by
+  obtain ⟨raw,hk,ho⟩:=h
+  refine ⟨raw,hk,ho.at_pc,?_,ho.answer,ho.record,?_⟩
+  · intro r hn
+    rw [ho.regs.get hn,hg]
+  · intro X hX hn
+    rw [←hm]
+    exact ho.frame X hX hn
+
 theorem jump_slicesB : ∀ j : Fin 128,
     ((OuterNodeBankLayout.bWords j.val).drop (OuterNodeBankLayout.bSite j.val)).take 1=jumpCode := by decide +kernel
 theorem jump_slicesC : ∀ j : Fin 128,
@@ -79,28 +92,31 @@ theorem runB {im : Image} {sk : BitVec 256} {A D coord index heap : Nat} {left r
   have he:=OuterNodeSourceSim.runB (sk:=sk) hc8 F' (OuterNodeBankLayout.b_helper_code j hc) hpu'
   exact (TBSim.steps hs he).mono (by omega) (fun a t ht=>out_of_equal ht hg hm)
 
+/-- C47: the c8 grinder exits with `jal zero,46862` (expand's continuation), recording its nonce at `0x7fb000`. -/
 theorem runC {im : Image} {sk : BitVec 256} {A D index heap : Nat} {left right : Digest}
     {s : MachineState} (j : Fin 128) (hh : heap=2 ∨ heap=3)
     (F : Input A D (OuterNodeRawModel.pre 8 index heap left) (OuterNodeRawModel.rightBytes right) s)
     (hc : CodeAt im (pcOf (W9Drv.SharedCProof.childBase j.val)) (OuterNodeBankLayout.cWords j.val))
     (hp : s.pc=pcOf (W9Drv.SharedCProof.childBase j.val+OuterNodeBankLayout.cSite j.val)) :
     TBSim im sk s 77839 (OuterGroundCore.nodeAt 8 index heap left right)
-      (SourceOut 8 heap s A D (pcOf (W9Drv.SharedCProof.childBase j.val+OuterNodeBankLayout.cSite j.val+2)-4#64)) := by
+      (SourceOutC heap s A D (pcOf 46862)) := by
   have hlen:=(OuterNodeBankLayout.c_slices j).1
   have hspace:=OuterNodeBankLayout.c_space j
   have hj:=codeAt_sub (seg:=jumpCode) (OuterNodeBankLayout.cSite j.val) hc (by rw [hlen];change _+1≤64;omega) (jump_slicesC j)
   obtain ⟨u,hs,hpu,hg,hm⟩:=jump_run hj hp
   have F':=input_of_equal F hg hm
-  have hpu' : u.pc=pcOf (W9Drv.SharedCProof.childBase j.val+OuterNodeBankLayout.cSite j.val+2) := by
+  have hpu' : u.pc=pcOf (OuterNodeBankLayout.cHelperAt j.val) := by
     rw [hpu]
-    simp only [pcOf,Nat.mul_add,ofNat_add_ofNat]
+    simp only [OuterNodeBankLayout.cHelperAt,pcOf,Nat.mul_add,ofNat_add_ofNat]
     rfl
-  have he:=OuterNodeSourceFacts.runC (sk:=sk) hh F' (OuterNodeBankLayout.c_helper_code j hc) hpu'
-  exact (TBSim.steps hs he).mono (by omega) (fun a t ht=>out_of_equal ht hg hm)
+  have he:=OuterNodeSourceSim.runC (sk:=sk) hh (OuterNodeInputHeader.input_hi8 F' hh) F'
+    (OuterNodeBankLayout.c_helper_lt j) (OuterNodeBankLayout.c_helper_code j hc) hpu'
+  exact (TBSim.steps hs he).mono (by omega) (fun a t ht=>outC_of_equal ht hg hm)
 
 #print axioms runB
 #print axioms runC
 
 #print axioms jump_run
+#print axioms outC_of_equal
 #print axioms input_of_equal
 end OuterNodeBankCall

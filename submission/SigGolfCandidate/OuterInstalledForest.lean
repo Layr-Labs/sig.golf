@@ -26,14 +26,14 @@ theorem run (sk : BitVec 256) (w : W9Machine.WBytes) (index : Nat) (hi : index<2
   intro k prev u hu
   apply OuterForestStep.step_tbsim OuterImages.expandImage sk stub OuterInstalledDispatch.code W9Drv.slot_entry ?_
     w index hi raw ranks initial k prev u hu
-  intro L k j rank himage hc hb hcw w index hi snapshot u padL padR hpre hL hR
+  intro L k j rank himage hc hr hb hcw w index hi snapshot u padL padR hpre hL hR
   have codes : OuterSharedBank.Codes L.image := by
     rw [himage]
     exact OuterImageCopies.codes
   have hw : (Frozen.image.code.drop 195584).take 36032=(L.image.code.drop 195584).take 36032 := by
     rw [himage]
     exact OuterInstalledChain.window
-  exact OuterSharedCore.run L sk codes k j rank hc hb
+  exact OuterSharedCore.run L sk codes k j rank hc hr hb
     (fun w index u hu=>OuterChainBank.run L sk hw hcw rank w index k j u hu)
     w index hi snapshot u padL padR hpre hL hR
 

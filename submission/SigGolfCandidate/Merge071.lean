@@ -455,9 +455,9 @@ theorem top_word (N : HashOutput) (w : WCT9.Witness) (M : Nat → Word)
     (hO : ∀ o, 8096 ≤ o → o < 12320 → o % 8 = 0 →
       M (2904 + o) = BitVec.ofNat 64 (readLE (window (OldW.witList N w) o 8)))
     (q : Nat) (hq : q < 3352) (h8 : q % 8 = 0) :
-    ppMem (route (WCT9.digestIndex N) 0).1 M (11920 + q) =
+    ppMem (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) 0).1 M (11920 + q) =
       BitVec.ofNat 64 (readLE (window (ClaudeWCT.W9.T3M.witList N w) (7664 + q) 8)) := by
-  set leaf := (route (WCT9.digestIndex N) 0).1 with hleaf
+  set leaf := (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) 0).1 with hleaf
   set ls := w.signature.layers 0 with hls
   have hr : leaf % 64 < 64 := Nat.mod_lt _ (by decide)
   have hr' : leaf / 64 % 64 < 64 := Nat.mod_lt _ (by decide)
@@ -678,7 +678,7 @@ theorem ppMem_witEnc (output : HashOutput) (w : SigGolfCandidate.Research.Shared
       M (2904 + 8 * j) = oldWord output (ClaudeWCT.W9.T3M.Paired.mainWitness w) (8 * j))
     (hC : M (2904 + 8 * 2789) =
       replaceByte (oldWord output (ClaudeWCT.W9.T3M.Paired.mainWitness w) (8 * 2789)) 0 (choiceByte w.topHigh).toBitVec)
-    (hleaf : leafOf (M 0x20160) % 4096 = (route (WCT9.digestIndex output) 0).1 % 4096) :
+    (hleaf : leafOf (M 0x20160) % 4096 = (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0).1 % 4096) :
     ∀ k, k < 2720 → ppMem (leafOf (M 0x20160)) M (4256 + 8 * k) = (ClaudeWCT.W9.T3M.Paired.witEnc output w).extractLsb' (64 * k) 64 := by
   intro k hk
   rw [ppMem_leaf_congr _ _ hleaf]
@@ -737,8 +737,8 @@ theorem pp_witEnc (s : MachineState) (hpc : s.pc = pcOf 49400) (output : HashOut
       s.getMem (BitVec.ofNat 64 (2904 + 8 * j)) = oldWord output (ClaudeWCT.W9.T3M.Paired.mainWitness w) (8 * j))
     (hC : s.getMem (BitVec.ofNat 64 (2904 + 8 * 2789)) =
       replaceByte (oldWord output (ClaudeWCT.W9.T3M.Paired.mainWitness w) (8 * 2789)) 0 (choiceByte w.topHigh).toBitVec)
-    (hleaf : leafOf (s.getMem (BitVec.ofNat 64 0x20160)) % 4096 = (route (WCT9.digestIndex output) 0).1 % 4096) :
-    ∃ t, Steps SigGolfCandidate.T3M.Images.expandImage s 17535 ppCycles t ∧ t.pc = pcOf 54174 ∧
+    (hleaf : leafOf (s.getMem (BitVec.ofNat 64 0x20160)) % 4096 = (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0).1 % 4096) :
+    ∃ t, Steps SigGolfCandidate.T3M.Images.expandImage s 17538 ppCycles t ∧ t.pc = pcOf 54174 ∧
       RegsExcept s t [.x6, .x7, .x10, .x28, .x29, .x30] ∧
       (∀ k, k < 2720 → t.getMem (BitVec.ofNat 64 (4256 + 8 * k)) = (ClaudeWCT.W9.T3M.Paired.witEnc output w).extractLsb' (64 * k) 64) ∧
       ∀ A < 2 ^ 64, t.getMem (BitVec.ofNat 64 A) =

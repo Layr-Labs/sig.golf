@@ -33,7 +33,7 @@ theorem verified (answers : Answers) (message : Message) (pk : Digest)
       let index := digestIndex output
       let forest := (evalWithAnswerFn answers (OuterForestCorrectness.recoverForest index (forestSelectionFromOutput output)
         (forestWordsFromOutput output) sig0.forest)).1
-      cases hr : evalWithAnswerFn answers (recoverHintedLayers sig0 index ((sig0.layers 0).path topJ)
+      cases hr : evalWithAnswerFn answers (recoverHintedLayers sig0 (hyperIndex index) ((sig0.layers 0).path topJ)
         4 (.pair forest.1 forest.2)) with
       | none =>
           dsimp only [index, forest, sig0] at hr
@@ -41,7 +41,7 @@ theorem verified (answers : Answers) (message : Message) (pk : Digest)
       | some result =>
           dsimp only [index, forest, sig0] at hr
           simp only [hr] at he
-          cases hp : OuterSigning.policyHintsValid index sig0.policyHints result.digits result.lows with
+          cases hp : OuterSigning.policyHintsValid (hyperIndex index) sig0.policyHints result.digits result.lows with
           | false =>
               dsimp only [index, sig0] at hp
               simp only [hp, Bool.not_false, if_true, evalWithAnswerFn_pure, reduceCtorEq] at he
@@ -54,7 +54,7 @@ theorem verified (answers : Answers) (message : Message) (pk : Digest)
                 exact OuterVerifySource.from_recovered answers message pk sig0 counter output result houtput ha hr hpk
               · simp only [hpk, if_false, evalWithAnswerFn_bind] at he
                 cases hs : evalWithAnswerFn answers
-                  (searchTop index result.foldedTop ((sig0.layers 0).path topJ) pk searchFuel 1) with
+                  (searchTop (hyperIndex index) result.foldedTop ((sig0.layers 0).path topJ) pk searchFuel 1) with
                 | none =>
                     dsimp only [index, sig0] at hs
                     simp only [hs, evalWithAnswerFn_pure, reduceCtorEq] at he
@@ -62,20 +62,20 @@ theorem verified (answers : Answers) (message : Message) (pk : Digest)
                     dsimp only [index, sig0] at hs
                     simp only [hs, evalWithAnswerFn_pure, Option.some.injEq,Prod.mk.injEq] at he
                     obtain ⟨rfl,rfl,rfl⟩ := he
-                    have hc := (eval_searchTop answers index result.foldedTop ((sig0.layers 0).path topJ)
+                    have hc := (eval_searchTop answers (hyperIndex index) result.foldedTop ((sig0.layers 0).path topJ)
                       pk searchFuel 1 c hs).2.2
                     let completed : RecoveredLayers := {result with
                       root := evalWithAnswerFn answers
-                        (topNode index result.foldedTop (((fillTopSignature sig0 c).layers 0).path topJ))}
+                        (topNode (hyperIndex index) result.foldedTop (((fillTopSignature sig0 c).layers 0).path topJ))}
                     have hcompleted : completed.root = pk := by
                       dsimp only [completed]
                       rw [topPath_fill_signature]
                       exact hc
-                    have hr' : evalWithAnswerFn answers (recoverHintedLayers (fillTopSignature sig0 c) index
+                    have hr' : evalWithAnswerFn answers (recoverHintedLayers (fillTopSignature sig0 c) (hyperIndex index)
                         (((fillTopSignature sig0 c).layers 0).path topJ) 4 (.pair forest.1 forest.2)) =
                         some completed := by
                       rw [recoverHintedLayers_fill _ _ _ _ _ le_rfl]
-                      rw [eval_recoverHintedLayers_other answers sig0 index ((sig0.layers 0).path topJ)]
+                      rw [eval_recoverHintedLayers_other answers sig0 (hyperIndex index) ((sig0.layers 0).path topJ)]
                       rw [hr]
                       rfl
                     exact OuterVerifySource.from_recovered answers message pk (fillTopSignature sig0 c)

@@ -7925,7 +7925,8 @@ def NearIn (A : Correctness.Answers) (log : QueryLog Requests) (entries : List W
   ∃ (m : Message) (w : WBytes) (N : HashOutput) (k : WCT9.Coord) (t : Fin 6) (c : Guess.GCoord),
     (pad64 (digestInput (wrho w) m (wdc w)), N) ∈ entries ∧
     evalWithAnswerFn A (digest (wrho w) m (wdc w)) = N ∧ Shaped N w ∧
-    (∀ lay : Layer, ClaudeWCT.W9.T3M.BC.GoodZ A w (WCT9.digestIndex N) lay) ∧ ¬SignedDigest log m w ∧
+    (∀ lay : Layer, ClaudeWCT.W9.T3M.BC.GoodZ A w (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) lay) ∧
+    ¬SignedDigest log m w ∧
     log.length ≤ 2 ^ 32 ∧
     c.1 = Guess.chainOf N k t ∧ c.2.val = 4 - Guess.deficit N k t ∧ WPair.GuessedIn A log entries c ∧
     (∀ k' t', (k', t') ≠ (k, t) → SlotDisclosed A log N k' t') ∧ BPB.SignerComplete A

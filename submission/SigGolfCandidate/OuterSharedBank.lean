@@ -28,7 +28,7 @@ theorem first_program (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (k : Fin 9) (r
 
 theorem run (L : W9Machine.Layout) (sk : BitVec 256) (k : Fin 9) (raw : Fin 128)
     (codes : Codes L.image) (hchild : L.childWord raw=SharedBank.copyWord k.val raw.val)
-    (hbase : Chain.base L k=coordRegion k.val) (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (hi : index<2^31)
+    (hret : k.val=8 → L.returnWord k=4397) (hbase : Chain.base L k=coordRegion k.val) (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (hi : index<2^31)
     (ends : List Digest) (x : MachineState) (hx : SharedChild.Pre L w index k raw ends x) :
     TBSim L.image sk x (cost k) (OuterChildModel.childProgram w index k raw ends) (OuterSharedPost.Post L k raw x) := by
   have hk:=k.isLt
@@ -69,7 +69,7 @@ theorem run (L : W9Machine.Layout) (sk : BitVec 256) (k : Fin 9) (raw : Fin 128)
         rw [hchild]
         unfold SharedBank.copyWord SharedCProof.copyBase SharedCProof.cSlot
         rw [if_neg hn,if_pos hc,hraw]
-      have H:=OuterSharedCRun.run (sk:=sk) k raw index hf hc hi he (codes.copies.copyC _ hpj) (codes.bankC _ hpj)
+      have H:=OuterSharedCRun.run (sk:=sk) k raw index hf hc hi he (hret hc) (codes.copies.copyC _ hpj) (codes.bankC _ hpj)
         codes.copies.search (codes.copies.trampC _ hpj) codes.copies.search16 (codes.copies.tramp16C _ hpj) hbase w ends x hx
       refine H.mono ?_ (fun _ _ h=>h)
       have hb:=SharedBank.copy_cost_C ⟨_,hpj⟩

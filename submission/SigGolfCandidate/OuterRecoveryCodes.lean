@@ -39,6 +39,7 @@ theorem code : SigGolfCandidate.T3M.Expand.SharedRecover.Code OuterImages.expand
   · exact OuterImageTransfers.code (b:=1129) (words:=e_hdrE) (by decide +kernel) SigGolfCandidate.T3M.Expand.SharedRecover.installed_code.e_hdrE_at
   · exact OuterImageTransfers.code (b:=42741) (words:=e_hpA) (by decide +kernel) SigGolfCandidate.T3M.Expand.SharedRecover.installed_code.e_hpA_at
   · exact OuterImageTransfers.code (b:=245335) (words:=e_hpT) (by decide +kernel) SigGolfCandidate.T3M.Expand.SharedRecover.installed_code.e_hpT_at
+  · exact OuterImageTransfers.code (b:=88862) (words:=e_hpM) (by decide +kernel) SigGolfCandidate.T3M.Expand.SharedRecover.installed_code.e_hpM_at
   · exact OuterImageTransfers.code (b:=42750) (words:=(e_hpA.drop 9)) (by decide +kernel) SigGolfCandidate.T3M.Expand.SharedRecover.installed_code.e_hpA2_at
   · exact OuterImageTransfers.code (b:=42755) (words:=e_hpZ) (by decide +kernel) SigGolfCandidate.T3M.Expand.SharedRecover.installed_code.e_hpZ_at
   · exact OuterImageTransfers.code (b:=42757) (words:=e_hpJ) (by decide +kernel) SigGolfCandidate.T3M.Expand.SharedRecover.installed_code.e_hpJ_at
@@ -130,6 +131,7 @@ theorem code : SigGolfCandidate.T3M.Expand.SharedRecover.Code OuterImages.expand
   · exact OuterImageTransfers.code (b:=231593) (words:=ExpandLabel.remapCode) (by decide +kernel) SigGolfCandidate.T3M.Expand.SharedRecover.installed_code.e_hdrRemap_at
   · exact OuterImageTransfers.code (b:=88600) (words:=ExpandLabel.chain) (by decide +kernel) SigGolfCandidate.T3M.Expand.SharedRecover.installed_code.e_hdrChain_at
   · exact OuterImageTransfers.code (b:=88800) (words:=ExpandLabel.chain2) (by decide +kernel) SigGolfCandidate.T3M.Expand.SharedRecover.installed_code.e_hdrChain2_at
+  · exact OuterImageTransfers.code (b:=88831) (words:=ExpandLabel.chain3) (by decide +kernel) SigGolfCandidate.T3M.Expand.SharedRecover.installed_code.e_hdrChain3_at
   · exact OuterImageTransfers.code (b:=88700) (words:=e_l1) (by decide +kernel) SigGolfCandidate.T3M.Expand.SharedRecover.installed_code.e_l1_at
   · exact OuterImageTransfers.code (b:=88730) (words:=cBand) (by decide +kernel) SigGolfCandidate.T3M.Expand.SharedRecover.installed_code.codeAt_band
   · exact OuterImageTransfers.code (b:=88760) (words:=cSlot) (by decide +kernel) SigGolfCandidate.T3M.Expand.SharedRecover.installed_code.codeAt_slot
@@ -167,7 +169,8 @@ theorem code : SigGolfCandidate.T3M.Expand.SharedRecover.PackedBlocks.Code Outer
   · exact OuterImageTransfers.code (b:=1252) (words:=expand_inc) (by decide +kernel) SigGolfCandidate.T3M.Expand.SharedRecover.installed_packed.inc
   · exact OuterImageTransfers.code (b:=1253) (words:=expand_bodyA) (by decide +kernel) SigGolfCandidate.T3M.Expand.SharedRecover.installed_packed.body
   · exact OuterImageTransfers.code (b:=245313) (words:=expand_hdrT) (by decide +kernel) SigGolfCandidate.T3M.Expand.SharedRecover.installed_packed.hdrT
-  · exact OuterImageTransfers.code (b:=1266) (words:=(expand_bodyA.drop 13)) (by decide +kernel) SigGolfCandidate.T3M.Expand.SharedRecover.installed_packed.body2
+  · exact OuterImageTransfers.code (b:=88850) (words:=expand_mstub) (by decide +kernel) SigGolfCandidate.T3M.Expand.SharedRecover.installed_packed.mstub
+  · exact OuterImageTransfers.code (b:=88839) (words:=ExpandLabel.hdrStub) (by decide +kernel) SigGolfCandidate.T3M.Expand.SharedRecover.installed_packed.cstub
   · exact OuterImageTransfers.code (b:=1038) (words:=expand_store) (by decide +kernel) SigGolfCandidate.T3M.Expand.SharedRecover.installed_packed.store
 
 #print axioms code

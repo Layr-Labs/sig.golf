@@ -19,12 +19,12 @@ theorem agree (hash : Hash) (message : SigGolfCandidate.T3.Message) (pk : Digest
     (w : SigGolfCandidate.Research.SharedForest.Witness) (ns5 : List Nat) (output : HashOutput) (result : RecoveredLayers)
     (hd : evalWithAnswerFn (machineAnswers hash 0) (SigGolfCandidate.T3.digest w.signature.rho message w.digestCounter) = output)
     (hr : evalWithAnswerFn (machineAnswers hash 0)
-      (recoverHintedLayers w.signature (digestIndex output) ((w.signature.layers 0).path topJ) 4
+      (recoverHintedLayers w.signature (SigGolfCandidate.T3.hyperIndex (digestIndex output)) ((w.signature.layers 0).path topJ) 4
         (.pair (evalWithAnswerFn (machineAnswers hash 0) (OuterForestCorrectness.recoverForest (digestIndex output)
           (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).1.1
           (evalWithAnswerFn (machineAnswers hash 0) (OuterForestCorrectness.recoverForest (digestIndex output)
           (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).1.2)) = some result)
-    (hh : OuterSigning.policyHintsValid (WCT9.digestIndex output) w.signature.policyHints result.digits result.lows = true)
+    (hh : OuterSigning.policyHintsValid (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) w.signature.policyHints result.digits result.lows = true)
     (hc : ∀ lay, w.counters lay = result.counters.getD lay.val 0)
     (htop : w.topHigh = !(result.lows.getD 0 true))
     (hln : ∀ lay, w.lowerNonces lay = result.lowerNonces.getD lay.val [])
@@ -39,7 +39,8 @@ theorem agree (hash : Hash) (message : SigGolfCandidate.T3.Message) (pk : Digest
         (mrealize 0 (OuterVerifySource.verify message pk w ns5)) := by
   let floors : Layer → Nat := fun lay =>
     min 75 (CanonicalPolicy.credit lay (result.lows.getD lay.val true) (result.digits.getD lay.val []) +
-      if lay=0 then CanonicalPolicy.topPathSave (route (digestIndex output) 0).1 else LocalRoute.ownSave (digestIndex output) lay.val)
+      if lay=0 then CanonicalPolicy.topPathSave (route (SigGolfCandidate.T3.hyperIndex (digestIndex output)) 0).1
+      else LocalRoute.ownSave (SigGolfCandidate.T3.hyperIndex (digestIndex output)) lay.val)
   refine ⟨floors, OuterCredit74.recovered _ _ _ _ _ result hr hh, ?_⟩
   unfold OuterVerifySource.verify
   split
@@ -52,7 +53,8 @@ theorem agree (hash : Hash) (message : SigGolfCandidate.T3.Message) (pk : Digest
         ⟨agree_mrealize (OuterNotEncForest.forest _ _ _ _ _ _ _) (hfg_okBy floors w.topHigh hash), ?_⟩
       rw [hfn, hfn16, hfn5, OuterFixedForestReplay.eval_forest]
       refine (agree_mrealize_bind _ _).mpr ⟨?_, ?_⟩
-      · exact agree_layers floors hash w.signature (digestIndex output) (digestIndex_lt output) 4 le_rfl _ result hr
+      · exact agree_layers floors hash w.signature (SigGolfCandidate.T3.hyperIndex (digestIndex output))
+          (SigGolfCandidate.T3.hyperIndex_lt _) 4 le_rfl _ result hr
           (fun lay _ => Nat.min_le_right _ _) w rfl (fun lay _ => hc lay) htop (fun lay _ => hln lay)
       · split <;> trivial
 #print axioms agree

@@ -15,11 +15,66 @@ namespace ClaudeWCT.W9.T3M.Extract
 /-- C41: a word `≥ 2 ^ 28` that is below `2 ^ 56` or in the legacy band (`≥ 193 * 2 ^ 56`) fails `TopLow`'s low-word
 test (top labels, `TopNine`, the layer-1 pair bands; C42: the heap-4/5/6 labels, below `2 ^ 28` or in
 `[2 ^ 56, 193 * 2 ^ 56)`). -/
-theorem not_topLowWord_of_ge {w : Nat} (h : 2 ^ 28 ≤ w) (h' : w < 2 ^ 56 ∨ 193 * 2 ^ 56 ≤ w) :
+theorem not_topLowWord_of_ge {w : Nat} (h : 2 ^ 28 ≤ w) (h' : w < 2 ^ 56 ∨ 193 * 2 ^ 56 ≤ w)
+    (hb : 128 ≤ w % 256) :
     ¬ ((1 ≤ w ∧ w < 4096) ∨ w = 520192 ∨ w = 14336 ∨
-      (SigGolfCandidate.T3.TopNine w ∨ w = 930564 ∨ w = 989957 ∨ w = 108112779336744966 ∨ w = 989954) ∨
+      (SigGolfCandidate.T3.TopNine w ∨ SigGolfCandidate.T3.TopStep w) ∨
       (4096 ≤ w ∧ w < 8192) ∨ (131072 ≤ w ∧ w < 262144 ∧ w % 32 = 0)) := by
-  unfold SigGolfCandidate.T3.TopNine; omega
+  -- C47: the heap-3 label `0xe7404003` lies in `[2 ^ 28, 2 ^ 56)`; it (and heap 6's) has marker byte `< 128`.
+  unfold SigGolfCandidate.T3.TopNine SigGolfCandidate.T3.TopStep; omega
+/-- C47 (C): coordinate 8's reflected chain words are `8704 + 256 chain + step` modulo `2 ^ 20` (child and instance
+fields are multiples of `2 ^ 20`). -/
+theorem ftsChainLow_eight_mod (index child t step : Nat) :
+    WCT9.ftsChainLow index 8 child t step % 2 ^ 20 = 8704 + t % 8 * 256 + step % 4 := by
+  rw [WCT9.ftsChainLow_eight]
+  have hi := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
+  have hc := Nat.mod_lt child (show 0 < 128 by decide)
+  have ht := Nat.mod_lt t (show 0 < 8 by decide)
+  have hs := Nat.mod_lt step (show 0 < 4 by decide)
+  generalize index % 2 ^ 31 = I at hi ⊢
+  generalize child % 128 = C at hc ⊢
+  generalize t % 8 = T at ht ⊢
+  generalize step % 4 = S at hs ⊢
+  omega
+/-- C47 (C): coordinate 8's reflected leaf words are `8192` modulo `2 ^ 20`. -/
+theorem ftsLeafLow_eight_mod (index child : Nat) : WCT9.ftsLeafLow index 8 child % 2 ^ 20 = 8192 := by
+  rw [WCT9.ftsLeafLow_eight]
+  have hi := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
+  have hc := Nat.mod_lt child (show 0 < 128 by decide)
+  generalize index % 2 ^ 31 = I at hi ⊢
+  generalize child % 128 = C at hc ⊢
+  omega
+/-- C47 (C): a word `≡ [8192, 10752)` modulo `2 ^ 20` is no top label (their residues are `0`, `[11968, 12240]`,
+`14336`, `16387` and `≥ 520192`). -/
+theorem not_topLabel_of_low20 {w : Nat} (h1 : 8192 ≤ w % 2 ^ 20) (h2 : w % 2 ^ 20 < 10752) :
+    w ≠ 520192 ∧ w ≠ 14336 ∧ ¬ (SigGolfCandidate.T3.TopNine w ∨ SigGolfCandidate.T3.TopStep w) := by
+  unfold SigGolfCandidate.T3.TopNine SigGolfCandidate.T3.TopStep; omega
+/-- C31/C47: an FTS chain word (coordinates `< 9`, chains `< 6`) fails `TopLow`'s low-word test: `≥ 4096` with a tag
+that is no top label's (coordinates `< 8`), or coordinate 8's reflected word (`≡ [8704, 10752)` mod `2 ^ 20`). -/
+theorem not_topLow_ftsChainLow (index coord raw t step : Nat) (hc : coord < 9) (ht : t < 6) :
+    ¬ ((1 ≤ WCT9.ftsChainLow index coord raw t step ∧ WCT9.ftsChainLow index coord raw t step < 4096) ∨
+      WCT9.ftsChainLow index coord raw t step = 520192 ∨ WCT9.ftsChainLow index coord raw t step = 14336 ∨
+      (SigGolfCandidate.T3.TopNine (WCT9.ftsChainLow index coord raw t step) ∨
+        SigGolfCandidate.T3.TopStep (WCT9.ftsChainLow index coord raw t step)) ∨
+      (4096 ≤ WCT9.ftsChainLow index coord raw t step ∧ WCT9.ftsChainLow index coord raw t step < 8192) ∨
+      (131072 ≤ WCT9.ftsChainLow index coord raw t step ∧ WCT9.ftsChainLow index coord raw t step < 262144 ∧
+        WCT9.ftsChainLow index coord raw t step % 32 = 0)) := by
+  have hlt := WCT9.ftsChainLow_lt index coord raw t step
+  by_cases h8 : coord = 8
+  · subst h8
+    have hm := ftsChainLow_eight_mod index raw t step
+    have := Nat.mod_lt t (show 0 < 8 by decide)
+    have := Nat.mod_lt step (show 0 < 4 by decide)
+    generalize WCT9.ftsChainLow index 8 raw t step = L at *
+    unfold SigGolfCandidate.T3.TopNine SigGolfCandidate.T3.TopStep
+    omega
+  · have hge := WCT9.ftsChainLow_ge (coord := coord) (by omega) index raw t step ht
+    have htag := WCT9.ftsChainLow_tag index coord raw t step
+    rw [if_neg h8, Nat.mod_eq_of_lt (show coord < 16 by omega), Nat.mod_eq_of_lt (show t < 8 by omega)] at htag
+    have hge20 := ftsChainLow_ge20 (coord := coord) (by omega) h8 index raw t step ht
+    generalize WCT9.ftsChainLow index coord raw t step = L at *
+    unfold SigGolfCandidate.T3.TopNine SigGolfCandidate.T3.TopStep
+    omega
 end ClaudeWCT.W9.T3M.Extract
 
 -- ==== merged from ClaudeWCT_W9_T3M_Extract_Wct ====
@@ -142,11 +197,14 @@ theorem canonicalHeader_ftsChainHeaderP (step : Nat) (pb : BitVec 64) (ht : t < 
   have hm : (BitVec.ofNat 64 (WCT9.ftsChainLow index coord child t step)).toNat % 256 < 4 := by
     rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (WCT9.ftsChainLow_lt ..), WCT9.ftsChainLow_byte0]
     omega
-  have htag : 130 ≤ (BitVec.ofNat 64 (WCT9.ftsChainLow index coord child t step)).toNat / 256 % 256 ∧
+  have htag : (130 ≤ (BitVec.ofNat 64 (WCT9.ftsChainLow index coord child t step)).toNat / 256 % 256 ∨
+      (34 ≤ (BitVec.ofNat 64 (WCT9.ftsChainLow index coord child t step)).toNat / 256 % 256 ∧
+        (BitVec.ofNat 64 (WCT9.ftsChainLow index coord child t step)).toNat / 256 % 256 < 40)) ∧
       2 ≤ (BitVec.ofNat 64 (WCT9.ftsChainLow index coord child t step)).toNat / 256 % 256 % 8 := by
     rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (WCT9.ftsChainLow_lt ..), WCT9.ftsChainLow_tag,
       Nat.mod_eq_of_lt (by omega : t < 8)]
-    omega
+    have := Nat.mod_lt coord (show 0 < 16 by decide)
+    split_ifs <;> omega
   rw [SigGolfCandidate.T3M.Extract.canonicalHeader_fts_words _ _ hm htag,
     SigGolfCandidate.T3M.Extract.canonicalHeader_fts_words _ _ hm htag]
 /-! Witness stack (charge 86): FTS chains 1, 3 are G chains (`value | header | padA | padC`, interior steps
@@ -477,6 +535,7 @@ theorem canonicalHeader_withHigh_of_ne (t : BitVec 128) (hp : BitVec 64)
   unfold withHigh
   split
   · rename_i hm
+    obtain ⟨hm, hr⟩ := hm
     have ht : t = t.extractLsb' 64 64 ++ t.extractLsb' 0 64 := by
       have h := (BitVec.extractLsb'_append_extractLsb' (w := 64) (len := 64) (x := t)).symm
       exact h
@@ -489,6 +548,11 @@ theorem canonicalHeader_withHigh_of_ne (t : BitVec 128) (hp : BitVec 64)
       rw [show (2 : Nat) ^ 64 = 2 ^ 64 from rfl]
       omega
     · exact hne
+    · -- C47: the unmarked low word 21684 (coordinate 8's swapped heap 6) is excluded by `withHigh`.
+      intro he; apply hr
+      have := congrArg BitVec.toNat he
+      rw [BitVec.extractLsb'_toNat, Nat.shiftRight_zero] at this
+      exact this
   · rfl
 
 set_option debug.skipKernelTC true in
@@ -905,12 +969,12 @@ theorem verifyP_walk_wct (answers : Answers) (m : Message) (pk : Digest) (w : WB
       evalWithAnswerFn answers (digest (wrho w) m (wdc w)) = N ∧
       (.inl (.inr (pad64 (digestInput (wrho w) m (wdc w)))) : Spec.Domain) ∈ queried answers (verifyP m pk w) ∧
       Shaped N w ∧
-      evalWithAnswerFn answers (layersBC w (WCT9.digestIndex N) 4 (.pair (evalWithAnswerFn answers
+      evalWithAnswerFn answers (layersBC w (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) 4 (.pair (evalWithAnswerFn answers
         (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N)).1 (evalWithAnswerFn answers
         (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N)).2)) = some pk ∧
       (∀ q ∈ queried answers (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N),
         q ∈ queried answers (verifyP m pk w)) ∧
-      (∀ q ∈ queried answers (layersBC w (WCT9.digestIndex N) 4 (.pair (evalWithAnswerFn answers
+      (∀ q ∈ queried answers (layersBC w (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) 4 (.pair (evalWithAnswerFn answers
           (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N)).1 (evalWithAnswerFn answers
           (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N)).2)),
         q ∈ queried answers (verifyP m pk w)) := by
@@ -941,7 +1005,7 @@ theorem verifyP_walk_wct (answers : Answers) (m : Message) (pk : Digest) (w : WB
   dsimp only at hv ⊢
   rw [evalWithAnswerFn_bind] at hv
   rw [queried_bind]
-  generalize hL : evalWithAnswerFn answers (layersBC w (WCT9.digestIndex N) 4 (.pair root.1 root.2)) = ll at hv ⊢
+  generalize hL : evalWithAnswerFn answers (layersBC w (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) 4 (.pair root.1 root.2)) = ll at hv ⊢
   rcases ll with _ | root'
   · simp at hv
   simp only [evalWithAnswerFn_pure, beq_iff_eq] at hv
@@ -967,7 +1031,7 @@ def LayersWalkSpec (LayerEvent : Answers → WBytes → Nat → List Spec.Domain
   ∀ (answers : Answers) (w : WBytes) (index : Nat) (root : Digest × Digest) (qs : List Spec.Domain), index < 2 ^ 31 →
     (∀ q ∈ queried answers (layersBC w index 4 (.pair root.1 root.2)), q ∈ qs) →
     evalWithAnswerFn answers (layersBC w index 4 (.pair root.1 root.2)) = some (Extract.honestRoot answers 0 0) →
-    LayerEvent answers w index qs ∨ (LayersGood answers w index ∧ root = Extract.honestTop answers index)
+    LayerEvent answers w index qs ∨ (LayersGood answers w index ∧ root = Extract.honestTop answers (SigGolfCandidate.T3.hyperIndex index))
 theorem verifyP_extract {LayerEvent : Answers → WBytes → Nat → List Spec.Domain → Prop}
     {LayersGood : Answers → WBytes → Nat → Prop} (hL : LayersWalkSpec LayerEvent LayersGood)
     (answers : Answers) (m : Message) (pk : Digest) (w : WBytes) (hpk : pk = Extract.honestRoot answers 0 0)
@@ -977,12 +1041,14 @@ theorem verifyP_extract {LayerEvent : Answers → WBytes → Nat → List Spec.D
       (.inl (.inr (pad64 (digestInput (wrho w) m (wdc w)))) : Spec.Domain) ∈ queried answers (verifyP m pk w) ∧
       Shaped N w ∧
       (Extract.HitIn answers (queried answers (verifyP m pk w)) ∨
-        LayerEvent answers w (WCT9.digestIndex N) (queried answers (verifyP m pk w)) ∨
-        (LayersGood answers w (WCT9.digestIndex N) ∧ WctHonest answers N w)) := by
+        LayerEvent answers w (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) (queried answers (verifyP m pk w)) ∨
+        (LayersGood answers w (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) ∧ WctHonest answers N w)) := by
   obtain ⟨N, hdc, hN, hdq, hS, hlay, hqF, hqL⟩ := verifyP_walk_wct answers m pk w hv
   refine ⟨N, hdc, hN, hdq, hS, ?_⟩
-  rcases hL answers w (WCT9.digestIndex N) _ _ (WCT9.digestIndex_lt N) hqL (hpk ▸ hlay) with hev | ⟨hgood, hroot⟩
+  rcases hL answers w (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) _ _ (SigGolfCandidate.T3.hyperIndex_lt _) hqL (hpk ▸ hlay) with
+    hev | ⟨hgood, hroot⟩
   · exact Or.inr (Or.inl hev)
+  rw [SigGolfCandidate.T3.hyperIndex_invol (WCT9.digestIndex_lt N)] at hroot
   rcases wct_extract answers N w hS hroot with hhit | hhon
   · exact Or.inl (hhit.mono hqF)
   · exact Or.inr (Or.inr ⟨hgood, hhon⟩)
@@ -2583,18 +2649,10 @@ theorem posOf_padded_chain (index coord raw t step : Nat)
     rw [wctChainInputP_block4, pad64_block4, hdrBlock_block4W, topLow_bytesLE_iff]
     unfold SigGolfCandidate.T3.tweakLow
     rw [ClaudeWCT.WCT9.ftsChainHeaderP_toNat]
-    have hge := ClaudeWCT.WCT9.ftsChainLow_ge (coord := coord) (by have := hb.2.1; omega) index raw t step hb.2.2.2.1
     have hlt := ClaudeWCT.WCT9.ftsChainLow_lt index coord raw t step
-    have htag := ClaudeWCT.WCT9.ftsChainLow_tag index coord raw t step
-    -- C31: chain tags are (506 + t - 8 coord) mod 256 in [186, 255] and never 240 (= 520192's) for t < 6.
-    have hc9 := hb.2.1
-    have ht6 := hb.2.2.2.1
-    rw [Nat.mod_eq_of_lt (show coord < 16 by omega), Nat.mod_eq_of_lt (show t < 8 by omega)] at htag
     rw [Nat.mul_add_mod_self_right, Nat.mod_eq_of_lt hlt]
-    -- C40: an FTS chain word is `≥ 2 ^ 20 - 2 ^ 15` (above the small height-9 labels), tag `≥ 186` (ra's is 113).
-    have hge20 := ClaudeWCT.W9.T3M.Extract.ftsChainLow_ge20 (coord := coord) (by omega) index raw t step ht6
-    unfold SigGolfCandidate.T3.TopNine
-    omega
+    -- C31/C47: tags and (coordinate 8) residues mod `2 ^ 20` separate the chain words from the top labels.
+    exact not_topLow_ftsChainLow index coord raw t step (by have := hb.2.1; omega) hb.2.2.2.1
   rw [hdrKey_of_len64 hlen hT,wctChainInputP_block4,pad64_block4,hdrBlock_block4W,
     canonicalHeader_ftsChainHeaderP _ _ _ _ _ _ hb.2.2.2.1]
   simpa only [Pos.hdr] using (Pos.canonicalHeader_eq hb)
@@ -2613,18 +2671,10 @@ theorem posOf_padded_chainW (index coord raw t step : Nat)
     rw [pad64_wctChainInputPW, hdrBlock_wctChainInputPW, topLow_bytesLE_iff]
     unfold SigGolfCandidate.T3.tweakLow
     rw [ClaudeWCT.WCT9.ftsChainHeaderP_toNat]
-    have hge := ClaudeWCT.WCT9.ftsChainLow_ge (coord := coord) (by have := hb.2.1; omega) index raw t step hb.2.2.2.1
     have hlt := ClaudeWCT.WCT9.ftsChainLow_lt index coord raw t step
-    have htag := ClaudeWCT.WCT9.ftsChainLow_tag index coord raw t step
-    -- C31: chain tags are (506 + t - 8 coord) mod 256 in [186, 255] and never 240 (= 520192's) for t < 6.
-    have hc9 := hb.2.1
-    have ht6 := hb.2.2.2.1
-    rw [Nat.mod_eq_of_lt (show coord < 16 by omega), Nat.mod_eq_of_lt (show t < 8 by omega)] at htag
     rw [Nat.mul_add_mod_self_right, Nat.mod_eq_of_lt hlt]
-    -- C40: an FTS chain word is `≥ 2 ^ 20 - 2 ^ 15` (above the small height-9 labels), tag `≥ 186` (ra's is 113).
-    have hge20 := ClaudeWCT.W9.T3M.Extract.ftsChainLow_ge20 (coord := coord) (by omega) index raw t step ht6
-    unfold SigGolfCandidate.T3.TopNine
-    omega
+    -- C31/C47: tags and (coordinate 8) residues mod `2 ^ 20` separate the chain words from the top labels.
+    exact not_topLow_ftsChainLow index coord raw t step (by have := hb.2.1; omega) hb.2.2.2.1
   rw [hdrKey_of_len64 hlen hT, pad64_wctChainInputPW, hdrBlock_wctChainInputPW,
     canonicalHeader_ftsChainHeaderP _ _ _ _ _ _ hb.2.2.2.1]
   simpa only [Pos.hdr] using (Pos.canonicalHeader_eq hb)
@@ -2769,9 +2819,9 @@ theorem verifyP_walk_extract (answers : Answers) (m : Message) (pk : Digest) (w 
       (.inl (.inr (pad64 (digestInput (wrho w) m (wdc w)))) : Spec.Domain) ∈ queried answers (verifyP m pk w) ∧
       Shaped N w ∧
       (HitIn answers (queried answers (verifyP m pk w)) ∨
-       (∃ lay : Layer, Diverge answers w (WCT9.digestIndex N) lay (queried answers (verifyP m pk w)) ∧
-          ∀ l : Layer, l.val < lay.val → Good answers w (WCT9.digestIndex N) l) ∨
-       ((∀ l : Layer, Good answers w (WCT9.digestIndex N) l) ∧
+       (∃ lay : Layer, Diverge answers w (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) lay (queried answers (verifyP m pk w)) ∧
+          ∀ l : Layer, l.val < lay.val → Good answers w (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) l) ∨
+       ((∀ l : Layer, Good answers w (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) l) ∧
           evalWithAnswerFn answers
               (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N) =
             honestTop answers (WCT9.digestIndex N) ∧
@@ -2779,11 +2829,12 @@ theorem verifyP_walk_extract (answers : Answers) (m : Message) (pk : Digest) (w 
             q ∈ queried answers (verifyP m pk w))) := by
   obtain ⟨N, hdc, hN, hdq, hS, hlay, hqF, hqL⟩ := WctExtract.verifyP_walk_wct answers m pk w hv
   refine ⟨N, hdc, hN, hdq, hS, ?_⟩
-  rcases layersWalkSpec_holds answers w (WCT9.digestIndex N) _ _ (WCT9.digestIndex_lt N) hqL (hpk ▸ hlay) with
-    (hhit | hdiv) | ⟨hgood, hroot⟩
+  rcases layersWalkSpec_holds answers w (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) _ _ (SigGolfCandidate.T3.hyperIndex_lt _) hqL
+    (hpk ▸ hlay) with (hhit | hdiv) | ⟨hgood, hroot⟩
   · exact Or.inl hhit
   · exact Or.inr (Or.inl hdiv)
-  · exact Or.inr (Or.inr ⟨hgood, hroot, hqF⟩)
+  · rw [SigGolfCandidate.T3.hyperIndex_invol (WCT9.digestIndex_lt N)] at hroot
+    exact Or.inr (Or.inr ⟨hgood, hroot, hqF⟩)
 theorem verifyP_extract_normal (answers : Answers) (m : Message) (pk : Digest) (w : WBytes)
     (hpk : pk = honestRoot answers 0 0)
     (hv : evalWithAnswerFn answers (verifyP m pk w) = true) :
@@ -2792,9 +2843,9 @@ theorem verifyP_extract_normal (answers : Answers) (m : Message) (pk : Digest) (
       (.inl (.inr (pad64 (digestInput (wrho w) m (wdc w)))) : Spec.Domain) ∈ queried answers (verifyP m pk w) ∧
       Shaped N w ∧
       (HitIn answers (queried answers (verifyP m pk w)) ∨
-       (∃ lay : Layer, Diverge answers w (WCT9.digestIndex N) lay (queried answers (verifyP m pk w)) ∧
-          ∀ l : Layer, l.val < lay.val → Good answers w (WCT9.digestIndex N) l) ∨
-       ((∀ l : Layer, Good answers w (WCT9.digestIndex N) l) ∧ WctExtract.WctHonest answers N w)) := by
+       (∃ lay : Layer, Diverge answers w (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) lay (queried answers (verifyP m pk w)) ∧
+          ∀ l : Layer, l.val < lay.val → Good answers w (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) l) ∨
+       ((∀ l : Layer, Good answers w (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) l) ∧ WctExtract.WctHonest answers N w)) := by
   obtain ⟨N, hdc, hN, hdq, hS, hcase⟩ := WctExtract.verifyP_extract layersWalkSpec_holds answers m pk w hpk hv
   refine ⟨N, hdc, hN, hdq, hS, ?_⟩
   rcases hcase with hhit | hev | hgood
@@ -3443,12 +3494,12 @@ def Conclusion (answers : Answers) (message : Message) (witness : WBytes)
       (∃ prior, (⟨prior, .inl (.inr (pad64 (digestInput (wrho witness) message (wdc witness)))), digestAnswer⟩ :
         FirstHit.QueryEvent) ∈ events) ∧ Shaped digestAnswer witness ∧
       (ActualHit answers events ∨
-        (∃ lay : Layer, ClaudeWCT.W9.T3M.Extract.Diverge answers witness (WCT9.digestIndex digestAnswer) lay
+        (∃ lay : Layer, ClaudeWCT.W9.T3M.Extract.Diverge answers witness (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex digestAnswer)) lay
           (events.map FirstHit.QueryEvent.input) ∧
           ∀ above : Layer, above.val < lay.val →
-            ClaudeWCT.W9.T3M.Extract.Good answers witness (WCT9.digestIndex digestAnswer) above) ∨
-        PadAt answers witness (WCT9.digestIndex digestAnswer) ∨
-        ((∀ lay : Layer, ClaudeWCT.W9.T3M.BC.GoodZ answers witness (WCT9.digestIndex digestAnswer) lay) ∧
+            ClaudeWCT.W9.T3M.Extract.Good answers witness (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex digestAnswer)) above) ∨
+        PadAt answers witness (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex digestAnswer)) ∨
+        ((∀ lay : Layer, ClaudeWCT.W9.T3M.BC.GoodZ answers witness (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex digestAnswer)) lay) ∧
           ClaudeWCT.W9.T3M.WctExtract.WctHonest answers digestAnswer witness))
 theorem verifyP_extracted_in {α : Type} (program : M α) (hp : Security.SourceReplay.HashOnly program)
     (before : LazyPrivate.State) (result : FirstHit.Recorded α)
@@ -3473,8 +3524,8 @@ theorem verifyP_extracted_in {α : Type} (program : M α) (hp : Security.SourceR
     rw [FirstHit.recorded_inputs program hp before result hr answers ha,
       SigGolfCandidate.T3.Security.PaddedExtraction.queried_eq]
     exact hsub _ hin
-  · by_cases hz : ∀ lay : Layer, ClaudeWCT.W9.T3M.wbcPad witness (WCT9.digestIndex N) lay = 0 ∧
-        ClaudeWCT.W9.T3M.wbcHigh witness (WCT9.digestIndex N) lay = 1
+  · by_cases hz : ∀ lay : Layer, ClaudeWCT.W9.T3M.wbcPad witness (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) lay = 0 ∧
+        ClaudeWCT.W9.T3M.wbcHigh witness (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) lay = 1
     · exact Or.inr (Or.inr (Or.inr ⟨fun lay => ⟨hgood lay, hz lay⟩, hfts⟩))
     · obtain ⟨lay, hlay⟩ := not_forall.mp hz
       exact Or.inr (Or.inr (Or.inl ⟨lay, hgood lay, hlay⟩))
@@ -3650,7 +3701,7 @@ def CaseCAt (answers : Correctness.Answers) (message : Message) (witness : WByte
     evalWithAnswerFn answers (digest (wrho witness) message (wdc witness)) = digestAnswer ∧
     (∃ prior, (⟨prior, .inl (.inr (pad64 (digestInput (wrho witness) message (wdc witness)))), digestAnswer⟩ :
       FirstHit.QueryEvent) ∈ events) ∧ Shaped digestAnswer witness ∧
-    (∀ lay : Layer, ClaudeWCT.W9.T3M.BC.GoodZ answers witness (WCT9.digestIndex digestAnswer) lay) ∧
+    (∀ lay : Layer, ClaudeWCT.W9.T3M.BC.GoodZ answers witness (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex digestAnswer)) lay) ∧
     ClaudeWCT.W9.T3M.WctExtract.WctHonest answers digestAnswer witness ∧ SignerComplete answers
 def SignedDigest (log : QueryLog Requests) (message : Message) (witness : WBytes) : Prop :=
   ∃ entry ∈ log, entry.1.message = message ∧ ∃ signature, entry.2 = some signature ∧
@@ -3702,7 +3753,7 @@ def payloadForNonce (cache : SigGolfCandidate.T3.Cache) (rho : Digest) (message 
     M (Option Signature) := do
   let some (_, output) ← WCT9.digestSearch rho message 0 WCT9.digestAttemptLimit | pure none
   let forest ← WCT9.signForest (WCT9.digestIndex output) output
-  let some pieces ← WCT9.signLayersBC cache (WCT9.digestIndex output) 4 (.pair forest.2.1 forest.2.2) | pure none
+  let some pieces ← WCT9.signLayersBC cache (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 4 (.pair forest.2.1 forest.2.2) | pure none
   pure (some (WCT9.assembledSignature rho forest.1 pieces))
 theorem signPayload_nonce (cache : SigGolfCandidate.T3.Cache) (message : Message) :
     WCT9.Rev3.signPayload cache message =
@@ -3739,7 +3790,7 @@ theorem authenticatedSign_payload (answers : Correctness.Answers) (published : S
       rcases found with _ | ⟨_, output⟩
       · simp at h
       · simp only [evalWithAnswerFn_bind] at h
-        generalize evalWithAnswerFn answers (WCT9.signLayersBC published (WCT9.digestIndex output) 4
+        generalize evalWithAnswerFn answers (WCT9.signLayersBC published (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 4
           (.pair (evalWithAnswerFn answers (WCT9.signForest (WCT9.digestIndex output) output)).2.1
             (evalWithAnswerFn answers (WCT9.signForest (WCT9.digestIndex output) output)).2.2)) = layers at h
         rcases layers with _ | pieces
@@ -12173,6 +12224,7 @@ theorem structuralHit_chain {answers : Answers} {qs : List Spec.Domain} (a : Cha
       rw [Extract.hdrBlock, chainInputPW_header, Extract.topLow_bytesLE_iff, SigGolfCandidate.T3M.chainHeaderP,
         append64_lowNat, chainHeader_low, chainHeaderFlaggedLow_toNat]
       have := chainHeaderLow_band a.key.lay a.key.tree a.key.leaf a.chain step
+      have := chainHeaderLow_byte0_ge a.key.lay a.key.tree a.key.leaf a.chain step
       -- C40: a chain word is below `2 ^ 56` or in the legacy band, never ra. C41: and `≥ 2 ^ 28` (no pair label).
       apply Extract.not_topLowWord_of_ge <;> split_ifs <;> omega
     rw [Extract.hdrKey_of_len64 hlen hT, Extract.hdrBlock, chainInputPW_header,
@@ -12348,6 +12400,7 @@ theorem structuralHit_chain {answers : Answers} {qs : List Spec.Domain} (a : Cha
       rw [Extract.hdrBlock, chainInputPW_header, Extract.topLow_bytesLE_iff, SigGolfCandidate.T3M.chainHeaderP,
         append64_lowNat, chainHeader_low, chainHeaderFlaggedLow_toNat]
       have := chainHeaderLow_band a.key.lay a.key.tree a.key.leaf a.chain step
+      have := chainHeaderLow_byte0_ge a.key.lay a.key.tree a.key.leaf a.chain step
       -- C40: a chain word is below `2 ^ 56` or in the legacy band, never ra. C41: and `≥ 2 ^ 28` (no pair label).
       apply Extract.not_topLowWord_of_ge <;> split_ifs <;> omega
     rw [Extract.hdrKey_of_len64 hlen hT, Extract.hdrBlock, chainInputPW_header,
@@ -12505,7 +12558,7 @@ theorem leafMsg_route (answers : Answers) (index : Nat) (lay : Layer) (hindex : 
   simp only [routeLeaf]
   by_cases h : lay.val < 3
   · rw [dif_pos h, dif_pos h, route_tree_succ index lay h]
-  · rw [dif_neg h, dif_neg h, route_forest index lay h, Nat.mod_eq_of_lt hindex]
+  · rw [dif_neg h, dif_neg h, route_forest index lay h]
 end ClaudeWCT.W9.T3.Security.WotsExtract
 end
 -- ==== merged from ClaudeWCT_W9_T3_Secc_WotsExtractLayer ====
@@ -13542,7 +13595,7 @@ theorem verifyP_walk_wots (answers : Answers) (m : Message) (pk : Digest) (w : W
       (.inl (.inr (pad64 (digestInput (wrho w) m (wdc w)))) : Spec.Domain) ∈ queried answers (verifyP m pk w) ∧
       Shaped N w ∧
       (WotsPrimitiveSrc answers (entriesOf answers (queried answers (verifyP m pk w))) ∨
-       ((∀ l : Layer, BC.GoodZ answers w (WCT9.digestIndex N) l) ∧
+       ((∀ l : Layer, BC.GoodZ answers w (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) l) ∧
           evalWithAnswerFn answers
               (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N) =
             Extract.honestTop answers (WCT9.digestIndex N) ∧
@@ -13551,13 +13604,14 @@ theorem verifyP_walk_wots (answers : Answers) (m : Message) (pk : Digest) (w : W
   classical
   obtain ⟨N, hdc, hN, hdq, hS, hlay, hqF, hqL⟩ := WctExtract.verifyP_walk_wct answers m pk w hv
   refine ⟨N, hdc, hN, hdq, hS, ?_⟩
-  have hidx : WCT9.digestIndex N < 2 ^ 31 := Nat.mod_lt _ (by norm_num)
-  rcases layersBC_wots_walk answers w (WCT9.digestIndex N) hidx 4 (by decide) le_rfl (.pair _ _) trivial (hpk ▸ hlay) with
-    hprim | ⟨hgood, hroot⟩
+  have hidx : SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N) < 2 ^ 31 := SigGolfCandidate.T3.hyperIndex_lt _
+  rcases layersBC_wots_walk answers w (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) hidx 4 (by decide) le_rfl (.pair _ _) trivial
+    (hpk ▸ hlay) with hprim | ⟨hgood, hroot⟩
   · exact Or.inl (hprim.mono (entriesOf_mono hqL))
   · right
     refine ⟨fun l => hgood l l.isLt, ?_, hqF⟩
-    rw [show (4 - 1 : Nat) = 3 from rfl, Extract.honestMsg_three] at hroot
+    rw [show (4 - 1 : Nat) = 3 from rfl, Extract.honestMsg_three,
+      SigGolfCandidate.T3.hyperIndex_invol (WCT9.digestIndex_lt N)] at hroot
     simp only [WCT9.LayerMsg.pair.injEq] at hroot
     exact Prod.ext hroot.1 hroot.2
 def FtsPos : Extract.Pos → Prop
@@ -13692,12 +13746,13 @@ set_option debug.skipKernelTC false in
 /-- C46: an FTS leaf word is a multiple of 2048 and at least `770048 = 786432 - 2048 * 8` (odd coordinates' index-0
 child-0 words, with the `+0xc0000` pair bit, are the smallest; every other one is `≥ 2 ^ 20 - 2 ^ 14` or wrapped).
 Pure-Nat facts kept small for the kernel (`unfold ftsLeafLow; omega` at the use site hits kernel deep recursion). -/
-theorem ftsLeafLow_band46 {coord : Nat} (hc : coord < 16) (index child : Nat) :
+theorem ftsLeafLow_band46 {coord : Nat} (hc : coord < 16) (h8 : coord ≠ 8) (index child : Nat) :
     WCT9.ftsLeafLow index coord child % 2048 = 0 ∧ 770048 ≤ WCT9.ftsLeafLow index coord child := by
   have hi := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
   have hq : coord % 16 / 2 ≤ 7 := by omega
   have hX := WCT9.ftsSelMul_mul_facts coord child
-  unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN
+  rw [WCT9.ftsLeafLow_of_ne h8]
+  unfold SigGolfCandidate.T3.ftsBiasN
   generalize WCT9.ftsSelMul coord * (child % 128) = X at hX ⊢
   generalize coord % 16 / 2 = q at hq ⊢
   generalize index % 2 ^ 31 = r at hi ⊢
@@ -13709,88 +13764,83 @@ set_option debug.skipKernelTC false in
 /-- C46: a multiple of 2048 that is at least 770048 is no top label (520192 and 14336 are below, the other labels are
 not multiples of 2048). -/
 theorem not_topLabel_of_band46 {w : Nat} (h0 : w % 2048 = 0) (h1 : 770048 ≤ w) :
-    w ≠ 520192 ∧ w ≠ 14336 ∧ ¬ (SigGolfCandidate.T3.TopNine w ∨ w = 930564 ∨ w = 989957 ∨
-      w = 108112779336744966 ∨ w = 989954) := by
-  unfold SigGolfCandidate.T3.TopNine
+    w ≠ 520192 ∧ w ≠ 14336 ∧ ¬ (SigGolfCandidate.T3.TopNine w ∨ SigGolfCandidate.T3.TopStep w) := by
+  unfold SigGolfCandidate.T3.TopNine SigGolfCandidate.T3.TopStep
   omega
 /- Every bounded FTS position has a low word above the top-label range. -/
 set_option debug.skipKernelTC true in
 theorem ftsPos_low {p : Extract.Pos} (hb : p.Bounded) (h : FtsPos p) :
-    2 ^ 18 ≤ tweakLow p.hdr ∧ tweakLow p.hdr < 2 ^ 64 ∧ tweakLow p.hdr ≠ 520192 ∧ tweakLow p.hdr ≠ 14336 ∧
-      ¬ (SigGolfCandidate.T3.TopNine (tweakLow p.hdr) ∨ tweakLow p.hdr = 930564 ∨ tweakLow p.hdr = 989957 ∨
-        tweakLow p.hdr = 108112779336744966 ∨ tweakLow p.hdr = 989954) := by
+    (2 ^ 18 ≤ tweakLow p.hdr ∨ (8192 ≤ tweakLow p.hdr ∧ tweakLow p.hdr < 11968) ∨ tweakLow p.hdr = 21684) ∧
+      tweakLow p.hdr < 2 ^ 64 ∧ tweakLow p.hdr ≠ 520192 ∧ tweakLow p.hdr ≠ 14336 ∧
+      ¬ (SigGolfCandidate.T3.TopNine (tweakLow p.hdr) ∨ SigGolfCandidate.T3.TopStep (tweakLow p.hdr)) := by
+  -- C47 (C): coordinate 8's reflected index-0 words (`8192` leaf, `[8704, 10752)` chains) and its swapped heap-6 label
+  -- `21684` lie below `2 ^ 18`, outside both pair bands and the top labels.
   cases p with
   | wctChain index coord child t step =>
       obtain ⟨-, hk, -, ht, -⟩ := hb
-      have h1 := WCT9.ftsChainLow_ge (show coord < 15 by omega) index child t step ht
-      -- C40: an FTS chain word is `≥ 2 ^ 20 - 2 ^ 15` with tag `≥ 186` (ra's tag is 113).
-      have h20 := Extract.ftsChainLow_ge20 (show coord < 15 by omega) index child t step ht
       have h2 := WCT9.ftsChainLow_lt index coord child t step
       simp only [Extract.Pos.hdr, WCT9.ftsChainHeader]
       rw [Extract.tweakLow_eq_low, WCT9.ftsChainHeaderP_low, BitVec.toNat_ofNat,
         Nat.mod_eq_of_lt h2]
-      have ht := WCT9.ftsChainLow_tag index coord child t step
-      exact ⟨by omega, h2, by omega, by omega, by unfold SigGolfCandidate.T3.TopNine; omega⟩
+      by_cases h8 : coord = 8
+      · subst h8
+        have hm := Extract.ftsChainLow_eight_mod index child t step
+        have := Nat.mod_lt t (show 0 < 8 by decide)
+        have := Nat.mod_lt step (show 0 < 4 by decide)
+        obtain ⟨hn, hn1, hn9⟩ := Extract.not_topLabel_of_low20 (w := WCT9.ftsChainLow index 8 child t step)
+          (by omega) (by omega)
+        exact ⟨by omega, h2, hn, hn1, hn9⟩
+      · have h1 := WCT9.ftsChainLow_ge (show coord < 15 by omega) index child t step ht
+        -- C40: an FTS chain word is `≥ 2 ^ 20 - 2 ^ 15` with tag `≥ 186` (ra's tag is 113).
+        have h20 := Extract.ftsChainLow_ge20 (show coord < 15 by omega) h8 index child t step ht
+        have htg := WCT9.ftsChainLow_tag index coord child t step
+        rw [if_neg h8] at htg
+        exact ⟨by omega, h2, by omega, by omega,
+          by unfold SigGolfCandidate.T3.TopNine SigGolfCandidate.T3.TopStep; omega⟩
   | wctLeaf index coord child =>
       obtain ⟨-, hk, -⟩ := hb
-      have h1 := WCT9.ftsLeafLow_zero_or_ge (show coord < 15 by omega) index child
       have h2 := WCT9.ftsLeafLow_lt index coord child
       simp only [Extract.Pos.hdr, WCT9.ftsLeafHeader]
       rw [append64_lowNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt h2]
-      -- C40/C42/C46: an FTS leaf word is a multiple of 2048 and `≥ 770048`: never a top label (`not_topLabel_of_band46`).
-      obtain ⟨hb0, hb1⟩ := ftsLeafLow_band46 (show coord < 16 by omega) index child
-      obtain ⟨hn, hn1, hn9⟩ := not_topLabel_of_band46 hb0 hb1
-      -- C41: an FTS word is `≥ 2 ^ 18`, above the layer-1 pair label bands.
-      exact ⟨Extract.ftsLeafLow_ge18 index coord child, h2, hn, hn1, hn9⟩
+      have h18 := Extract.ftsLeafLow_ge18 index coord child
+      by_cases h8 : coord = 8
+      · subst h8
+        have hm := Extract.ftsLeafLow_eight_mod index child
+        obtain ⟨hn, hn1, hn9⟩ := Extract.not_topLabel_of_low20 (w := WCT9.ftsLeafLow index 8 child) (by omega) (by omega)
+        exact ⟨by omega, h2, hn, hn1, hn9⟩
+      · -- C40/C42/C46: an FTS leaf word is a multiple of 2048 and `≥ 770048`: never a top label.
+        obtain ⟨hb0, hb1⟩ := ftsLeafLow_band46 (show coord < 16 by omega) h8 index child
+        obtain ⟨hn, hn1, hn9⟩ := not_topLabel_of_band46 hb0 hb1
+        exact ⟨by omega, h2, hn, hn1, hn9⟩
   | wctNode index coord level nd =>
       obtain ⟨-, hk, hlev, hnd⟩ := hb
-      have hp : 2 ^ (7 - level - 1) ≤ 64 := by
-        change 2 ^ (7 - level - 1) ≤ 2 ^ 6
-        exact Nat.pow_le_pow_right (by decide) (by omega)
-      have hh : 2 ^ (7 - level - 1) + nd < 128 := by omega
-      have hlow := WCT9.wctNodeHeader_toNat hk index (2 ^ (7 - level - 1) + nd)
-      -- C46: the two-word low word is the pair-shared base `ftsNodeLow2` (not the child-0 leaf word on odd coordinates).
-      have hlt := WCT9.ftsNodeLow2_lt index coord
-      have hgeN : 4096 ≤ WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) := by
-        rw [WCT9.ftsNodeLowN_eq, Nat.mod_eq_of_lt (show coord < 16 by omega)]; unfold SigGolfCandidate.T3.ftsBiasN; have := Nat.mod_lt index (by decide : 0 < 2^31); omega
-      have hltN := WCT9.ftsNodeLowN_lt index coord (2 ^ (7 - level - 1) + nd)
-      have hneL : WCT9.ftsNodeLow2 index coord ≠ 520192 := by
-        unfold WCT9.ftsNodeLow2 SigGolfCandidate.T3.ftsBiasN
-        omega
-      have hneN : WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) ≠ 520192 := by
-        unfold WCT9.ftsNodeLowN SigGolfCandidate.T3.ftsBiasN
-        omega
-      have hneL1 : WCT9.ftsNodeLow2 index coord ≠ 14336 := by
-        unfold WCT9.ftsNodeLow2 SigGolfCandidate.T3.ftsBiasN
-        omega
-      have hneN1 : WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) ≠ 14336 := by
-        unfold WCT9.ftsNodeLowN SigGolfCandidate.T3.ftsBiasN
-        omega
-      -- C40: FTS node words are `index * 2 ^ 33 - (2048 (coord + 1) + heap)` mod `2 ^ 64`: never a height-9 label.
-      have hn9L : ¬ (SigGolfCandidate.T3.TopNine (WCT9.ftsNodeLow2 index coord) ∨
-          WCT9.ftsNodeLow2 index coord = 930564 ∨ WCT9.ftsNodeLow2 index coord = 989957 ∨
-          WCT9.ftsNodeLow2 index coord = 108112779336744966 ∨ WCT9.ftsNodeLow2 index coord = 989954) := by
-        have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
-        unfold SigGolfCandidate.T3.TopNine WCT9.ftsNodeLow2 SigGolfCandidate.T3.ftsBiasN
-        rw [Nat.mod_eq_of_lt (show coord < 16 by omega)]
-        omega
-      have hn9N : ¬ (SigGolfCandidate.T3.TopNine (WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd)) ∨
-          WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) = 930564 ∨
-          WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) = 989957 ∨
-          WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) = 108112779336744966 ∨ WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) = 989954) := by
-        have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
-        unfold SigGolfCandidate.T3.TopNine WCT9.ftsNodeLowN SigGolfCandidate.T3.ftsBiasN
-        rw [Nat.mod_eq_of_lt (show coord < 16 by omega)]
-        omega
-      have h18L : 2 ^ 18 ≤ WCT9.ftsNodeLow2 index coord := by
-        have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
-        unfold WCT9.ftsNodeLow2 SigGolfCandidate.T3.ftsBiasN; omega
-      have h18N := Extract.ftsNodeLowN_ge18 index coord (2 ^ (7 - level - 1) + nd)
+      have hk9 : coord < 9 := by omega
       simp only [Extract.Pos.hdr]
-      unfold tweakLow
-      rw [hlow]
-      unfold SigGolfCandidate.T3.TopNine at hn9L hn9N ⊢
-      split_ifs <;> omega
+      by_cases hs : ftsSwap8 coord (2 ^ (7 - level - 1) + nd)
+      · -- C47 (C): a swapped coordinate-8 node's low word is a label (929 * 2^50, 0x1fc0c0000, 0x7f00000, 21684).
+        have hn : ¬ FtsNew (2 ^ (7 - level - 1) + nd) := by obtain ⟨-, h3, h6⟩ := hs; unfold FtsNew; omega
+        have hlo := WCT9.wctNodeHeader_low hk9 index (2 ^ (7 - level - 1) + nd)
+        rw [if_neg hn, if_pos hs] at hlo
+        obtain ⟨-, h3, h6⟩ := hs
+        have hv : tweakLow (WCT9.wctNodeHeader coord index (2 ^ (7 - level - 1) + nd)) =
+            ftsSwapLabel8 (2 ^ (7 - level - 1) + nd) := by
+          rw [Extract.tweakLow_eq_low, hlo, BitVec.toNat_ofNat,
+            Nat.mod_eq_of_lt (lt_trans (ftsSwapLabel8_lt h3 h6) (by decide))]
+        rw [hv]
+        unfold SigGolfCandidate.T3.TopNine SigGolfCandidate.T3.TopStep
+        rcases ftsSwapLabel8_cases h3 h6 with e | e | e | e <;> rw [e] <;> omega
+      · have hlow := WCT9.wctNodeHeader_toNat hk9 index (2 ^ (7 - level - 1) + nd)
+        have htag := WCT9.wctNodeHeader_tweakTag hk9 index (2 ^ (7 - level - 1) + nd)
+        simp only [if_neg hs] at hlow htag
+        -- C40: FTS node tags (`(247 or 248) - 8 (coord / 2)`, coordinate 8: 221 / 224) are no top label's.
+        have hN : ¬ (SigGolfCandidate.T3.TopNine (tweakLow (WCT9.wctNodeHeader coord index (2 ^ (7 - level - 1) + nd))) ∨
+            SigGolfCandidate.T3.TopStep (tweakLow (WCT9.wctNodeHeader coord index (2 ^ (7 - level - 1) + nd)))) := by
+          refine Extract.not_topNine_of_tag ?_ (Or.inl ?_) ?_ <;> rw [htag] <;> split_ifs <;> omega
+        have hN32 := Extract.ftsNodeLowN_ge32 index coord (2 ^ (7 - level - 1) + nd)
+        have hL32 := Extract.ftsNodeLow2_ge32 index coord
+        have hltN := WCT9.ftsNodeLowN_lt index coord (2 ^ (7 - level - 1) + nd)
+        have hlt := WCT9.ftsNodeLow2_lt index coord
+        refine ⟨?_, ?_, ?_, ?_, hN⟩ <;> unfold tweakLow <;> rw [hlow] <;> split_ifs <;> omega
   | _ => exact h.elim
 theorem structuralHitSrc_of_fts_hitIn (answers : Answers) (N : HashOutput) (w : WBytes)
     (h : Extract.HitIn answers
@@ -13850,7 +13900,7 @@ theorem verifyP_wots_cases_src (answers : Answers) (m : Message) (pk : Digest) (
       (.inl (.inr (pad64 (digestInput (wrho w) m (wdc w)))) : Spec.Domain) ∈ queried answers (verifyP m pk w) ∧
       Shaped N w ∧
       (WotsPrimitiveSrc answers (entriesOf answers (queried answers (verifyP m pk w))) ∨
-       ((∀ l : Layer, BC.GoodZ answers w (WCT9.digestIndex N) l) ∧ WctExtract.WctHonest answers N w)) := by
+       ((∀ l : Layer, BC.GoodZ answers w (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) l) ∧ WctExtract.WctHonest answers N w)) := by
   classical
   obtain ⟨N, hdc, hN, hdq, hS, hcase⟩ := verifyP_walk_wots answers m pk w hpk hv
   refine ⟨N, hdc, hN, hdq, hS, ?_⟩
@@ -13998,7 +14048,8 @@ theorem honestMsg_lower (answers : Correctness.Answers) (index n : Nat) (hn : n 
   have hl : (⟨n + 1, by omega⟩ : Layer) = Fin.ofNat 4 (n + 1) := Fin.ext (by simp; omega)
   simp only [ClaudeWCT.W9.T3M.Extract.honestMsg, hv, dif_pos (show n < 3 by omega), hl]
 theorem honestMsg_three (answers : Correctness.Answers) (index : Nat) :
-    ClaudeWCT.W9.T3M.Extract.honestMsg answers index (Fin.ofNat 4 3) = .pair (WCT9.honestTop answers index).1 (WCT9.honestTop answers index).2 := by
+    ClaudeWCT.W9.T3M.Extract.honestMsg answers index (Fin.ofNat 4 3) =
+      .pair (WCT9.honestTop answers (SigGolfCandidate.T3.hyperIndex index)).1 (WCT9.honestTop answers (SigGolfCandidate.T3.hyperIndex index)).2 := by
   rw [show (Fin.ofNat 4 3 : Layer) = 3 from rfl]
   simp only [ClaudeWCT.W9.T3M.Extract.honestMsg, show ¬((3 : Layer).val < 3) by decide, dite_false,
     ClaudeWCT.W9.T3M.Extract.honestTop_eq_wct9]
@@ -14039,7 +14090,7 @@ theorem payload_succeeds_of_complete (answers : Correctness.Answers) (hcomp : Si
     (cache : SigGolfCandidate.T3.Cache) (rho : Digest) (m : Message) :
     ∃ sig, evalWithAnswerFn answers (payloadForNonce cache rho m) = some sig ∧ sig.rho = rho := by
   obtain ⟨⟨counter, N⟩, hds⟩ := Option.isSome_iff_exists.mp (hcomp.1 rho m)
-  obtain ⟨pieces, hp⟩ := signLayers_complete answers hcomp cache (WCT9.digestIndex N) (WCT9.digestIndex_lt _)
+  obtain ⟨pieces, hp⟩ := signLayers_complete answers hcomp cache (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) (SigGolfCandidate.T3.hyperIndex_lt _)
     4 le_rfl (.pair (WCT9.honestTop answers (WCT9.digestIndex N)).1 (WCT9.honestTop answers (WCT9.digestIndex N)).2)
   unfold payloadForNonce
   simp only [evalWithAnswerFn_bind, hds, WCT9.eval_signForest, hp, evalWithAnswerFn_pure]
@@ -14123,7 +14174,7 @@ theorem chainStepW_ok (lay : SigGolfCandidate.T3.Layer) (tree leaf i step : Nat)
 theorem afterDigest_ok (cache : SigGolfCandidate.T3.Cache) (rho : Digest) (output : HashOutput) :
     AllQueriesSatisfy (do
       let forest ← WCT9.signForest (WCT9.digestIndex output) output
-      let some pieces ← WCT9.signLayersBC cache (WCT9.digestIndex output) 4 (.pair forest.2.1 forest.2.2) | pure none
+      let some pieces ← WCT9.signLayersBC cache (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 4 (.pair forest.2.1 forest.2.2) | pure none
       pure (some (WCT9.assembledSignature rho forest.1 pieces)) : M (Option Signature))
       SigGolfCandidate.T3.Security.BPB.NotDigestQ := by
   apply SourceQueries.bind_allowed _ (ClaudeWCT.WCT9.Wots.BPB.signForest_ok _ output)

@@ -11,8 +11,9 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv S
 open SigGolfCandidate.FtsGrind W9Drv.SharedCProof OuterNodeSearchInvariant
 open ClaudeWCT.W9.Machine.Expand.SharedScatter (coordRegion)
 
+/-- C47: the c8 grinder jumps straight to the expand continuation `pcOf 46862` (the child's `jalr` is never run). -/
 def Post (coord j : Nat) (u : MachineState) (res : Nat×Digest) (t : MachineState) : Prop :=
-  t.pc=(u.getReg .x1+2024#64) &&& ~~~1#64 ∧
+  t.pc=pcOf 46862 ∧
   t.getReg .x11=64 ∧ t.getReg .x12=BitVec.ofNat 64 (coordRegion coord-handO j) ∧
   DigAt t (coordRegion coord-handO j+OuterGroundCore.offset coord (heapOf 5 j)/8) res.2 ∧
   t.getMem (BitVec.ofNat 64 (8323072+(15-coord/2)*4096))=BitVec.ofNat 64 res.1 ∧
@@ -44,18 +45,7 @@ theorem run {im : Image} {sk : BitVec 256} (j : Fin 128) (coord : Fin 9) (index 
     refine TBSim.bind h ?_
     intro res t ho
     obtain ⟨hp,h11,h12,hd,hn,hkeep,hframe⟩:=ho
-    rw [pc_return] at hp
-    obtain ⟨z,hst,hpc,hg,hm⟩:=OuterNodeBankReturn.runC j hc t hp
-    refine tb_pure_steps hst ⟨?_,?_,?_,?_,?_,?_,?_⟩
-    · rw [hpc,hkeep .x1 (by decide) (by decide) (by decide) (by decide)]
-    · rw [hg];exact h11
-    · rw [hg];exact h12
-    · exact ⟨(hm _).trans hd.1,(hm _).trans hd.2⟩
-    · rw [hm];exact hn
-    · intro r h3 h10 h11 h12
-      rw [hg];exact hkeep r h3 h10 h11 h12
-    · intro X hX hne
-      rw [hm];exact hframe X hX hne
+    exact (TBSim.pure ⟨hp,h11,h12,hd,hn,hkeep,hframe⟩).mono (by omega) (fun _ _ h=>h)
   simpa only [bind_pure] using ht
 
 #print axioms run

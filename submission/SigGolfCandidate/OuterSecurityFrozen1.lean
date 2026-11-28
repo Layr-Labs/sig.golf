@@ -1895,6 +1895,8 @@ def replayNames : Array Name := #[
   `ClaudeWCT.W9.T3.Security.LargeResidual.msgSlots._proof_2,
   `ClaudeWCT.W9.T3.Security.CanonEncoding.childIndex_lt,
   `ClaudeWCT.W9.T3.Security.CanonEncoding.childIndex,
+  `ClaudeWCT.W9.T3.Security.CanonEncoding.hyperChild._proof_1,
+  `ClaudeWCT.W9.T3.Security.CanonEncoding.hyperChild,
   `ClaudeWCT.W9.T3.Security.CanonEncoding.childIndex_treeBits._proof_1,
   `ClaudeWCT.W9.T3.Security.CanonEncoding.childIndex_treeBits,
   `ClaudeWCT.W9.T3.Security.LargeResidual.msgSlots,

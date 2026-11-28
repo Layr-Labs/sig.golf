@@ -29,6 +29,9 @@ theorem look : LookOK OuterImages.signImage (SharedDigest.look false) :=
   OuterSignLook.transfer _ SharedDigest.installed_sign_look (OuterSignLook.gap0 _ (by decide +kernel)) (by decide +kernel) (by decide +kernel) (by decide +kernel)
 theorem success : CodeAt OuterImages.signImage (pcOf 22754) SharedDigestBoundary.signCode :=
   OuterSignTransfers.code (by decide +kernel) SharedDigestBoundary.installed_sign_success
+/-- C47: the hypertree index-slot stub (sign words 26701..26708). -/
+theorem jstub : CodeAt OuterImages.signImage (pcOf 26701) SharedDigestBoundary.jStub :=
+  OuterSignTransfers.code_tail (by decide) (by decide) SharedDigestBoundary.installed_sign_jstub
 theorem failureJump : CodeAt OuterImages.signImage (pcOf 22764) [0xcccea06f] :=
   OuterSignTransfers.code (by decide +kernel) SharedDigestBoundary.installed_sign_failure_jump
 theorem failure : CodeAt OuterImages.signImage (pcOf 543) SharedDigestBoundary.failureCode :=

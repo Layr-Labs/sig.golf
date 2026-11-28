@@ -3747,7 +3747,7 @@ def ok (c : NCtx) : Prop :=
   c.tree = 0 ∧ c.leaf < 4096 ∧ c.S3 % 8 = 0 ∧ Verify.WIT + 8208 + 1872 ≤ c.S3 ∧ c.S3 + 936 ≤ 15272 ∧
     c.ret < 209920
 def known (c : NCtx) : List (Reg × Word) :=
-  [(.x5, 0), (.x11, 64), (.x9, 0x7fc01), (.x13, 989954), (.x19, 3), (.x20, 930564), (.x21, 989957),
+  [(.x5, 0), (.x11, 64), (.x9, 0x7fc01), (.x13, 989954), (.x19, 3879747587), (.x20, 930564),
    (.x26, 108112779336744966), (.x28, BitVec.ofNat 64 c.pre0), (.x4, BitVec.ofNat 64 c.S3), (.x2, BitVec.ofNat 64 0xffbde0), (.x4, 14336), (.x8, 0xFFF)]
 /-- Rank of top group `q`: the digit triple in radix `mx q + 1`; group 16 (the r7 pair, chains 48 and 49) has only two
 digits, `d48 + 7 d49`. -/
@@ -3820,7 +3820,7 @@ def StepInv (c : NCtx) (s0 : MachineState) (i : Nat) (acc : List Digest) (m : Na
 def PreHash (c : NCtx) (s0 : MachineState) (i : Nat) (acc : List Digest) (m : Nat) (v : Digest)
     (t : MachineState) : Prop :=
   c.Base s0 (c.WrIn i) acc t ∧ acc.length = i ∧
-    t.getMem (BitVec.ofNat 64 (c.blk i + 16)) = BitVec.ofNat 64 (c.w0 i + 2 ^ 8 * m) ∧
+    t.getMem (BitVec.ofNat 64 (c.blk i + 16)) = BitVec.ofNat 64 (c.w0 i + 2 ^ 8 * T3.lowerStepCode m) ∧
     t.getMem (BitVec.ofNat 64 (c.blk i + 24)) = c.padHeader i ∧ DigAt t (c.vAt i) v ∧
     t.getReg .x10 = BitVec.ofNat 64 (c.blk i) ∧
     t.getReg .x12 = BitVec.ofNat 64 (if m = last i then termSlot i else c.oAt i) ∧
@@ -3926,19 +3926,24 @@ theorem w0_lt (c : NCtx) (i m : Nat) (hi : i < 51) (hm : m < 256) : c.w0 i + 2 ^
   have h := Nat.mod_lt (c.tree * 2 ^ 12 + c.leaf) (by norm_num : 0 < 2 ^ 32)
   unfold w0 «prefix»; omega
 theorem w0_header (c : NCtx) (hc : c.ok) (i m : Nat) (hi : i < 51) (hm : m < 8) :
-    BitVec.ofNat 64 (c.w0 i + 2 ^ 8 * m) = (chainHeader 0 c.tree c.leaf i m).extractLsb' 0 64 := by
+    BitVec.ofNat 64 (c.w0 i + 2 ^ 8 * T3.lowerStepCode m) = (chainHeader 0 c.tree c.leaf i m).extractLsb' 0 64 := by
   rw [chainHeader_low_bounded _ _ _ _ _ (by omega) hm
     (by rw [hc.1]; decide +kernel) hc.2.1]
   congr 1
-  simp only [w0, «prefix», packedPrefix, packedHi, show height 0 = 12 from rfl, Fin.val_zero,
-    Nat.zero_mul, Nat.add_zero, show hyperW 0 = 12 from rfl]
-  ring
+  have ht := hc.1
+  have hl := hc.2.1
+  have hp := packedHi_eq 0 c.tree c.leaf (by
+    rw [ht, show height (0 : Layer) = 12 from rfl, show T3.hyperW (0 : Layer).val = 12 from rfl]; omega)
+  rw [show T3.hyperMark (0 : Layer).val = 2 ^ 28 from rfl, show height (0 : Layer) = 12 from rfl, ht] at hp
+  unfold w0 «prefix» packedPrefix
+  rw [ht]
+  omega
 set_option maxRecDepth 20000 in
 theorem chain_hashInput (c : NCtx) (hc : c.ok) (i m : Nat) (hi : i < 51) (hm : m < 8) (v : Digest)
     (t : MachineState) (h10 : t.getReg .x10 = BitVec.ofNat 64 (c.blk i))
     (h11 : t.getReg .x11 = BitVec.ofNat 64 (64 * (0 + 1)))
     (hp0 : DigAt t (c.pad0At i) (c.pad0 i)) (hp1 : DigAt t (c.pad1At i) (c.pad1 i))
-    (h16 : t.getMem (BitVec.ofNat 64 (c.blk i + 16)) = BitVec.ofNat 64 (c.w0 i + 2 ^ 8 * m))
+    (h16 : t.getMem (BitVec.ofNat 64 (c.blk i + 16)) = BitVec.ofNat 64 (c.w0 i + 2 ^ 8 * T3.lowerStepCode m))
     (h24 : t.getMem (BitVec.ofNat 64 (c.blk i + 24)) = c.padHeader i)
     (hv : DigAt t (c.vAt i) v) :
     hashInput t = toQ (chainInputL 0 c.tree c.leaf i m (c.pad0 i) (c.pad1 i) (c.padHeader i) v (topG i)) := by
@@ -4298,22 +4303,22 @@ theorem rungPc_end (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i < 51) (hd : c
     unfold last at *
     rw [h5] at *
     split_ifs <;> omega
+/-- C47 (A5): the rung of step `m >= 1` stores the honest step code `lowerStepCode m` (step 5: the zero register;
+step 3: `s3 = K`, low byte 3). -/
 theorem posE_eval (c : NCtx) {s0 s : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
-    (hR : ∀ x ∉ chainRegs, s.getReg x = s0.getReg x) (i m : Nat) (hm : m ≤ last i) :
-    ((posE m).eval s).truncate 8 = (BitVec.ofNat 64 m).truncate 8 := by
+    (hR : ∀ x ∉ chainRegs, s.getReg x = s0.getReg x) (i m : Nat) (h0 : 0 < m) (hm : m ≤ last i) :
+    ((posE m).eval s).truncate 8 = (BitVec.ofNat 64 (T3.lowerStepCode m)).truncate 8 := by
   have kr : ∀ r v, (r, v) ∈ c.known → r ∉ chainRegs → s.getReg r = v := fun r v hm hn =>
     (hR r hn).trans (hk _ hm)
   have hm3 : m ≤ 6 := by have := last_bounds i; omega
   interval_cases m
-  · rfl
   · rw [show (posE 1).eval s=s.getReg .x9 from rfl, kr .x9 0x7fc01 (by simp [known]) (by decide)]
     rfl
   · exact (congrArg (fun v : Word => v.truncate 8) (kr .x13 989954 (by simp [known]) (by decide))).trans rfl
-  · exact congrArg (fun v : Word => v.truncate 8) (kr .x19 3 (by simp [known]) (by decide))
+  · exact (congrArg (fun v : Word => v.truncate 8) (kr .x19 3879747587 (by simp [known]) (by decide))).trans rfl
   · rw [show (posE 4).eval s = s.getReg .x20 from rfl, kr .x20 930564 (by simp [known]) (by decide)]
     rfl
-  · rw [show (posE 5).eval s = s.getReg .x21 from rfl, kr .x21 989957 (by simp [known]) (by decide)]
-    rfl
+  · rfl
   · rw [show (posE 6).eval s = s.getReg .x26 from rfl, kr .x26 108112779336744966 (by simp [known]) (by decide)]
     rfl
 theorem w0_low (c : NCtx) (i m : Nat) (hi : i < 51) (hm : m < 256) :

@@ -19,11 +19,15 @@ set_option maxRecDepth 100000
 set_option linter.unusedSimpArgs false
 
 def cDA : List (BitVec 32) :=
-  [0x20e37,0x160e0e13,0xe3503,0x3455513,0x301eb7,0xe8e93,0x3f37,0xe90f0f13,0x50313,0x3f37313,0x731313,0x323b7,
+  [0x20e37,0x160e0e13,0xe3503,0x6a12506f,0x301eb7,0xe8e93,0x3f37,0xe90f0f13,0x50313,0x3f37313,0x731313,0x323b7,
     0xe7838393,0x6383b3,0x38067]
+/-- C47: word 50058 (`srli a0,a0,52`) jumps to the top-table stub 88882..88884 (`xori a0,a0,-1; srli a0,a0,52;
+jal 50059`): `a0 = (~L) >> 52`, the top leaf of the routed hypertree index `j = 2^31 - 1 - index`. -/
+def cDAStub : List (BitVec 32) := [0xfff54513,0x3455513,0x95cda06f]
 def cDB : List (BitVec 32) := [0x655313,0x3f37313,0x731313,0x343b7,0xe7838393,0x6383b3,0x38067]
 def cJ : List (BitVec 32) := [0x40406f]
 theorem code_DA : CodeAt Images.expandImage (pcOf 50055) cDA := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
+theorem code_DAStub : CodeAt Images.expandImage (pcOf 88882) cDAStub := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
 theorem code_DB : CodeAt Images.expandImage (pcOf 50070) cDB := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
 theorem code_J : CodeAt Images.expandImage (pcOf 50077) cJ := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
 private theorem read_slice {xs ys : List (BitVec 32)} {base off width n : Nat}
@@ -59,21 +63,45 @@ theorem code_rowA (r : Nat) (hr : r < 64) : CodeAt Images.expandImage (pcOf (500
 theorem code_rowB (r : Nat) (hr : r < 64) : CodeAt Images.expandImage (pcOf (52126 + 32 * r)) (rowCodeB.getD r []) :=
   code_last (by omega) (by have := rowB_len r hr; omega) (rowB_img r hr)
 sym_block RDA := symRun cfgP cDA (pcOf 50055) 40
+sym_block RDAS := symRunAux cfgP cDAStub (pcOf 88882) 40 RDA.res.st
+sym_block RDAB := symRunAux cfgP (cDA.drop 4) (pcOf 50059) 40 RDAS.res.st
 sym_block RDB := symRun cfgP cDB (pcOf 50070) 40
 sym_block RJ := symRun cfgP cJ (pcOf 50077) 40
 sym_block RJA := symRun cfgP cJA (pcOf 49444) 40
 sym_block RJB := symRun cfgP cJB (pcOf 49286) 40
 
-/-- The top leaf read by the post-pass (`mem[0x20160] >> 52`). -/
-def leafOf (L : Word) : Nat := L.toNat / 2 ^ 52
+/-- The top leaf read by the post-pass (C47: `(~mem[0x20160]) >> 52`, the top leaf of `j = 2^31 - 1 - index`). -/
+def leafOf (L : Word) : Nat := (~~~L).toNat / 2 ^ 52
 
 theorem leafOf_lt (L : Word) : leafOf L < 4096 := by
-  unfold leafOf; have := L.isLt; omega
+  unfold leafOf; have := (~~~L).isLt; omega
 
-theorem shr52 (L : Word) : L >>> 52 = BitVec.ofNat 64 (leafOf L) := by
+theorem shr52 (L : Word) : (~~~L) >>> 52 = BitVec.ofNat 64 (leafOf L) := by
   apply BitVec.eq_of_toNat_eq
   simp only [BitVec.toNat_ushiftRight, BitVec.toNat_ofNat, Nat.shiftRight_eq_div_pow, leafOf]
-  rw [Nat.mod_eq_of_lt (by have := L.isLt; omega)]
+  rw [Nat.mod_eq_of_lt (by have := (~~~L).isLt; omega)]
+
+theorem xor_m1 (v : BitVec 64) : v ^^^ (BitVec.ofNat 64 18446744073709551615) = ~~~v := by
+  rw [show (BitVec.ofNat 64 18446744073709551615) = BitVec.allOnes 64 from by decide, BitVec.xor_allOnes]
+
+/-- Three chained symbolic blocks (a block ending in a jump to a stub, the stub, the block's tail). -/
+private theorem chain3 {cfg : Config} {image : Image} {s : MachineState} {code1 code2 code3 : List (BitVec 32)}
+    {pc1 pc2 pc3 : Word} {f1 f2 f3 : Nat} {r1 r2 r3 : Result}
+    (h1 : symRun cfg code1 pc1 f1 = some r1) (c1 : CodeAt image pc1 code1) (hpc : s.pc = pc1)
+    (e1 : r1.pc = .c pc2) (h2 : symRunAux cfg code2 pc2 f2 r1.st = some r2) (c2 : CodeAt image pc2 code2)
+    (e2 : r2.pc = .c pc3) (h3 : symRunAux cfg code3 pc3 f3 r2.st = some r3) (c3 : CodeAt image pc3 code3)
+    (ho : ∀ o ∈ r3.st.obl, o.holds s) :
+    Steps image s (r1.steps + r2.steps + r3.steps) (r1.cycles + r2.cycles + r3.cycles) (r3.toState s) := by
+  obtain ⟨s3, o3, -⟩ := symRunAux_sound cfg image s code3 pc3 f3 r2.st r3 h3 c3 ho
+  obtain ⟨s2, o2, -⟩ := symRunAux_sound cfg image s code2 pc2 f2 r1.st r2 h2 c2 (fun o h => ho o (o3 h))
+  obtain ⟨s1, -, -⟩ := symRunAux_sound cfg image s code1 pc1 f1 SymState.init r1 h1 c1
+    (fun o h => ho o (o3 (o2 h)))
+  rw [← hpc, SymState.init_toState] at s1
+  have t1 : r1.toState s = r1.st.toState s pc2 := by simp [Result.toState, e1, E.eval]
+  have t2 : r2.toState s = r2.st.toState s pc3 := by simp [Result.toState, e2, E.eval]
+  rw [← t1] at s2
+  rw [← t2] at s3
+  exact (s1.trans s2).trans s3
 
 theorem and63 (a : Nat) (ha : a < 2 ^ 64) : BitVec.ofNat 64 a &&& 63#64 = BitVec.ofNat 64 (a % 64) := by
   apply BitVec.eq_of_toNat_eq
@@ -81,28 +109,31 @@ theorem and63 (a : Nat) (ha : a < 2 ^ 64) : BitVec.ofNat 64 a &&& 63#64 = BitVec
   rw [BitVec.toNat_and, h63, toNat_ofNat_lt ha, toNat_ofNat_lt (show a % 64 < 2 ^ 64 by omega)]
   exact Nat.and_two_pow_sub_one_eq_mod a 6
 
-theorem dA_spec {im : Image} (hc : CodeAt im (pcOf 50055) cDA) (s : MachineState) (hpc : s.pc = pcOf 50055) :
-    ∃ t, Steps im s RDA.res.steps RDA.res.cycles t ∧
+theorem dA_spec {im : Image} (hc : CodeAt im (pcOf 50055) cDA) (hcs : CodeAt im (pcOf 88882) cDAStub)
+    (s : MachineState) (hpc : s.pc = pcOf 50055) :
+    ∃ t, Steps im s (RDA.res.steps + RDAS.res.steps + RDAB.res.steps)
+      (RDA.res.cycles + RDAS.res.cycles + RDAB.res.cycles) t ∧
       t.pc = pcOf (50078 + 32 * (leafOf (s.getMem (BitVec.ofNat 64 0x20160)) % 64)) ∧
       t.getReg .x10 = BitVec.ofNat 64 (leafOf (s.getMem (BitVec.ofNat 64 0x20160))) ∧
       t.getReg .x29 = BitVec.ofNat 64 0x301000 ∧ t.getReg .x30 = BitVec.ofNat 64 11920 ∧
       RegsExcept s t [.x6, .x7, .x10, .x28, .x29, .x30] ∧ ∀ A, t.getMem A = s.getMem A := by
   have hl := leafOf_lt (s.getMem (BitVec.ofNat 64 0x20160))
-  refine ⟨_, symRun_sound RDA hc s hpc (by simp [RDA.res, Result.obligs, Oblig.all, rv_simp, accessValid_iff,
+  have hb : CodeAt im (pcOf 50059) (cDA.drop 4) := codeAt_sub 4 hc (by decide) (by rfl)
+  refine ⟨_, chain3 RDA hc hpc (by rfl) RDAS hcs (by rfl) RDAB hb (by simp [RDAB.res, rv_simp, accessValid_iff,
     MEMORY_BYTES]), ?_, ?_, ?_, ?_, ?_, ?_⟩
-  · simp only [Result.toState_pc, RDA.res, E.eval, BinOp.eval, BitVec.toNat_ofNat, Nat.reduceMod]
-    rw [show (131424#64 : Word) = BitVec.ofNat 64 0x20160 from rfl, shr52, and63 _ (by omega), ofNat_shl,
+  · simp only [Result.toState_pc, RDAB.res, E.eval, BinOp.eval, BitVec.toNat_ofNat, Nat.reduceMod]
+    rw [show (131424#64 : Word) = BitVec.ofNat 64 0x20160 from rfl, xor_m1, shr52, and63 _ (by omega), ofNat_shl,
       ofNat_add_ofNat]
     rw [show leafOf (s.getMem (BitVec.ofNat 64 0x20160)) % 64 * 2 ^ 7 + 204408 =
       0x1000 + 4 * (50078 + 32 * (leafOf (s.getMem (BitVec.ofNat 64 0x20160)) % 64)) by omega]
     exact pcOf_and_not1 _
-  · simp only [Result.toState_getReg, RDA.res, RegFile.get, E.eval, BinOp.eval, BitVec.toNat_ofNat, Nat.reduceMod]
-    rw [show (131424#64 : Word) = BitVec.ofNat 64 0x20160 from rfl, shr52]
-  · simp [RDA.res, RegFile.get, E.eval]
-  · simp [RDA.res, RegFile.get, E.eval]
+  · simp only [Result.toState_getReg, RDAB.res, RegFile.get, E.eval, BinOp.eval, BitVec.toNat_ofNat, Nat.reduceMod]
+    rw [show (131424#64 : Word) = BitVec.ofNat 64 0x20160 from rfl, xor_m1, shr52]
+  · simp [RDAB.res, RegFile.get, E.eval]
+  · simp [RDAB.res, RegFile.get, E.eval]
   · intro x hx
     simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hx
-    simp only [Result.toState_getReg, RDA.res]
+    simp only [Result.toState_getReg, RDAB.res]
     cases x <;> simp_all [RegFile.get, E.eval] <;> rfl
   · intro A; rfl
 
@@ -236,10 +267,10 @@ theorem rowFun_congr (pairs : List (Nat × Nat)) (hp : ∀ e ∈ pairs, e.1 < 40
 def ppCycles : Nat :=
   6 + 5 * 432 + 6 + 5 * 96 + 6 + 5 * 284 + 6 + 5 * 407 + RJA.res.cycles + 5 + 5 * 321 + 5 + 5 * 331 +
     6 + 5 * 102 + 6 + 5 * 86 + 6 + 5 * 86 + 3 + 4 * 8 + RJB.res.cycles + 5 + 5 * 958 + 4 + 3 * 421 + 586 +
-    RDA.res.cycles + 25 + RDB.res.cycles + 25 + RJ.res.cycles
+    (RDA.res.cycles + RDAS.res.cycles + RDAB.res.cycles) + 25 + RDB.res.cycles + 25 + RJ.res.cycles
 
 theorem pp_spec (s : MachineState) (hpc : s.pc = pcOf 49400) :
-    ∃ t, Steps Images.expandImage s 17535 ppCycles t ∧ t.pc = pcOf 54174 ∧
+    ∃ t, Steps Images.expandImage s 17538 ppCycles t ∧ t.pc = pcOf 54174 ∧
       RegsExcept s t [.x6, .x7, .x10, .x28, .x29, .x30] ∧
       ∀ A < 2 ^ 64, t.getMem (BitVec.ofNat 64 A) =
         ppMem (leafOf (s.getMem (BitVec.ofNat 64 0x20160))) (fun B => s.getMem (BitVec.ofNat 64 B)) A := by
@@ -317,7 +348,7 @@ theorem pp_spec (s : MachineState) (hpc : s.pc = pcOf 49400) :
   -- values
   obtain ⟨u13, su13, pu13, ru13, _, mu13⟩ := vals_spec code_vals u12 pu12
   -- dispatch A
-  obtain ⟨u14, su14, pu14, u14_10, u14_29, u14_30, ru14, mu14⟩ := dA_spec code_DA u13 pu13
+  obtain ⟨u14, su14, pu14, u14_10, u14_29, u14_30, ru14, mu14⟩ := dA_spec code_DA code_DAStub u13 pu13
   have hleaf : u13.getMem (BitVec.ofNat 64 0x20160) = s.getMem (BitVec.ofNat 64 0x20160) := by
     rw [mu13 _ (by decide), vFun_20160, mu12 _ (by decide)]
     exact stages_20160 _
@@ -340,12 +371,12 @@ theorem pp_spec (s : MachineState) (hpc : s.pc = pcOf 49400) :
   · have hS := ((((((((((((((((((((((((((((((st1.trans su1).trans st2).trans su2).trans st3).trans su3).trans st4).trans su4).trans sv4).trans st5).trans su5).trans st6).trans su6).trans st7).trans su7).trans st8).trans su8).trans st9).trans su9).trans st10).trans su10).trans sv10).trans st11).trans su11).trans st12).trans su12).trans su13).trans su14).trans su15).trans su16).trans su17).trans su18
     have hk : 6 + 5 * 432 + 6 + 5 * 96 + 6 + 5 * 284 + 6 + 5 * 407 + RJA.res.steps + 5 + 5 * 321 + 5 + 5 * 331 +
         6 + 5 * 102 + 6 + 5 * 86 + 6 + 5 * 86 + 3 + 4 * 8 + RJB.res.steps + 5 + 5 * 958 + 4 + 3 * 421 + 586 +
-        RDA.res.steps + 25 + RDB.res.steps + 25 + RJ.res.steps = 17535 := by
-      rw [show RDA.res.steps = 15 from rfl, show RDB.res.steps = 7 from rfl, show RJ.res.steps = 1 from rfl,
+        (RDA.res.steps + RDAS.res.steps + RDAB.res.steps) + 25 + RDB.res.steps + 25 + RJ.res.steps = 17538 := by
+      rw [show RDA.res.steps = 4 from rfl, show RDAS.res.steps = 3 from rfl, show RDAB.res.steps = 11 from rfl, show RDB.res.steps = 7 from rfl, show RJ.res.steps = 1 from rfl,
         show RJA.res.steps = 1 from rfl, show RJB.res.steps = 1 from rfl]
     have hc : 6 + 5 * 432 + 6 + 5 * 96 + 6 + 5 * 284 + 6 + 5 * 407 + RJA.res.cycles + 5 + 5 * 321 + 5 + 5 * 331 +
         6 + 5 * 102 + 6 + 5 * 86 + 6 + 5 * 86 + 3 + 4 * 8 + RJB.res.cycles + 5 + 5 * 958 + 4 + 3 * 421 + 586 +
-        RDA.res.cycles + 25 + RDB.res.cycles + 25 + RJ.res.cycles = ppCycles := rfl
+        (RDA.res.cycles + RDAS.res.cycles + RDAB.res.cycles) + 25 + RDB.res.cycles + 25 + RJ.res.cycles = ppCycles := rfl
     exact Steps.of_eq hS hk hc
   · exact (((((((((((((((((((((((((((((((rt1.trans ru1).trans rt2).trans ru2).trans rt3).trans ru3).trans rt4).trans ru4).trans rv4).trans rt5).trans ru5).trans rt6).trans ru6).trans rt7).trans ru7).trans rt8).trans ru8).trans rt9).trans ru9).trans rr10).trans ru10).trans rv10).trans rt11).trans ru11).trans rr12).trans ru12).trans ru13).trans ru14).trans ru15).trans ru16).trans ru17).trans ru18).mono (by decide)
   · intro A hA

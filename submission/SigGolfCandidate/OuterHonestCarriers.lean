@@ -64,15 +64,16 @@ theorem signFromOutput_forest (answers : Answers) (cache : SigGolfCandidate.T3.C
   let index := ClaudeWCT.WCT9.digestIndex output
   let built := evalWithAnswerFn answers (OuterForestMoment.forest index (forestSelectionFromOutput output)
     (forestWordsFromOutput output))
-  let prepared := evalWithAnswerFn answers (prepareRoots index)
+  let lindex := SigGolfCandidate.T3.hyperIndex index
+  let prepared := evalWithAnswerFn answers (prepareRoots lindex)
   unfold OuterSigning.signFromOutput at he
   simp only [evalWithAnswerFn_bind] at he
-  cases hs : evalWithAnswerFn answers (OuterSigning.searchPreparedLayers cache index prepared built.2) with
+  cases hs : evalWithAnswerFn answers (OuterSigning.searchPreparedLayers cache lindex prepared built.2) with
   | none =>
-    dsimp only [index, prepared, built] at hs
+    dsimp only [index, lindex, prepared, built] at hs
     simp only [hs, evalWithAnswerFn_pure, reduceCtorEq] at he
   | some layers =>
-    dsimp only [index, prepared, built] at hs
+    dsimp only [index, lindex, prepared, built] at hs
     simp only [hs, evalWithAnswerFn_pure, Option.some.injEq] at he
     subst w
     rfl

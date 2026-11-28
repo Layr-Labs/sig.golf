@@ -40,12 +40,13 @@ theorem reward : CanonicalExpandHooks.Code OuterImages.expandImage := by
 
 theorem kernel (P : Prop) (hP : P) : KernAt OuterImages.expandImage 354 P := by
   have old:=SharedSearchCode.installed_kernel P hP
-  rcases old with ⟨⟨h0,h1⟩,hb,⟨h2,h3⟩,⟨h4,h5,h6⟩,h7,h8,h9,_⟩
-  refine ⟨⟨?_,?_⟩,hb,⟨?_,?_⟩,⟨?_,?_,?_⟩,?_,?_,?_,hP⟩
+  rcases old with ⟨⟨h0,h1⟩,hb,⟨h2,h3,h3s⟩,⟨h4,h5,h6⟩,h7,h8,h9,_⟩
+  refine ⟨⟨?_,?_⟩,hb,⟨?_,?_,?_⟩,⟨?_,?_,?_⟩,?_,?_,?_,hP⟩
   · exact OuterImageTransfers.code (b:=354) (by decide +kernel) h0
   · exact OuterImageTransfers.code (b:=capBase 354) (by decide +kernel) h1
   · exact OuterImageTransfers.code (b:=prxBase 354) (by decide +kernel) h2
   · exact OuterImageTransfers.code (b:=rtBase 354) (by decide +kernel) h3
+  · exact OuterImageTransfers.code (b:=rsBase 354) (by decide +kernel) h3s
   · exact OuterImageTransfers.code (b:=tcBase 354) (by decide +kernel) h4
   · exact OuterImageTransfers.code (b:=tcEntry 354) (by decide +kernel) h5
   · exact OuterImageTransfers.code (b:=stubBase 354) (by decide +kernel) h6

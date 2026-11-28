@@ -52,8 +52,8 @@ theorem lvl_core {im : Image} {j : Nat} (hj : j < 128) (hcode : CodeAt im (pcOf 
   have hreg : ∀ x, ((lvlRes j l).toState s).getReg x = ((lvlRegs j l).get x).eval s :=
     fun x => PRes.toState_getReg _ _ _
   have hmem : ∀ A, A < 2 ^ 64 → ((lvlRes j l).toState s).getMem (BitVec.ofNat 64 A) =
-      if A = B + blkO j l + 24 ∧ ¬ l ≤ 3 then s.getReg (heapReg (heapOf l j))
-      else if A = B + blkO j l + 16 then (if l ≤ 3 then (lowE j l).eval s else s.getReg .x15)
+      if A = B + blkO j l + 24 ∧ ¬ l ≤ 3 then (hiE (heapOf l j)).eval s
+      else if A = B + blkO j l + 16 then (if l ≤ 3 then (lowE j l).eval s else (loE (heapOf l j)).eval s)
       else s.getMem (BitVec.ofNat 64 A) :=
     fun A hA => (PRes.toState_getMem _ _ _).trans (lvlMem_get hx8 (by omega) j hj l A hl hA)
   have hpcT : ((lvlRes j l).toState s).pc = pcOf (childBase j + ecIdx j (l + 1)) := by
@@ -117,14 +117,15 @@ theorem lvl_core {im : Image} {j : Nat} (hj : j < 128) (hcode : CodeAt im (pcOf 
     by_cases h3 : l ≤ 3
     · have hpk := heapOf_packed j l hj h3
       constructor
-      · rw [hmem _ (by omega), if_neg (fun h => by have := h.1; omega), if_pos rfl, if_pos h3, hdr11_lo hu.par,
-          if_pos hpk]
+      · rw [hmem _ (by omega), if_neg (fun h => by have := h.1; omega), if_pos rfl, if_pos h3,
+          hdr11_lo hu.par _ _ _ hpk.2, if_pos hpk.1]
         unfold lowE
         rw [addC_eval]
         simp only [E.eval]
         rw [hx15]
         exact ofNat_add_neg_wrap _ _ (by omega)
-      · rw [show B + blkO j l + 16 + 8 = B + blkO j l + 24 by omega, hdr11_hi hu.par, if_pos hpk]
+      · rw [show B + blkO j l + 16 + 8 = B + blkO j l + 24 by omega, hdr11_hi hu.par _ _ _ hpk.2,
+          if_pos hpk.1]
         rw [hmem _ (by omega), if_neg (fun h => h.2 h3), if_neg (by omega),
           show B + blkO j l + 24 = B + (blkO j l + 24) by omega,
           sU _ (by omega) (fun hm => tw_free hj (by omega) hm rfl)]
@@ -134,17 +135,22 @@ theorem lvl_core {im : Image} {j : Nat} (hj : j < 128) (hcode : CodeAt im (pcOf 
         unfold hpOf; rw [if_pos (by omega)]
     · have hlo := heapOf_low j l hj (by omega) (by omega)
       have hnp : ¬ (8 ≤ heapOf l j ∧ heapOf l j < 128) := by omega
+      have hval := labE_eval (s := s) hlo.1 hlo.2 (fun h h1 h7 => by
+          obtain ⟨n3, n10, n11, n12⟩ := heapReg_ne h h7
+          rw [hkeep _ n3 n10 n11 n12]; exact hu.heaps h h1 h7)
       constructor
-      · rw [hmem _ (by omega), if_neg (fun h => by have := h.1; omega), if_pos rfl, if_neg h3, hdr11_lo hu.par,
-          if_neg hnp, hx15]
+      · rw [hmem _ (by omega), if_neg (fun h => by have := h.1; omega), if_pos rfl, if_neg h3,
+          hdr11_lo hu.par _ _ _ (by omega), if_neg (by omega)]
+        unfold loE
+        by_cases hs : swp (heapOf l j) = true
+        · rw [if_pos hs, if_pos hs]; exact hval
+        · rw [if_neg hs, if_neg hs]; exact hx15
       · rw [show B + blkO j l + 16 + 8 = B + blkO j l + 24 by omega, hmem _ (by omega),
-          if_pos ⟨rfl, h3⟩, hdr11_hi hu.par, if_neg hnp,
-          labelC_low hu.par hj (by omega) (by omega)]
-        have hs64 : s.getReg .x11 = BitVec.ofNat 64 64 := hs.a1 (by omega)
-        have hr := heapReg_eval (s := s) (l := l) hj (by omega) (by omega) hs64 (fun h h1 h6 => by
-          obtain ⟨n3, n10, n11, n12⟩ := heapReg_ne h h6
-          rw [hkeep _ n3 n10 n11 n12]; exact hu.heaps h h1 h6)
-        exact hr
+          if_pos ⟨rfl, h3⟩, hdr11_hi hu.par _ _ _ (by omega), if_neg (by omega)]
+        unfold hiE
+        by_cases hs : swp (heapOf l j) = true
+        · rw [if_pos hs, if_pos hs]; exact hx15
+        · rw [if_neg hs, if_neg hs]; exact hval
   have hin : hashInput t = toQ (pad64 (nodeIn k index j pads (hpOf j tws) sibs v l)) := by
     unfold nodeIn
     rcases hcs with ⟨e0, ec, es⟩ | ⟨e1, ec, es⟩

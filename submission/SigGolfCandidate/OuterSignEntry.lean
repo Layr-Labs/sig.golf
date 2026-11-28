@@ -100,125 +100,149 @@ theorem start_run {im : Image} {A D : Nat} {pre right : List UInt8} {s u : Machi
     rw [hm _ hX (by intro he;exact hn (Or.inr (Or.inl he)))]
     exact hu.frame X hX hn
 
-/-! C46: the outer-root classifier (sign words 26654..26671), entered through the hook word 26161. Each block only
+/-! C47: the outer-root classifier (sign words 26752..26781), entered through the hook word 26161. Each block only
 reads the input buffer and writes `t1`/`t2`. -/
 
 theorem hook_step {im : Image} {A D : Nat} {s u : MachineState}
     (hc : CodeAt im (pcOf 26161) hookCode) (hu : Ready s A D (pcOf 26161) u) :
-    ∃ t,Steps im u 1 1 t ∧ Ready s A D (pcOf 26654) t := by
+    ∃ t,Steps im u 1 1 t ∧ Ready s A D (pcOf 26752) t := by
   let t:=hook.res.toState u
   have hr : RegsExcept u t [.x6,.x7] := by intro r hr;cases r <;> simp at hr <;> rfl
-  have hp : t.pc=pcOf 26654 := by simp [t,Result.toState_pc,hook.res,E.eval]
+  have hp : t.pc=pcOf 26752 := by simp [t,Result.toState_pc,hook.res,E.eval]
   refine ⟨t,symRun_sound hook hc u hu.at_pc (by simp [hook.res,Result.obligs,Oblig.all]),hu.readOnly hp hr ?_⟩
   intro a;rfl
 
-/-- C46: `w - 3 = 0` exactly for the heap-3 label. -/
-theorem label3 (w : BitVec 64) : w+18446744073709551613#64=0#64 ↔ w=3#64 := by
-  constructor
-  · intro h
-    calc w=w+18446744073709551613#64+3#64 := by
-          rw [BitVec.add_assoc,show (18446744073709551613#64+3#64 : BitVec 64)=0#64 by decide,BitVec.add_zero]
-      _=3#64 := by rw [h,BitVec.zero_add]
-  · intro h;subst h;decide
-
-/-- C46: `w - 3 = 0xf1aff` exactly for the heap-2 label `0xf1b02`. -/
-theorem label2 (w : BitVec 64) : w+18446744073709551613#64=989951#64 ↔ w=989954#64 := by
-  constructor
-  · intro h
-    calc w=w+18446744073709551613#64+3#64 := by
-          rw [BitVec.add_assoc,show (18446744073709551613#64+3#64 : BitVec 64)=0#64 by decide,BitVec.add_zero]
-      _=989954#64 := by rw [h];decide
-  · intro h;subst h;decide
-
+/-- C47: `ld t1,24(a0); bne t1,zero`: a zero high word goes to 26754, a nonzero one to 26758. -/
 theorem clsA_step {im : Image} {A D : Nat} {s u : MachineState}
-    (hc : CodeAt im (pcOf 26654) clsACode) (hu : Ready s A D (pcOf 26654) u)
+    (hc : CodeAt im (pcOf 26752) clsACode) (hu : Ready s A D (pcOf 26752) u)
     (ha : u.getReg .x10=BitVec.ofNat 64 A) (hi : A<2^20) (hlo : 2048≤A) (hma : A%8=0) :
-    ∃ t,Steps im u 3 3 t ∧
-      Ready s A D (if u.getMem (u.getReg .x10+24#64)=3#64 then pcOf 26660 else pcOf 26657) t ∧
-      t.getReg .x6=u.getMem (u.getReg .x10+24#64)+18446744073709551613#64 := by
+    ∃ t,Steps im u 2 2 t ∧
+      Ready s A D (if u.getMem (u.getReg .x10+24#64)=0#64 then pcOf 26754 else pcOf 26758) t := by
   let t:=clsA.res.toState u
   have hr : RegsExcept u t [.x6,.x7] := by intro r hr;cases r <;> simp at hr <;> rfl
   have ho : clsA.res.obligs u := by
     simp [clsA.res,Result.obligs,Oblig.all,Oblig.holds,Addr.eval,E.eval,ha,ofNat_add_ofNat,
       memAccessValid_iff,BitVec.toNat_ofNat,MEMORY_BYTES]
     omega
-  have hp : t.pc=(if u.getMem (u.getReg .x10+24#64)=3#64 then pcOf 26660 else pcOf 26657) := by
-    simp only [t,Result.toState_pc,clsA.res,E.eval,Addr.eval,BinOp.eval,CmpOp.eval,RegFile.get]
-    by_cases h3 : u.getMem (u.getReg .x10+24#64)=3#64
-    · have h0 := (label3 _).mpr h3
-      simp [h3,h0]
-    · have h0 : ¬ u.getMem (u.getReg .x10+24#64)+18446744073709551613#64=0#64 := fun h=>h3 ((label3 _).mp h)
-      simp [h3,h0]
-  have h6 : t.getReg .x6=u.getMem (u.getReg .x10+24#64)+18446744073709551613#64 := by
-    simp [t,Result.toState_getReg,clsA.res,RegFile.get,E.eval,Addr.eval,BinOp.eval]
-  refine ⟨t,symRun_sound clsA hc u hu.at_pc ho,hu.readOnly hp hr ?_,h6⟩
+  have hp : t.pc=(if u.getMem (u.getReg .x10+24#64)=0#64 then pcOf 26754 else pcOf 26758) := by
+    by_cases h0 : u.getMem (u.getReg .x10+24#64)=0#64 <;>
+      simp [t,Result.toState_pc,clsA.res,E.eval,Addr.eval,BinOp.eval,CmpOp.eval,h0]
+  refine ⟨t,symRun_sound clsA hc u hu.at_pc ho,hu.readOnly hp hr ?_⟩
   intro a;rfl
 
-theorem clsB_step {im : Image} {A D : Nat} {s u : MachineState} {w : BitVec 64}
-    (hc : CodeAt im (pcOf 26657) clsBCode) (hu : Ready s A D (pcOf 26657) u)
-    (h6 : u.getReg .x6=w+18446744073709551613#64) :
-    ∃ t,Steps im u 3 3 t ∧ Ready s A D (if w=989954#64 then pcOf 26660 else pcOf 26670) t := by
-  let t:=clsB.res.toState u
+/-- C47: high word zero: `ld t2,16(a0); slli 53; beq t2,zero`: zero low 11 bits take the `c` search (26780). -/
+theorem clsZ_step {im : Image} {A D : Nat} {s u : MachineState}
+    (hc : CodeAt im (pcOf 26754) clsZCode) (hu : Ready s A D (pcOf 26754) u)
+    (ha : u.getReg .x10=BitVec.ofNat 64 A) (hi : A<2^20) (hlo : 2048≤A) (hma : A%8=0) :
+    ∃ t,Steps im u 3 3 t ∧ Ready s A D
+      (if u.getMem (u.getReg .x10+16#64) <<< 53=0#64 then pcOf 26780 else pcOf 26757) t := by
+  let t:=clsZ.res.toState u
   have hr : RegsExcept u t [.x6,.x7] := by intro r hr;cases r <;> simp at hr <;> rfl
-  have hp : t.pc=(if w=989954#64 then pcOf 26660 else pcOf 26670) := by
-    simp only [t,Result.toState_pc,clsB.res,E.eval,Addr.eval,BinOp.eval,CmpOp.eval,RegFile.get,h6]
-    by_cases h2 : w=989954#64
-    · have h0 := (label2 _).mpr h2
-      simp [h2,h0]
-    · have h0 : ¬ w+18446744073709551613#64=989951#64 := fun h=>h2 ((label2 _).mp h)
-      simp [h2,h0]
-  refine ⟨t,symRun_sound clsB hc u hu.at_pc (by simp [clsB.res,Result.obligs,Oblig.all]),hu.readOnly hp hr ?_⟩
+  have ho : clsZ.res.obligs u := by
+    simp [clsZ.res,Result.obligs,Oblig.all,Oblig.holds,Addr.eval,E.eval,ha,ofNat_add_ofNat,
+      memAccessValid_iff,BitVec.toNat_ofNat,MEMORY_BYTES]
+    omega
+  have hp : t.pc=(if u.getMem (u.getReg .x10+16#64) <<< 53=0#64 then pcOf 26780 else pcOf 26757) := by
+    by_cases h0 : u.getMem (u.getReg .x10+16#64) <<< 53=0#64 <;>
+      simp [t,Result.toState_pc,clsZ.res,E.eval,Addr.eval,BinOp.eval,CmpOp.eval,h0]
+  refine ⟨t,symRun_sound clsZ hc u hu.at_pc ho,hu.readOnly hp hr ?_⟩
+  intro a;rfl
+
+/-- C47: high word nonzero: `ld t2,16(a0); t1 := 929 << 50; beq t2,t1`: the c8 heap-3 label takes the `c` search. -/
+theorem clsT_step {im : Image} {A D : Nat} {s u : MachineState}
+    (hc : CodeAt im (pcOf 26758) clsTCode) (hu : Ready s A D (pcOf 26758) u)
+    (ha : u.getReg .x10=BitVec.ofNat 64 A) (hi : A<2^20) (hlo : 2048≤A) (hma : A%8=0) :
+    ∃ t,Steps im u 4 4 t ∧ Ready s A D
+      (if u.getMem (u.getReg .x10+16#64)=1045961013456797696#64 then pcOf 26780 else pcOf 26762) t := by
+  let t:=clsT.res.toState u
+  have hr : RegsExcept u t [.x6,.x7] := by intro r hr;cases r <;> simp at hr <;> rfl
+  have ho : clsT.res.obligs u := by
+    simp [clsT.res,Result.obligs,Oblig.all,Oblig.holds,Addr.eval,E.eval,ha,ofNat_add_ofNat,
+      memAccessValid_iff,BitVec.toNat_ofNat,MEMORY_BYTES]
+    omega
+  have hp : t.pc=(if u.getMem (u.getReg .x10+16#64)=1045961013456797696#64 then pcOf 26780 else pcOf 26762) := by
+    by_cases h0 : u.getMem (u.getReg .x10+16#64)=1045961013456797696#64 <;>
+      simp [t,Result.toState_pc,clsT.res,E.eval,Addr.eval,BinOp.eval,CmpOp.eval,h0]
+  refine ⟨t,symRun_sound clsT hc u hu.at_pc ho,hu.readOnly hp hr ?_⟩
+  intro a;rfl
+
+/-- C47: `ld t1,24(a0); t2 := 0xf1b02; beq t1,t2` (odd heap 2 to the field tests 26771, else the `K` test). -/
+theorem clsH_step {im : Image} {A D : Nat} {s u : MachineState}
+    (hc : CodeAt im (pcOf 26762) clsHCode) (hu : Ready s A D (pcOf 26762) u)
+    (ha : u.getReg .x10=BitVec.ofNat 64 A) (hi : A<2^20) (hlo : 2048≤A) (hma : A%8=0) :
+    ∃ t,Steps im u 4 4 t ∧
+      Ready s A D (if u.getMem (u.getReg .x10+24#64)=989954#64 then pcOf 26771 else pcOf 26766) t ∧
+      t.getReg .x6=u.getMem (u.getReg .x10+24#64) := by
+  let t:=clsH.res.toState u
+  have hr : RegsExcept u t [.x6,.x7] := by intro r hr;cases r <;> simp at hr <;> rfl
+  have ho : clsH.res.obligs u := by
+    simp [clsH.res,Result.obligs,Oblig.all,Oblig.holds,Addr.eval,E.eval,ha,ofNat_add_ofNat,
+      memAccessValid_iff,BitVec.toNat_ofNat,MEMORY_BYTES]
+    omega
+  have hp : t.pc=(if u.getMem (u.getReg .x10+24#64)=989954#64 then pcOf 26771 else pcOf 26766) := by
+    by_cases h0 : u.getMem (u.getReg .x10+24#64)=989954#64 <;>
+      simp [t,Result.toState_pc,clsH.res,E.eval,Addr.eval,BinOp.eval,CmpOp.eval,h0]
+  have h6 : t.getReg .x6=u.getMem (u.getReg .x10+24#64) := by
+    simp [t,Result.toState_getReg,clsH.res,RegFile.get,E.eval,Addr.eval,BinOp.eval]
+  refine ⟨t,symRun_sound clsH hc u hu.at_pc ho,hu.readOnly hp hr ?_,h6⟩
+  intro a;rfl
+
+/-- C47: `t2 := K = 0xe7404003; bne t1,t2` (odd heap 3 to the field tests 26771, else reject). -/
+theorem clsK_step {im : Image} {A D : Nat} {s u : MachineState} {w : BitVec 64}
+    (hc : CodeAt im (pcOf 26766) clsKCode) (hu : Ready s A D (pcOf 26766) u) (h6 : u.getReg .x6=w) :
+    ∃ t,Steps im u 5 5 t ∧ Ready s A D (if w=3879747587#64 then pcOf 26771 else pcOf 26781) t := by
+  let t:=clsK.res.toState u
+  have hr : RegsExcept u t [.x6,.x7] := by intro r hr;cases r <;> simp at hr <;> rfl
+  have hp : t.pc=(if w=3879747587#64 then pcOf 26771 else pcOf 26781) := by
+    by_cases h0 : w=3879747587#64 <;>
+      simp [t,Result.toState_pc,clsK.res,E.eval,Addr.eval,BinOp.eval,CmpOp.eval,RegFile.get,h6,h0]
+  refine ⟨t,symRun_sound clsK hc u hu.at_pc (by simp [clsK.res,Result.obligs,Oblig.all]),hu.readOnly hp hr ?_⟩
   intro a;rfl
 
 theorem clsC_step {im : Image} {A D : Nat} {s u : MachineState}
-    (hc : CodeAt im (pcOf 26660) clsCCode) (hu : Ready s A D (pcOf 26660) u)
+    (hc : CodeAt im (pcOf 26771) clsCCode) (hu : Ready s A D (pcOf 26771) u)
     (ha : u.getReg .x10=BitVec.ofNat 64 A) (hi : A<2^20) (hlo : 2048≤A) (hma : A%8=0) :
     ∃ t,Steps im u 3 3 t ∧ Ready s A D
-      (if u.getMem (u.getReg .x10+16#64) <<< 53=0#64 then pcOf 26663 else pcOf 26670) t := by
+      (if u.getMem (u.getReg .x10+16#64) <<< 53=0#64 then pcOf 26774 else pcOf 26781) t := by
   let t:=clsC.res.toState u
   have hr : RegsExcept u t [.x6,.x7] := by intro r hr;cases r <;> simp at hr <;> rfl
   have ho : clsC.res.obligs u := by
     simp [clsC.res,Result.obligs,Oblig.all,Oblig.holds,Addr.eval,E.eval,ha,ofNat_add_ofNat,
       memAccessValid_iff,BitVec.toNat_ofNat,MEMORY_BYTES]
     omega
-  have hp : t.pc=(if u.getMem (u.getReg .x10+16#64) <<< 53=0#64 then pcOf 26663 else pcOf 26670) := by
-    simp [t,Result.toState_pc,clsC.res,E.eval,Addr.eval,BinOp.eval,CmpOp.eval]
+  have hp : t.pc=(if u.getMem (u.getReg .x10+16#64) <<< 53=0#64 then pcOf 26774 else pcOf 26781) := by
+    by_cases h0 : u.getMem (u.getReg .x10+16#64) <<< 53=0#64 <;>
+      simp [t,Result.toState_pc,clsC.res,E.eval,Addr.eval,BinOp.eval,CmpOp.eval,h0]
   refine ⟨t,symRun_sound clsC hc u hu.at_pc ho,hu.readOnly hp hr ?_⟩
   intro a;rfl
 
 theorem clsD_step {im : Image} {A D : Nat} {s u : MachineState}
-    (hc : CodeAt im (pcOf 26663) clsDCode) (hu : Ready s A D (pcOf 26663) u)
+    (hc : CodeAt im (pcOf 26774) clsDCode) (hu : Ready s A D (pcOf 26774) u)
     (ha : u.getReg .x10=BitVec.ofNat 64 A) (hi : A<2^20) (hlo : 2048≤A) (hma : A%8=0) :
     ∃ t,Steps im u 5 5 t ∧ Ready s A D
-      (if ((u.getMem (u.getReg .x10+16#64) <<< 48) >>> 59).toNat<27 then pcOf 26670 else pcOf 26668) t ∧
-      t.getReg .x7=(u.getMem (u.getReg .x10+16#64) <<< 48) >>> 59 ∧ t.getReg .x6=27#64 := by
+      (if ((u.getMem (u.getReg .x10+16#64) <<< 48) >>> 59).toNat<28 then pcOf 26781 else pcOf 26779) t := by
   let t:=clsD.res.toState u
   have hr : RegsExcept u t [.x6,.x7] := by intro r hr;cases r <;> simp at hr <;> rfl
   have ho : clsD.res.obligs u := by
     simp [clsD.res,Result.obligs,Oblig.all,Oblig.holds,Addr.eval,E.eval,ha,ofNat_add_ofNat,
       memAccessValid_iff,BitVec.toNat_ofNat,MEMORY_BYTES]
     omega
-  have hp : t.pc=(if ((u.getMem (u.getReg .x10+16#64) <<< 48) >>> 59).toNat<27 then pcOf 26670 else pcOf 26668) := by
+  have hp : t.pc=(if ((u.getMem (u.getReg .x10+16#64) <<< 48) >>> 59).toNat<28 then pcOf 26781 else pcOf 26779) := by
     simp [t,Result.toState_pc,clsD.res,E.eval,Addr.eval,BinOp.eval,CmpOp.eval,BitVec.ult]
-  have h7 : t.getReg .x7=(u.getMem (u.getReg .x10+16#64) <<< 48) >>> 59 := by
-    simp [t,Result.toState_getReg,clsD.res,RegFile.get,E.eval,Addr.eval,BinOp.eval]
-  have h6 : t.getReg .x6=27#64 := by
-    simp [t,Result.toState_getReg,clsD.res,RegFile.get,E.eval]
-  refine ⟨t,symRun_sound clsD hc u hu.at_pc ho,hu.readOnly hp hr ?_,h7,h6⟩
+  refine ⟨t,symRun_sound clsD hc u hu.at_pc ho,hu.readOnly hp hr ?_⟩
   intro a;rfl
 
-theorem clsE_step {im : Image} {A D : Nat} {s u : MachineState}
-    (hc : CodeAt im (pcOf 26668) clsECode) (hu : Ready s A D (pcOf 26668) u) :
-    ∃ t,Steps im u 1 1 t ∧ Ready s A D (if u.getReg .x7=u.getReg .x6 then pcOf 26671 else pcOf 26669) t := by
-  let t:=clsE.res.toState u
+theorem clsZR_step {im : Image} {A D : Nat} {s u : MachineState}
+    (hc : CodeAt im (pcOf 26757) clsZRCode) (hu : Ready s A D (pcOf 26757) u) :
+    ∃ t,Steps im u 1 1 t ∧ Ready s A D (pcOf 26203) t := by
+  let t:=clsZR.res.toState u
   have hr : RegsExcept u t [.x6,.x7] := by intro r hr;cases r <;> simp at hr <;> rfl
-  have hp : t.pc=(if u.getReg .x7=u.getReg .x6 then pcOf 26671 else pcOf 26669) := by
-    simp [t,Result.toState_pc,clsE.res,E.eval,RegFile.get,CmpOp.eval]
-  refine ⟨t,symRun_sound clsE hc u hu.at_pc (by simp [clsE.res,Result.obligs,Oblig.all]),hu.readOnly hp hr ?_⟩
+  have hp : t.pc=pcOf 26203 := by simp [t,Result.toState_pc,clsZR.res,E.eval]
+  refine ⟨t,symRun_sound clsZR hc u hu.at_pc (by simp [clsZR.res,Result.obligs,Oblig.all]),hu.readOnly hp hr ?_⟩
   intro a;rfl
 
 theorem clsBJ_step {im : Image} {A D : Nat} {s u : MachineState}
-    (hc : CodeAt im (pcOf 26669) clsBJCode) (hu : Ready s A D (pcOf 26669) u) :
+    (hc : CodeAt im (pcOf 26779) clsBJCode) (hu : Ready s A D (pcOf 26779) u) :
     ∃ t,Steps im u 1 1 t ∧ Ready s A D (pcOf 26175) t := by
   let t:=clsBJ.res.toState u
   have hr : RegsExcept u t [.x6,.x7] := by intro r hr;cases r <;> simp at hr <;> rfl
@@ -227,7 +251,7 @@ theorem clsBJ_step {im : Image} {A D : Nat} {s u : MachineState}
   intro a;rfl
 
 theorem clsRJ_step {im : Image} {A D : Nat} {s u : MachineState}
-    (hc : CodeAt im (pcOf 26670) clsRJCode) (hu : Ready s A D (pcOf 26670) u) :
+    (hc : CodeAt im (pcOf 26781) clsRJCode) (hu : Ready s A D (pcOf 26781) u) :
     ∃ t,Steps im u 1 1 t ∧ Ready s A D (pcOf 26203) t := by
   let t:=clsRJ.res.toState u
   have hr : RegsExcept u t [.x6,.x7] := by intro r hr;cases r <;> simp at hr <;> rfl
@@ -236,7 +260,7 @@ theorem clsRJ_step {im : Image} {A D : Nat} {s u : MachineState}
   intro a;rfl
 
 theorem clsCJ_step {im : Image} {A D : Nat} {s u : MachineState}
-    (hc : CodeAt im (pcOf 26671) clsCJCode) (hu : Ready s A D (pcOf 26671) u) :
+    (hc : CodeAt im (pcOf 26780) clsCJCode) (hu : Ready s A D (pcOf 26780) u) :
     ∃ t,Steps im u 1 1 t ∧ Ready s A D (pcOf 26186) t := by
   let t:=clsCJ.res.toState u
   have hr : RegsExcept u t [.x6,.x7] := by intro r hr;cases r <;> simp at hr <;> rfl
@@ -244,21 +268,27 @@ theorem clsCJ_step {im : Image} {A D : Nat} {s u : MachineState}
   refine ⟨t,symRun_sound clsCJ hc u hu.at_pc (by simp [clsCJ.res,Result.obligs,Oblig.all]),hu.readOnly hp hr ?_⟩
   intro a;rfl
 
-/-- C46: the classifier's slices. -/
+/-- C47: the classifier's slices. -/
 structure ClsAt (im : Image) : Prop where
-  a : CodeAt im (pcOf 26654) clsACode
-  b : CodeAt im (pcOf 26657) clsBCode
-  c : CodeAt im (pcOf 26660) clsCCode
-  d : CodeAt im (pcOf 26663) clsDCode
-  e : CodeAt im (pcOf 26668) clsECode
-  bj : CodeAt im (pcOf 26669) clsBJCode
-  rj : CodeAt im (pcOf 26670) clsRJCode
-  cj : CodeAt im (pcOf 26671) clsCJCode
+  a : CodeAt im (pcOf 26752) clsACode
+  z : CodeAt im (pcOf 26754) clsZCode
+  zr : CodeAt im (pcOf 26757) clsZRCode
+  t : CodeAt im (pcOf 26758) clsTCode
+  h : CodeAt im (pcOf 26762) clsHCode
+  k : CodeAt im (pcOf 26766) clsKCode
+  c : CodeAt im (pcOf 26771) clsCCode
+  d : CodeAt im (pcOf 26774) clsDCode
+  bj : CodeAt im (pcOf 26779) clsBJCode
+  cj : CodeAt im (pcOf 26780) clsCJCode
+  rj : CodeAt im (pcOf 26781) clsRJCode
 
-theorem cls_slices {im : Image} (hc : CodeAt im (pcOf 26654) clsCode) : ClsAt im :=
-  ⟨SigGolfCandidate.FtsGrind.codeAt_sub 0 hc (by decide) (by rfl),SigGolfCandidate.FtsGrind.codeAt_sub 3 hc (by decide) (by rfl),SigGolfCandidate.FtsGrind.codeAt_sub 6 hc (by decide) (by rfl),
-    SigGolfCandidate.FtsGrind.codeAt_sub 9 hc (by decide) (by rfl),SigGolfCandidate.FtsGrind.codeAt_sub 14 hc (by decide) (by rfl),SigGolfCandidate.FtsGrind.codeAt_sub 15 hc (by decide) (by rfl),
-    SigGolfCandidate.FtsGrind.codeAt_sub 16 hc (by decide) (by rfl),SigGolfCandidate.FtsGrind.codeAt_sub 17 hc (by decide) (by rfl)⟩
+theorem cls_slices {im : Image} (hc : CodeAt im (pcOf 26752) clsCode) : ClsAt im :=
+  ⟨SigGolfCandidate.FtsGrind.codeAt_sub 0 hc (by decide) (by rfl),SigGolfCandidate.FtsGrind.codeAt_sub 2 hc (by decide) (by rfl),
+    SigGolfCandidate.FtsGrind.codeAt_sub 5 hc (by decide) (by rfl),SigGolfCandidate.FtsGrind.codeAt_sub 6 hc (by decide) (by rfl),
+    SigGolfCandidate.FtsGrind.codeAt_sub 10 hc (by decide) (by rfl),SigGolfCandidate.FtsGrind.codeAt_sub 14 hc (by decide) (by rfl),
+    SigGolfCandidate.FtsGrind.codeAt_sub 19 hc (by decide) (by rfl),SigGolfCandidate.FtsGrind.codeAt_sub 22 hc (by decide) (by rfl),
+    SigGolfCandidate.FtsGrind.codeAt_sub 27 hc (by decide) (by rfl),SigGolfCandidate.FtsGrind.codeAt_sub 28 hc (by decide) (by rfl),
+    SigGolfCandidate.FtsGrind.codeAt_sub 29 hc (by decide) (by rfl)⟩
 
 #print axioms save_run
 #print axioms start_run

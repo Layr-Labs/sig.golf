@@ -38,7 +38,8 @@ def FtsGoodByCost (GatePre : Digest → WB → HashOutput → MachineState → P
 def afterFts (pk : Digest) (w : WB) (index : Nat) (r : Option (Digest × Digest)) : SigGolfCandidate.T3.M Bool :=
   match r with
   | some top => do
-      let __x ← ClaudeWCT.W9.T3M.layersBC w index 4 (.pair top.1 top.2)
+      -- C47 (B): the hypertree is routed by `hyperIndex index` (as `ClaudeWCT.W9.T3M.verifyP`).
+      let __x ← ClaudeWCT.W9.T3M.layersBC w (SigGolfCandidate.T3.hyperIndex index) 4 (.pair top.1 top.2)
       match __x with
       | some root => pure (root == pk)
       | _ => pure false
@@ -830,7 +831,7 @@ theorem goodQP_frozen {P : Hash → Prop} {s : MachineState} {N C A : Nat} {Q : 
 
 theorem fts_installed {P : Hash → Prop} :
     FtsGoodByCost W9Drv.SharedGate.Pre installedOut installedFts
-      (fun answer => 847 + SigGolfCandidate.Research.SharedForest.jointAccountingCost answer) P := by
+      (fun answer => 844 + SigGolfCandidate.Research.SharedForest.jointAccountingCost answer) P := by
   intro pk w answer state N C A Q K hstate hnone hnext
   have h := W9Drv.SharedCoord.fts_good (P := P) pk w answer state N C A Q K hstate hnone
     (fun top next hnextState => goodQP_frozen.mpr (hnext top next hnextState))

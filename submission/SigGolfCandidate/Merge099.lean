@@ -764,12 +764,12 @@ def hintsOf (index : Nat) (digitsOf : Wots.LeafAddr→List Nat) (lowsOf : Wots.L
 
 def assembleSig (rho : Digest) (output : HashOutput) (v : Coord→Digest) (digitsOf : Wots.LeafAddr→List Nat)
     (lowsOf : Wots.LeafAddr→Bool) : SigGolfCandidate.Research.SharedForest.Signature :=
-  ⟨rho,hintsOf (WCT9.digestIndex output) digitsOf lowsOf,assembleForest output v,
-    fun lay => piecesSignature lay ((layerChains digitsOf (digestIndex output) lay).map v,
-      (layerPath (digestIndex output) lay).map v)⟩
+  ⟨rho,hintsOf (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) digitsOf lowsOf,assembleForest output v,
+    fun lay => piecesSignature lay ((layerChains digitsOf (hyperIdx output) lay).map v,
+      (layerPath (hyperIdx output) lay).map v)⟩
 
 def signItemsWith (digitsOf : Wots.LeafAddr→List Nat) (output : HashOutput) : List Coord :=
-  ftsItems (digestIndex output) output++layerItems digitsOf (digestIndex output)
+  ftsItems (digestIndex output) output++layerItems digitsOf (hyperIdx output)
 
 def decodeDigest (output : HashOutput) : Option HashOutput :=
   if SigGolfCandidate.Research.SharedForest.digestAccepted output then some output else none
@@ -808,7 +808,7 @@ noncomputable def signFinish (a : AuxData) (st : RouterState) (rho : Digest)
   match found with
   | none => pure (none,st)
   | some (_,output) =>
-      if RouteOkR a (WCT9.digestIndex output) then do
+      if RouteOkR a (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) then do
         let items := signItemsWith (routerDigits a) output
         let pairs ← discloseAll U (items ++ topTrialsDisclosed)
         pure (some (assembleSig rho output (selVals (lookupVal pairs)) (routerDigits a) (routerLows a)),
@@ -1016,7 +1016,7 @@ step cost ~85 s and ~8 GiB of kernel replay. -/
  theorem prepared_complete_of_route (T : Answers) (cache : SigGolfCandidate.T3.Cache)
     (index : Nat) (hi : index<2^31) (hok : RouteOk T index) :
     ∃ result, evalWithAnswerFn T (searchPreparedLayers cache index
-      (evalWithAnswerFn T (prepareRoots index)) (SigGolfCandidate.Research.SharedForest.forestCommitment T index))=some result := by
+      (evalWithAnswerFn T (prepareRoots index)) (SigGolfCandidate.Research.SharedForest.forestCommitment T (SigGolfCandidate.T3.hyperIndex index)))=some result := by
   have hc0 : referenceContext T (sourceMessages T) (sourceLeaf index 0)=some (SigGolfCandidate.Research.SharedForest.requiredCredit index) := rfl
   obtain ⟨c0,d0,l0,href0,hs0⟩ := route_search_of_context T index hok 0 (SigGolfCandidate.Research.SharedForest.requiredCredit index) hc0
   rw [searchOf_route_lower T index 0 (by decide)] at hs0
@@ -1089,7 +1089,7 @@ step cost ~85 s and ~8 GiB of kernel replay. -/
       (.pair (ClaudeWCT.WCT9.builtPair T 3 (route index 3).2).1 (ClaudeWCT.WCT9.builtPair T 3 (route index 3).2).2) 0 (WCT9.searchLimit 2))=some (c2,d2,l2) := hs2
   have hs3' : evalWithAnswerFn T (WCT9.CanonicalPolicy.layerCounterSearchAt 3
       (WCT9.Policy75Safe23.threshold 3 r3) (route index 3).2 (route index 3).1
-      (.pair (SigGolfCandidate.Research.SharedForest.forestCommitment T index).1 (SigGolfCandidate.Research.SharedForest.forestCommitment T index).2) 0 (WCT9.searchLimit 3))=some (c3,d3,l3) := hs3
+      (.pair (SigGolfCandidate.Research.SharedForest.forestCommitment T (SigGolfCandidate.T3.hyperIndex index)).1 (SigGolfCandidate.Research.SharedForest.forestCommitment T (SigGolfCandidate.T3.hyperIndex index)).2) 0 (WCT9.searchLimit 3))=some (c3,d3,l3) := hs3
   have hn1 : ¬WCT9.Policy75Safe23.threshold 1 r1≥17 := by omega
   have hn2 : ¬WCT9.Policy75Safe23.threshold 2 r2≥24 := by omega
   have hn3 : ¬WCT9.Policy75Safe23.threshold 3 r3≥24 := by omega
@@ -1108,11 +1108,11 @@ step cost ~85 s and ~8 GiB of kernel replay. -/
  theorem prepared_route_iff (T : Answers) (cache : SigGolfCandidate.T3.Cache)
     (index : Nat) (hi : index<2^31) :
     (evalWithAnswerFn T (searchPreparedLayers cache index
-      (evalWithAnswerFn T (prepareRoots index)) (SigGolfCandidate.Research.SharedForest.forestCommitment T index))).isSome ↔ RouteOk T index := by
+      (evalWithAnswerFn T (prepareRoots index)) (SigGolfCandidate.Research.SharedForest.forestCommitment T (SigGolfCandidate.T3.hyperIndex index)))).isSome ↔ RouteOk T index := by
   constructor
   · intro hs lay
     cases he : evalWithAnswerFn T (searchPreparedLayers cache index
-        (evalWithAnswerFn T (prepareRoots index)) (SigGolfCandidate.Research.SharedForest.forestCommitment T index)) with
+        (evalWithAnswerFn T (prepareRoots index)) (SigGolfCandidate.Research.SharedForest.forestCommitment T (SigGolfCandidate.T3.hyperIndex index))) with
     | none => simp [he] at hs
     | some result =>
       have hr := (searchPreparedLayers_reference T cache index hi result he lay).2
@@ -1125,21 +1125,21 @@ step cost ~85 s and ~8 GiB of kernel replay. -/
  theorem prepared_digits_eq {T : Answers} {cache : SigGolfCandidate.T3.Cache} {index : Nat}
     (hi : index<2^31) {result : CanonicalLayers}
     (he : evalWithAnswerFn T (searchPreparedLayers cache index
-      (evalWithAnswerFn T (prepareRoots index)) (SigGolfCandidate.Research.SharedForest.forestCommitment T index))=some result) (lay : Layer) :
+      (evalWithAnswerFn T (prepareRoots index)) (SigGolfCandidate.Research.SharedForest.forestCommitment T (SigGolfCandidate.T3.hyperIndex index)))=some result) (lay : Layer) :
     result.digits.getD lay.val []=referenceDigits T (sourceMessages T) (routeAddr index lay) :=
   (referenceDigits_some T _ _ _ _ (searchPreparedLayers_reference T cache index hi result he lay).2).symm
 
  theorem prepared_lows_eq {T : Answers} {cache : SigGolfCandidate.T3.Cache} {index : Nat}
     (hi : index<2^31) {result : CanonicalLayers}
     (he : evalWithAnswerFn T (searchPreparedLayers cache index
-      (evalWithAnswerFn T (prepareRoots index)) (SigGolfCandidate.Research.SharedForest.forestCommitment T index))=some result) (lay : Layer) :
+      (evalWithAnswerFn T (prepareRoots index)) (SigGolfCandidate.Research.SharedForest.forestCommitment T (SigGolfCandidate.T3.hyperIndex index)))=some result) (lay : Layer) :
     result.lows.getD lay.val true=referenceLow T (sourceMessages T) (routeAddr index lay) :=
   (referenceLow_some T _ _ _ _ (searchPreparedLayers_reference T cache index hi result he lay).2).symm
 
  theorem prepared_hints_eq {T : Answers} {cache : SigGolfCandidate.T3.Cache} {index : Nat}
     (hi : index<2^31) {result : CanonicalLayers}
     (he : evalWithAnswerFn T (searchPreparedLayers cache index
-      (evalWithAnswerFn T (prepareRoots index)) (SigGolfCandidate.Research.SharedForest.forestCommitment T index))=some result) :
+      (evalWithAnswerFn T (prepareRoots index)) (SigGolfCandidate.Research.SharedForest.forestCommitment T (SigGolfCandidate.T3.hyperIndex index)))=some result) :
     result.policyHints=hintsOf index (referenceDigits T (sourceMessages T)) (referenceLow T (sourceMessages T)) := by
   have hf := searchPreparedLayers_some T cache index _ _ result he
   rw [hf.hints_eq]
@@ -1486,7 +1486,7 @@ attribute [local instance] Classical.propDecidable
     {cache : SigGolfCandidate.T3.Cache} {index : Nat} (hi : index<2^31)
     (hcache : cache.region=Correctness.cacheRegion (Correctness.maskedTop T)) {result : CanonicalLayers}
     (he : evalWithAnswerFn T (searchPreparedLayers cache index
-      (evalWithAnswerFn T (prepareRoots index)) (forestCommitment T index))=some result) (lay : Layer) :
+      (evalWithAnswerFn T (prepareRoots index)) (forestCommitment T (SigGolfCandidate.T3.hyperIndex index)))=some result) (lay : Layer) :
     result.pieces.getD lay.val ([],[])=
       ((layerChains (Wots.CanonicalRef.referenceDigits T (Wots.CanonicalRef.sourceMessages T)) ⟨index,hi⟩ lay).map (honestValue T),
        (layerPath ⟨index,hi⟩ lay).map (honestValue T)) := by
@@ -1519,7 +1519,7 @@ noncomputable local instance : DecidableEq SigGolfCandidate.T3.Cache := Classica
     evalWithAnswerFn T (SigGolfCandidate.Research.SharedForest.signPayload cache m)=
       match signDigest T m with
       | none => none
-      | some (_,N) => if RouteOk T (WCT9.digestIndex N) then
+      | some (_,N) => if RouteOk T (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) then
           some (assembleSig (evalWithAnswerFn T (privateNonce m)) N (honestValue T)
             (Wots.CanonicalRef.referenceDigits T (Wots.CanonicalRef.sourceMessages T))
             (Wots.CanonicalRef.referenceLow T (Wots.CanonicalRef.sourceMessages T)))
@@ -1531,24 +1531,30 @@ noncomputable local instance : DecidableEq SigGolfCandidate.T3.Cache := Classica
   | some found =>
     rcases found with ⟨counter,N⟩
     simp only [signFromOutput,evalWithAnswerFn_bind,buildForest_commitment]
-    cases hs : evalWithAnswerFn T (searchPreparedLayers cache (WCT9.digestIndex N)
-        (evalWithAnswerFn T (prepareRoots (WCT9.digestIndex N))) (forestCommitment T (WCT9.digestIndex N))) with
+    -- C47 (B): the layers are routed by `j = hyperIndex (digestIndex N)`; the L3 message is the forest of instance
+    -- `hyperIndex j = digestIndex N`.
+    have hfc : forestCommitment T (WCT9.digestIndex N) = forestCommitment T (SigGolfCandidate.T3.hyperIndex (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N))) := by
+      rw [SigGolfCandidate.T3.hyperIndex_invol (WCT9.digestIndex_lt N)]
+    rw [hfc]
+    cases hs : evalWithAnswerFn T (searchPreparedLayers cache (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N))
+        (evalWithAnswerFn T (prepareRoots (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N))))
+        (forestCommitment T (SigGolfCandidate.T3.hyperIndex (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N))))) with
     | none =>
-      have hn : ¬RouteOk T (WCT9.digestIndex N) := by
+      have hn : ¬RouteOk T (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) := by
         intro hok
-        have ht := (prepared_route_iff T cache _ (WCT9.digestIndex_lt N)).mpr hok
+        have ht := (prepared_route_iff T cache _ (SigGolfCandidate.T3.hyperIndex_lt _)).mpr hok
         rw [hs] at ht;cases ht
       simp only [evalWithAnswerFn_pure,hn,if_false]
     | some result =>
-      have hok : RouteOk T (WCT9.digestIndex N) :=
-        (prepared_route_iff T cache _ (WCT9.digestIndex_lt N)).mp (by rw [hs];rfl)
+      have hok : RouteOk T (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) :=
+        (prepared_route_iff T cache _ (SigGolfCandidate.T3.hyperIndex_lt _)).mp (by rw [hs];rfl)
       simp only [evalWithAnswerFn_pure,hok,if_true]
       apply congrArg some
       unfold assembleSig
-      rw [buildForest_opening hf N,prepared_hints_eq (WCT9.digestIndex_lt N) hs]
+      rw [buildForest_opening hf N,prepared_hints_eq (SigGolfCandidate.T3.hyperIndex_lt _) hs]
       congr 1
       funext lay
-      rw [prepared_pieces_eq hf (WCT9.digestIndex_lt N) hcache hs lay]
+      rw [prepared_pieces_eq hf (SigGolfCandidate.T3.hyperIndex_lt _) hcache hs lay]
       rfl
 
  theorem authenticatedSign_disclosed {T : Answers} {labels : CanonGraph.Labels}
@@ -1559,7 +1565,7 @@ noncomputable local instance : DecidableEq SigGolfCandidate.T3.Cache := Classica
       if request.cache=published then
         match signDigest T request.message with
         | none => none
-        | some (_,N) => if RouteOk T (WCT9.digestIndex N) then
+        | some (_,N) => if RouteOk T (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) then
             some (assembleSig (evalWithAnswerFn T (privateNonce request.message)) N (honestValue T)
               (Wots.CanonicalRef.referenceDigits T (Wots.CanonicalRef.sourceMessages T))
               (Wots.CanonicalRef.referenceLow T (Wots.CanonicalRef.sourceMessages T)))

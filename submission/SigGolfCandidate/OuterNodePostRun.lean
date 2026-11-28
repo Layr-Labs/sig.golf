@@ -72,37 +72,46 @@ theorem runB {im : Image} (pc : Word) (hc : CodeAt im pc b_postCode) (s : Machin
     change (body.res.toState s).getMem a=s.getMem a
     exact body_frame s a hne
 
-theorem tailC_obligs (s : MachineState) : tailC.res.obligs s := tailB_obligs s
+theorem cTail_obligs (s : MachineState) (h7 : s.getReg .x7=recordC) : cTail.res.obligs s := by
+  simp [cTail.res,Result.obligs,Oblig.all,Oblig.holds,Addr.eval,E.eval,h7,memAccessValid_iff,MEMORY_BYTES] <;> decide
 
-theorem runC {im : Image} (pc : Word) (hc : CodeAt im pc c_postCode) (s : MachineState)
-    (hs : s.pc=pc) (input : Nat) (ha : s.getReg .x10=BitVec.ofNat 64 input)
-    (hi : input < 2^20) (hl : 2048 ≤ input) (hm : input % 8 = 0) :
-    ∃ t,Steps im s 9 9 t ∧ t.pc=pc-72#64 ∧ RegsExcept s t [.x6,.x7] ∧
-      t.getMem (recordAddr s)=s.getReg .x6 ∧ t.getReg .x6=s.getMem 1152 ∧ t.getReg .x7=s.getMem 1160 ∧
-      (∀ a,a≠recordAddr s→t.getMem a=s.getMem a) := by
-  let r0 : Result:={body.res with pc:=.c (pc+24#64)}
+/-- C47: the c8 grinder's exit block: the nonce goes to the constant slot `recordC = 0x7fb000`, `t1`/`t2` are
+restored; it falls through to the site-dependent `jal` at `pc + 32`. -/
+theorem runC {im : Image} (pc : Word) (hc : CodeAt im pc c_postCode) (s : MachineState) (hs : s.pc=pc) :
+    ∃ t,Steps im s 8 8 t ∧ t.pc=pc+32#64 ∧ RegsExcept s t [.x6,.x7] ∧
+      t.getMem recordC=s.getReg .x6 ∧ t.getReg .x6=s.getMem 1152 ∧ t.getReg .x7=s.getMem 1160 ∧
+      (∀ a,a≠recordC→t.getMem a=s.getMem a) := by
+  let r0 : Result:={cBody.res with pc:=.c (pc+20#64)}
   let u:=r0.toState s
-  let r1 : Result:={tailC.res with pc:=.c (pc+24#64-96#64)}
+  let r1 : Result:={cTail.res with pc:=.c (pc+20#64+12#64)}
   let t:=r1.toState u
-  have hbody:=symRun_sound (body_at pc) (take_code hc 6) s hs (body_obligs s input ha hi hl hm)
-  have htc : CodeAt im (pc+24#64) (c_postCode.drop 6) := by
-    have h:=hc.tail.tail.tail.tail.tail.tail
+  have hbody:=symRun_sound (cBody_at pc) (take_code hc 5) s hs (by simp [cBody.res,Result.obligs,Oblig.all])
+  have htc : CodeAt im (pc+20#64) (c_postCode.drop 5) := by
+    have h:=hc.tail.tail.tail.tail.tail
     simpa only [c_postCode,List.drop,BitVec.add_assoc,BitVec.reduceAdd] using h
-  have htail:=symRun_sound (tailC_at (pc+24#64)) htc u (by rfl) (tailC_obligs u)
+  have hu7 : u.getReg .x7=recordC := by
+    simp [u,r0,cBody.res,Result.toState_getReg,RegFile.get,E.eval]
+  have hu6 : u.getReg .x6=s.getReg .x6 := by
+    simp [u,r0,cBody.res,Result.toState_getReg,RegFile.get,E.eval]
+  have hum : ∀ a,u.getMem a=s.getMem a := by
+    intro a;simp [u,r0,cBody.res,Result.toState_getMem];rfl
+  have htail:=symRun_sound (cTail_at (pc+20#64)) htc u (by rfl) (cTail_obligs u hu7)
   refine ⟨t,hbody.trans htail,?_,?_,?_,?_,?_,?_⟩
-  · change pc+24#64-96#64=pc-72#64
-    simp only [BitVec.sub_eq_add_neg,BitVec.add_assoc]
+  · change pc+20#64+12#64=pc+32#64
+    simp only [BitVec.add_assoc]
     rfl
   · intro r hr;cases r <;> simp at hr <;> rfl
-  · change (body.res.toState s).getMem (recordAddr s)=s.getReg .x6
-    exact body_nonce s
-  · change (body.res.toState s).getMem 1152=s.getMem 1152
-    exact body_frame s _ (record_ne_low s _ (by decide))
-  · change (body.res.toState s).getMem 1160=s.getMem 1160
-    exact body_frame s _ (record_ne_low s _ (by decide))
-  · intro a hne
-    change (body.res.toState s).getMem a=s.getMem a
-    exact body_frame s a hne
+  · simp [t,r1,cTail.res,Result.toState_getMem,memEval_cons,Addr.eval,E.eval,hu7,hu6]
+  · simp [t,r1,cTail.res,Result.toState_getReg,RegFile.get,E.eval,LoadKind.fromWord,hum]
+  · simp [t,r1,cTail.res,Result.toState_getReg,RegFile.get,E.eval,LoadKind.fromWord,hum]
+  · intro a ha
+    rw [← hum a]
+    change memEval u cTail.res.st.mem a=_
+    apply memEval_frame
+    intro p hp
+    simp only [cTail.res,List.mem_cons,List.not_mem_nil,or_false] at hp
+    subst p
+    simpa [Addr.eval,E.eval,hu7] using ha
 
 #print axioms runB
 #print axioms runC

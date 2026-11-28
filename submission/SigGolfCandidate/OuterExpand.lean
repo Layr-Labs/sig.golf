@@ -15,13 +15,13 @@ def expandN (message : Message) (pk : Digest) (sig : SigGolfCandidate.Research.S
   let some (counter, output) ← sharedDigestSearch sig0.rho message 0 ClaudeWCT.WCT9.digestAttemptLimit | pure none
   let index := ClaudeWCT.WCT9.digestIndex output
   let forest ← OuterForestCorrectness.recoverForest index (forestSelectionFromOutput output) (forestWordsFromOutput output) sig0.forest
-  let some layers ← recoverHintedLayers sig0 index ((sig0.layers 0).path ClaudeWCT.WCT9.topJ)
+  let some layers ← recoverHintedLayers sig0 (hyperIndex index) ((sig0.layers 0).path ClaudeWCT.WCT9.topJ)
     4 (.pair forest.1.1 forest.1.2) | pure none
-  if !OuterSigning.policyHintsValid index sig0.policyHints layers.digits layers.lows then return none
+  if !OuterSigning.policyHintsValid (hyperIndex index) sig0.policyHints layers.digits layers.lows then return none
   if layers.root = pk then
     return some (output, ⟨sig0, counter, fun lay => layers.counters.getD lay.val 0, !(layers.lows.getD 0 true), layers.nonces,
       fun lay => layers.lowerNonces.getD lay.val [], forest.2.1, forest.2.2.1⟩, forest.2.2.2)
-  let some c ← ClaudeWCT.WCT9.searchTop index layers.foldedTop ((sig0.layers 0).path ClaudeWCT.WCT9.topJ) pk ClaudeWCT.WCT9.searchFuel 1 | pure none
+  let some c ← ClaudeWCT.WCT9.searchTop (hyperIndex index) layers.foldedTop ((sig0.layers 0).path ClaudeWCT.WCT9.topJ) pk ClaudeWCT.WCT9.searchFuel 1 | pure none
   pure (some (output, ⟨fillTopSignature sig0 c, counter, fun lay => layers.counters.getD lay.val 0,
     !(layers.lows.getD 0 true), layers.nonces, fun lay => layers.lowerNonces.getD lay.val [], forest.2.1,
     forest.2.2.1⟩, forest.2.2.2))

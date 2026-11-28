@@ -330,15 +330,16 @@ theorem step_Q (hcode : NewCodeAt im) {c i j : Nat} (hc : c < 9) (hi : i < 6) (s
   obtain ⟨hst, -⟩ := run_pres (coordLook_ok hcode hc) (runQ_eq hc hi) s hpc (no_obl s) (no_br s)
   exact ⟨_, hst, rfl, by rw [pres_getReg]; rfl, by rw [pres_getReg]; exact eval_ptE s h18 (by omega) i,
     pres_regsExcept _ _ _ _ _ _ _ s, fun A _ _ => rfl⟩
-def chainW0 (c i j index p : Nat) : Nat := index * 2 ^ 33 + j * WCT9.ftsSelMul c + chainK c i + p
+/-- C47: the chain word `chainWord` (coordinate 8 reflected) plus the step byte `p`. -/
+def chainW0 (c i j index p : Nat) : Nat := chainWord c i j index + p
 theorem chainW0_merge (c i j index p q : Nat) (hc : c < 9) (hi : i < 6) (hp : p < 4) (hq : q < 4) :
     StoreKind.merge .b (BitVec.ofNat 64 (chainW0 c i j index p)) 0 (BitVec.ofNat 64 q) =
       BitVec.ofNat 64 (chainW0 c i j index q) := by
   apply SigGolfCandidate.T3M.mergeByteZero
-  · unfold chainK
+  · unfold chainWord chainK
     have := WCT9.ftsSelMul_mul_mod c j
     generalize j * WCT9.ftsSelMul c = X at *
-    omega
+    split_ifs <;> omega
   · omega
   · omega
 
@@ -883,7 +884,13 @@ theorem ofNat_mod64 (n : Nat) : BitVec.ofNat 64 (n % 2^64) = BitVec.ofNat 64 n :
   simp only [BitVec.toNat_ofNat, Nat.mod_mod]
 theorem ftsChainLow_eq (index c j i st : Nat) (hc : c < 9) (hidx : index < 2 ^ 31) (hst : st < 4) (hi : i < 6)
     (hj : j < 128) : WCT9.ftsChainLow index c j i st = chainW0 c i j index st % 2^64 := by
-  unfold WCT9.ftsChainLow chainW0 chainK SigGolfCandidate.T3.ftsBias
+  by_cases h8 : c = 8
+  · subst h8
+    unfold WCT9.ftsChainLow chainW0 chainWord chainK
+    rw [if_pos rfl, if_pos rfl, if_pos rfl]
+    omega
+  unfold WCT9.ftsChainLow chainW0 chainWord chainK SigGolfCandidate.T3.ftsBias
+  rw [if_neg h8, if_neg h8, if_neg h8]
   rw [Nat.mod_eq_of_lt (show i < 8 by omega), Nat.mod_eq_of_lt hst, Nat.mod_eq_of_lt (show c < 16 by omega),
     Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hidx, Nat.mul_comm (WCT9.ftsSelMul c) j]
   apply congrArg (fun n : Nat => n % 2^64)
@@ -929,7 +936,13 @@ theorem ftsLeafHeader_words (index c j : Nat) (hc : c < 9) (hidx : index < 2 ^ 3
   have hw : BitVec.ofNat 64 (WCT9.ftsLeafLow index c j) = BitVec.ofNat 64 (leafLo7 c index j) := by
     apply BitVec.eq_of_toNat_eq
     simp only [BitVec.toNat_ofNat]
+    by_cases h8 : c = 8
+    · subst h8
+      unfold WCT9.ftsLeafLow leafLo7
+      rw [if_pos rfl, if_pos rfl]
+      omega
     unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN leafLo7
+    rw [if_neg h8, if_neg h8]
     rw [Nat.mod_eq_of_lt (show c<16 by omega), Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hidx]
     simp only [Nat.mod_mod]
     generalize WCT9.ftsSelMul c * j = X
@@ -968,35 +981,55 @@ theorem hdr0_node (c index : Nat) (hc : c < 9) (hidx : index < 2 ^ 32) :
   ring
 theorem wordsOf_node (c index h : Nat) (pad L R : Digest) (hc : c < 9) (hidx : index < 2 ^ 31) (hh : h < 128) :
     wordsOf (pad64 (nodeIn c index h pad L R)) =
-      [L.extractLsb' 0 64, L.extractLsb' 64 64, BitVec.ofNat 64 (nodeLoN c index h),
-        BitVec.ofNat 64 (if 8 ≤ h then 0 else SigGolfCandidate.T3.ftsHeapLabelC c h), pad.extractLsb' 0 64, pad.extractLsb' 64 64,
+      [L.extractLsb' 0 64, L.extractLsb' 64 64, BitVec.ofNat 64 (SharedNode.nodeW16 c index h),
+        BitVec.ofNat 64 (SharedNode.nodeW24 c index h), pad.extractLsb' 0 64, pad.extractLsb' 64 64,
         R.extractLsb' 0 64, R.extractLsb' 64 64] := by
-  have hlo : (WCT9.wctNodeHeader c index h).extractLsb' 0 64 = BitVec.ofNat 64 (nodeLoN c index h) := by
+  have hlow2 : BitVec.ofNat 64 (WCT9.ftsNodeLow2 index c) = BitVec.ofNat 64 (nodeLo7 c index) := by
+    unfold nodeLo7 WCT9.ftsNodeLow2
+    rw [Nat.mod_eq_of_lt (show c < 16 by omega), Nat.mod_eq_of_lt hidx]
+    apply BitVec.eq_of_toNat_eq
+    simp only [BitVec.toNat_ofNat]
+    unfold SigGolfCandidate.T3.ftsBiasN
+    simp only [Nat.mod_mod]
+    by_cases h8 : c = 8
+    · subst h8; rw [if_pos rfl]; omega
+    · rw [if_neg h8]
+      have : c / 8 = 0 := by omega
+      rw [this]
+      omega
+  have hlo : (WCT9.wctNodeHeader c index h).extractLsb' 0 64 = BitVec.ofNat 64 (SharedNode.nodeW16 c index h) := by
     rw [WCT9.wctNodeHeader_low hc]
-    unfold nodeLoN
+    unfold SharedNode.nodeW16
     by_cases h8 : 8 ≤ h
     · rw [if_pos (show SigGolfCandidate.T3.FtsNew h from ⟨h8, hh⟩), if_pos h8]
-      unfold nodeLo7 WCT9.ftsNodeLowN
-      rw [Nat.mod_eq_of_lt (show c < 16 by omega), Nat.mod_eq_of_lt hidx]
+      unfold nodeLoN nodeLo7 nodeSub WCT9.ftsNodeLowN
+      rw [if_pos h8, Nat.mod_eq_of_lt (show c < 16 by omega), Nat.mod_eq_of_lt hidx]
       have := Nat.mod_lt c (show 0 < 2 by decide)
       apply BitVec.eq_of_toNat_eq
       simp only [BitVec.toNat_ofNat]
       unfold SigGolfCandidate.T3.ftsBiasN
       simp only [Nat.mod_mod]
-      omega
+      by_cases hc8 : c = 8
+      · subst hc8; rw [if_pos rfl, if_pos rfl]; omega
+      · rw [if_neg hc8, if_neg hc8]
+        have : c / 8 = 0 := by omega
+        rw [this]
+        omega
     · rw [if_neg (show ¬ SigGolfCandidate.T3.FtsNew h from fun h' => h8 h'.1), if_neg h8]
-      unfold nodeLo7 WCT9.ftsNodeLow2
-      rw [Nat.mod_eq_of_lt (show c < 16 by omega), Nat.mod_eq_of_lt hidx]
-      apply BitVec.eq_of_toNat_eq
-      simp only [BitVec.toNat_ofNat]
-      unfold SigGolfCandidate.T3.ftsBiasN
-      simp only [Nat.mod_mod]
-      omega
-  have hhi : (WCT9.wctNodeHeader c index h).extractLsb' 64 64 = BitVec.ofNat 64 (if 8 ≤ h then 0 else SigGolfCandidate.T3.ftsHeapLabelC c h) := by
+      by_cases hs : SigGolfCandidate.T3.ftsSwap8 c h
+      · rw [if_pos hs, if_pos hs]
+      · rw [if_neg hs, if_neg hs]
+        exact hlow2
+  have hhi : (WCT9.wctNodeHeader c index h).extractLsb' 64 64 = BitVec.ofNat 64 (SharedNode.nodeW24 c index h) := by
     rw [WCT9.wctNodeHeader_high hc]
+    unfold SharedNode.nodeW24
     by_cases h8 : 8 ≤ h
     · rw [if_pos (show SigGolfCandidate.T3.FtsNew h from ⟨h8, hh⟩), if_pos h8]
     · rw [if_neg (show ¬ SigGolfCandidate.T3.FtsNew h from fun h' => h8 h'.1), if_neg h8]
+      by_cases hs : SigGolfCandidate.T3.ftsSwap8 c h
+      · rw [if_pos hs, if_pos hs]
+        exact hlow2
+      · rw [if_neg hs, if_neg hs]
   rw [pad64_of_aligned _ (by rw [nodeIn_len]), nodeIn,
     wordsOf_append _ _ (by simp [bytesLE_length]), wordsOf_append _ _ (by simp [bytesLE_length]),
     wordsOf_append _ _ (by simp [bytesLE_length]), wordsOf_bytesLE16, wordsOf_bytesLE16, wordsOf_bytesLE16,
@@ -1256,15 +1289,16 @@ theorem step_Q (hcode : Fetch im) {c i j : Nat} (hc : c < 9) (hi : i < 6) (s : M
   obtain ⟨hst, -⟩ := run_pres (coordLook_ok hcode hc) (runQ_eq hc hi) s hpc (no_obl s) (no_br s)
   exact ⟨_, hst, rfl, by rw [pres_getReg]; rfl, by rw [pres_getReg]; exact eval_ptE s h18 (by omega) i,
     pres_regsExcept _ _ _ _ _ _ _ s, fun A _ _ => rfl⟩
-def chainW0 (c i j index p : Nat) : Nat := index * 2 ^ 33 + j * WCT9.ftsSelMul c + chainK c i + p
+/-- C47: the chain word `chainWord` (coordinate 8 reflected) plus the step byte `p`. -/
+def chainW0 (c i j index p : Nat) : Nat := chainWord c i j index + p
 theorem chainW0_merge (c i j index p q : Nat) (hc : c < 9) (hi : i < 6) (hp : p < 4) (hq : q < 4) :
     StoreKind.merge .b (BitVec.ofNat 64 (chainW0 c i j index p)) 0 (BitVec.ofNat 64 q) =
       BitVec.ofNat 64 (chainW0 c i j index q) := by
   apply SigGolfCandidate.T3M.mergeByteZero
-  · unfold chainK
+  · unfold chainWord chainK
     have := WCT9.ftsSelMul_mul_mod c j
     generalize j * WCT9.ftsSelMul c = X at *
-    omega
+    split_ifs <;> omega
   · omega
   · omega
 
@@ -1691,9 +1725,10 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 100000
 set_option linter.unusedSimpArgs false
 
-theorem node_run {c m p : Nat} (hc:c<9) (hm:m<3) (hp:p<6) (hmp:m=1 ↔ p<4) :
+theorem node_run {c m p : Nat} (hc:c<9) (hm:m<3) (hp:p<6) (hmp:pathOk c m p) :
     runNode c m p=some (expected c m p) := by
   apply optBeq_eq
+  unfold pathOk at hmp
   match c,hc with
   |0,_=>exact node_run_0 m hm p hp hmp
   |1,_=>exact node_run_1 m hm p hp hmp
@@ -1746,9 +1781,10 @@ theorem obligations_hold (s : MachineState) {c h : Nat} (hc:c<9) (hh:h<128)
   · simpa only[List.nil_append] using readObl_holds s hh h18
 
 /-- C42: every branch of the node routine holds; for heaps `h < 8` (the heap-label stub's compares on
-`s2 - 4 .. s2 - 7` included) each branch is checked on the literal `s2 = h`. -/
-theorem branches_hold (s : MachineState) {h : Nat} (hh:h<128)
-    (h18:s.getReg .x18=BitVec.ofNat 64 h) : ∀b∈branches (mode h) (lab h),b.holds s := by
+`s2 - 4 .. s2 - 7` included) each branch is checked on the literal `s2 = h`. C47: coordinate 8's stub compares on
+`s2 - 2 .. s2 - 6`. -/
+theorem branches_hold (s : MachineState) {c h : Nat} (hh:h<128)
+    (h18:s.getReg .x18=BitVec.ofNat 64 h) : ∀b∈branches c (mode h) (labC c h),b.holds s := by
   by_cases h8:8≤h
   · have hm:mode h=0:=by unfold mode;rw[if_pos h8]
     rw[hm]
@@ -1761,16 +1797,27 @@ theorem branches_hold (s : MachineState) {h : Nat} (hh:h<128)
     simp[show ¬h<8 by omega]
   · intro b hb
     have hlt:h<8:=by omega
-    interval_cases h <;>
-      simp (config:={decide:=true}) only[mode,lab,branches,labBrs,labBr,↓reduceIte,List.cons_append,List.nil_append,
-        List.mem_cons,List.not_mem_nil,or_false]at hb <;>
-      rcases hb with rfl|rfl|rfl|rfl|rfl|rfl|rfl <;>
-      simp only[Br.holds,E.eval,cE,h18] <;> decide
+    by_cases hc8 : c = 8
+    · subst hc8
+      interval_cases h <;>
+        simp (config:={decide:=true}) only[mode,labC,branches,labBrs8,labBr,↓reduceIte,List.cons_append,List.nil_append,
+          List.mem_cons,List.not_mem_nil,or_false]at hb <;>
+        rcases hb with rfl|rfl|rfl|rfl|rfl|rfl|rfl <;>
+        simp only[Br.holds,E.eval,cE,h18] <;> decide
+    · have e : branches c (mode h) (labC c h) = branches 0 (mode h) (lab h) := by
+        unfold branches labC
+        simp only [hc8, if_false, show ¬ (0:Nat) = 8 by decide]
+      rw [e] at hb
+      interval_cases h <;>
+        simp (config:={decide:=true}) only[mode,lab,branches,labBrs,labBr,↓reduceIte,List.cons_append,List.nil_append,
+          List.mem_cons,List.not_mem_nil,or_false]at hb <;>
+        rcases hb with rfl|rfl|rfl|rfl|rfl|rfl|rfl <;>
+        simp only[Br.holds,E.eval,cE,h18] <;> decide
 
 def writes (A : Nat) : Prop := ∃k<8,A=NODEW+8*k
 
 def value (c m p off : Nat) : E :=
-  if off=0 then nodeLd 0 else if off=8 then nodeLd 8 else if off=16 then hdrLo c m else
+  if off=0 then nodeLd 0 else if off=8 then nodeLd 8 else if off=16 then hdrLoW c m p else
   if off=24 then hdrHi c m p else if off=32 then padWord c m 0 else if off=40 then padWord c m 8 else
   if off=48 then nodeLd 16 else nodeLd 24
 
@@ -1782,27 +1829,27 @@ theorem step_node {im : Image} {c h index : Nat}
     (hlook:LookOK im (look c)) (hc:c<9) (hh:h<128)
     (s : MachineState) (hpc:s.pc=pcOf (entry c)) (h18:s.getReg .x18=BitVec.ofNat 64 h)
     (h22:s.getReg .x22=BitVec.ofNat 64 index) :
-    ∃t,Steps im s (cycles c (mode h) (lab h)) (cycles c (mode h) (lab h)) t ∧ t.pc=pcOf (hashPc c) ∧
+    ∃t,Steps im s (cycles c (mode h) (labC c h)) (cycles c (mode h) (labC c h)) t ∧ t.pc=pcOf (hashPc c) ∧
       t.getReg .x10=BitVec.ofNat 64 NODEW ∧ t.getReg .x11=BitVec.ofNat 64 64 ∧
       t.getReg .x12=BitVec.ofNat 64 NOUTW ∧
-      (∀k,k<8 → t.getMem (BitVec.ofNat 64 (NODEW+8*k))=(value c (mode h) (lab h) (8*k)).eval s) ∧
+      (∀k,k<8 → t.getMem (BitVec.ofNat 64 (NODEW+8*k))=(value c (mode h) (labC c h) (8*k)).eval s) ∧
       RegsExcept s t [.x3,.x6,.x7,.x10,.x11,.x12,.x28] ∧ Frame s t writes := by
-  obtain ⟨hs,-⟩:=runA_pres2 hlook (node_run hc (mode_lt h) (lab_lt h) (mode_lab h)) s hpc
+  obtain ⟨hs,-⟩:=runA_pres2 hlook (node_run hc (mode_lt h) (labC_lt c h) (mode_labC c h)) s hpc
     (obligations_hold s hc hh h18) (branches_hold s hh h18)
-  have hargs : ((expected c (mode h) (lab h)).toState s).getReg .x10 = BitVec.ofNat 64 NODEW ∧
-      ((expected c (mode h) (lab h)).toState s).getReg .x11 = BitVec.ofNat 64 64 ∧
-      ((expected c (mode h) (lab h)).toState s).getReg .x12 = BitVec.ofNat 64 NOUTW := by
+  have hargs : ((expected c (mode h) (labC c h)).toState s).getReg .x10 = BitVec.ofNat 64 NODEW ∧
+      ((expected c (mode h) (labC c h)).toState s).getReg .x11 = BitVec.ofNat 64 64 ∧
+      ((expected c (mode h) (labC c h)).toState s).getReg .x12 = BitVec.ofNat 64 NOUTW := by
     have hm := mode_lt h
     have hcases : mode h = 0 ∨ mode h = 1 ∨ mode h = 2 := by omega
     rcases hcases with hm | hm | hm <;> rw [hm] <;> exact ⟨rfl, rfl, rfl⟩
-  refine ⟨(expected c (mode h) (lab h)).toState s,hs,rfl,hargs.1,hargs.2.1,hargs.2.2,?_,?_,?_⟩
+  refine ⟨(expected c (mode h) (labC c h)).toState s,hs,rfl,hargs.1,hargs.2.1,hargs.2.2,?_,?_,?_⟩
   · intro k hk
-    rw[expected,pres2_getMem,mem_read s c (mode h) (lab h) hk]
-  · exact (pres2_regsExcept (regs c (mode h) (lab h)) _ _ _ _ _ _ _ s).mono (by
+    rw[expected,pres2_getMem,mem_read s c (mode h) (labC c h) hk]
+  · exact (pres2_regsExcept (regs c (mode h) (labC c h)) _ _ _ _ _ _ _ s).mono (by
       intro r hr
       simp [regs] at hr ⊢
       tauto)
-  · refine frame_of_memEval (ws:=mem c (mode h) (lab h)) (fun _=>rfl) _ (fun p hm=>?_)
+  · refine frame_of_memEval (ws:=mem c (mode h) (labC c h)) (fun _=>rfl) _ (fun p hm=>?_)
     simp only[mem,List.mem_cons,List.not_mem_nil,or_false]at hm
     rcases hm with rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl <;> refine ⟨rfl,?_⟩ <;> rw[off_mwc _ _ (by ao)]
     all_goals unfold writes
@@ -3373,8 +3420,47 @@ namespace ClaudeWCT.W9.Machine.Sign.SharedDigestBoundary
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 set_option maxHeartbeats 1500000
 set_option maxRecDepth 10000
-def signCode : List (BitVec 32) := [0x20e37,0x160e0e13,0xe3b03,0x21b5b13,0x20e37,0x550e0e13,0x16e3023,0xaf9f406f]
+/-- C47: word 22760 jumps to the index-slot stub `jStub` (sign words 26701..26708): `0x20550 := j = 2^31 - 1 - index`
+(`xori -1; slli 33; srli 33; sd`), `s6` restored to the index the same way, back to 22761. -/
+def signCode : List (BitVec 32) := [0x20e37,0x160e0e13,0xe3b03,0x21b5b13,0x20e37,0x550e0e13,0x5950306f,0xaf9f406f]
+def jStub : List (BitVec 32) := [0xfffb4b13,0x21b1b13,0x21b5b13,0x16e3023,0xfffb4b13,0x21b1b13,0x21b5b13,0xa54fc06f]
 sym_block signRun := symRun {noAlias:=true} signCode (pcOf 22754) 30
+sym_block jRun := symRunAux {noAlias:=true} jStub (pcOf 26701) 30 signRun.res.st
+sym_block backRun := symRunAux {noAlias:=true} (signCode.drop 7) (pcOf 22761) 30 jRun.res.st
+/-- C47: the stub's complement-and-truncate of the routed index (`< 2 ^ 31`). -/
+theorem notTrunc33 (w : BitVec 64) :
+    ((~~~(w >>> 33)) <<< 33) >>> 33 = BitVec.ofNat 64 (2^31 - 1 - (w >>> 33).toNat) := by
+  apply BitVec.eq_of_toNat_eq
+  have h31 : (w >>> 33).toNat < 2^31 := by
+    simp only [BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow]; omega
+  simp only [BitVec.toNat_ushiftRight, BitVec.toNat_shiftLeft, BitVec.toNat_not, BitVec.toNat_ofNat, Nat.shiftLeft_eq,
+    Nat.shiftRight_eq_div_pow] at h31 ⊢
+  omega
+theorem notTrunc33_back (w : BitVec 64) :
+    ((~~~(BitVec.ofNat 64 (2^31 - 1 - (w >>> 33).toNat))) <<< 33) >>> 33 = w >>> 33 := by
+  apply BitVec.eq_of_toNat_eq
+  have h31 : (w >>> 33).toNat < 2^31 := by
+    simp only [BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow]; omega
+  simp only [BitVec.toNat_ushiftRight, BitVec.toNat_shiftLeft, BitVec.toNat_not, BitVec.toNat_ofNat, Nat.shiftLeft_eq,
+    Nat.shiftRight_eq_div_pow] at h31 ⊢
+  omega
+theorem nt1 (w : BitVec 64) : (~~~(w >>> 33)) <<< 33 >>> 33 = BitVec.ofNat 64 (2147483647 - w.toNat >>> 33) := by
+  apply BitVec.eq_of_toNat_eq
+  have hw := w.isLt
+  simp only [BitVec.toNat_ushiftRight, BitVec.toNat_shiftLeft, BitVec.toNat_not, BitVec.toNat_ofNat, Nat.shiftLeft_eq,
+    Nat.shiftRight_eq_div_pow]
+  omega
+theorem nt2 (w : BitVec 64) : (~~~BitVec.ofNat 64 (2147483647 - w.toNat >>> 33)) <<< 33 >>> 33 = w >>> 33 := by
+  apply BitVec.eq_of_toNat_eq
+  have hw := w.isLt
+  simp only [BitVec.toNat_ushiftRight, BitVec.toNat_shiftLeft, BitVec.toNat_not, BitVec.toNat_ofNat, Nat.shiftLeft_eq,
+    Nat.shiftRight_eq_div_pow]
+  omega
+theorem xor_m1 (v : BitVec 64) : v ^^^ (BitVec.ofNat 64 18446744073709551615) = ~~~v := by
+  rw [show (BitVec.ofNat 64 18446744073709551615) = BitVec.allOnes 64 from by decide, BitVec.xor_allOnes]
+#print signRun.res
+#print jRun.res
+#print backRun.res
 def expandCode : List (BitVec 32) := [0x180006f]
 def failureCode : List (BitVec 32) := [0x100293,0x100513]
 sym_block failRun := symRun {noAlias:=true} failureCode (pcOf 543) 10
@@ -3386,22 +3472,24 @@ theorem failure_run (m : Bool) : symRun {noAlias:=true} failureCode (failPC m) 1
   · exact failRun
   · exact failExpandRun
 
-theorem sign_steps {im : Image} (hc : CodeAt im (pcOf 22754) signCode)
-    (s : MachineState) (hp : s.pc=pcOf 22754) (h17 : s.getReg .x17=0x20160) :
-    ∃t,Steps im s 8 8 t ∧ t.pc=pcOf 11175 ∧
+/-- C47: the index slot `0x20550` receives `j = 2^31 - 1 - index` (16 steps through the stub); `s6` keeps the index. -/
+theorem sign_steps {im : Image} (hc : CodeAt im (pcOf 22754) signCode) (hj : CodeAt im (pcOf 26701) jStub)
+    (s : MachineState) (hp : s.pc=pcOf 22754) :
+    ∃t,Steps im s 16 16 t ∧ t.pc=pcOf 11175 ∧
       t.getReg .x22=s.getMem 0x20160 >>> 33 ∧
-      t.getMem 0x20550=s.getMem 0x20160 >>> 33 ∧
+      t.getMem 0x20550=BitVec.ofNat 64 (2^31 - 1 - (s.getMem 0x20160 >>> 33).toNat) ∧
       RegsExcept s t [.x22,.x28] ∧ Frame s t (fun A=>A=0x20550) := by
-  refine ⟨_,symRun_sound signRun hc s hp ?_,?_,?_,?_,?_,?_⟩
-  · simp [signRun.res,rv_simp,h17,accessValid_iff,MEMORY_BYTES]
+  have hb : CodeAt im (pcOf 22761) (signCode.drop 7) := SigGolfCandidate.T3M.codeAt_sub 7 hc (by decide) (by rfl)
+  refine ⟨_,LH.chain3_sound signRun hc hp (by rfl) jRun hj (by rfl) backRun hb ?_,?_,?_,?_,?_,?_⟩
+  · simp [backRun.res,rv_simp,accessValid_iff,MEMORY_BYTES]
   · rfl
-  · simp [signRun.res,rv_simp,h17]
-  · simp [signRun.res,rv_simp,h17]
+  · simp [backRun.res,rv_simp,xor_m1,notTrunc33,notTrunc33_back,nt1,nt2]
+  · simp [backRun.res,rv_simp,xor_m1,notTrunc33,nt1]
   · intro r hr
     cases r <;> first | exact (hr (by decide)).elim | rfl
   · intro A hA hn
-    simp only [Result.toState_getMem,signRun.res]
-    t3n [h17]
+    simp only [Result.toState_getMem,backRun.res]
+    t3n []
     rw [Nat.mod_eq_of_lt (show A<18446744073709551616 by simpa using hA),if_neg hn]
 
 

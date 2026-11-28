@@ -32,7 +32,7 @@ theorem checkForgery_canonical_or_collision (answers : Answers) (published : Sig
           queried answers (OuterSecurityGame.checkForgery pk log forgery) ∧
         output.toNat / 2^242 % 16384 < 929 ∧
         (∀ coord : Fin 9, rawForestRank output coord.val < 563) ∧
-        (∀ lay : Layer, Good answers (OuterLifted.ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.sourceMessages answers) wb (WCT9.digestIndex output) lay) ∧
+        (∀ lay : Layer, Good answers (OuterLifted.ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.sourceMessages answers) wb (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay) ∧
         OuterLifted.ClaudeWCT.W9.T3M.Extract.Paired.ForestOpenings answers wb (WCT9.digestIndex output)
           (rawChildFromOutput output) (fun k => WCT9.embed (forestRank output k.val)) ∧
         ¬ ClaudeWCT.W9.T3.Security.WPair.Paired.SignedDigest log message (wrho wb) := by

@@ -5738,16 +5738,17 @@ theorem sourceMessages_lower (answers : Answers) (index : Nat) (hidx : index < 2
   rw [hm, WotsExtract.leafMsg_route answers index _ hidx]
   exact Extract.honestMsg_lower answers index n hn (by omega)
 
-theorem sourceMessages_bottom (answers : Answers) (index : Nat) (hidx : index < 2^31) :
+/-- C47 (B): the L3 leaf at hypertree index `index` signs the forest of instance `hyperIndex index`. -/
+theorem sourceMessages_bottom (answers : Answers) (index : Nat) (_hidx : index < 2^31) :
     CanonicalRef.sourceMessages answers (routeLeaf index 3) =
-      WCT9.LayerMsg.pair (CanonicalRef.forestCommitment answers index).1
-        (CanonicalRef.forestCommitment answers index).2 := by
+      WCT9.LayerMsg.pair (CanonicalRef.forestCommitment answers (SigGolfCandidate.T3.hyperIndex index)).1
+        (CanonicalRef.forestCommitment answers (SigGolfCandidate.T3.hyperIndex index)).2 := by
   have hroute : (route index 3).2 * 2 ^ height 3 + (route index 3).1 = index := by
     change index / 64 * 64 + (index / 1) % 64 = index
     rw [Nat.div_one]
     omega
   simp only [CanonicalRef.sourceMessages, routeLeaf, show ¬ (3 : Layer).val < 3 by decide,
-    dite_false, hroute, Nat.mod_eq_of_lt hidx]
+    dite_false, hroute]
 
 theorem layers_source_walk (answers : Answers) (w : WBytes) (index : Nat) (hidx : index < 2^31)
     (msg : WCT9.LayerMsg) (hfit : Extract.msgFits 3 msg)
@@ -5755,8 +5756,8 @@ theorem layers_source_walk (answers : Answers) (w : WBytes) (index : Nat) (hidx 
     WotsPrimitiveSrc answers (CanonicalRef.sourceMessages answers)
       (entriesOf answers (queried answers (layersCanonicalBC w index 4 msg))) ∨
     ((∀ lay : Layer, Good answers (CanonicalRef.sourceMessages answers) w index lay) ∧
-      msg = WCT9.LayerMsg.pair (CanonicalRef.forestCommitment answers index).1
-        (CanonicalRef.forestCommitment answers index).2) := by
+      msg = WCT9.LayerMsg.pair (CanonicalRef.forestCommitment answers (SigGolfCandidate.T3.hyperIndex index)).1
+        (CanonicalRef.forestCommitment answers (SigGolfCandidate.T3.hyperIndex index)).2) := by
   have hs := layersCanonicalBC_wots_walk answers (CanonicalRef.sourceMessages answers) w index hidx
     (fun lay => CanonicalRef.sourceMessages_fit answers (routeLeaf index lay))
     (sourceMessages_lower answers index hidx) 4 (by decide) le_rfl msg hfit h
@@ -5792,7 +5793,7 @@ theorem verifyP_source_walk (answers : Answers) (message : Message) (pk : Digest
       (∀ coord : Fin 9, rawForestRank output coord.val < 563) ∧
       (WotsPrimitiveSrc answers (CanonicalRef.sourceMessages answers)
           (entriesOf answers (queried answers (Paired.verifyP message pk w))) ∨
-        ((∀ lay : Layer, Good answers (CanonicalRef.sourceMessages answers) w (WCT9.digestIndex output) lay) ∧
+        ((∀ lay : Layer, Good answers (CanonicalRef.sourceMessages answers) w (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay) ∧
           evalWithAnswerFn answers (SharedV3.forest w (WCT9.digestIndex output)
             (rawChildFromOutput output) (fun k => WCT9.embed (forestRank output k.val))) =
             CanonicalRef.forestCommitment answers (WCT9.digestIndex output) ∧
@@ -5805,11 +5806,12 @@ theorem verifyP_source_walk (answers : Answers) (message : Message) (pk : Digest
   refine ⟨output, hcounter, houtput, hqD _ ?_, hgate, hrank, ?_⟩
   · rw [hquery]
     exact List.mem_singleton_self _
-  · have hidx : WCT9.digestIndex output < 2^31 := Nat.mod_lt _ (by norm_num)
-    rcases layers_source_walk answers w (WCT9.digestIndex output) hidx (.pair top.1 top.2) trivial
+  · have hidx : SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output) < 2^31 := SigGolfCandidate.T3.hyperIndex_lt _
+    rcases layers_source_walk answers w (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) hidx (.pair top.1 top.2) trivial
       (hpk ▸ hl) with hp | ⟨hg, hmsg⟩
     · exact Or.inl (hp.mono (entriesOf_mono hqL))
-    · refine Or.inr ⟨hg, hforest.trans ?_, ?_⟩
+    · rw [SigGolfCandidate.T3.hyperIndex_invol (WCT9.digestIndex_lt output)] at hmsg
+      refine Or.inr ⟨hg, hforest.trans ?_, ?_⟩
       · exact Prod.ext (WCT9.LayerMsg.pair.inj hmsg).1 (WCT9.LayerMsg.pair.inj hmsg).2
       · intro q hq
         exact hqF q (hforestQ ▸ hq)
@@ -5828,10 +5830,10 @@ theorem merkleBlock_ge_F (lay : Layer) (leaf j : Nat) : 7664 ≤ merkleBlock lay
 
 theorem wpath_witEncF (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
     (lay : Layer) (j : Fin (height lay)) :
-    wpath (witEncF output w) lay (route (WCT9.digestIndex output) lay).1 j.val = (w.signature.layers lay).path j := by
+    wpath (witEncF output w) lay (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay).1 j.val = (w.signature.layers lay).path j := by
   rw [← wpath_witEncG output w lay j]
   unfold wpath
-  exact wdig_witEncF_eq output w _ (Or.inr (by have := merkleBlock_ge_F lay (route (WCT9.digestIndex output) lay).1 j.val; omega))
+  exact wdig_witEncF_eq output w _ (Or.inr (by have := merkleBlock_ge_F lay (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay).1 j.val; omega))
 
 theorem wvalueFor_witEncF (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
     (lay : Layer) (digits : List Nat) (i : Fin (chainCount lay)) :
@@ -5845,10 +5847,10 @@ theorem wvalueFor_witEncF (output : HashOutput) (w : SigGolfCandidate.Research.S
     exact wdig_witEncF_eq output w _ (Or.inr (by have := PairedNonce.chainBlock_ge lay i.val; omega))
 
 theorem wbcCtr_witEncF (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness) (lay : Layer) :
-    wbcCtr (witEncF output w) (WCT9.digestIndex output) lay = w.counters lay := by
+    wbcCtr (witEncF output w) (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay = w.counters lay := by
   rw [← wbcCtr_witEncG output w lay]
   unfold wbcCtr wle32 bcCounterOff
-  rcases PairedNonce.rowBlock_out (WCT9.digestIndex output) lay with h | h
+  rcases PairedNonce.rowBlock_out (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay with h | h
   · exact PairedNonce.extract_witEncF_free output w _ 4 32 (by omega)
       (fun c hc => Or.inl (by have := PairedNonce.ftsNoncePos_ge output c hc; omega))
   · exact PairedNonce.extract_witEncF_high output w _ 32 (by omega)
@@ -5889,10 +5891,10 @@ theorem wtopOther_witEncF (output : HashOutput) (witness : SigGolfCandidate.Rese
 coordinates 0..3); every layer and forest read the extractor uses avoids those pads. -/
 theorem wpath_witEncF16 (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
     (lay : Layer) (j : Fin (height lay)) :
-    wpath (witEncF16 output w) lay (route (WCT9.digestIndex output) lay).1 j.val = (w.signature.layers lay).path j := by
+    wpath (witEncF16 output w) lay (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay).1 j.val = (w.signature.layers lay).path j := by
   rw [← wpath_witEncF output w lay j]
   unfold wpath
-  exact wdig_witEncF16_eq output w _ (Or.inr (by have := merkleBlock_ge_F lay (route (WCT9.digestIndex output) lay).1 j.val; omega))
+  exact wdig_witEncF16_eq output w _ (Or.inr (by have := merkleBlock_ge_F lay (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay).1 j.val; omega))
 
 theorem wvalueFor_witEncF16 (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
     (lay : Layer) (digits : List Nat) (i : Fin (chainCount lay)) :
@@ -5906,11 +5908,11 @@ theorem wvalueFor_witEncF16 (output : HashOutput) (w : SigGolfCandidate.Research
     exact wdig_witEncF16_eq output w _ (Or.inr (by have := PairedNonce.chainBlock_ge lay i.val; omega))
 
 theorem wbcCtr_witEncF16 (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness) (lay : Layer) :
-    wbcCtr (witEncF16 output w) (WCT9.digestIndex output) lay = w.counters lay := by
+    wbcCtr (witEncF16 output w) (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay = w.counters lay := by
   rw [← wbcCtr_witEncF output w lay]
   unfold wbcCtr wle32 bcCounterOff
   exact extract_witEncF16_far output w _ 4 32 (by omega)
-    (by rcases PairedNonce.rowBlock_out (WCT9.digestIndex output) lay with h | h <;> omega)
+    (by rcases PairedNonce.rowBlock_out (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay with h | h <;> omega)
 
 theorem wleafValue_witEncF16 (output : HashOutput) (witness : SigGolfCandidate.Research.SharedForest.Witness)
     (k : Fin 9) (i : Fin 6) :
@@ -6023,17 +6025,17 @@ attribute [local irreducible] Paired.witEncF16 CanonicalRef.sourceMessages
 theorem good_shape_witEncF16 (answers : Answers) (output : HashOutput)
     (w : SigGolfCandidate.Research.SharedForest.Witness)
     (hg : ∀ lay, Good answers (CanonicalRef.sourceMessages answers) (Paired.witEncF16 output w)
-      (WCT9.digestIndex output) lay) :
+      (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay) :
     ∀ lay, HonestHint answers (CanonicalRef.sourceMessages answers) (Paired.witEncF16 output w)
-      (WCT9.digestIndex output) lay → ∃ digits, WCT9.CanonicalPolicy.decode lay
+      (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay → ∃ digits, WCT9.CanonicalPolicy.decode lay
       (evalWithAnswerFn answers (WCT9.encodingHash lay (WCT9.layerEncodingInput lay
-        (route (WCT9.digestIndex output) lay).2 (route (WCT9.digestIndex output) lay).1
-        (CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) lay)) (w.counters lay)))) =
+        (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay).2 (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay).1
+        (CanonicalRef.sourceMessages answers (routeLeaf (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay)) (w.counters lay)))) =
       some digits ∧ w.signature.layers lay = piecesSignature lay (WCT9.wotsPieces answers lay
-        (route (WCT9.digestIndex output) lay).2 (route (WCT9.digestIndex output) lay).1 digits) := by
-  exact good_shape_readout answers (CanonicalRef.sourceMessages answers) (WCT9.digestIndex output)
+        (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay).2 (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay).1 digits) := by
+  exact good_shape_readout answers (CanonicalRef.sourceMessages answers) (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output))
     (Paired.witEncF16 output w) w.signature w.counters hg (Paired.wbcCtr_witEncF16 output w)
-    (fun lay => sourceMessages_pair answers (routeLeaf (WCT9.digestIndex output) lay))
+    (fun lay => sourceMessages_pair answers (routeLeaf (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay))
     (Paired.wvalueFor_witEncF16 output w) (Paired.wpath_witEncF16 output w)
 end ClaudeWCT.W9.T3.Security.CanonicalExtract
 
@@ -6116,22 +6118,22 @@ theorem expanded_canonical_selections (answers : Answers) (message : Message) (p
     (w : SigGolfCandidate.Research.SharedForest.Witness)
     (he : evalWithAnswerFn answers (Paired.expandN message pk sig) = some (output,w))
     (hg : ∀ lay, Good answers (CanonicalRef.sourceMessages answers) (Paired.witEncF16 output w)
-      (WCT9.digestIndex output) lay)
+      (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay)
     (hf : (evalWithAnswerFn answers (recoverForest (WCT9.digestIndex output)
       (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1 =
         forestCommitment answers (WCT9.digestIndex output)) :
     ∃ (digits : List (List Nat)) (lows : List Bool),
-      policyHintsValid (WCT9.digestIndex output) w.signature.policyHints digits lows = true ∧
+      policyHintsValid (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) w.signature.policyHints digits lows = true ∧
       (∀ lay, evalWithAnswerFn answers (WCT9.CanonicalPolicy.layerCounterSearchAt lay
-        (hintFloor (WCT9.digestIndex output) w.signature.policyHints lay) (route (WCT9.digestIndex output) lay).2
-        (route (WCT9.digestIndex output) lay).1
-        (CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) lay))
+        (hintFloor (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) w.signature.policyHints lay) (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay).2
+        (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay).1
+        (CanonicalRef.sourceMessages answers (routeLeaf (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay))
         0 (WCT9.searchLimit lay)) = some (w.counters lay, digits.getD lay.val [], lows.getD lay.val true)) ∧
       ∀ lay, w.signature.layers lay = piecesSignature lay (WCT9.wotsPieces answers lay
-        (route (WCT9.digestIndex output) lay).2 (route (WCT9.digestIndex output) lay).1
+        (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay).2 (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay).1
         (digits.getD lay.val [])) := by
   obtain ⟨_, counter, result, c, _, hr, hvalid, hsig, _, hcs, hhigh⟩ := Paired.expandN_selections answers message pk sig output w he
-  have hs := recoverHintedLayers_selections answers (fillTopSignature sig 0) (WCT9.digestIndex output)
+  have hs := recoverHintedLayers_selections answers (fillTopSignature sig 0) (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output))
     (((fillTopSignature sig 0).layers 0).path WCT9.topJ) 4 le_rfl _ result hr
   let input : WCT9.LayerMsg := .pair
     (evalWithAnswerFn answers (recoverForest (WCT9.digestIndex output)
@@ -6139,81 +6141,81 @@ theorem expanded_canonical_selections (answers : Answers) (message : Message) (p
     (evalWithAnswerFn answers (recoverForest (WCT9.digestIndex output)
       (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1.2
   have hsel : ∀ lay, evalWithAnswerFn answers
-      (WCT9.CanonicalPolicy.layerCounterSearchAt lay (hintFloor (WCT9.digestIndex output) w.signature.policyHints lay)
-        (route (WCT9.digestIndex output) lay).2 (route (WCT9.digestIndex output) lay).1
-        (recoveredMessage answers w.signature (WCT9.digestIndex output) 4 input result.digits lay)
+      (WCT9.CanonicalPolicy.layerCounterSearchAt lay (hintFloor (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) w.signature.policyHints lay)
+        (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay).2 (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay).1
+        (recoveredMessage answers w.signature (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 4 input result.digits lay)
         0 (WCT9.searchLimit lay)) = some (result.counters.getD lay.val 0, result.digits.getD lay.val [],
           result.lows.getD lay.val true) := by
     intro lay
     have hx := hs.2.2.2 lay lay.isLt
     change evalWithAnswerFn answers
-      (WCT9.CanonicalPolicy.layerCounterSearchAt lay (hintFloor (WCT9.digestIndex output) sig.policyHints lay)
-        (route (WCT9.digestIndex output) lay).2 (route (WCT9.digestIndex output) lay).1
-        (recoveredMessage answers (fillTopSignature sig 0) (WCT9.digestIndex output) 4 input result.digits lay)
+      (WCT9.CanonicalPolicy.layerCounterSearchAt lay (hintFloor (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) sig.policyHints lay)
+        (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay).2 (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay).1
+        (recoveredMessage answers (fillTopSignature sig 0) (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 4 input result.digits lay)
         0 (WCT9.searchLimit lay)) = _ at hx
     rw [recoveredMessage_fill answers sig _ 4 le_rfl _ _ lay lay.isLt 0] at hx
     rw [hsig, hints_retained, recoveredMessage_fill answers sig _ 4 le_rfl _ _ lay lay.isLt c]
     exact hx
   have hshape0 := good_shape_witEncF16 answers output w hg
-  have hi : WCT9.digestIndex output < 2^31 := Nat.mod_lt _ (by decide)
+  have hi : SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output) < 2^31 := SigGolfCandidate.T3.hyperIndex_lt _
   have lower : ∀ n, n < 3 → CanonicalRef.sourceMessages answers
-      (routeLeaf (WCT9.digestIndex output) (Fin.ofNat 4 n)) =
-      .pair (WCT9.builtPair answers (Fin.ofNat 4 (n+1)) (route (WCT9.digestIndex output) (Fin.ofNat 4 (n+1))).2).1
-        (WCT9.builtPair answers (Fin.ofNat 4 (n+1)) (route (WCT9.digestIndex output) (Fin.ofNat 4 (n+1))).2).2 := by
+      (routeLeaf (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) (Fin.ofNat 4 n)) =
+      .pair (WCT9.builtPair answers (Fin.ofNat 4 (n+1)) (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) (Fin.ofNat 4 (n+1))).2).1
+        (WCT9.builtPair answers (Fin.ofNat 4 (n+1)) (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) (Fin.ofNat 4 (n+1))).2).2 := by
     intro n hn
-    have hm := sourceMessages_lower answers (WCT9.digestIndex output) hi (n+1) (by omega) (by omega)
+    have hm := sourceMessages_lower answers (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) hi (n+1) (by omega) (by omega)
     simpa only [Nat.add_sub_cancel, Extract.honestPair_eq] using hm
-  have hin : input = CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) 3) := by
+  have hin : input = CanonicalRef.sourceMessages answers (routeLeaf (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 3) := by
     dsimp only [input]
-    rw [hf, sourceMessages_bottom answers _ hi]
+    rw [hf, sourceMessages_bottom answers _ hi, SigGolfCandidate.T3.hyperIndex_invol (WCT9.digestIndex_lt output)]
   have hshapeL : ∀ lay : Layer, lay ≠ 0 → ∃ ds, WCT9.CanonicalPolicy.decode lay
       (evalWithAnswerFn answers (WCT9.encodingHash lay (WCT9.layerEncodingInput lay
-        (route (WCT9.digestIndex output) lay).2 (route (WCT9.digestIndex output) lay).1
-        (CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) lay))
+        (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay).2 (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay).1
+        (CanonicalRef.sourceMessages answers (routeLeaf (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay))
         (result.counters.getD lay.val 0)))) = some ds ∧
       w.signature.layers lay = piecesSignature lay (WCT9.wotsPieces answers lay
-        (route (WCT9.digestIndex output) lay).2 (route (WCT9.digestIndex output) lay).1 ds) := by
+        (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay).2 (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay).1 ds) := by
     intro lay hl
     simpa only [hcs lay] using hshape0 lay (honestHint_lower answers _ _ _ hl)
-  have htop := recoveredMessage_top_source answers w.signature (WCT9.digestIndex output) input result
-    (fun lay => CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) lay)) hin lower hsel hshapeL
+  have htop := recoveredMessage_top_source answers w.signature (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) input result
+    (fun lay => CanonicalRef.sourceMessages answers (routeLeaf (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay)) hin lower hsel hshapeL
   -- The expander's hint is the producer's choice at the (source) top row.
   have hhint0 : HonestHint answers (CanonicalRef.sourceMessages answers) (Paired.witEncF16 output w)
-      (WCT9.digestIndex output) 0 := by
+      (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0 := by
     have hs0 := hsel 0
     rw [htop] at hs0
     have hlim := WCT9.searchLimit_le 0
-    have hlow := (canonical_search_some' answers 0 (hintFloor (WCT9.digestIndex output) w.signature.policyHints 0)
-      (route (WCT9.digestIndex output) 0).2 (route (WCT9.digestIndex output) 0).1
-      (CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) 0)) (WCT9.searchLimit 0) 0
+    have hlow := (canonical_search_some' answers 0 (hintFloor (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) w.signature.policyHints 0)
+      (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0).2 (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0).1
+      (CanonicalRef.sourceMessages answers (routeLeaf (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0)) (WCT9.searchLimit 0) 0
       (result.counters.getD 0 0) (result.digits.getD 0 []) (result.lows.getD 0 true)
       (by unfold counterLimit at hlim; omega) hs0).2.2.1
     obtain ⟨-, hpad, hhi⟩ := hg 0
-    obtain ⟨left, right, hm⟩ := sourceMessages_pair answers (routeLeaf (WCT9.digestIndex output) 0)
+    obtain ⟨left, right, hm⟩ := sourceMessages_pair answers (routeLeaf (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0)
     unfold HonestHint
     rw [Paired.wbcCtr_witEncF16, hpad, hhi, Paired.wtopHigh_witEncF16, hhigh]
-    have hrow : pad64 (layerEncodingInputP 0 (route (WCT9.digestIndex output) 0).2
-        (route (WCT9.digestIndex output) 0).1 (CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) 0))
+    have hrow : pad64 (layerEncodingInputP 0 (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0).2
+        (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0).1 (CanonicalRef.sourceMessages answers (routeLeaf (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0))
         (w.counters 0) 0 (wbcRight (Paired.witEncF16 output w)) 1) =
-        pad64 (WCT9.layerEncodingInput 0 (route (WCT9.digestIndex output) 0).2 (route (WCT9.digestIndex output) 0).1
-          (CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) 0)) (w.counters 0)) := by
+        pad64 (WCT9.layerEncodingInput 0 (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0).2 (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0).1
+          (CanonicalRef.sourceMessages answers (routeLeaf (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0)) (w.counters 0)) := by
       rw [hm]; rfl
     rw [hrow, hcs 0, hlow]
     exact WCT9.verificationAnswer_honest 0 _
   have hshape' : ∀ lay, ∃ ds, WCT9.CanonicalPolicy.decode lay
       (evalWithAnswerFn answers (WCT9.encodingHash lay (WCT9.layerEncodingInput lay
-        (route (WCT9.digestIndex output) lay).2 (route (WCT9.digestIndex output) lay).1
-        (CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) lay))
+        (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay).2 (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay).1
+        (CanonicalRef.sourceMessages answers (routeLeaf (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay))
         (result.counters.getD lay.val 0)))) = some ds ∧
       w.signature.layers lay = piecesSignature lay (WCT9.wotsPieces answers lay
-        (route (WCT9.digestIndex output) lay).2 (route (WCT9.digestIndex output) lay).1 ds) := by
+        (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay).2 (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay).1 ds) := by
     intro lay
     by_cases hl : lay = 0
     · subst hl
       simpa only [hcs 0] using hshape0 0 hhint0
     · exact hshapeL lay hl
-  have hall := recoveredSelections_canonical answers w.signature (WCT9.digestIndex output)
-    input result (fun lay => CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) lay))
+  have hall := recoveredSelections_canonical answers w.signature (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output))
+    input result (fun lay => CanonicalRef.sourceMessages answers (routeLeaf (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay))
     hin lower hsel hshape'
   refine ⟨result.digits, result.lows, ?_, ?_, fun lay => (hall lay).2⟩
   · rw [hsig, hints_retained]
@@ -6247,7 +6249,7 @@ theorem verifyP_canonical_or_collision (answers : Answers) (message : Message) (
       (WotsPrimitiveSrc answers (CanonicalRef.sourceMessages answers)
           (entriesOf answers (queried answers (Paired.verifyP message pk wb))) ∨
         Extract.Paired.FtsHitIn answers (queried answers (Paired.verifyP message pk wb)) ∨
-        ((∀ lay : Layer, Good answers (CanonicalRef.sourceMessages answers) wb (WCT9.digestIndex output) lay) ∧
+        ((∀ lay : Layer, Good answers (CanonicalRef.sourceMessages answers) wb (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay) ∧
           Extract.Paired.ForestOpenings answers wb (WCT9.digestIndex output)
             (rawChildFromOutput output) (fun k => WCT9.embed (forestRank output k.val)))) := by
   obtain ⟨output,hc,hd,hq,hgate,hrank,hcases⟩ := verifyP_source_walk answers message pk wb hpk hv
@@ -6278,19 +6280,19 @@ theorem signFromOutput_canonical_selections (answers : Answers) (cache : SigGolf
     (counter : BitVec 32) (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
     (he : evalWithAnswerFn answers (signFromOutput cache rho counter output) = some w) :
     ∃ (digits : List (List Nat)) (lows : List Bool),
-      policyHintsValid (WCT9.digestIndex output) w.signature.policyHints digits lows = true ∧
+      policyHintsValid (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) w.signature.policyHints digits lows = true ∧
       (∀ lay, evalWithAnswerFn answers (WCT9.CanonicalPolicy.layerCounterSearchAt lay
-        (hintFloor (WCT9.digestIndex output) w.signature.policyHints lay) (route (WCT9.digestIndex output) lay).2
-        (route (WCT9.digestIndex output) lay).1
-        (CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) lay))
+        (hintFloor (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) w.signature.policyHints lay) (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay).2
+        (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay).1
+        (CanonicalRef.sourceMessages answers (routeLeaf (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay))
         0 (WCT9.searchLimit lay)) = some (w.counters lay,digits.getD lay.val [],lows.getD lay.val true)) ∧
       ∀ lay, w.signature.layers lay = piecesSignature lay (WCT9.wotsPieces answers lay
-        (route (WCT9.digestIndex output) lay).2 (route (WCT9.digestIndex output) lay).1
+        (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay).2 (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay).1
         (digits.getD lay.val [])) := by
   obtain ⟨result,hs,hrho,hhints,hforest,hpieces,hdigest,hcounters⟩ :=
     signFromOutput_components answers cache rho counter output w he
-  have facts := searchPreparedLayers_some answers cache (WCT9.digestIndex output) _ _ result hs
-  have hi : WCT9.digestIndex output<2^31 := WCT9.digestIndex_lt output
+  have facts := searchPreparedLayers_some answers cache (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) _ _ result hs
+  have hi : SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)<2^31 := SigGolfCandidate.T3.hyperIndex_lt _
   refine ⟨result.digits, result.lows, ?_, ?_, ?_⟩
   · rw [hhints]
     exact facts.hints_valid
@@ -6298,15 +6300,17 @@ theorem signFromOutput_canonical_selections (answers : Answers) (cache : SigGolf
     rw [hhints,hcounters lay]
     have hx := facts.hinted_searches lay
     rw [buildForest_commitment] at hx
-    have hm : CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) lay) =
+    have hm : CanonicalRef.sourceMessages answers (routeLeaf (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay) =
         (if lay=3 then .pair (forestCommitment answers (WCT9.digestIndex output)).1
           (forestCommitment answers (WCT9.digestIndex output)).2 else
           let lower : Layer := Fin.ofNat 4 (lay.val+1)
-          .pair (WCT9.builtPair answers lower (route (WCT9.digestIndex output) lower).2).1
-            (WCT9.builtPair answers lower (route (WCT9.digestIndex output) lower).2).2) := by
+          .pair (WCT9.builtPair answers lower (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lower).2).1
+            (WCT9.builtPair answers lower (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lower).2).2) := by
       by_cases h3 : lay = 3
       · subst lay
-        exact sourceMessages_bottom answers _ hi
+        have hb := sourceMessages_bottom answers _ hi
+        rw [SigGolfCandidate.T3.hyperIndex_invol (WCT9.digestIndex_lt output)] at hb
+        exact hb
       · have hl : lay.val < 3 := by
           have hn : lay.val ≠ 3 := fun h => h3 (Fin.ext h)
           have := lay.isLt
@@ -6336,7 +6340,7 @@ theorem expanded_eq_signer_signature (answers : Answers) (cache : SigGolfCandida
     (w signed : SigGolfCandidate.Research.SharedForest.Witness) (counter : BitVec 32)
     (he : evalWithAnswerFn answers (Paired.expandN message pk sig) = some (output,w))
     (hg : ∀ lay, Good answers (CanonicalRef.sourceMessages answers) (Paired.witEncF16 output w)
-      (WCT9.digestIndex output) lay)
+      (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay)
     (ho : Extract.Paired.ForestOpenings answers (Paired.witEncF16 output w) (WCT9.digestIndex output)
       (rawChildFromOutput output) (fun coord => WCT9.embed (forestRank output coord.val)))
     (hs : evalWithAnswerFn answers (signFromOutput cache sig.rho counter output) = some signed) :
@@ -6352,8 +6356,8 @@ theorem expanded_eq_signer_signature (answers : Answers) (cache : SigGolfCandida
   obtain ⟨da,la,hva,hsa,hpa⟩ := expanded_canonical_selections answers message pk sig output w he hg hf
   obtain ⟨db,lb,hvb,hsb,hpb⟩ := signFromOutput_canonical_selections answers cache hcache sig.rho counter output signed hs
   obtain ⟨_,_,hrho,_,hfs,_,_,_⟩ := signFromOutput_components answers cache sig.rho counter output signed hs
-  apply signature_unique_of_selections answers (WCT9.digestIndex output)
-    (fun lay => CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) lay))
+  apply signature_unique_of_selections answers (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output))
+    (fun lay => CanonicalRef.sourceMessages answers (routeLeaf (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay))
     w.signature signed.signature w.counters signed.counters da db la lb _ (hforest.trans hfs.symm)
     hva hvb hsa hsb hpa hpb
   rw [hsig,nonce_retained,hrho]
@@ -6364,7 +6368,7 @@ theorem expanded_eq_signer_signature (answers : Answers) (cache : SigGolfCandida
     (w : SigGolfCandidate.Research.SharedForest.Witness)
     (he : evalWithAnswerFn answers (Paired.expandN message pk sig) = some (output,w))
     (hg : ∀ lay, Good answers (CanonicalRef.sourceMessages answers) (Paired.witEncF16 output w)
-      (WCT9.digestIndex output) lay)
+      (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay)
     (ho : Extract.Paired.ForestOpenings answers (Paired.witEncF16 output w) (WCT9.digestIndex output)
       (rawChildFromOutput output) (fun coord => WCT9.embed (forestRank output coord.val)))
     (hs : evalWithAnswerFn answers (SigGolfCandidate.Research.SharedForest.signPayload cache message) = some signedSig)
@@ -6413,7 +6417,7 @@ theorem fresh_signature_not_signed_digest (answers : Answers) (published : SigGo
     (hfresh : Final.Paired.Fresh log (.signature message sig))
     (he : evalWithAnswerFn answers (T3M.Paired.expandN message pk sig) = some (output,w))
     (hg : ∀ lay, CanonicalExtract.Good answers (CanonicalRef.sourceMessages answers)
-      (T3M.Paired.witEncF16 output w) (WCT9.digestIndex output) lay)
+      (T3M.Paired.witEncF16 output w) (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay)
     (ho : Extract.Paired.ForestOpenings answers (T3M.Paired.witEncF16 output w) (WCT9.digestIndex output)
       (rawChildFromOutput output) (fun coord => WCT9.embed (forestRank output coord.val))) :
     ¬ SignedDigest log message sig.rho := by
@@ -6462,7 +6466,7 @@ theorem checkForgery_canonical_or_collision (answers : Answers) (published : Sig
           queried answers (Final.Paired.checkForgeryP pk log forgery) ∧
         output.toNat / 2^242 % 16384 < 929 ∧
         (∀ coord : Fin 9, rawForestRank output coord.val < 563) ∧
-        (∀ lay : Layer, Good answers (CanonicalRef.sourceMessages answers) wb (WCT9.digestIndex output) lay) ∧
+        (∀ lay : Layer, Good answers (CanonicalRef.sourceMessages answers) wb (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay) ∧
         Extract.Paired.ForestOpenings answers wb (WCT9.digestIndex output)
           (rawChildFromOutput output) (fun k => WCT9.embed (forestRank output k.val)) ∧
         ¬ WPair.Paired.SignedDigest log message (wrho wb) := by
@@ -6515,7 +6519,7 @@ def FreshForestAt (answers : Answers) (pk : Digest) (log : QueryLog Final.Paired
           queried answers (Final.Paired.checkForgeryP pk log forgery) ∧
         output.toNat / 2^242 % 16384 < 929 ∧
         (∀ coord : Fin 9, rawForestRank output coord.val < 563) ∧
-        (∀ lay : Layer, Good answers (CanonicalRef.sourceMessages answers) wb (WCT9.digestIndex output) lay) ∧
+        (∀ lay : Layer, Good answers (CanonicalRef.sourceMessages answers) wb (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay) ∧
         Extract.Paired.ForestOpenings answers wb (WCT9.digestIndex output)
           (rawChildFromOutput output) (fun k => WCT9.embed (forestRank output k.val)) ∧
         ¬ WPair.Paired.SignedDigest log message (wrho wb)
@@ -10362,8 +10366,9 @@ theorem signFromOutput_famEq (hC : FamCongr S (sourceMessages T) F T T') (htree 
   intro forest hforest
   refine ExecEq.bind_effect (queried_length_prepareRoots_famF hC hF _) ?_
   simp only [prepareRoots_result]
-  refine ExecEq.bind (searchPreparedLayers_famEq hC htree hF cache _ (digestIndex_lt output) forest.2 ?_) ?_
-  · rw [← hforest, buildForest_commitment, sourceMessages_route_bottom T _ (digestIndex_lt output)]
+  refine ExecEq.bind (searchPreparedLayers_famEq hC htree hF cache _ (SigGolfCandidate.T3.hyperIndex_lt _) forest.2 ?_) ?_
+  · rw [← hforest, buildForest_commitment, sourceMessages_route_bottom T _ (SigGolfCandidate.T3.hyperIndex_lt _),
+      SigGolfCandidate.T3.hyperIndex_invol (digestIndex_lt output)]
   · intro result _
     cases result <;> exact ExecEq.pure' _ _ _
 

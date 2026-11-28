@@ -67,29 +67,38 @@ theorem V_two {β : Type} (secret : BitVec 256) (z f₁ f₂ B : ENNReal)
 
 theorem header_ne_top (coord index heap heap' : Nat) (hc : coord<9) :
     SigGolfCandidate.T3.nodeTweak 3 0 0 heap'≠ClaudeWCT.WCT9.wctNodeHeader coord index heap := by
-  -- C31: separated by the low word (coordinate 1's two-word tag 240 equals the special top label's tag).
+  -- C31: separated by the low word (coordinate 1's two-word tag 240 equals the special top label's tag). C47: the FTS
+  -- node words are `≥ 2 ^ 32` (top labels that large have tags 113 and 0); coordinate 8's swapped heaps carry the
+  -- labels 929 * 2^50, 0x1fc0c0000, 0x7f00000, 21684, none a top label.
   intro he
   have hl:=congrArg SigGolfCandidate.T3.tweakLow he
+  have ht:=congrArg SigGolfCandidate.T3.tweakTag he
   rw [SigGolfCandidate.T3.nodeTweak_top_low] at hl
+  rw [SigGolfCandidate.T3.nodeTweak_top_tag, ClaudeWCT.WCT9.wctNodeHeader_tweakTag hc] at ht
   have hlow:=ClaudeWCT.WCT9.wctNodeHeader_toNat hc index heap
   unfold SigGolfCandidate.T3.tweakLow at hl
   rw [hlow] at hl
-  have hi:=Nat.mod_lt index (show 0<2^31 by decide)
-  by_cases hn : SigGolfCandidate.T3.FtsNew heap
-  · rw [if_pos hn] at hl
-    obtain ⟨h8,h128⟩:=hn
-    rw [ClaudeWCT.WCT9.ftsNodeLowN_eq,Nat.mod_eq_of_lt (show coord<16 by omega)] at hl
-    unfold SigGolfCandidate.T3.ftsBiasN at hl
+  have hN32 := ClaudeWCT.W9.T3M.Extract.ftsNodeLowN_ge32 index coord heap
+  have hL32 := ClaudeWCT.W9.T3M.Extract.ftsNodeLow2_ge32 index coord
+  have hltN := ClaudeWCT.WCT9.ftsNodeLowN_lt index coord heap
+  have hlt2 := ClaudeWCT.WCT9.ftsNodeLow2_lt index coord
+  by_cases hs : SigGolfCandidate.T3.ftsSwap8 coord heap
+  · have hn : ¬ SigGolfCandidate.T3.FtsNew heap := by obtain ⟨-, h3, h6⟩ := hs; unfold SigGolfCandidate.T3.FtsNew; omega
+    rw [if_neg hn, if_pos hs] at hl
+    obtain ⟨-, h3, h6⟩ := hs
+    have hv := SigGolfCandidate.T3.ftsSwapLabel8_cases h3 h6
+    have hlv := SigGolfCandidate.T3.ftsSwapLabel8_lt h3 h6
+    generalize SigGolfCandidate.T3.ftsSwapLabel8 heap = v at hl hv hlv
+    generalize ClaudeWCT.WCT9.ftsNodeLow2 index coord = B at hl hL32 hlt2
     rcases SigGolfCandidate.T3.topNodeWord_small_or_special heap' with hs | hs | hs | hs | hs <;>
       first | omega | (have := SigGolfCandidate.T3.TopNine.cases hs; omega) |
         (unfold SigGolfCandidate.T3.TopStep at hs; omega)
-  · rw [if_neg hn] at hl
-    unfold ClaudeWCT.WCT9.ftsNodeLow2 SigGolfCandidate.T3.ftsBiasN at hl
-    rw [Nat.mod_eq_of_lt (show coord<16 by omega)] at hl
-    -- C42: the heap-4/5/6 labels are not multiples of 2048 (FTS two-word low words are, or wrap above `2 ^ 63`).
+  · simp only [if_neg hs] at hl ht
+    generalize ClaudeWCT.WCT9.ftsNodeLowN index coord heap = A at hl hN32 hltN
+    generalize ClaudeWCT.WCT9.ftsNodeLow2 index coord = B at hl hL32 hlt2
     rcases SigGolfCandidate.T3.topNodeWord_small_or_special heap' with hs | hs | hs | hs | hs <;>
-      first | omega | (have := SigGolfCandidate.T3.TopNine.cases hs; omega) |
-        (unfold SigGolfCandidate.T3.TopStep at hs; omega)
+      first | (split_ifs at hl ht <;> omega) | (have := SigGolfCandidate.T3.TopNine.cases hs; split_ifs at hl ht <;> omega) |
+        (unfold SigGolfCandidate.T3.TopStep at hs; split_ifs at hl ht <;> omega)
 
 #print axioms header_ne_top
 #print axioms V_two

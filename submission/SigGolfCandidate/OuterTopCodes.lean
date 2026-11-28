@@ -18,6 +18,7 @@ theorem coordinates : ∀ k : Fin 9,SharedScatter.CoordinateCode OuterImages.exp
     (SharedScatter.sixthCode_of_driver driver) (SharedScatter.topCode_of_driver driver)
 
 theorem zero : SharedZero.ClearCode OuterImages.expandImage := SharedZero.code_of_driver driver
+  (OuterImageTransfers.code (b:=88868) (by decide +kernel) SharedZero.code_stub)
 
 theorem low_word (p : Nat) (ha : 1≤p) (hb : p<54334) :
     OuterImages.expandImage.code[p]?=Images.expandImage.code[p]? := by
@@ -49,7 +50,7 @@ theorem code : ClaudeWCT.W9.Machine.Expand.Layout.Code OuterImages.expandImage :
 end CLayout
 
 theorem compact : CompactCodeAt OuterImages.expandImage := by
-  refine ⟨?_,?_,CLayout.code⟩
+  refine ⟨?_,?_,CLayout.code,OuterImageTransfers.code (b:=88876) (by decide +kernel) installed_compact.jstubs⟩
   · intro n w hw
     have orig:=hw
     unfold compactLook at hw

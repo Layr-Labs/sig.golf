@@ -14,15 +14,16 @@ open ClaudeWCT.W9.Machine.Expand
 open ClaudeWCT.W9.Machine.Expand.SharedForestRun (RecInv RecInv16 pcWord eRegion)
 open OuterForestInv (Inv witness_view)
 
-/-- C42: the dispatch runs the step stub (`length k + 8 ≤ 47`); C46: `length k + 20 ≤ 59`. -/
-def stepW : Nat := 77831+59+89+102+SigGolfCandidate.FtsGrind.W_SEARCH 2+SigGolfCandidate.FtsGrind.W_SEARCH16
+/-- C42: the dispatch runs the step stub (`length k + 8 ≤ 47`); C46: `length k + 20 ≤ 59`; C47: `length k + 27 ≤ 66`. -/
+def stepW : Nat := 77831+66+89+102+SigGolfCandidate.FtsGrind.W_SEARCH 2+SigGolfCandidate.FtsGrind.W_SEARCH16
 
 theorem step_tbsim (image : Image) (sk : BitVec 256)
     (hstub : CodeAt image (pcOf 88780) SharedDispatch.stub)
     (hcode : ∀k:Fin 9,CodeAt image (pcOf (SharedDispatch.start k.val)) (SharedDispatch.words k.val))
     (hslot : ∀rank:Fin 563,Frozen.layout.chainWord (N600.embed rank)=195584+64*rank.val)
     (hcore : ∀ (L:W9Machine.Layout) (k:Fin 9) (j:Fin 128) (rank:Fin 563),
-      L.image=image → L.childWord j=W9Drv.SharedBank.copyWord k.val j.val → Chain.base L k=9768-848*k.val →
+      L.image=image → L.childWord j=W9Drv.SharedBank.copyWord k.val j.val → (k.val = 8 → L.returnWord k = 4397) →
+      Chain.base L k=9768-848*k.val →
       (∀r,L.chainWord r=Frozen.layout.chainWord r) → 
       ∀w index,index<2^31 → ∀snapshot u padL padR,
       N600.Pre L (SharedV3.viewWB 2904 w k.val snapshot) index k j rank u → 
@@ -55,7 +56,10 @@ theorem step_tbsim (image : Image) (sk : BitVec 256)
       have:=k.isLt <;> simp only [if_neg (by omega : k.val≠9)] <;> omega
   have hbase:Chain.base L k=9768-848*k.val := by
     rw [SharedDispatch.layout_base]; unfold coordinateBase; have:=k.isLt; omega
-  have hb:=hcore L k (raw k) (ranks k) rfl rfl hbase (fun _=>rfl)
+  have hret8 : k.val = 8 → L.returnWord k = 4397 := fun h => by
+    show SharedDispatch.retWord k.val = 4397
+    unfold SharedDispatch.retWord; rw [if_pos h]
+  have hb:=hcore L k (raw k) (ranks k) rfl rfl hret8 hbase (fun _=>rfl)
     w index hi u v prev.1.1 prev.1.2 hc hL hR
   have hj' : TBSim image sk v ((89+OuterSharedBank.cost k)+0)
       ((N600.program w index k (raw k) (ranks k) >>=fun ends=>
@@ -77,7 +81,7 @@ theorem step_tbsim (image : Image) (sk : BitVec 256)
       SigGolfCandidate.FtsGrind.W_PLAIN16
     split_ifs <;> omega
   simpa only [OuterCoordinateModel.coordinate,N600.program,(show N600.embed=ClaudeWCT.WCT9.embed from N600.embed_eq_c1),bind_assoc,pure_bind] using
-    hh.mono (show SharedDispatch.length k.val+20+((89+OuterSharedBank.cost k)+0)≤ stepW by unfold stepW; omega)
+    hh.mono (show SharedDispatch.length k.val+27+((89+OuterSharedBank.cost k)+0)≤ stepW by unfold stepW; omega)
       (fun _ _ h=>h)
 
 

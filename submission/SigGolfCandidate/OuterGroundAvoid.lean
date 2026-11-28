@@ -14,6 +14,36 @@ open SigGolfCandidate.T3M (allQ_pure allQ_bind allQ_foldlM)
 def OP (coord index heap : Nat) : Prop := coord<9 ∧ index<2^31 ∧ 2≤heap ∧ heap<128
 theorem OP.heap {coord index heap : Nat} (h : OP coord index heap) : 2≤heap ∧ heap<128 := h.2.2
 def OuterSet (index : Nat) (S : Nat → Nat → Prop) : Prop := ∀ c x,S c x→OP c index x
+/-- C47 (C): a public query that is not 64 bytes long is no (64-byte) FTS node trial. -/
+theorem notF_public_long {secret : BitVec 256} {index : Nat} {S : Nat → Nat → Prop} {input : HashInput}
+    (hl : input.length ≠ 64) : NotF secret index S (.inl (.inr input)) := by
+  intro coord heap _ n l r
+  show input ≠ _
+  intro he
+  have := fTrial_length coord index heap n l r
+  rw [← he] at this
+  exact hl this
+/-- C47 (C): a leaf hash of at least three chain ends is longer than 64 bytes, hence no FTS node trial (coordinate 8's
+heap-2 header `(0, base)` equals coordinate 6's child-0 leaf header). -/
+theorem notF_leafHash_long {secret : BitVec 256} {index : Nat} {S : Nat → Nat → Prop}
+    (heap i coord selected : Nat) (pad : Digest) (ends : List Digest) (hlen : 3 ≤ ends.length) :
+    AllQueriesSatisfy (ClaudeWCT.WCT9.leafHashH heap i coord selected pad ends) (NotF secret index S) := by
+  obtain ⟨e0, e1, e2, rest, rfl⟩ : ∃ e0 e1 e2 rest, ends = e0 :: e1 :: e2 :: rest := by
+    match ends, hlen with
+    | e0 :: e1 :: e2 :: rest, _ => exact ⟨e0, e1, e2, rest, rfl⟩
+  have hl : (pad64 (ClaudeWCT.WCT9.leafInputP i coord selected pad (e0 :: e1 :: e2 :: rest))).length ≠ 64 := by
+    have h1 : 80 ≤ (ClaudeWCT.WCT9.leafInputP i coord selected pad (e0 :: e1 :: e2 :: rest)).length := by
+      simp [ClaudeWCT.WCT9.leafInputP, bytesLE_length] <;> omega
+    have h3 : (ClaudeWCT.WCT9.leafInputP i coord selected pad (e0 :: e1 :: e2 :: rest)).length ≤
+        (pad64 (ClaudeWCT.WCT9.leafInputP i coord selected pad (e0 :: e1 :: e2 :: rest))).length := by
+      simp only [pad64, List.length_append, List.length_replicate]; omega
+    omega
+  have hp : AllQueriesSatisfy (publicHash (ClaudeWCT.WCT9.leafInputP i coord selected pad (e0 :: e1 :: e2 :: rest)))
+      (NotF secret index S) := (allQueriesSatisfy_query_iff _ _).mpr (notF_public_long hl)
+  unfold ClaudeWCT.WCT9.leafHashH ClaudeWCT.WCT9.ftsHash
+  split
+  · unfold ClaudeWCT.WCT9.highHash; exact allQ_bind hp fun _ => allQ_pure _
+  · unfold shortHash; exact allQ_bind hp fun _ => allQ_pure _
 section
 variable {secret : BitVec 256} {index : Nat} {S : Nat → Nat → Prop} (hS : OuterSet index S)
 include hS
@@ -35,24 +65,20 @@ theorem notF_chain (coord selected i start count : Nat) (value : Digest) (hi : i
   exact allQ_foldlM _ _ (fun v step => notF_projHash _ (ftsChainInputW_header hS coord selected i step v)
     (fun c x _ he => ClaudeWCT.WCT9.wctNodeHeader_ne_ftsChainHeaderP c index x _ _ _ _ _ _ hi he.symm)) _
 
-theorem notF_leafHashH (heap coord selected : Nat) (pad : Digest) (ends : List Digest) :
-    AllQueriesSatisfy (ClaudeWCT.WCT9.leafHashH heap index coord selected pad ends) (NotF secret index S) := by
-  unfold ClaudeWCT.WCT9.leafHashH
-  refine notF_ftsHash heap (hdr := ClaudeWCT.WCT9.ftsLeafHeader index coord selected) ?_
-    (fun c x hs he => ClaudeWCT.WCT9.ftsLeafHeader_ne_wctNodeHeader index coord selected (hS c x hs).1 index x
-      (by have := (hS c x hs).heap; omega) he)
-  unfold ClaudeWCT.WCT9.leafInputP
-  simpa only [List.append_assoc] using
-    queryHeader_padded (bytesLE 16 (ends.getD 0 0)) (bytesLE 16 pad ++ (ends.drop 1).flatMap (bytesLE 16))
-      (bytesLE_length ..) (ClaudeWCT.WCT9.ftsLeafHeader index coord selected)
+/-- C47 (C): with at least three ends (the outer set may contain coordinate 8's heap 2, whose header equals coordinate
+6's child-0 leaf header; the leaf query is longer). -/
+theorem notF_leafHashH (heap coord selected : Nat) (pad : Digest) (ends : List Digest) (hlen : 3 ≤ ends.length) :
+    AllQueriesSatisfy (ClaudeWCT.WCT9.leafHashH heap index coord selected pad ends) (NotF secret index S) :=
+  notF_leafHash_long heap index coord selected pad ends hlen
 
 theorem notF_buildChildH (heap coord selected : Nat) (word : Rank) (coefs : List Digest) (pad : Digest) :
     AllQueriesSatisfy (ClaudeWCT.WCT9.buildChildH heap index coord selected word coefs pad) (NotF secret index S) := by
+  -- C47 (C): unfold the six chain steps so that the leaf sees its six ends (`notF_leafHash_long`).
   unfold ClaudeWCT.WCT9.buildChildH
-  refine allQ_bind (allQ_foldlM _ _ (fun st i => ?_) _) fun st => ?_
-  · exact allQ_bind (notF_chain hS _ _ _ _ _ _ (by omega)) fun _ =>
-      allQ_bind (notF_chain hS _ _ _ _ _ _ (by omega)) fun _ => allQ_pure _
-  · exact allQ_bind (notF_leafHashH hS _ _ _ _ _) fun _ => allQ_pure _
+  rw [show List.finRange 6 = [0, 1, 2, 3, 4, 5] from rfl]
+  simp only [List.foldlM_cons, List.foldlM_nil, bind_assoc, pure_bind]
+  repeat (refine allQ_bind (notF_chain hS _ _ _ _ _ _ (Fin.isLt _)) fun _ => ?_)
+  exact allQ_bind (notF_leafHash_long _ _ _ _ _ _ (by simp)) fun _ => allQ_pure _
 
 theorem notF_ftsCoefs (coord : Nat) :
     AllQueriesSatisfy (ClaudeWCT.WCT9.ftsCoefs index coord) (NotF secret index S) := by

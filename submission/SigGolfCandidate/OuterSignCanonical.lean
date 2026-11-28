@@ -22,15 +22,16 @@ theorem run_raw {im : Image} {sk : BitVec 256} {A D coord index heap : Nat} {lef
   obtain ⟨u,hs,hu⟩:=OuterSignEntry.save_run (A:=A) (D:=D) c0 s hp
   have ck : CodeAt im (pcOf 26161) OuterSignBlocks.hookCode := codeAt_sub 5 hcode (by decide) (by rfl)
   obtain ⟨v,hr,hv⟩:=OuterSignDispatch.route F hA hc hc9 hi hh hco ca ck hcls hu
-  have hrs:=OuterSignDispatch.routeSteps_le heap
+  have hrs:=OuterSignDispatch.routeSteps_le coord heap
   by_cases h8 : coord=8
   · subst coord
+    have hrs8:=OuterSignDispatch.routeSteps_le8 heap
     simp only [if_pos rfl] at hv
     obtain ⟨w,hw,hwv⟩:=OuterSignEntry.start_run F cs hv
     have hwv' : Stage s A D (pcOf 26188) 0 w := by
       simpa only [show pcOf 26186+8#64=pcOf 26188 from by decide] using hwv
     have he:=OuterSignSearchC.loop (sk:=sk) F heap hh
-      (OuterNodeInputHeader.input_label F hc9 hh (Or.inr rfl)) cq cck cf cj cp cd 4095 0 w hwv' (by decide)
+      (OuterNodeInputHeader.input_hi8 F hh) cq cck cf cj cp cd 4095 0 w hwv' (by decide)
     have he' : TBSim im sk w 77834 (OuterNodeRawModel.raw 8 index heap left right (cap 8-1) 0)
         (OuterSignExit.Out s A D) := by
       simpa [OuterNodeRawModel.raw,OuterNodeRawModel.high,OuterNodeSearchC.high,cap,OuterGroundCore.width] using he

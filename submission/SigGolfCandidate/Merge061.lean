@@ -477,7 +477,8 @@ set_option maxHeartbeats 4000000
 set_option maxRecDepth 100000
 set_option Elab.async false
 theorem installed_kernel (P : Prop) (hP : P) : KernAt Images.expandImage 354 P := by
-  refine ⟨⟨?_,?_⟩,Or.inl rfl,And.intro ?_ ?_,⟨?_,?_,?_⟩,?_,?_,?_,hP⟩
+  -- C47: PrxCode gains the L3 marker stub `rs_0` at `rsBase 354 = 88856`.
+  refine ⟨⟨?_,?_⟩,Or.inl rfl,⟨?_,?_,?_⟩,⟨?_,?_,?_⟩,?_,?_,?_,hP⟩
   all_goals first
     | (apply codeAt_expand_current_chunk <;> decide +kernel)
     | (apply SigGolfCandidate.T3M.codeAt_lh_tramp_at <;> decide)
@@ -1152,7 +1153,7 @@ set_option maxHeartbeats 1500000
 set_option maxRecDepth 32768
 variable {image : Image} {sk : BitVec 256}
 theorem counterSearch_tbsim {A : CsArgs} {s0 : MachineState} (hK : KernAt image 354 (CanonicalExpandHooks.Code image)) (hpre : CsPre 354 A s0) :
-    TBSim image sk s0 (25 + capLimit A.lay.val * csT A.lay + csOk A.lay)
+    TBSim image sk s0 (31 + capLimit A.lay.val * csT A.lay + csOk A.lay)
       (WCT9.CanonicalPolicy.layerCounterSearchAt A.lay A.floor A.tree A.leaf A.msg 0 (WCT9.searchLimit A.lay)) (CsPost image 354 A s0) := by
   obtain ⟨t, st, pt, h16, h24, h19, rt, ft⟩ := cs103_spec hK s0 hpre.pc A.lay A.tree A.leaf hpre.hroute
     hpre.x8 hpre.x9 hpre.x18 hpre.x15
@@ -1171,7 +1172,9 @@ theorem counterSearch_tbsim {A : CsArgs} {s0 : MachineState} (hK : KernAt image 
       (by simp only [ENC]; omega), hx32]⟩
   rw [← capLimit_eq]
   have := TBSim.steps st (TBSim.steps st' (cs_loop (sk := sk) hK hpre (capLimit A.lay.val) 0 t' (by omega) hI))
-  exact this.mono (le_of_eq (by ring)) (fun _ _ h => h)
+  -- C47: the head runs the L3 tag-marker stub (`cs103_spec`: `24 + mrkL lay` steps, `mrkL lay ≤ 6`).
+  have hm := SigGolfCandidate.T3M.Search.mrkL_le A.lay.val
+  exact this.mono (by ring_nf; omega) (fun _ _ h => h)
 
 def csCost (lay : Layer) : Nat := (WCT9.searchLimit lay * csT lay)+8192
 

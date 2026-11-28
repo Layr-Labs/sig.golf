@@ -1610,7 +1610,8 @@ theorem sourceMessages_variant (hv : Variant labels T T') (L : LeafAddr)
   split
   · rename_i h3
     rw [honestPair_variant hv _ _ (Extract.routed_treeBits_succ h3 hL.1 hL.2)]
-  · rw [forestCommitment_variant hv _ (Nat.mod_lt _ (by decide))]
+  · -- C47 (B): the L3 leaf signs the forest of instance `hyperIndex` of its position.
+    rw [forestCommitment_variant hv _ (SigGolfCandidate.T3.hyperIndex_lt _)]
 
 theorem source_search_variant (hv : Variant labels T T') (L : LeafAddr)
     (hL : WotsExtract.SourceLeaf7 L) (remaining : Nat) :
@@ -11523,7 +11524,7 @@ theorem assembleSig_congr (rho : Digest) (output : HashOutput) (v v' : Coord→D
     LargeResidual.Paired.assembleSig rho output v d l=LargeResidual.Paired.assembleSig rho output v' d l := by
   have hfts : ∀c∈LargeResidual.Paired.ftsItems (digestIndex output) output,v c=v' c :=
     fun c hc => h c (List.mem_append_left _ hc)
-  have hlay : ∀c∈layerItems d (digestIndex output),v c=v' c :=
+  have hlay : ∀c∈layerItems d (LargeResidual.hyperIdx output),v c=v' c :=
     fun c hc => h c (List.mem_append_right _ hc)
   have hopen : openingValues output v=openingValues output v' := by
     funext k t
@@ -11555,13 +11556,13 @@ theorem assembleSig_congr (rho : Digest) (output : HashOutput) (v v' : Coord→D
 
 theorem assembleSig_digits (rho : Digest) (output : HashOutput) (v : Coord→Digest)
     (d d' : Wots.LeafAddr→List Nat) (l l' : Wots.LeafAddr→Bool)
-    (h : ∀lay,d (routeAddr (digestIndex output).val lay)=d' (routeAddr (digestIndex output).val lay))
-    (hl : ∀lay,l (routeAddr (digestIndex output).val lay)=l' (routeAddr (digestIndex output).val lay)) :
+    (h : ∀lay,d (routeAddr (LargeResidual.hyperIdx output).val lay)=d' (routeAddr (LargeResidual.hyperIdx output).val lay))
+    (hl : ∀lay,l (routeAddr (LargeResidual.hyperIdx output).val lay)=l' (routeAddr (LargeResidual.hyperIdx output).val lay)) :
     LargeResidual.Paired.assembleSig rho output v d l=LargeResidual.Paired.assembleSig rho output v d' l' := by
-  have hh : hintsOf (WCT9.digestIndex output) d l = hintsOf (WCT9.digestIndex output) d' l' := by
+  have hh : hintsOf (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) d l = hintsOf (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) d' l' := by
     unfold hintsOf
-    change ∀lay,d (routeAddr (WCT9.digestIndex output) lay)=d' (routeAddr (WCT9.digestIndex output) lay) at h
-    change ∀lay,l (routeAddr (WCT9.digestIndex output) lay)=l' (routeAddr (WCT9.digestIndex output) lay) at hl
+    change ∀lay,d (routeAddr (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay)=d' (routeAddr (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay) at h
+    change ∀lay,l (routeAddr (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay)=l' (routeAddr (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay) at hl
     rw [h 0,h 1,h 2,hl 0,hl 1,hl 2]
   unfold LargeResidual.Paired.assembleSig
   rw [hh]
@@ -11599,14 +11600,14 @@ noncomputable def signedState (T : Answers) (nv : Message → Digest) (published
     let st1 := if (st.memo.lookup request.message).isSome then st
       else LargeResidual.Paired.RouterState.signed st (nv request.message) request.message (LargeResidual.Paired.signDigest T request.message)
     match LargeResidual.Paired.signDigest T request.message with
-    | some (_, N) => if RouteOk T (WCT9.digestIndex N) then
+    | some (_, N) => if RouteOk T (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) then
         { st1 with disclosed := st1.disclosed ++ LargeResidual.Paired.signItems T N } else st1
     | none => st1
   else st
 noncomputable def finishState (T : Answers) (st1 : RouterState) (found : Option (BitVec 32 × HashOutput)) :
     RouterState :=
   match found with
-  | some (_, N) => if RouteOk T (WCT9.digestIndex N) then
+  | some (_, N) => if RouteOk T (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) then
       { st1 with disclosed := st1.disclosed ++ LargeResidual.Paired.signItems T N } else st1
   | none => st1
 noncomputable def startState (T : Answers) (nv : Message → Digest) (st : RouterState) (m : Message) : RouterState :=
@@ -11625,7 +11626,7 @@ theorem startState_fields (T : Answers) (nv : Message → Digest) (st : RouterSt
     exact ⟨h1, h2, h3, h4⟩
 theorem finishState_fields (T : Answers) (st1 : RouterState) (found : Option (BitVec 32 × HashOutput)) :
     (finishState T st1 found).disclosed = st1.disclosed ++ (match found with
-      | some (_, N) => if RouteOk T (WCT9.digestIndex N) then LargeResidual.Paired.signItems T N else []
+      | some (_, N) => if RouteOk T (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) then LargeResidual.Paired.signItems T N else []
       | none => []) ∧
     (finishState T st1 found).seen = st1.seen ∧ (finishState T st1 found).calls = st1.calls ∧
     (finishState T st1 found).births = st1.births ∧ (finishState T st1 found).memo = st1.memo := by
@@ -11689,7 +11690,7 @@ variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Me
 noncomputable def finishOut (T : Answers) (vals : Coord → Digest) (rho : Digest) (found : Option (BitVec 32 × HashOutput)) :
     Option SigGolfCandidate.Research.SharedForest.Signature :=
   match found with
-  | some (_, N) => if RouteOk T (WCT9.digestIndex N) then
+  | some (_, N) => if RouteOk T (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) then
       some (assembleSig rho N (ClaudeWCT.W9.T3.Security.LargeResidual.selVals vals) (Wots.CanonicalRef.referenceDigits T (Wots.CanonicalRef.sourceMessages T))
         (Wots.CanonicalRef.referenceLow T (Wots.CanonicalRef.sourceMessages T))) else none
   | none => none
@@ -11697,7 +11698,7 @@ noncomputable def finishWorld (T : Answers) (U : Finset HashInput) (q : Nat) (la
     (ws : LargeResidual.State WCoord (Cell U)) (found : Option (BitVec 32 × HashOutput)) :
     LargeResidual.State WCoord (Cell U) :=
   match found with
-  | some (_, N) => if RouteOk T (WCT9.digestIndex N) then
+  | some (_, N) => if RouteOk T (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) then
       discloseStates U q labels ws (LargeResidual.Paired.signItems T N ++ ClaudeWCT.W9.T3.Security.LargeResidual.topTrialsDisclosed)
       else ws
   | none => ws
@@ -11813,10 +11814,10 @@ theorem observed_signFinish (hcoh : LargeResidual.Paired.Coherent U T vals nv τ
   | none => exact observed_pure aux q _ τ _ ws1
   | some f =>
       obtain ⟨c, N⟩ := f
-      have hidx : WCT9.digestIndex N < 2 ^ 31 := Nat.mod_lt _ (by positivity)
+      have hidx : SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N) < 2 ^ 31 := SigGolfCandidate.T3.hyperIndex_lt _
       unfold signFinish finishOut finishState finishWorld
       dsimp only
-      by_cases hok : RouteOk T (WCT9.digestIndex N)
+      by_cases hok : RouteOk T (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N))
       · rw [if_pos ((hcoh.routeOk_iff _ hidx).mpr hok), if_pos hok, if_pos hok, if_pos hok]
         rw [observed_discloseAll, observed_pure, hcoh.signItems_eq]
         have hs : assembleSig rho N
@@ -11827,8 +11828,8 @@ theorem observed_signFinish (hcoh : LargeResidual.Paired.Coherent U T vals nv τ
               (Wots.CanonicalRef.referenceLow T (Wots.CanonicalRef.sourceMessages T)) := by
           rw [assembleSig_digits rho N _ _ (Wots.CanonicalRef.referenceDigits T (Wots.CanonicalRef.sourceMessages T))
             _ (Wots.CanonicalRef.referenceLow T (Wots.CanonicalRef.sourceMessages T)) (fun lay =>
-            hcoh.routerDigits_eq _ (routeAddr_enc _ (LargeResidual.digestIndex N).isLt lay)) (fun lay =>
-            hcoh.routerLows_eq _ (routeAddr_enc _ (LargeResidual.digestIndex N).isLt lay))]
+            hcoh.routerDigits_eq _ (routeAddr_enc _ (LargeResidual.hyperIdx N).isLt lay)) (fun lay =>
+            hcoh.routerLows_eq _ (routeAddr_enc _ (LargeResidual.hyperIdx N).isLt lay))]
           apply assembleSig_congr
           intro c' hc'
           exact selVals_lookup_sign vals nv _ (signItems_node_nonce T N) (signItems_wct_nonce T N) c' hc'
@@ -11906,7 +11907,7 @@ theorem finishWorld_props (s : LargeResidual.State WCoord (Cell U)) (found : Opt
     (∀ c, (finishWorld T U q (Sum.elim vals nv) s found).candidates c = s.candidates c ∨
       (finishWorld T U q (Sum.elim vals nv) s found).candidates c = {Sum.elim vals nv c}) ∧
     (∀ c : Coord, c ∉ (match found with
-        | some (_, N) => if RouteOk T (WCT9.digestIndex N) then LargeResidual.Paired.signItems T N else []
+        | some (_, N) => if RouteOk T (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) then LargeResidual.Paired.signItems T N else []
         | none => []) → c ∉ ClaudeWCT.W9.T3.Security.LargeResidual.topTrialsDisclosed →
       (finishWorld T U q (Sum.elim vals nv) s found).candidates (.inl c) = s.candidates (.inl c)) := by
   unfold finishWorld
@@ -11975,7 +11976,7 @@ theorem routeSign_observed (hcoh : LargeResidual.Paired.Coherent U T vals nv τ 
       LargeResidual.nonceVal nv request.message from rfl]
     have hreal := hsource request hc
     have hsd : signDisclosed T published request = match LargeResidual.Paired.signDigest T request.message with
-        | some (_, N) => if RouteOk T (WCT9.digestIndex N) then LargeResidual.Paired.signItems T N else []
+        | some (_, N) => if RouteOk T (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) then LargeResidual.Paired.signItems T N else []
         | none => [] := by
       unfold signDisclosed
       rw [if_pos hc]

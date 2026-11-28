@@ -38,6 +38,7 @@ def msgVals (vals : Coord → Digest) (L : EncLeaf) : WCT9.LayerMsg :=
       (selVals vals (.inl (.node (topNode ⟨L.1.lay.val+1,by omega⟩
       (OuterLifted.ClaudeWCT.W9.T3.Security.CanonEncoding.childIndex L)
       (OuterLifted.ClaudeWCT.W9.T3.Security.CanonEncoding.childIndex_treeBits L h) 1))))
-  else .pair (selVals vals (.inl (.wctNode (ftsTopNode (OuterLifted.ClaudeWCT.W9.T3.Security.CanonEncoding.childIndex L) 8 0))))
-    (selVals vals (.inl (.wctNode (ftsTopNode (OuterLifted.ClaudeWCT.W9.T3.Security.CanonEncoding.childIndex L) 8 1))))
+  -- C47 (B): the L3 leaf at hypertree position `p` signs the FTS top of instance `hyperIndex p`.
+  else .pair (selVals vals (.inl (.wctNode (ftsTopNode (OuterLifted.ClaudeWCT.W9.T3.Security.CanonEncoding.hyperChild L) 8 0))))
+    (selVals vals (.inl (.wctNode (ftsTopNode (OuterLifted.ClaudeWCT.W9.T3.Security.CanonEncoding.hyperChild L) 8 1))))
 end OuterResidualValues

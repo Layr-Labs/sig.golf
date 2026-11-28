@@ -15,7 +15,7 @@ open ClaudeWCT.W9.T3M.SharedCodec
 
 def outputProgram (cache : Bytes 131072) (rho : Digest) (a : BitVec 256) : SigGolfCandidate.T3.M (Option SharedSignature) := do
   let forest←OuterForestMoment.forest (ClaudeWCT.WCT9.digestIndex a) (forestSelectionFromOutput a) (forestWordsFromOutput a)
-  OuterSignAfterForest.layersProgram cache rho (ClaudeWCT.WCT9.digestIndex a) forest
+  OuterSignAfterForest.layersProgram cache rho (SigGolfCandidate.T3.hyperIndex (ClaudeWCT.WCT9.digestIndex a)) forest
 
 def work : Nat := (9*OuterSignForest.forestStepBound+23)+OuterSignAfterForest.work
 
@@ -24,8 +24,8 @@ theorem forest_tbsim {sk a : BitVec 256} {cache : Bytes 131072} {cfFlag : Nat} {
     (hl : LookOK OuterImages.signImage SharedBoundary.forLook)
     (s : MachineState) (hp : SharedCoordinate.Entry sk a s) (hb : Base (cfFlag:=cfFlag) sk cache s)
     (hrho : DigAt s SIG rho) (hz : s.getMem (BitVec.ofNat 64 (ENC+32))=0)
-    (hi : s.getMem 0x20550=BitVec.ofNat 64 (ClaudeWCT.WCT9.digestIndex a))
-    (hindex : ClaudeWCT.WCT9.digestIndex a<2^31)
+    (hi : s.getMem 0x20550=BitVec.ofNat 64 (SigGolfCandidate.T3.hyperIndex (ClaudeWCT.WCT9.digestIndex a)))
+    (hindex : SigGolfCandidate.T3.hyperIndex (ClaudeWCT.WCT9.digestIndex a)<2^31)
     (hranks : ∀c,c<9→SharedCoordinate.rank c a<563) :
     TBSim OuterImages.signImage sk s work (outputProgram cache rho a) OuterSignCompleted.FinalPost := by
   refine TBSim.bind (OuterSignForestGood.forest_boundary_good hf hc hl hranks s hp) (W₂:=OuterSignAfterForest.work) ?_

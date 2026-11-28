@@ -16,14 +16,18 @@ def CreditFloors74 (floors : Layer→Nat) : Prop:=
 theorem after_good (floors : SigGolfCandidate.T3.Layer → Nat) (hcredit : CreditFloors74 floors) (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (Q : Prop) (hQ : Q) (a : HashOutput)
     (top : Digest × Digest) (u : MachineState)
     (h : FtsOut ⟨pk, w, a⟩ top u) :
-    GoodQP (HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) u 8050 13750 Q 5214
+    GoodQP (HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) u 8050 13750 Q 5213
       (ccM (afterFts (decD pk) w (ClaudeWCT.WCT9.digestIndex a) (some top)) Kb) := by
   have hidx : ClaudeWCT.WCT9.digestIndex a < 2 ^ 31 := ClaudeWCT.WCT9.digestIndex_lt a
   obtain ⟨t, hst, hL3⟩ := layerIn_of_fts w pk _ top.1 top.2 u hidx h.glob h.idx h.pc h.left h.right h.wit h.base h.a1
-    h.s10 h.heapTwo h.heapThree h.heapFour h.heapFive h.coordStep h.topBase h.top h.top8 h.a2 h.d0
-  have hg := layers_good floors hcredit.1 w pk _ hidx Q hQ 4 le_rfl (.pair top.1 top.2) t (by simpa [RestIn] using hL3)
+    h.s10 h.heapTwo h.heapThree h.heapFour h.coordStep h.topBase h.top h.top8 h.a2 h.d0
+  -- C47 (B): the hypertree runs on the complemented digest index `hyperIndex`
+  have hj : SigGolfCandidate.T3.hyperIndex (ClaudeWCT.WCT9.digestIndex a) < 2 ^ 31 := by
+    unfold SigGolfCandidate.T3.hyperIndex; omega
+  have hg := layers_good floors hcredit.1 w pk _ hj Q hQ 4 le_rfl (.pair top.1 top.2) t (by simpa [RestIn] using hL3)
   have e : ccM (afterFts (decD pk) w (ClaudeWCT.WCT9.digestIndex a) (some top)) Kb =
-      ccM (BC.layerLoop w (ClaudeWCT.WCT9.digestIndex a) 4 (.pair top.1 top.2)) (kFin pk) := by
+      ccM (BC.layerLoop w (SigGolfCandidate.T3.hyperIndex (ClaudeWCT.WCT9.digestIndex a)) 4 (.pair top.1 top.2))
+        (kFin pk) := by
     unfold afterFts
     rw [ccM_bind]
     rfl
@@ -38,9 +42,9 @@ theorem installed_good (floors : Layer→Nat) (hcredit : CreditFloors74 floors)
     GoodQP
       (W9Fin.V7.Canonical.Pre (HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh witness))
         SigGolfCandidate.Research.SharedForest.jointAccountingCost 776 message witness)
-      state 10083 15784 True 6848
+      state 10083 15784 True 6844
       (ccM (ClaudeWCT.W9.T3M.Paired.verifyP message (decD pk) witness) Kb) := by
-  have H:=W9Fin.V7.Canonical.verify_good (cap:=776) (ovh:=847) (aG:=5214)
+  have H:=W9Fin.V7.Canonical.verify_good (cap:=776) (ovh:=844) (aG:=5213)
     (P:=fun w=>HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) (afterProgram:=fun p=>afterFts (decD p)) W9Fin.V7.prefixGood
     (fun _=>W9Fin.V7.Canonical.fts_installed)
     (fun pk w Q hQ answer top state hstate=>after_good floors hcredit pk w Q hQ answer top state hstate)

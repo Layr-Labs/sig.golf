@@ -108,7 +108,9 @@ theorem posOf_row_none {x : HashInput} {lay : Layer} {tree leaf : Nat} {hi : Bit
       Nat.mod_mod_of_dvd _ (by norm_num)
     omega
   have ht : ¬ ((hi ++ (rowTweak lay tree leaf).extractLsb' 0 64).toNat % 256 < 4 ∧
-      130 ≤ (hi ++ (rowTweak lay tree leaf).extractLsb' 0 64).toNat / 256 % 256 ∧
+      (130 ≤ (hi ++ (rowTweak lay tree leaf).extractLsb' 0 64).toNat / 256 % 256 ∨
+        (34 ≤ (hi ++ (rowTweak lay tree leaf).extractLsb' 0 64).toNat / 256 % 256 ∧
+          (hi ++ (rowTweak lay tree leaf).extractLsb' 0 64).toNat / 256 % 256 < 40)) ∧
       2 ≤ (hi ++ (rowTweak lay tree leaf).extractLsb' 0 64).toNat / 256 % 256 % 8) := by
     have htag := append64_tag hi ((rowTweak lay tree leaf).extractLsb' 0 64)
     have hrow := rowTweak_tag lay tree leaf
@@ -123,7 +125,7 @@ theorem posOf_row_none {x : HashInput} {lay : Layer} {tree leaf : Nat} {hi : Bit
     have := hyperWord_ge lay.val (tree * 2 ^ height lay + leaf)
     -- C40: a hyper word is a multiple of `2 ^ 16` or in the legacy band, never ra.
     have := hyperWord_mod_or_ge lay.val (tree * 2 ^ height lay + leaf)
-    unfold SigGolfCandidate.T3.TopNine; omega
+    unfold SigGolfCandidate.T3.TopNine SigGolfCandidate.T3.TopStep; omega
   rw [Extract.hdrKey_of_len64 hlen hT, hx, SigGolfCandidate.T3M.Extract.canonicalHeader_marker_ne _ hm ht] at he
   have hlo := congrArg (BitVec.extractLsb' 0 64) (bytesLE_injective he)
   rw [BitVec.extractLsb'_append_eq_right] at hlo
@@ -151,7 +153,7 @@ theorem posOf_digest (rho : Digest) (message : Message) (counter : BitVec 32) :
       (pad64 (bytesLE 16 rho ++ bytesLE 16 (digestHeader counter) ++ bytesLE 32 message))) := by
     rw [Extract.hdrBlock_pad64 _ (by simp only [List.length_append, bytesLE_length]; omega),
       Extract.hdrBlock_prefix, Extract.topLow_bytesLE_iff, digestHeader_lowNat]
-    unfold SigGolfCandidate.T3.TopNine; omega
+    unfold SigGolfCandidate.T3.TopNine SigGolfCandidate.T3.TopStep; omega
   rw [Extract.hdrKey_of_len64 hlen hT,
     Extract.hdrBlock_pad64 _ (by simp only [List.length_append, bytesLE_length]; omega),
     Extract.hdrBlock_prefix,
@@ -164,7 +166,7 @@ theorem posOf_digest (rho : Digest) (message : Message) (counter : BitVec 32) :
       simp only [Extract.Pos.hdr, WCT9.ftsChainHeader, digestHeader_tag] at hn
       change 101 = (WCT9.ftsChainHeaderP index coord child c step 0).toNat / 2^8 % 256 at hn
       rw [WCT9.ftsChainHeaderP_byte1] at hn
-      omega
+      split_ifs at hn <;> omega
   | wctNode index coord level nd =>
       simp only [Extract.Pos.hdr, WCT9.wctNodeHeader] at hh
       exact digestHeader_ne_nodeTweak _ _ _ _ _ hh
@@ -203,11 +205,10 @@ theorem sat_digestSearch (T : Answers) (rho : Digest) (message : Message) :
   ClaudeWCT.WCT9.Wots.Structural.sat_digestSearch_of T _ rho message fun _ => Or.inl (posOf_digest _ _ _)
 private theorem canonicalHeader_low (hdr : Digest) :
     (Extract.canonicalHeader (bytesLE 16 hdr)).take 8 = bytesLE 8 (hdr.extractLsb' 0 64) := by
-  have he : hdr = hdr.extractLsb' 64 64 ++ hdr.extractLsb' 0 64 :=
-    (BitVec.extractLsb'_append_extractLsb' (w := 64) (len := 64) (x := hdr)).symm
-  conv_lhs => rw [he, SigGolfCandidate.T3M.Extract.bytesLE_header_words]
-  unfold SigGolfCandidate.T3M.Extract.canonicalHeader
-  split_ifs <;> simp [List.take_append, bytesLE_length]
+  -- C47: via the generic `take 8` lemmas (unfolding the marked test, now with the 21684 exclusion, recursed deeply in
+  -- the kernel).
+  rw [ClaudeWCT.W9.T3.Security.WotsExtract.canonicalHeader_take8 (by simp [bytesLE_length]),
+    ClaudeWCT.W9.T3.Security.WotsExtract.take8_bytesLE16]
 private theorem low_ne_of_firstByte (x y : BitVec 128)
     (hc : 128 ≤ x.toNat % 256) (hr : y.toNat % 256 < 128) :
     x.extractLsb' 0 64 ≠ y.extractLsb' 0 64 := by
@@ -227,6 +228,7 @@ theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Dig
     rw [WCT9.chainInputW_padded, Extract.hdrBlock, WCT9.chainInputW_header, Extract.topLow_bytesLE_iff, Extract.tweakLow_eq_low,
       chainHeader_low, chainHeaderFlaggedLow_toNat]
     have := chainHeaderLow_band lay tree leaf i step
+    have := chainHeaderLow_byte0_ge lay tree leaf i step
     -- C40: a chain word is below `2 ^ 56` or in the legacy band, never ra. C41: and `≥ 2 ^ 28` (no pair label).
     apply ClaudeWCT.W9.T3M.Extract.not_topLowWord_of_ge <;> split_ifs <;> omega
   rw [Extract.hdrKey_of_len64 hlen hT, WCT9.chainInputW_padded, Extract.hdrBlock, WCT9.chainInputW_header] at he
@@ -237,8 +239,8 @@ theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Dig
     exact canonicalHeader_low _
   rw [hp] at hn
   have hlo := bytesLE_injective hn
-  have hbit := chainHeader_offgraph_bit lay tree leaf i step
-  rw [if_neg hoff] at hbit
+  -- C47: an off-graph chain header's low word lies in the flagged bands (honest L3 words wrap below `2 ^ 55`).
+  have hbit := chainHeader_low_offgraph lay tree leaf i step hoff
   cases p with
   | chain lay' tree' leaf' i' step' =>
       exact chainHeader_offgraph_low_ne hoff hb.1 hb.2.1 hb.2.2.1 (by have := hb.2.2.2; omega) hlo
@@ -272,7 +274,7 @@ theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Dig
           · omega
           · exact absurd hP hn
         by_cases hA : hyperHonest (lay'.val - 1) tree'
-        · rw [WCT9.lowerTweak_toNat_honest hh hA hP] at hbit
+        · rw [WCT9.lowerTweak_toNat_honest hh hA hP (by have := lay'.isLt; omega)] at hbit
           have hr := hA.2
           have h31 : 2 ^ hyperW ((lay'.val - 1) % 256) ≤ 2 ^ 31 := Nat.pow_le_pow_right (by norm_num) (hyperW_le _)
           generalize tree' % 2 ^ 32 = R at hr hbit
@@ -281,9 +283,16 @@ theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Dig
         · rw [WCT9.lowerTweak_toNat_old hh hA] at hbit
           omega
   | _ =>
-      exact low_ne_of_firstByte _ _ (chainHeader_firstByte lay tree leaf i step)
-        (Extract.Pos.hdr_marker_lt hb (by simp only [Extract.Pos.cls]; (try split) <;> omega)
-          (by simp only [Extract.Pos.cls]; (try split) <;> omega)) hlo
+      rcases Extract.Pos.hdr_marker_lt hb (by simp only [Extract.Pos.cls]; (try split) <;> omega)
+          (by simp only [Extract.Pos.cls]; (try split) <;> omega) with hr | hr
+      · exact low_ne_of_firstByte _ _ (chainHeader_firstByte lay tree leaf i step) hr hlo
+      · -- C47: the unmarked low word 21684 (coordinate 8's heap 6) is below every chain word (via `tweakLow`: a `simp`
+        -- on the `extractLsb'` values recursed deeply in the kernel).
+        have hv := congrArg BitVec.toNat hlo
+        rw [← Extract.tweakLow_eq_low, ← Extract.tweakLow_eq_low] at hv
+        unfold tweakLow at hv
+        have := chainHeader_low_ge28 lay tree leaf i step
+        omega
 theorem sat_chain (T : Answers) (lay : Layer) (tree leaf i start count : Nat)
     (htree : tree < 2 ^ 40) (hleaf : leaf < 2 ^ 32) (hi : i < 2 ^ 24) (hcount : start + count ≤ 7)
     (hG : WCT9.isG lay i = false := by simp) :
@@ -854,8 +863,8 @@ theorem sat_signPayload (T : Answers) (cache : Cache) (message : Message) :
   · dsimp only
     have hindex : WCT9.digestIndex output < 2 ^ 31 := Nat.mod_lt _ (by decide)
     refine QueriesSat.bind (sat_signForest T _ hindex _) ?_
-    refine QueriesSat.bind (sat_signLayers T cache _ hindex 4 le_rfl _) ?_
-    generalize evalWithAnswerFn T (WCT9.signLayersBC cache (WCT9.digestIndex output) 4 _) = pieces
+    refine QueriesSat.bind (sat_signLayers T cache _ (SigGolfCandidate.T3.hyperIndex_lt _) 4 le_rfl _) ?_
+    generalize evalWithAnswerFn T (WCT9.signLayersBC cache (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 4 _) = pieces
     rcases pieces with _ | pieces <;> exact QueriesSat.pure' _
 theorem sat_authenticatedSign (T : Answers) (published : SigGolfCandidate.T3.Cache) (request : Request) :
     QueriesSat T (HonestQuery T) (FullGame.authenticatedSign published request) := by
@@ -956,7 +965,9 @@ theorem posOf_row_none {x : HashInput} {lay : Layer} {tree leaf : Nat} {hi : Bit
       Nat.mod_mod_of_dvd _ (by norm_num)
     omega
   have ht : ¬ ((hi ++ (rowTweak lay tree leaf).extractLsb' 0 64).toNat % 256 < 4 ∧
-      130 ≤ (hi ++ (rowTweak lay tree leaf).extractLsb' 0 64).toNat / 256 % 256 ∧
+      (130 ≤ (hi ++ (rowTweak lay tree leaf).extractLsb' 0 64).toNat / 256 % 256 ∨
+        (34 ≤ (hi ++ (rowTweak lay tree leaf).extractLsb' 0 64).toNat / 256 % 256 ∧
+          (hi ++ (rowTweak lay tree leaf).extractLsb' 0 64).toNat / 256 % 256 < 40)) ∧
       2 ≤ (hi ++ (rowTweak lay tree leaf).extractLsb' 0 64).toNat / 256 % 256 % 8) := by
     have htag := append64_tag hi ((rowTweak lay tree leaf).extractLsb' 0 64)
     have hrow := rowTweak_tag lay tree leaf
@@ -971,7 +982,7 @@ theorem posOf_row_none {x : HashInput} {lay : Layer} {tree leaf : Nat} {hi : Bit
     have := hyperWord_ge lay.val (tree * 2 ^ height lay + leaf)
     -- C40: a hyper word is a multiple of `2 ^ 16` or in the legacy band, never ra.
     have := hyperWord_mod_or_ge lay.val (tree * 2 ^ height lay + leaf)
-    unfold SigGolfCandidate.T3.TopNine; omega
+    unfold SigGolfCandidate.T3.TopNine SigGolfCandidate.T3.TopStep; omega
   rw [Extract.hdrKey_of_len64 hlen hT, hx, SigGolfCandidate.T3M.Extract.canonicalHeader_marker_ne _ hm ht] at he
   have hlo := congrArg (BitVec.extractLsb' 0 64) (bytesLE_injective he)
   rw [BitVec.extractLsb'_append_eq_right] at hlo
@@ -999,7 +1010,7 @@ theorem posOf_digest (rho : Digest) (message : Message) (counter : BitVec 32) :
       (pad64 (bytesLE 16 rho ++ bytesLE 16 (digestHeader counter) ++ bytesLE 32 message))) := by
     rw [Extract.hdrBlock_pad64 _ (by simp only [List.length_append, bytesLE_length]; omega),
       Extract.hdrBlock_prefix, Extract.topLow_bytesLE_iff, digestHeader_lowNat]
-    unfold SigGolfCandidate.T3.TopNine; omega
+    unfold SigGolfCandidate.T3.TopNine SigGolfCandidate.T3.TopStep; omega
   rw [Extract.hdrKey_of_len64 hlen hT,
     Extract.hdrBlock_pad64 _ (by simp only [List.length_append, bytesLE_length]; omega),
     Extract.hdrBlock_prefix,
@@ -1012,7 +1023,7 @@ theorem posOf_digest (rho : Digest) (message : Message) (counter : BitVec 32) :
       simp only [Extract.Pos.hdr, WCT9.ftsChainHeader, digestHeader_tag] at hn
       change 101 = (WCT9.ftsChainHeaderP index coord child c step 0).toNat / 2^8 % 256 at hn
       rw [WCT9.ftsChainHeaderP_byte1] at hn
-      omega
+      split_ifs at hn <;> omega
   | wctNode index coord level nd =>
       simp only [Extract.Pos.hdr, WCT9.wctNodeHeader] at hh
       exact digestHeader_ne_nodeTweak _ _ _ _ _ hh
@@ -1051,11 +1062,10 @@ theorem sat_digestSearch (T : Answers) (rho : Digest) (message : Message) :
   ClaudeWCT.WCT9.Wots.Structural.sat_digestSearch_of T _ rho message fun _ => Or.inl (posOf_digest _ _ _)
 private theorem canonicalHeader_low (hdr : Digest) :
     (Extract.canonicalHeader (bytesLE 16 hdr)).take 8 = bytesLE 8 (hdr.extractLsb' 0 64) := by
-  have he : hdr = hdr.extractLsb' 64 64 ++ hdr.extractLsb' 0 64 :=
-    (BitVec.extractLsb'_append_extractLsb' (w := 64) (len := 64) (x := hdr)).symm
-  conv_lhs => rw [he, SigGolfCandidate.T3M.Extract.bytesLE_header_words]
-  unfold SigGolfCandidate.T3M.Extract.canonicalHeader
-  split_ifs <;> simp [List.take_append, bytesLE_length]
+  -- C47: via the generic `take 8` lemmas (unfolding the marked test, now with the 21684 exclusion, recursed deeply in
+  -- the kernel).
+  rw [ClaudeWCT.W9.T3.Security.WotsExtract.canonicalHeader_take8 (by simp [bytesLE_length]),
+    ClaudeWCT.W9.T3.Security.WotsExtract.take8_bytesLE16]
 private theorem low_ne_of_firstByte (x y : BitVec 128)
     (hc : 128 ≤ x.toNat % 256) (hr : y.toNat % 256 < 128) :
     x.extractLsb' 0 64 ≠ y.extractLsb' 0 64 := by
@@ -1075,6 +1085,7 @@ theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Dig
     rw [WCT9.chainInputW_padded, Extract.hdrBlock, WCT9.chainInputW_header, Extract.topLow_bytesLE_iff, Extract.tweakLow_eq_low,
       chainHeader_low, chainHeaderFlaggedLow_toNat]
     have := chainHeaderLow_band lay tree leaf i step
+    have := chainHeaderLow_byte0_ge lay tree leaf i step
     -- C40: a chain word is below `2 ^ 56` or in the legacy band, never ra. C41: and `≥ 2 ^ 28` (no pair label).
     apply ClaudeWCT.W9.T3M.Extract.not_topLowWord_of_ge <;> split_ifs <;> omega
   rw [Extract.hdrKey_of_len64 hlen hT, WCT9.chainInputW_padded, Extract.hdrBlock, WCT9.chainInputW_header] at he
@@ -1085,8 +1096,8 @@ theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Dig
     exact canonicalHeader_low _
   rw [hp] at hn
   have hlo := bytesLE_injective hn
-  have hbit := chainHeader_offgraph_bit lay tree leaf i step
-  rw [if_neg hoff] at hbit
+  -- C47: an off-graph chain header's low word lies in the flagged bands (honest L3 words wrap below `2 ^ 55`).
+  have hbit := chainHeader_low_offgraph lay tree leaf i step hoff
   cases p with
   | chain lay' tree' leaf' i' step' =>
       exact chainHeader_offgraph_low_ne hoff hb.1 hb.2.1 hb.2.2.1 (by have := hb.2.2.2; omega) hlo
@@ -1120,7 +1131,7 @@ theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Dig
           · omega
           · exact absurd hP hn
         by_cases hA : hyperHonest (lay'.val - 1) tree'
-        · rw [WCT9.lowerTweak_toNat_honest hh hA hP] at hbit
+        · rw [WCT9.lowerTweak_toNat_honest hh hA hP (by have := lay'.isLt; omega)] at hbit
           have hr := hA.2
           have h31 : 2 ^ hyperW ((lay'.val - 1) % 256) ≤ 2 ^ 31 := Nat.pow_le_pow_right (by norm_num) (hyperW_le _)
           generalize tree' % 2 ^ 32 = R at hr hbit
@@ -1129,9 +1140,16 @@ theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Dig
         · rw [WCT9.lowerTweak_toNat_old hh hA] at hbit
           omega
   | _ =>
-      exact low_ne_of_firstByte _ _ (chainHeader_firstByte lay tree leaf i step)
-        (Extract.Pos.hdr_marker_lt hb (by simp only [Extract.Pos.cls]; (try split) <;> omega)
-          (by simp only [Extract.Pos.cls]; (try split) <;> omega)) hlo
+      rcases Extract.Pos.hdr_marker_lt hb (by simp only [Extract.Pos.cls]; (try split) <;> omega)
+          (by simp only [Extract.Pos.cls]; (try split) <;> omega) with hr | hr
+      · exact low_ne_of_firstByte _ _ (chainHeader_firstByte lay tree leaf i step) hr hlo
+      · -- C47: the unmarked low word 21684 (coordinate 8's heap 6) is below every chain word (via `tweakLow`: a `simp`
+        -- on the `extractLsb'` values recursed deeply in the kernel).
+        have hv := congrArg BitVec.toNat hlo
+        rw [← Extract.tweakLow_eq_low, ← Extract.tweakLow_eq_low] at hv
+        unfold tweakLow at hv
+        have := chainHeader_low_ge28 lay tree leaf i step
+        omega
 theorem sat_chain (T : Answers) (lay : Layer) (tree leaf i start count : Nat)
     (htree : tree < 2 ^ 40) (hleaf : leaf < 2 ^ 32) (hi : i < 2 ^ 24) (hcount : start + count ≤ 7)
     (hG : WCT9.isG lay i = false := by simp) :
@@ -2362,7 +2380,8 @@ theorem sat_signFromOutput (T : Answers) (cache : SigGolfCandidate.T3.Cache) (rh
   unfold signFromOutput
   refine QueriesSat.bind (sat_buildForest T (digestIndex output) (digestIndex_lt output)
     (forestSelectionFromOutput output) (forestWordsFromOutput output)) ?_
-  refine QueriesSat.bind (sat_prepareRoots T (digestIndex output) (digestIndex_lt output)) ?_
+  refine QueriesSat.bind (sat_prepareRoots T (SigGolfCandidate.T3.hyperIndex (digestIndex output))
+    (SigGolfCandidate.T3.hyperIndex_lt _)) ?_
   refine QueriesSat.bind (sat_searchPreparedLayers T cache _ _ _) ?_
   generalize evalWithAnswerFn T (searchPreparedLayers cache _ _ _) = found
   rcases found with _ | result <;> exact QueriesSat.pure' _

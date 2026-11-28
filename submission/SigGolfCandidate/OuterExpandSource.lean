@@ -33,24 +33,24 @@ theorem expandN_source (message : SigGolfCandidate.T3.Message) (pk : Digest) (b 
       (SharedCodec.sigDecC b).forest >>= k)
     funext forest
     simp only [bind_assoc]
-    apply congrArg (fun k=>SharedForest.recoverHintedLayers (SharedCodec.sigDecC b) (WCT9.digestIndex output)
+    apply congrArg (fun k=>SharedForest.recoverHintedLayers (SharedCodec.sigDecC b) (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output))
       (WCT9.topSib (SharedForest.mainSignature (SharedCodec.sigDecC b))) 4 (.pair forest.1.1 forest.1.2) >>= k)
     funext layers
     cases layers with
     | none => rfl
     | some layers =>
       dsimp only
-      by_cases valid:OuterSigning.policyHintsValid (WCT9.digestIndex output) (SharedCodec.sigDecC b).policyHints layers.digits layers.lows=true
+      by_cases valid:OuterSigning.policyHintsValid (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) (SharedCodec.sigDecC b).policyHints layers.digits layers.lows=true
       · simp only [valid,Bool.not_true,Bool.false_eq_true,ite_false,ite_true,pure_bind]
         unfold topProgram
         by_cases root:layers.root=pk
         · simp only [root,ite_true,pure_bind,Option.map_some,hfill,OuterForestSuffix.appendNonces]
         · simp only [root,ite_false,bind_assoc]
-          apply congrArg (fun k=>WCT9.searchTop (WCT9.digestIndex output) layers.foldedTop
+          apply congrArg (fun k=>WCT9.searchTop (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) layers.foldedTop
             (WCT9.topSib (SharedForest.mainSignature (SharedCodec.sigDecC b))) pk WCT9.searchFuel 1 >>= k)
           funext c
           cases c <;> rfl
-      · have vf : OuterSigning.policyHintsValid (WCT9.digestIndex output) (SharedCodec.sigDecC b).policyHints layers.digits layers.lows=false :=
+      · have vf : OuterSigning.policyHintsValid (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) (SharedCodec.sigDecC b).policyHints layers.digits layers.lows=false :=
           Bool.eq_false_iff.mpr valid
         simp only [vf,Bool.not_false,Bool.false_eq_true,ite_true,ite_false,pure_bind,OuterForestSuffix.appendNonces]
 

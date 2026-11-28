@@ -24,7 +24,7 @@ theorem transfer (L : Nat→Option (BitVec 32)) (hL : LookOK Images.signImage L)
     (hgap : ∀n,26156≤n → n<26241 → L n=none) (h0 : L 1977=none) (h1 : L 25338=none) (h2 : L 25963=none) : LookOK OuterImages.signImage L := by
   intro n w hw
   have hold:=hL n w hw
-  have hn : n<26672 := by
+  have hn : n<26782 := by
     have hh : n<Images.signImage.code.length := List.getElem?_eq_some_iff.mp hold |>.1
     simpa only [Images.signImage,Images.signCode_length] using hh
   have he0 : n≠1977 := by intro he;subst n;rw [h0] at hw;contradiction

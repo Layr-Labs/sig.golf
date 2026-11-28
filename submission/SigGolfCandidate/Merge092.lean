@@ -83,7 +83,7 @@ theorem core_tbsim (L : W9Machine.Layout) (sk : BitVec 256)
     (hwindow : (Frozen.image.code.drop 195584).take 59072=(L.image.code.drop 195584).take 59072)
     (hcodes : W9Drv.SharedBank.CopyCodes L.image)
     (k : Fin 9) (raw : Fin 128) (rank : Fin 563)
-    (hchild : L.childWord raw=W9Drv.SharedBank.copyWord k.val raw.val)
+    (hchild : L.childWord raw=W9Drv.SharedBank.copyWord k.val raw.val) (hret : k.val = 8 → L.returnWord k = 4397)
     (hbase : Chain.base L k=9768-848*k.val)
     (hchain : ∀w index u,N600.Pre L w index k raw rank u→
       TBSim L.image sk u 89 (N600.program w index k raw rank) (N600.Post L w index k raw u))
@@ -103,7 +103,7 @@ theorem core_tbsim (L : W9Machine.Layout) (sk : BitVec 256)
   rw [hspec]
   refine TBSim.bind (hchain _ _ _ hu) ?_
   intro ends childEntry hp
-  exact (W9Drv.SharedBank.childG_tbsim L sk k raw hwindow hcodes hchild hbase _ index ends childEntry
+  exact (W9Drv.SharedBank.childG_tbsim L sk k raw hwindow hcodes hchild hret hbase _ index ends childEntry
     (hp.sharedChild hu)).mono le_rfl (fun res t ht=>⟨ends,childEntry,hp,ht⟩)
 
 end ClaudeWCT.W9.Machine.Expand.SharedCore
@@ -130,7 +130,11 @@ def words (k : Nat) : List (BitVec 32) := [
 [0x208b7,0x16088893,0x108b203,0x1a25213,0x7f27213,0x108b703,0x2175713,0x3ff77713,0x1437,0x4a740413,0x66e37,0xe0e13,0x10e3783,0x2179793,0xfffff337,0x80030313,0x6787b3,0x1a21f93,0xff8fb3,0x821b93,0x4b337,0x430313,0x6b8bb3,0x293,0x100493,0x200693,0x300993,0xf8290ef,0xc0337,0x6f8fb3,0x700f13,0x4000593,0x97,0x84008093,0x871713,0xc0337,0x30313,0x670733,0x70067],
 [0x208b7,0x16088893,0x188b203,0x1425213,0x7f27213,0x188b703,0x875713,0x3ff77713,0x1437,0x15740413,0x66e37,0xe0e13,0x10e3783,0x2179793,0xffffe337,0x30313,0x6787b3,0x1421f93,0xff8fb3,0x721b93,0x3f337,0x430313,0x6b8bb3,0x293,0x100493,0x200693,0x300993,0x5c290ef,0x13,0x13,0x700f13,0x4000593,0x97,0x84008093,0x871713,0xc0337,0x30313,0x670733,0x70067],
 [0x208b7,0x16088893,0x188b203,0x1a25213,0x7f27213,0x188b703,0x2175713,0x3ff77713,0x1437,0xe0740413,0x66e37,0xe0e13,0x10e3783,0x2179793,0xffffe337,0x30313,0x6787b3,0x1a21f93,0xff8fb3,0x821b93,0x4b337,0x430313,0x6b8bb3,0x293,0x100493,0x200693,0x300993,0x7c1280ef,0xc0337,0x6f8fb3,0x700f13,0x4000593,0x97,0x84008093,0x871713,0xc0337,0x30313,0x670733,0x70067],
-[0x208b7,0x16088893,0x108b203,0x3925213,0x7f27213,0x108b703,0x2d75713,0x3ff77713,0xcb040413,0x66e37,0xe0e13,0x10e3783,0x2179793,0xffffe337,0x80030313,0x6787b3,0x1421f93,0xff8fb3,0x821b93,0x43337,0x430313,0x6b8bb3,0x293,0x100493,0x200693,0x300993,0x729280ef,0x13,0x13,0x700f13,0x4000593,0x97,0x83408093,0x871713,0xc0337,0x30313,0x670733,0x70067]].getD k []
+[0x208b7,0x16088893,0x108b203,0x3925213,0x7f27213,0x108b703,0x2d75713,0x3ff77713,0xcb040413,0x66e37,0xe0e13,0x10e3783,0x2179793,0xffffe337,0x30313,0x6787b3,0x1421f93,0x40ff8fb3,0x821b93,0x43337,0x430313,0x6b8bb3,0x293,0x100493,0x200693,0x300993,0x729280ef,0x13,0x13,0x700f13,0x4000593,0x50b7,0x4b408093,0x871713,0xc0337,0x30313,0x670733,0x70067]].getD k []
+/-- C47: the dispatch link `ra`: `pcOf (endWord k - 503)` (`auipc`-relative, even blocks after `addi ra,ra,-1984`);
+coordinate 8 loads the constant `0x54b4 = pcOf 4397` (`lui ra,5; addi ra,ra,1204`), the c8 heap-6/7 label (its
+copies never return through `ra`: the grinder jumps to 46862). -/
+def retWord (k : Nat) : Nat := if k = 8 then 4397 else endWord k - 503
 def rawPosition (k : Nat) : Nat := [20,26,20,26,20,26,20,26,57].getD k 0
 def rawWord (k : Nat) : Nat := [0,0,1,1,2,2,3,3,2].getD k 0
 def rankPosition (k : Nat) : Nat := [8,33,8,45,8,33,8,33,45].getD k 0
@@ -144,8 +148,9 @@ def result (k : Nat) : Result :=
   -- Repack: every raw read shifts (coordinate 0 now `srli tp,tp,20`; `lui t1,0x10` reuses the redundant `addi t3,t3,0` slot).
   let raw := mkBin .and (mkBin .srl (.ld (.c (BitVec.ofNat 64 (0x20160+8*rawWord k)))) (.c (BitVec.ofNat 64 (rawPosition k)))) (.c 127)
   let rank := mkBin .and (mkBin .srl (.ld (.c (BitVec.ofNat 64 (0x20160+8*rankWord k)))) (.c (BitVec.ofNat 64 (rankPosition k)))) (.c 1023)
-  -- C46: pairs `(2m, 2m+1)` share the tag base `-2048 (m + 1)`.
-  let node := mkAdd (mkBin .sll (.ld (.c 0x66010)) (.c 33)) (.c (BitVec.ofNat 64 (2^64-2048-2048*(k/2))))
+  -- C46: pairs `(2m, 2m+1)` share the tag base `-2048 (m + 1)`; C47: coordinate 8 uses pair 3's (`ftsPair`).
+  let node := mkAdd (mkBin .sll (.ld (.c 0x66010)) (.c 33))
+    (.c (BitVec.ofNat 64 (2^64-2048-2048*SigGolfCandidate.T3.ftsPair k)))
   let chainPC := mkAdd (mkBin .sll rank (.c 8)) (.c 0xc0000)
   -- C42: the path base is `+ 4` (`addi t1,t1,4`): the bank exits `jalr zero,0(s7)` land on the old copy word `+ 1`.
   let childPC := mkAdd (mkBin .sll raw (.c (if k<8 ∧ k%2=0 then 7 else 8)))
@@ -159,40 +164,46 @@ def result (k : Nat) : Result :=
   let regs := (regs.set .x15 node).set .x6 (.c 0xc0000)
   -- C46: odd coordinates add `0xc0000` to the leaf word (`lui t1,0xc0; add t6,t6,t1` after the stub call).
   let leaf := mkAdd (mkBin .sll raw (.c (BitVec.ofNat 64 (ClaudeWCT.WCT9.ftsSelShift k)))) node
-  let regs := (regs.set .x31 (if k%2=1 then mkAdd leaf (.c 0xc0000) else leaf)).set .x23 childPC
+  -- C47: coordinate 8 is reflected (`sub t6,t6,a5`).
+  let regs := (regs.set .x31 (if k = 8 then .bin .sub (mkBin .sll raw (.c 20)) node
+    else if k%2=1 then mkAdd leaf (.c 0xc0000) else leaf)).set .x23 childPC
   -- C46: the stub sets `s1 := 0xfff01` (`ftsHeapLabelO 7`) and `a3 := 0xf1b02` (`ftsHeapLabel 2`).
   let regs := (regs.set .x5 (.c 0)).set .x9 (.c 1048321)
-  let regs := (regs.set .x13 (.c 989954)).set .x19 (.c 3)
+  -- C47: the stub extension sets `s3 := K` (`Child.heapLab 3`) and `sp := 0xffbde0` (`Child.heapLab 5`).
+  let regs := (regs.set .x13 (.c 989954)).set .x19 (.c 3879747587)
+  let regs := regs.set .x2 (.c 16760288)
   -- C42: heaps 4/5/6 hold their FTS labels `ftsHeapLabel 4/5/6` (the step stub at 88780).
   let regs := (regs.set .x20 (.c 930564)).set .x21 (.c 989957)
   let regs := (regs.set .x26 (.c 108112779336744966)).set .x30 (.c 7)
   -- C46: the odd label registers t4/s2/s11 (`ftsHeapLabelO 4/5/6`).
   let regs := (regs.set .x29 (.c 1045961013456797696)).set .x18 (.c 8523612160)
   let regs := regs.set .x27 (.c 133169152)
-  let regs := (regs.set .x11 (.c 64)).set .x1 (.c (pcOf (endWord k-(if k=8 then 506 else 503))))
+  let regs := (regs.set .x11 (.c 64)).set .x1 (.c (pcOf (retWord k)))
   ⟨⟨regs,[],[]⟩,mkBin .and chainPC (.c (~~~1#64)),.jump,length k+20,length k+20⟩
 /-- C42: the step-register stub (expand words 88780..88799, called by `jal ra,88780` from every dispatch block, which
 replaces `addi s4,zero,4; addi s5,zero,5; addi s10,zero,6`): `s4 := 930564; s5 := 989957;
 s10 := 0x01801800000c0006`; C46: `a3 := 0xf1b02; t4 := 929 * 2^50; s2 := 0x1fc0c0000; s11 := 0x7f00000;
-s1 := 0xfff01; jalr zero,0(ra)` (the two words after the call: `nop`s on even coordinates, `t6 += 0xc0000` on odd). -/
-def stub : List (BitVec 32) := [0xe3a37,0x304a0a13,0xf2ab7,0xb05a8a93,0x60060d37,0x8d1d13,0x3d0d13,0x12d1d13,0x6d0d13,0xf26b7,0xb0268693,0x3a1eb7,0x26e9e93,0x7f0937,0x30090913,0xa91913,0x7f00db7,0x1004b7,0xf0148493,0x8067]
+s1 := 0xfff01`; C47: `88799: jal 88824` (over the label chain 88800..88823, `ExpandLabel.chain2`, never executed here),
+`sp := 0xffbde0` (`Child.heapLab 5`), `s3 := K = 0xe7404003` (`Child.heapLab 3`), `jalr zero,0(ra)` (88824..88830).
+The two words after the call: `nop`s on even coordinates, `t6 += 0xc0000` on odd. -/
+def stub : List (BitVec 32) := [0xe3a37,0x304a0a13,0xf2ab7,0xb05a8a93,0x60060d37,0x8d1d13,0x3d0d13,0x12d1d13,0x6d0d13,0xf26b7,0xb0268693,0x3a1eb7,0x26e9e93,0x7f0937,0x30090913,0xa91913,0x7f00db7,0x1004b7,0xf0148493,0x640006f,0xffc30193,0x19863,0xe3337,0x30430313,0xe14aa06f,0xffb30193,0x19863,0xffc337,0xde030313,0xe00aa06f,0xffa30193,0x19e63,0x60060337,0x831313,0x330313,0x1231313,0x630313,0xde0aa06f,0xffe30193,0x19863,0xf2337,0xb0230313,0xdccaa06f,0x200006f,0xffc137,0xde010113,0x73a029b7,0x198993,0x199993,0x198993,0x8067]
 def look (k : Nat) (n : Nat) : Option (BitVec 32) :=
   if start k ≤ n ∧ n < endWord k then (words k)[n-start k]?
-  else if 88780 ≤ n ∧ n < 88800 then stub[n-88780]? else none
+  else if 88780 ≤ n ∧ n < 88831 then stub[n-88780]? else none
 /-- The dispatch path (block, stub, block tail) as a path result: C46: 20 more steps than the block (the 20 stub
-words; the two words after the call now run). -/
-def pres (k : Nat) : PRes := ⟨(result k).st,0,false,length k+20,length k+20,[],some (result k).pc⟩
-theorem checked0 : optBeq (pathAux {} (look 0) [] 60 (pcOf (start 0)) [.jmp] (σK []) []) (pres 0)=true := by decide +kernel
-theorem checked1 : optBeq (pathAux {} (look 1) [] 60 (pcOf (start 1)) [.jmp] (σK []) []) (pres 1)=true := by decide +kernel
-theorem checked2 : optBeq (pathAux {} (look 2) [] 60 (pcOf (start 2)) [.jmp] (σK []) []) (pres 2)=true := by decide +kernel
-theorem checked3 : optBeq (pathAux {} (look 3) [] 60 (pcOf (start 3)) [.jmp] (σK []) []) (pres 3)=true := by decide +kernel
-theorem checked4 : optBeq (pathAux {} (look 4) [] 60 (pcOf (start 4)) [.jmp] (σK []) []) (pres 4)=true := by decide +kernel
-theorem checked5 : optBeq (pathAux {} (look 5) [] 60 (pcOf (start 5)) [.jmp] (σK []) []) (pres 5)=true := by decide +kernel
-theorem checked6 : optBeq (pathAux {} (look 6) [] 60 (pcOf (start 6)) [.jmp] (σK []) []) (pres 6)=true := by decide +kernel
-theorem checked7 : optBeq (pathAux {} (look 7) [] 60 (pcOf (start 7)) [.jmp] (σK []) []) (pres 7)=true := by decide +kernel
-theorem checked8 : optBeq (pathAux {} (look 8) [] 60 (pcOf (start 8)) [.jmp] (σK []) []) (pres 8)=true := by decide +kernel
+words; the two words after the call now run); C47: 27 (the `jal 88824` and the 7-word stub extension). -/
+def pres (k : Nat) : PRes := ⟨(result k).st,0,false,length k+27,length k+27,[],some (result k).pc⟩
+theorem checked0 : optBeq (pathAux {} (look 0) [] 80 (pcOf (start 0)) [.jmp] (σK []) []) (pres 0)=true := by decide +kernel
+theorem checked1 : optBeq (pathAux {} (look 1) [] 80 (pcOf (start 1)) [.jmp] (σK []) []) (pres 1)=true := by decide +kernel
+theorem checked2 : optBeq (pathAux {} (look 2) [] 80 (pcOf (start 2)) [.jmp] (σK []) []) (pres 2)=true := by decide +kernel
+theorem checked3 : optBeq (pathAux {} (look 3) [] 80 (pcOf (start 3)) [.jmp] (σK []) []) (pres 3)=true := by decide +kernel
+theorem checked4 : optBeq (pathAux {} (look 4) [] 80 (pcOf (start 4)) [.jmp] (σK []) []) (pres 4)=true := by decide +kernel
+theorem checked5 : optBeq (pathAux {} (look 5) [] 80 (pcOf (start 5)) [.jmp] (σK []) []) (pres 5)=true := by decide +kernel
+theorem checked6 : optBeq (pathAux {} (look 6) [] 80 (pcOf (start 6)) [.jmp] (σK []) []) (pres 6)=true := by decide +kernel
+theorem checked7 : optBeq (pathAux {} (look 7) [] 80 (pcOf (start 7)) [.jmp] (σK []) []) (pres 7)=true := by decide +kernel
+theorem checked8 : optBeq (pathAux {} (look 8) [] 80 (pcOf (start 8)) [.jmp] (σK []) []) (pres 8)=true := by decide +kernel
 theorem checked (k : Fin 9) :
-    pathAux {} (look k.val) [] 60 (pcOf (start k.val)) [.jmp] (σK []) []=some (pres k.val) := by
+    pathAux {} (look k.val) [] 80 (pcOf (start k.val)) [.jmp] (σK []) []=some (pres k.val) := by
   apply optBeq_eq
   fin_cases k
   · exact checked0
@@ -213,14 +224,23 @@ theorem result_raw (k : Fin 9) (u : MachineState) :
 
 theorem result_node (k : Fin 9) (u : MachineState) :
     ((result k.val).toState u).getReg .x15=
-      (u.getMem 0x66010 <<< 33)+BitVec.ofNat 64 (2^64-2048-2048*(k.val/2)) := by
+      (u.getMem 0x66010 <<< 33)+BitVec.ofNat 64 (2^64-2048-2048*SigGolfCandidate.T3.ftsPair k.val) := by
   fin_cases k <;> rfl
 
 /-- C46: odd coordinates add `0xc0000`. -/
-theorem result_leaf (k : Fin 9) (u : MachineState) :
+theorem result_leaf (k : Fin 9) (u : MachineState) (h8 : k.val ≠ 8) :
     ((result k.val).toState u).getReg .x31=
       (rawRead k.val u <<< ClaudeWCT.WCT9.ftsSelShift k.val)+((result k.val).toState u).getReg .x15+
-        (if k.val%2=1 then 0xc0000#64 else 0#64) := by fin_cases k <;> simp [result,rawRead,rawWord,rawPosition,Result.toState_getReg,RegFile.get,RegFile.set,mkAdd,addC,mkBin,E.eval,BinOp.eval,BitVec.add_assoc,ClaudeWCT.WCT9.ftsSelShift]
+        (if k.val%2=1 then 0xc0000#64 else 0#64) := by
+  fin_cases k
+  all_goals first
+    | exact absurd rfl h8
+    | simp [result,rawRead,rawWord,rawPosition,Result.toState_getReg,RegFile.get,RegFile.set,mkAdd,addC,mkBin,E.eval,BinOp.eval,BitVec.add_assoc,ClaudeWCT.WCT9.ftsSelShift,SigGolfCandidate.T3.ftsPair]
+/-- C47: coordinate 8's leaf word is reflected: `(raw << 20) - node`. -/
+theorem result_leaf8 (u : MachineState) :
+    ((result 8).toState u).getReg .x31 = (rawRead 8 u <<< 20) - ((result 8).toState u).getReg .x15 := by
+  simp [result,rawRead,rawWord,rawPosition,Result.toState_getReg,RegFile.get,RegFile.set,mkAdd,addC,mkBin,E.eval,
+    BinOp.eval]
 
 theorem result_base (k : Fin 9) (u : MachineState)
     (h8 : k.val = 8 → u.getReg .x8 = BitVec.ofNat 64 3591) :
@@ -234,7 +254,7 @@ theorem result_base (k : Fin 9) (u : MachineState)
   · fin_cases k <;> first | exact absurd rfl hk | rfl
 
 theorem result_return (k : Fin 9) (u : MachineState) :
-    ((result k.val).toState u).getReg .x1=pcOf (endWord k.val-(if k.val=8 then 506 else 503)) := by
+    ((result k.val).toState u).getReg .x1=pcOf (retWord k.val) := by
   fin_cases k <;> rfl
 
 theorem result_pc (k : Fin 9) (u : MachineState) :
@@ -252,7 +272,7 @@ set_option maxHeartbeats 1000000
 /-- r3w: the expander runs the shared banks 1352 bytes below verify (`delta8 = 169`). -/
 noncomputable def layout (image : Image) (k : Fin 9) : W9Machine.Layout :=
   ⟨image,Frozen.layout.chainWord,fun raw=>W9Drv.SharedBank.copyWord k.val raw.val,
-    fun _=>endWord k.val-(if k.val=8 then 506 else 503),169⟩
+    fun _=>retWord k.val,169⟩
 theorem layout_shift (image : Image) (k : Fin 9) : (layout image k).shift = 1352 := rfl
 theorem layout_base (image : Image) (k k' : Fin 9) : Chain.base (layout image k) k' = coordinateBase k' - 1352 := by
   unfold Chain.base; rw [layout_shift]
@@ -268,11 +288,11 @@ theorem look_ok {image : Image} (k : Fin 9) (hcode : CodeAt image (pcOf (start k
   · have hh:=ClaudeWCT.W9.Machine.Sign.SharedDigest.codeAt_get_word (by decide) hstub hw
     simpa only [Nat.add_sub_cancel' h2.1] using hh
 
-/-- C42: the dispatch of coordinate `k` (its block and the step stub) runs `length k + 20` steps (C46). -/
+/-- C42: the dispatch of coordinate `k` (its block and the step stub) runs `length k + 20` steps (C46; C47: 27). -/
 theorem steps (image : Image) (k : Fin 9) (u : MachineState)
     (hcode : CodeAt image (pcOf (start k.val)) (words k.val)) (hstub : CodeAt image (pcOf 88780) stub)
     (hpc : u.pc=pcOf (start k.val)) :
-    Steps image u (length k.val+20) (length k.val+20) ((result k.val).toState u) := by
+    Steps image u (length k.val+27) (length k.val+27) ((result k.val).toState u) := by
   have h:=(pathRun_sound (known:=[]) (checked k) (look_ok k hcode hstub) u hpc
     (by intro p hp; cases hp) (by intro o ho; fin_cases k <;> cases ho) (by intro b hb; fin_cases k <;> cases hb)).1
   exact h
@@ -314,7 +334,7 @@ theorem result_stepTwo (k : Fin 9) (u : MachineState) : (((result k.val).toState
 theorem result_hashLen (k : Fin 9) (u : MachineState) : ((result k.val).toState u).getReg .x11=64 := by fin_cases k <;> rfl
 /-- C42: the heap registers hold the FTS heap labels (`2`, `3`, `930564`, `989957`, `0x01801800000c0006`). -/
 theorem result_heaps (k : Fin 9) (u : MachineState) (h : Nat) (h2 : 2≤h) (h7 : h≤6) :
-    ((result k.val).toState u).getReg (Child.heapReg h)=BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel h) := by
+    ((result k.val).toState u).getReg (Child.heapReg h)=BitVec.ofNat 64 (Child.heapLab h) := by
   interval_cases h <;> fin_cases k <;> rfl
 /-- C46: the odd label registers t4/s2/s11/s1 hold `ftsHeapLabelO 4..7`. -/
 theorem result_heapsO (k : Fin 9) (u : MachineState) (h : Nat) (h4 : 4≤h) (h7 : h≤7) :
@@ -334,7 +354,7 @@ theorem result_pc_value (k : Fin 9) (u : MachineState) (rank : Nat)
     ((congrArg (fun x : Word=>x &&& ~~~1#64) he).trans (pcOf_and_not1 _)))
 
 /-- C46: the dispatcher's leaf word (odd coordinates `+ 0xc0000`). -/
-theorem leafLow_disp (index k j : Nat) (hk : k < 9) (hj : j < 128) (hi : index < 2 ^ 31) :
+theorem leafLow_disp (index k j : Nat) (hk : k < 9) (hj : j < 128) (hi : index < 2 ^ 31) (h8 : k ≠ 8) :
     (BitVec.ofNat 64 j <<< ClaudeWCT.WCT9.ftsSelShift k) + BitVec.ofNat 64 (V3.nodeLow k index) +
       (if k % 2 = 1 then 0xc0000#64 else 0#64) = BitVec.ofNat 64 (V3.leafLow index k j) := by
   have hc : (if k % 2 = 1 then 0xc0000#64 else 0#64) = BitVec.ofNat 64 (786432 * (k % 2)) := by
@@ -343,8 +363,12 @@ theorem leafLow_disp (index k j : Nat) (hk : k < 9) (hj : j < 128) (hi : index <
   apply BitVec.eq_of_toNat_eq
   simp only [BitVec.toNat_ofNat]
   unfold V3.nodeLow V3.leafLow ClaudeWCT.WCT9.ftsNodeLow2 ClaudeWCT.WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN
+  rw [if_neg h8]
   rw [Nat.shiftLeft_eq, ← ClaudeWCT.WCT9.ftsSelMul_eq, Nat.mod_eq_of_lt (by omega : k < 16), Nat.mod_eq_of_lt hj,
     Nat.mod_eq_of_lt hi]
+  -- C47: `ftsNodeLow2`'s coordinate-8 term `2^11 * (k / 8)` vanishes for `k < 8`.
+  have h80 : k / 8 = 0 := by omega
+  simp only [h80, Nat.mul_zero, Nat.add_zero]
   have hs := ClaudeWCT.WCT9.ftsSelMul_cases k
   rcases hs with hs | hs <;> rw [hs] <;> omega
 
@@ -352,8 +376,20 @@ theorem result_leaf_value (k : Fin 9) (u : MachineState) (index : Nat) (raw : Fi
     (hi : index<2^31) (hindex : u.getMem 0x66010=BitVec.ofNat 64 index)
     (hraw : rawRead k.val u=BitVec.ofNat 64 raw.val) :
     ((result k.val).toState u).getReg .x31=BitVec.ofNat 64 (V3.leafLow index k.val raw.val) := by
-  have hp := leafLow_disp index k.val raw.val k.isLt raw.isLt hi
-  exact (result_leaf k u).trans ((congrArg₂ (fun a b : Word=>(a <<< ClaudeWCT.WCT9.ftsSelShift k.val)+b+
+  by_cases h8 : k.val = 8
+  · -- C47: coordinate 8 is reflected, `(raw << 20) - node`.
+    have hn := result_node_value ⟨8, by decide⟩ u index hi hindex
+    dsimp only at hn
+    rw [h8] at hraw ⊢
+    rw [result_leaf8, hraw, hn, W9Drv.shl_ofNat]
+    have hj := raw.isLt
+    apply BitVec.eq_of_toNat_eq
+    rw [BitVec.toNat_sub, BitVec.toNat_ofNat, BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.shiftLeft_eq]
+    unfold V3.nodeLow V3.leafLow ClaudeWCT.WCT9.ftsNodeLow2 ClaudeWCT.WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN
+    rw [if_pos rfl, Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hi]
+    omega
+  have hp := leafLow_disp index k.val raw.val k.isLt raw.isLt hi h8
+  exact (result_leaf k u h8).trans ((congrArg₂ (fun a b : Word=>(a <<< ClaudeWCT.WCT9.ftsSelShift k.val)+b+
     (if k.val%2=1 then 0xc0000#64 else 0#64)) hraw (result_node_value k u index hi hindex)).trans hp)
 
 
@@ -589,6 +625,10 @@ theorem next_other {image : Image} (w : W9Machine.WBytes) (k : Fin 9) (raw : Fin
         unfold eRegion at hw
         split_ifs at hoff <;> omega
 
+-- C47: the reference-image forest pass (`next`, `step_tbsim`, `forest_tbsim_of_copies`, `installed_forest_good`) is
+-- removed: the dispatch now loads `ra = 0x54b4` (coordinate 8's heap-6 label), so the shared bank's coordinate-8
+-- return no longer reaches 46862 in `Images.expandImage`. The submitted image's forest pass is `OuterInstalledForest`
+-- (its coordinate-8 grinders exit with `jal 46862`); none of the removed theorems is used by the certificate.
 end ClaudeWCT.W9.Machine.Expand.SharedForestRun
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedForestRun
@@ -598,89 +638,6 @@ open SigGolfCandidate.T3 (Digest M)
 set_option maxRecDepth 100000
 set_option maxHeartbeats 1000000
 
-theorem next {image : Image} {w : W9Machine.WBytes} {index : Nat} {raw : Fin 9 → Fin 128}
-    {ranks : Fin 9 → Fin 563} {initial u entry t : MachineState} {k : Fin 9} {prev : Digest×Digest}
-    {ends : List Digest} {computed : Digest × Nat × Nat} (hu : Inv w index raw ranks initial k.val prev u)
-    (hp : Chain.Post (SharedDispatch.layout image k) (SharedV3.viewWB 2904 w k.val u) index k (raw k)
-      ((SharedDispatch.result k.val).toState u) ends entry)
-    (ht : SharedChild.PostC (SharedDispatch.layout image k) k (raw k) entry computed t) :
-    Inv w index raw ranks initial (k.val+1)
-      (SharedV3.orderPair k.val (SharedV3.physical k.val (raw k).val) computed.1
-        (SharedV3.topOther w k.val (SharedV3.physical k.val (raw k).val))) t := by
-  have hk:=k.isLt
-  have hf:=core_frame_dispatch hp ht
-  have hfg:Frame u t writes:=hf.mono (fun addr _ hw=>child_writes_bounds (image:=image) k (raw k) addr hw)
-  have hother:∀off,(off=SharedV3.handL (k.val+1) ∨ off=SharedV3.handR (k.val+1)) → 
-      (if SharedV3.direction k.val (SharedV3.physical k.val (raw k).val)=0
-        then off=SharedV3.handR (k.val+1) else off=SharedV3.handL (k.val+1)) → 
-      DigAt t (eRegion (k.val+1)+off) (SharedV3.topOther w k.val (SharedV3.physical k.val (raw k).val)) := by
-    intro off hoff hsel
-    have ho:off≤816 ∧ off%8=0 ∧ (k.val+1=9 → off=768 ∨ off=816) := by
-      unfold SharedV3.handR SharedV3.handL at hoff;split_ifs at hoff <;> omega
-    exact next_other w k (raw k) u t hf off hoff hsel
-      (hu.coords (k.val+1) (by omega) (by omega) off (by omega) (by omega)
-        (fun h=>by have:=ho.2.2 h;omega) (fun h=>by omega))
-      (hu.coords (k.val+1) (by omega) (by omega) (off+8) (by omega) (by omega)
-        (fun h=>by have:=ho.2.2 h;omega) (fun h=>by omega))
-  refine ⟨by omega,?_,fields_frame hfg hu.fields,?_,?_,?_,?_,?_⟩
-  · rw [ht.pc]
-    fin_cases k <;> rfl
-  · unfold SharedV3.orderPair
-    by_cases hd:SharedV3.direction k.val (SharedV3.physical k.val (raw k).val)=0
-    · rw [if_pos hd]
-      have he:SharedChild.handAddr (SharedDispatch.layout image k) k (raw k)=eRegion (k.val+1)+SharedV3.handL (k.val+1):=by rw [hand_address,if_pos hd]
-      rw [←he]
-      exact ht.top
-    · rw [if_neg hd]
-      exact hother (SharedV3.handL (k.val+1)) (Or.inl rfl) (by rw [if_neg hd])
-  · unfold SharedV3.orderPair
-    by_cases hd:SharedV3.direction k.val (SharedV3.physical k.val (raw k).val)=0
-    · rw [if_pos hd]
-      exact hother (SharedV3.handR (k.val+1)) (Or.inr rfl) (by rw [if_pos hd])
-    · rw [if_neg hd]
-      have he:SharedChild.handAddr (SharedDispatch.layout image k) k (raw k)=eRegion (k.val+1)+SharedV3.handR (k.val+1):=by
-        rw [hand_address,if_neg hd]
-      rw [←he]
-      exact ht.top
-  · intro m hm1 hm9 off hoff h8 hv hh
-    have h0:=hu.coords m (by omega) hm9 off hoff h8 hv (fun h=>by omega)
-    unfold W9Machine.OrigWD at h0 ⊢
-    rw [←h0]
-    apply hf _ (by unfold eRegion;omega)
-    intro hw
-    rcases hw with hw|hw|hw
-    rotate_left
-    · unfold SharedChild.recW SigGolfCandidate.FtsGrind.slotA SigGolfCandidate.FtsGrind.SCR at hw
-      rw [SharedDispatch.layout_base] at hw
-      unfold coordinateBase eRegion at *
-      omega
-    · rcases hw with hw|hw
-      · unfold SharedChild.scratchW SigGolfCandidate.FtsGrind.SCR at hw
-        unfold eRegion at *
-        omega
-      · unfold SharedChild.recW16 SigGolfCandidate.FtsGrind.slot16 SigGolfCandidate.FtsGrind.SCR16 at hw
-        unfold eRegion at *
-        omega
-    simp only [SharedChild.writes, SharedChild.outputAddr, SharedChild.handAddr, SharedDispatch.layout_base] at hw
-    unfold coordinateBase at hw
-    have hmk:eRegion m+848≤eRegion k.val:=by unfold eRegion;omega
-    rcases Nat.lt_or_ge (k.val+1) m with hgt|hle
-    · have :eRegion m+848≤eRegion (k.val+1):=by unfold eRegion;omega
-      unfold eRegion at *
-      split_ifs at hw <;> omega
-    · have hm':m=k.val+1:=by omega
-      subst hm'
-      have hn:=hh rfl
-      unfold isHand SharedV3.isHand at hn
-      unfold eRegion at *
-      split_ifs at hn <;> split_ifs at hw <;> omega
-  · intro addr ha hn
-    exact (hfg addr ha hn).trans (hu.frame addr ha hn)
-  · intro _
-    rw [ht.keep .x8 (by decide), hp.child.baseReg.2, SharedDispatch.layout_base]
-    simp only [coordinateBase]
-    congr 2
-    omega
 end ClaudeWCT.W9.Machine.Expand.SharedForestRun
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedDispatch
@@ -856,73 +813,6 @@ theorem rec16_next {image : Image} {w : W9Machine.WBytes} {index : Nat} {raw : F
 the step stub (`+ 8`); C46: the longer stub (`+ 20`, `length k + 20 ≤ 59`). -/
 def stepW : Nat := 59+89+102+SigGolfCandidate.FtsGrind.W_SEARCH 2+SigGolfCandidate.FtsGrind.W_SEARCH16
 
-theorem step_tbsim (image : Image) (sk : BitVec 256)
-    (hwindow : (Frozen.image.code.drop 195584).take 59072=(image.code.drop 195584).take 59072)
-    (hstub : CodeAt image (pcOf 88780) SharedDispatch.stub)
-    (hcode : ∀k:Fin 9,CodeAt image (pcOf (SharedDispatch.start k.val)) (SharedDispatch.words k.val))
-    (hslot : ∀rank:Fin 563,Frozen.layout.chainWord (N600.embed rank)=195584+64*rank.val)
-    (hcodes : W9Drv.SharedBank.CopyCodes image)
-    (hcore : ∀ (L:W9Machine.Layout) (k:Fin 9) (j:Fin 128) (rank:Fin 563),
-      (Frozen.image.code.drop 195584).take 59072=(L.image.code.drop 195584).take 59072 → 
-      W9Drv.SharedBank.CopyCodes L.image →
-      L.childWord j=W9Drv.SharedBank.copyWord k.val j.val → Chain.base L k=9768-848*k.val →
-      (∀r,L.chainWord r=Frozen.layout.chainWord r) → 
-      ∀w index snapshot u padL padR,
-      N600.Pre L (SharedV3.viewWB 2904 w k.val snapshot) index k j rank u → 
-      DigAt snapshot (2904+V3.regionOffset k.val+672) padL → 
-      DigAt snapshot (2904+V3.regionOffset k.val+160) padR → 
-      TBSim L.image sk u (89+W9Drv.SharedBank.costG k)
-        (N600.program w index k j rank >>=fun ends=>SharedV3.childNG w index k j ends padL padR)
-        (SharedCore.Post L (SharedV3.viewWB 2904 w k.val snapshot) index k j u))
-    (w : W9Machine.WBytes) (index : Nat) (hi : index<2^31) (raw : Fin 9 → Fin 128)
-    (ranks : Fin 9 → Fin 563) (initial : MachineState) (k : Fin 9) (prev : (Digest×Digest)×List Nat×List Nat)
-    (u : MachineState)
-    (hu : Inv w index raw ranks initial k.val prev.1 u ∧ RecInv raw k.val prev.2.1 u ∧ RecInv16 raw k.val prev.2.2 u) :
-    TBSim image sk u stepW
-      (SharedV3.coordinateG w index k (raw k) (N600.embed (ranks k)) prev.1 >>= fun r=>
-        pure (r.1,prev.2.1++[r.2.1],prev.2.2++[r.2.2]))
-      (fun acc t=>Inv w index raw ranks initial (k.val+1) acc.1 t ∧ RecInv raw (k.val+1) acc.2.1 t ∧
-        RecInv16 raw (k.val+1) acc.2.2 t) := by
-  let L:=SharedDispatch.layout image k
-  let v:=(SharedDispatch.result k.val).toState u
-  have hs:=SharedDispatch.steps image k u (hcode k) hstub
-    (by simpa only [pcWord,if_pos k.isLt] using hu.1.pc)
-  have hc:=SharedDispatch.chain_pre image k u (SharedV3.viewWB 2904 w k.val u) index (raw k) (ranks k)
-    hi hu.1.fields.index (hu.1.fields.raw k) (hu.1.fields.rank k) (hslot _) (witness_view hu.1)
-    (fun h => by rw [hu.1.x8 (by omega), h])
-  have hL:DigAt u (2904+V3.regionOffset k.val+672) prev.1.1 := by
-    convert hu.1.prevL using 1 <;> unfold V3.regionOffset eRegion SharedV3.handL <;>
-      have:=k.isLt <;> simp only [if_neg (by omega : k.val≠9)] <;> omega
-  have hR:DigAt u (2904+V3.regionOffset k.val+160) prev.1.2 := by
-    convert hu.1.prevR using 1 <;> unfold V3.regionOffset eRegion SharedV3.handR <;>
-      have:=k.isLt <;> simp only [if_neg (by omega : k.val≠9)] <;> omega
-  have hbase:Chain.base L k=9768-848*k.val := by
-    rw [SharedDispatch.layout_base]; unfold coordinateBase; have:=k.isLt; omega
-  have hb:=hcore L k (raw k) (ranks k) hwindow hcodes rfl hbase (fun _=>rfl)
-    w index u v prev.1.1 prev.1.2 hc hL hR
-  have hj' : TBSim image sk v ((89+W9Drv.SharedBank.costG k)+0)
-      ((N600.program w index k (raw k) (ranks k) >>=fun ends=>
-        SharedV3.childNG w index k (raw k) ends prev.1.1 prev.1.2) >>=fun computed=>
-        pure ((SharedV3.orderPair k.val (SharedV3.physical k.val (raw k).val) computed.1
-          (SharedV3.topOther w k.val (SharedV3.physical k.val (raw k).val))),prev.2.1++[computed.2.1],
-          prev.2.2++[computed.2.2]))
-      (fun acc t=>Inv w index raw ranks initial (k.val+1) acc.1 t ∧ RecInv raw (k.val+1) acc.2.1 t ∧
-        RecInv16 raw (k.val+1) acc.2.2 t) := by
-    refine TBSim.bind hb ?_
-    intro computed t ht
-    obtain ⟨ends,entry,hp,ht⟩:=ht
-    exact TBSim.pure ⟨next hu.1 hp ht,rec_next hu.2.1 hp ht,rec16_next hu.2.2 hp ht⟩
-  have hh:=TBSim.steps hs hj'
-  have hlen:SharedDispatch.length k.val≤39:=by fin_cases k <;> decide
-  have hcost:W9Drv.SharedBank.costG k≤102+SigGolfCandidate.FtsGrind.W_SEARCH 2+SigGolfCandidate.FtsGrind.W_SEARCH16:=by
-    unfold W9Drv.SharedBank.costG SigGolfCandidate.FtsGrind.W_SEARCH SigGolfCandidate.FtsGrind.FUEL
-      SigGolfCandidate.FtsGrind.ftsWidth SigGolfCandidate.FtsGrind.W16 SigGolfCandidate.FtsGrind.W_SEARCH16
-      SigGolfCandidate.FtsGrind.W_PLAIN16
-    split_ifs <;> omega
-  simpa only [SharedV3.coordinateG,N600.program,bind_assoc,pure_bind] using
-    hh.mono (show SharedDispatch.length k.val+20+((89+W9Drv.SharedBank.costG k)+0)≤ stepW by unfold stepW; omega)
-      (fun _ _ h=>h)
-
 /-- E8: the expand forest pass, with the 9 ground nonces and their records. -/
 def forestW : Nat := 9*stepW
 theorem forestW_val : forestW=138888 := by decide
@@ -981,29 +871,6 @@ open SigGolfCandidate.T3 (Digest M)
 set_option maxRecDepth 100000
 set_option maxHeartbeats 1000000
 
-theorem forest_tbsim_of_copies (image : Image) (sk : BitVec 256)
-    (hwindow : (Frozen.image.code.drop 195584).take 59072=(image.code.drop 195584).take 59072)
-    (hcodes : W9Drv.SharedBank.CopyCodes image)
-    (hcode : ∀k:Fin 9,CodeAt image (pcOf (SharedDispatch.start k.val)) (SharedDispatch.words k.val))
-    (hstub : CodeAt image (pcOf 88780) SharedDispatch.stub)
-    (hslot : ∀rank:Fin 563,Frozen.layout.chainWord (N600.embed rank)=195584+64*rank.val)
-    (hchain : ∀ (L : W9Machine.Layout),
-      (Frozen.image.code.drop 195584).take 59072=(L.image.code.drop 195584).take 59072 →
-      (∀ rank,L.chainWord rank=Frozen.layout.chainWord rank) →
-      ∀ (rank:Fin 563) (w:W9Machine.WBytes) (index:Nat) (k:Fin 9) (j:Fin 128) (u:MachineState),
-      N600.Pre L w index k j rank u →
-      TBSim L.image sk u 89 (N600.program w index k j rank) (N600.Post L w index k j u))
-    (w : W9Machine.WBytes) (index : Nat) (hi:index<2^31) (raw : Fin 9 → Fin 128)
-    (ranks : Fin 9 → Fin 563) (initial : MachineState)
-    (h0 : Inv w index raw ranks initial 0 (SharedV3.initialPair w) initial) :
-    TBSim image sk initial forestW (SharedV3.forestG w index raw (fun k=>N600.embed (ranks k)))
-      (ForestPost initial index raw ranks) := by
-  apply forest_tbsim image sk w index raw ranks initial ?_ h0
-  intro k prev u hu
-  apply step_tbsim image sk hwindow hstub hcode hslot hcodes ?_ w index hi raw ranks initial k prev u hu
-  intro L k j rank hw hcodes' hc hb hcw w index snapshot u padL padR hpre hL hR
-  exact SharedCore.core_tbsim L sk hw hcodes' k j rank hc hb
-    (fun w index u hu=>hchain L hw hcw rank w index k j u hu) w index snapshot u padL padR hpre hL hR
 end ClaudeWCT.W9.Machine.Expand.SharedForestRun
 
 namespace SigGolfCandidate.T3M.Expand.SharedLayers
@@ -2021,8 +1888,10 @@ theorem installed_layout : Layout.Code Images.expandImage := by
   · obtain ⟨h1, h2, h3⟩ := installed_layout_chunks k hk
     exact SigGolfCandidate.T3M.codeAt_expand_last h1 h2 h3
   · exact LayoutWalk.codeAt_of_walk layout_walk ret_mem
+theorem installed_jstubs : CodeAt Images.expandImage (pcOf 88876) compactJStubs :=
+  (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
 theorem installed_compact : CompactCodeAt Images.expandImage :=
-  compactCode_of_chunks installed_compact_chunks installed_pairCopy installed_layout
+  compactCode_of_chunks installed_compact_chunks installed_pairCopy installed_layout installed_jstubs
 end ClaudeWCT.W9.Machine.Expand
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedDigestCode
@@ -2133,25 +2002,6 @@ open SigGolfCandidate.Research.SharedForest ClaudeWCT.W9.T3M
 set_option maxRecDepth 100000
 set_option maxHeartbeats 1000000
 
-theorem installed_forest_good (sk : BitVec 256) (output : HashOutput)
-    (witness : SigGolfCandidate.Research.SharedForest.Witness) (index : Nat) (hi : index<2^31)
-    (s : MachineState)
-    (h0 : Inv (Paired.witEnc output witness) index (rawChildFromOutput output)
-      (fun k=>forestRank output k.val) s 0 (SharedV3.initialPair (Paired.witEnc output witness)) s) :
-    TBSim Images.expandImage sk s forestW
-      (recoverForest index (forestSelectionFromOutput output) (forestWordsFromOutput output) witness.signature.forest)
-      (ForestPost s index (rawChildFromOutput output) (fun k=>forestRank output k.val)) := by
-  have hwin : (Frozen.image.code.drop 195584).take 59072=(Images.expandImage.code.drop 195584).take 59072 := by
-    rw [W9Machine.Frozen.image_eq]
-    exact Images.expand_banks_eq_verify.symm
-  have hm:=forest_tbsim_of_copies Images.expandImage sk hwin W9Drv.SharedBank.installed_copies
-    SharedDispatch.installed_code SharedDispatch.installed_stub W9Drv.slot_entry
-    (fun L hw hc rank w index k j u hu=>N600.tbsim_sharedBank L sk hw hc rank w index k j u hu)
-    (Paired.witEnc output witness) index hi (rawChildFromOutput output)
-    (fun k=>forestRank output k.val) s h0
-  rw[show N600.embed=ClaudeWCT.WCT9.embed from N600.embed_eq_c1] at hm
-  rw[W9Drv.SharedCanonical.forest_witEncG' output witness index hi] at hm
-  exact hm
 end ClaudeWCT.W9.Machine.Expand.SharedForestRun
 end
 -- ==== merged from ClaudeWCT_W9_New_Machine_Expand_H2FrontA ====

@@ -13,7 +13,7 @@ open ClaudeWCT.W9.Machine.Expand.SharedScatter (coordRegion)
 
 theorem run {L : W9Machine.Layout} {sk : BitVec 256} (k : Fin 9) (raw : Fin 128) (index : Nat)
     (hf : SharedV3.first k.val=false) (hc : k.val=8) (hi : index<2^31)
-    (hchild : L.childWord raw=copyBase (SharedV3.physical k.val raw.val))
+    (hchild : L.childWord raw=copyBase (SharedV3.physical k.val raw.val)) (hret : L.returnWord k=4397)
     (hcode : CopyCodeAt L.image (SharedV3.physical k.val raw.val))
     (hbank : CodeAt L.image (pcOf (childBase (SharedV3.physical k.val raw.val))) (OuterNodeBankLayout.cWords (SharedV3.physical k.val raw.val)))
     (hS : CodeAt L.image (pcOf SEARCH) searchWords)
@@ -33,7 +33,7 @@ theorem run {L : W9Machine.Layout} {sk : BitVec 256} (k : Fin 9) (raw : Fin 128)
     by_contra h
     have hz : k.val=0 := by omega
     simp [SharedV3.first,hz] at hf
-  have hp:=pre_of_shared w index k raw ends x (bankPc j.val x) hx (fun _=>rfl) (fun _=>rfl) rfl
+  have hp:=pre_of_shared w index k raw ends x (bankPc j.val x) hx (fun _=>rfl) (fun _=>rfl) rfl hret
   have hp' : ChildPre j.val (coordRegion k.val) k.val index
       (V3.leafFields k.val index raw.val (SharedV3.leafPad w k.val) ends)
       (SharedV3.nodePad w k.val j.val) (SharedV3.sibling w k.val j.val) (SharedV3.nodeTw w k.val j.val) (bankPc j.val x) := by

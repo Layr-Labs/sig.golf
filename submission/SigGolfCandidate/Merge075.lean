@@ -7,6 +7,7 @@ import SigGolfCandidate.Merge052
 import SigGolfCandidate.Merge055
 import SigGolfCandidate.Merge058
 import SigGolfCandidate.Merge074
+import SigGolfCandidate.ExpandLabel
 set_option debug.skipKernelTC true
 set_option linter.all false
 
@@ -1295,8 +1296,8 @@ def layerBytesV6 (lay : Layer) (leaf : Nat) (ls : LayerSignature lay) : List UIn
   if lay.val = 0 then (layerBytes lay leaf ls).take 768 ++ zeros 192 ++ (layerBytes lay leaf ls).drop 768
   else layerBytes lay leaf ls
 def layerRegionV6 (N : HashOutput) (w : WCT9.Witness) (lay : Layer) : List UInt8 :=
-  if lay.val = 0 then layerBytesV6 lay (route (WCT9.digestIndex N) lay).1 (w.signature.layers lay)
-  else layerBytesBCV6 lay (route (WCT9.digestIndex N) lay).1 (w.signature.layers lay)
+  if lay.val = 0 then layerBytesV6 lay (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) lay).1 (w.signature.layers lay)
+  else layerBytesBCV6 lay (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) lay).1 (w.signature.layers lay)
     (w.counters (Fin.ofNat 4 (lay.val - 1)))
 /-- Staging region of the compaction pass (896 bytes). r3w (witness stack): the FTS content of the staging is dead
 (the finish pass zeroes `[1152, 11000)` and rebuilds the FTS block from the signature), so only its length matters. -/
@@ -2013,13 +2014,28 @@ end SigGolfCandidate.T3M.Keygen.PackedBlocks
 
 namespace SigGolfCandidate.T3M.Expand.SharedRecover.PackedBlocks
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
-open SigGolfCandidate.T3M.Keygen.PackedBlocks
-/-- L-hyper A: expand's chain header body (word 8 jumps to the marker trampoline at 245313, back at word 13). -/
-def expand_bodyA : List (BitVec 32) := [0x749333,0x1230333,0x20e37,0x1a0e0e13,0x2035393,0x7e3c23,0x2031313,0x1035313,0x550ee06f,0x13,0x13,0x13,0x13,0xffa7393,0x839393,0x736333,0x809e393,0x736333,0xc5dff06f]
-def expand_hdrT : List (BitVec 32) := [0x141f13,0x1e40433,0x840433,0x803f33,0x1f0f13,0x1cf1f13,0x8f1f33,0x1e36333,0x640413,0x345413,0xa9d1106f]
+open SigGolfCandidate.T3M.Keygen.PackedBlocks SigGolfCandidate.T3M.Verify
+/-- L-hyper A: expand's chain header body (word 8 jumps to the marker trampoline at 245313); C47: word 13 (1266) is
+`jal 88839`, the code-swap stub (`ExpandLabel.hdrStub`). -/
+def expand_bodyA : List (BitVec 32) := [0x749333,0x1230333,0x20e37,0x1a0e0e13,0x2035393,0x7e3c23,0x2031313,0x1035313,0x550ee06f,0x13,0x13,0x13,0x13,0x555506f,0x839393,0x736333,0x809e393,0x736333,0xc5dff06f]
+/-- C47: the marker trampoline's `or t1,t1,t5` (245320) is `jal 88850`, the L3 tag-marker stub. -/
+def expand_hdrT : List (BitVec 32) := [0x141f13,0x1e40433,0x840433,0x803f33,0x1f0f13,0x1cf1f13,0x8f1f33,0xb286706f,0x640413,0x345413,0xa9d1106f]
+/-- C47: the L3 tag-marker stub (88850..88855): `addi s0,s0,-18; bne s0,zero,88853; sub t5,zero,t5; addi s0,s0,18;
+or t1,t1,t5; jal 245321` (`s0 = 6 lay`): layer 3's marker is `-2 ^ 47`, i.e. `T3.hyperMark 3`. -/
+def expand_mstub : List (BitVec 32) := [0xfee40413,0x41463,0x41e00f33,0x1240413,0x1e36333,0x4c99806f]
 sym_block run_expand_bodyA0 := symRun { noAlias := true } expand_bodyA (pcOf 1253) 100
-sym_block run_expand_hdrT := symRunAux { noAlias := true } expand_hdrT (pcOf 245313) 100 run_expand_bodyA0.res.st
-sym_block run_expand_bodyA := symRunAux { noAlias := true } (expand_bodyA.drop 13) (pcOf 1266) 100 run_expand_hdrT.res.st
+/-- C47: the trampoline (245313..245323), the marker stub and `1266: jal 88839` as one path from the body's state. -/
+def hlookT (n : Nat) : Option (BitVec 32) :=
+  if 245313 ≤ n ∧ n < 245324 then expand_hdrT[n-245313]? else if 88850 ≤ n ∧ n < 88856 then expand_mstub[n-88850]?
+  else if n = 1266 then expand_bodyA[13]? else none
+def hdrRun (d : Bool) : Option PRes :=
+  pathAux {noAlias := true} hlookT [pcOf 88839] 40 (pcOf 245313) [.br d] run_expand_bodyA0.res.st []
+def hfallback : PRes := ⟨SymState.init, 0, false, 0, 0, [], none⟩
+-- C47: layers 0..2 (`bne` taken, 17 steps) and layer 3 (18 steps).
+path_block hdrRunT := (hdrRun true).getD hfallback
+path_block hdrRunF := (hdrRun false).getD hfallback
+theorem hdrRun_T : hdrRun true = some hdrRunT.res := by kernel_rfl
+theorem hdrRun_F : hdrRun false = some hdrRunF.res := by kernel_rfl
 class Code (im : Image) : Prop where
   entry : CodeAt im (pcOf 1032) expand_entry
   layer0 : CodeAt im (pcOf 1247) expand_layer0
@@ -2028,7 +2044,8 @@ class Code (im : Image) : Prop where
   inc : CodeAt im (pcOf 1252) expand_inc
   body : CodeAt im (pcOf 1253) expand_bodyA
   hdrT : CodeAt im (pcOf 245313) expand_hdrT
-  body2 : CodeAt im (pcOf 1266) (expand_bodyA.drop 13)
+  mstub : CodeAt im (pcOf 88850) expand_mstub
+  cstub : CodeAt im (pcOf 88839) ExpandLabel.hdrStub
   store : CodeAt im (pcOf 1038) expand_store
 variable {im : Image} [Code im]
 theorem steps_expand_entry (s : MachineState) (hpc : s.pc = pcOf 1032) :
@@ -2051,10 +2068,126 @@ theorem steps_expand_inc (s : MachineState) (hpc : s.pc = pcOf 1252) :
     Steps im s 1 1 (run_expand_inc.res.toState s) := by
   exact symRun_sound run_expand_inc (Code.inc (im := im)) s hpc (by simp [run_expand_inc.res, rv_simp])
 
-theorem steps_expand_body (s : MachineState) (hpc : s.pc = pcOf 1253) :
-    Steps im s 26 26 (run_expand_bodyA.res.toState s) :=
-  LH.chain3_sound run_expand_bodyA0 (Code.body (im := im)) hpc (by rfl) run_expand_hdrT (Code.hdrT (im := im))
-    (by rfl) run_expand_bodyA (Code.body2 (im := im)) (by simp [run_expand_bodyA.res, rv_simp])
+private theorem codeAt_prefix' {im : Image} {b : Nat} {code : List (BitVec 32)} (hb : b < 2 ^ 30)
+    (hc : CodeAt im (pcOf b) code) : code <+: im.code.drop b := by
+  have h := hc.2.2.2
+  have hpc : (pcOf b).toNat = 4096 + 4 * b := by simp only [pcOf, BitVec.toNat_ofNat]; omega
+  rwa [hpc, show (4096 + 4 * b - 0x1000) / 4 = b by omega] at h
+private theorem prefix_get' {im : Image} {xs : List (BitVec 32)} {base n : Nat} {w : BitVec 32}
+    (hp : xs <+: im.code.drop base) (hn : base ≤ n) (hg : xs[n-base]?=some w) :
+    im.code[n]?=some w := by
+  obtain ⟨rest,hr⟩ := hp
+  have hi : n-base<xs.length := (List.getElem?_eq_some_iff.mp hg).1
+  have he : (im.code.drop base)[n-base]?=some w := by
+    rw [←hr,List.getElem?_append_left hi]
+    exact hg
+  rwa [List.getElem?_drop,Nat.add_sub_cancel' hn] at he
+theorem hlookT_ok : LookOK im hlookT := by
+  intro n w hw
+  unfold hlookT at hw
+  split_ifs at hw with h1 h2 h3
+  · exact prefix_get' (codeAt_prefix' (by decide) (Code.hdrT (im := im))) h1.1 hw
+  · exact prefix_get' (codeAt_prefix' (by decide) (Code.mstub (im := im))) h2.1 hw
+  · subst h3
+    exact prefix_get' (codeAt_prefix' (by decide) (Code.body (im := im))) (by omega) hw
+/-- C47: the header body from 1253 through the store (1041): `29 + Keygen.mrkX lay + hdrX step` steps; the low word has the
+marker `T3.hyperMark lay` (the L3 tag-marker stub) and the step code `T3.lowerStepCode step` (the code-swap stub). -/
+theorem expand_header_body (u : MachineState) (hpc : u.pc = pcOf 1253) (lay : Nat) (hl : lay < 4)
+    (h8 : u.getReg .x8 = BitVec.ofNat 64 lay) (step : Nat) (hs : step < 256)
+    (h20 : u.getReg .x20 = BitVec.ofNat 64 step) :
+    ∃ t, Steps im u (29 + Keygen.mrkX lay + ExpandLabel.hdrX step) (29 + Keygen.mrkX lay + ExpandLabel.hdrX step) t ∧
+      t.pc = pcOf 1041 ∧
+      t.getMem (BitVec.ofNat 64 (0x201A0 + 16)) = ((routed u <<< 32) >>> 16) ||| BitVec.ofNat 64 (T3.hyperMark lay) |||
+        (BitVec.ofNat 64 (T3.lowerStepCode step) <<< 8) ||| (u.getReg .x19 ||| 128#64) ∧
+      t.getMem (BitVec.ofNat 64 (0x201A0 + 24)) = routed u >>> 32 ∧
+      t.getReg .x28 = BitVec.ofNat 64 0x201A0 ∧
+      RegsExcept u t [.x6, .x7, .x28, .x30] ∧
+      Frame u t (fun A => A = 0x201A0 + 16 ∨ A = 0x201A0 + 24) := by
+  have h1 := symRun_sound run_expand_bodyA0 (Code.body (im := im)) u hpc (by simp [run_expand_bodyA0.res, rv_simp])
+  have e1 : run_expand_bodyA0.res.st.toState u (pcOf 245313) = run_expand_bodyA0.res.toState u := by
+    simp [Result.toState, run_expand_bodyA0.res, E.eval]
+  have hcl := ExpandLabel.hlook_ok (codeAt_prefix' (by decide) (Code.cstub (im := im)))
+  have hst := fun t (hp : t.pc = pcOf 1038) => symRun_sound run_expand_store (Code.store (im := im)) t hp
+    (by simp [run_expand_store.res, rv_simp])
+  by_cases h3 : lay = 3
+  · subst h3
+    have hh := pathAux_sound _ im hlookT [pcOf 88839] (hlookT_ok (im := im)) u 40 (pcOf 245313) [.br false]
+      run_expand_bodyA0.res.st [] hdrRunF.res hdrRun_F (by simp [hdrRunF.res]) (by
+        intro b hb
+        simp only [hdrRunF.res, List.mem_cons, List.not_mem_nil, or_false] at hb
+        subst hb
+        simp only [Br.holds, E.eval, BinOp.eval, CmpOp.eval, h8]
+        decide)
+    rw [e1] at hh
+    obtain ⟨t1, ht1, t1pc, t16, t17, t1r, t1m⟩ := ExpandLabel.hdr_steps hcl (hdrRunF.res.toState u) rfl step hs
+      (by rw [← h20]; rfl)
+    have m16 : (run_expand_store.res.toState t1).getMem (BitVec.ofNat 64 (0x201A0 + 16)) = t1.getReg .x6 := by
+      simp [run_expand_store.res, rv_simp]
+    have mfr : ∀ A, A < 2 ^ 64 → A ≠ 0x201A0 + 16 →
+        (run_expand_store.res.toState t1).getMem (BitVec.ofNat 64 A) = t1.getMem (BitVec.ofNat 64 A) := by
+      intro A hA hn
+      simp only [Result.toState_getMem, run_expand_store.res]
+      t3n []
+      rw [if_neg (by omega)]
+    refine ⟨_, ((h1.trans hh.1).trans (ht1.trans (hst t1 t1pc))).of_eq
+      (by simp [Keygen.mrkX, hdrRunF.res, run_expand_bodyA0.res, run_expand_store.res]; omega)
+      (by simp [Keygen.mrkX, hdrRunF.res, run_expand_bodyA0.res, run_expand_store.res]; omega), ?_, ?_, ?_, ?_, ?_, ?_⟩
+    · simp [run_expand_store.res, rv_simp]
+    · rw [m16, t16]
+      simp [PRes.toState, hdrRunF.res, rv_simp, routed, h8, T3.hyperMark, T3.hyperW]
+    · rw [mfr _ (by decide) (by decide), t1m]
+      simp [PRes.toState, hdrRunF.res, rv_simp, routed]
+    · simp [run_expand_store.res, rv_simp]
+    · intro r hr
+      have e2 : (run_expand_store.res.toState t1).getReg r = t1.getReg r := by
+        cases r <;> simp at hr <;> first | rfl | simp [run_expand_store.res, rv_simp]
+      rw [e2, t1r r (by simp at hr ⊢; tauto)]
+      cases r <;> simp at hr <;> first | rfl | simp [PRes.toState, hdrRunF.res, rv_simp, h8]
+    · intro A hA hn
+      rw [mfr A hA (fun h => hn (Or.inl h)), t1m]
+      simp only [PRes.toState, SymState.toState_getMem, hdrRunF.res]
+      t3n []
+      rw [if_neg (fun h => hn (Or.inr (by omega)))]
+  · interval_cases lay
+    all_goals try (exact absurd rfl h3)
+    all_goals
+      have hh := pathAux_sound _ im hlookT [pcOf 88839] (hlookT_ok (im := im)) u 40 (pcOf 245313) [.br true]
+        run_expand_bodyA0.res.st [] hdrRunT.res hdrRun_T (by simp [hdrRunT.res]) (by
+          intro b hb
+          simp only [hdrRunT.res, List.mem_cons, List.not_mem_nil, or_false] at hb
+          subst hb
+          simp only [Br.holds, E.eval, BinOp.eval, CmpOp.eval, h8]
+          decide)
+      rw [e1] at hh
+      obtain ⟨t1, ht1, t1pc, t16, t17, t1r, t1m⟩ := ExpandLabel.hdr_steps hcl (hdrRunT.res.toState u) rfl step hs
+        (by rw [← h20]; rfl)
+      have m16 : (run_expand_store.res.toState t1).getMem (BitVec.ofNat 64 (0x201A0 + 16)) = t1.getReg .x6 := by
+        simp [run_expand_store.res, rv_simp]
+      have mfr : ∀ A, A < 2 ^ 64 → A ≠ 0x201A0 + 16 →
+          (run_expand_store.res.toState t1).getMem (BitVec.ofNat 64 A) = t1.getMem (BitVec.ofNat 64 A) := by
+        intro A hA hn
+        simp only [Result.toState_getMem, run_expand_store.res]
+        t3n []
+        rw [if_neg (by omega)]
+      refine ⟨_, ((h1.trans hh.1).trans (ht1.trans (hst t1 t1pc))).of_eq
+        (by simp [Keygen.mrkX, hdrRunT.res, run_expand_bodyA0.res, run_expand_store.res]; omega)
+        (by simp [Keygen.mrkX, hdrRunT.res, run_expand_bodyA0.res, run_expand_store.res]; omega), ?_, ?_, ?_, ?_, ?_, ?_⟩
+      · simp [run_expand_store.res, rv_simp]
+      · rw [m16, t16]
+        simp [PRes.toState, hdrRunT.res, rv_simp, routed, h8, T3.hyperMark, T3.hyperW]
+      · rw [mfr _ (by decide) (by decide), t1m]
+        simp [PRes.toState, hdrRunT.res, rv_simp, routed]
+      · simp [run_expand_store.res, rv_simp]
+      · intro r hr
+        have e2 : (run_expand_store.res.toState t1).getReg r = t1.getReg r := by
+          cases r <;> simp at hr <;> first | rfl | simp [run_expand_store.res, rv_simp]
+        rw [e2, t1r r (by simp at hr ⊢; tauto)]
+        cases r <;> simp at hr <;> first | rfl | simp [PRes.toState, hdrRunT.res, rv_simp, h8]
+      · intro A hA hn
+        rw [mfr A hA (fun h => hn (Or.inl h)), t1m]
+        simp only [PRes.toState, SymState.toState_getMem, hdrRunT.res]
+        t3n []
+        rw [if_neg (fun h => hn (Or.inr (by omega)))]
 
 theorem steps_expand_store (s : MachineState) (hpc : s.pc = pcOf 1038) :
     Steps im s 3 3 (run_expand_store.res.toState s) := by
@@ -2074,109 +2207,129 @@ structure ExpHeaderPost (s t : MachineState) (height : Nat) : Prop where
   regs : RegsExcept s t [.x6, .x7, .x10, .x11, .x12, .x28, .x30]
   frame : Frame s t (fun A => A = 0x201A0 + 16 ∨ A = 0x201A0 + 24)
 theorem expand_header_0 (s : MachineState) (hpc : s.pc = pcOf 1032)
-    (h8 : s.getReg .x8 = 0#64) :
-    ∃ t, Steps im s 32 32 t ∧ t.pc = pcOf 1041 ∧ ExpHeaderPost s t 12 := by
+    (h8 : s.getReg .x8 = 0#64) (step : Nat) (hs : step < 256) (h20 : s.getReg .x20 = BitVec.ofNat 64 step) :
+    ∃ t, Steps im s (32 + Keygen.mrkX 0 + ExpandLabel.hdrX step) (32 + Keygen.mrkX 0 + ExpandLabel.hdrX step) t ∧
+      t.pc = pcOf 1041 ∧ ExpHeaderPost s t 12 := by
   let s0 := run_expand_entry.res.toState s
   have h0 := steps_expand_entry (im := im) s hpc
   let s1 := run_expand_layer0.res.toState s0
   have h1 := steps_expand_layer0 (im := im) s0 (by simp [s0, run_expand_entry.res, rv_simp, h8])
-  let s2 := run_expand_bodyA.res.toState s1
-  have h2 := steps_expand_body (im := im) s1 (by simp [s0, s1, run_expand_entry.res, run_expand_layer0.res, rv_simp, h8])
-  let s3 := run_expand_store.res.toState s2
-  have h3 := steps_expand_store (im := im) s2 (by simp [s0, s1, s2, run_expand_entry.res, run_expand_layer0.res, run_expand_bodyA.res, rv_simp, h8])
-  refine ⟨s3, (((h0.trans h1).trans h2).trans h3), ?_, ?_⟩
-  · simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_bodyA.res, run_expand_store.res, rv_simp]
-  · constructor
-    · simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_bodyA.res, run_expand_store.res, rv_simp, packedAt, routedAt, h8, T3.hyperW]
-    · simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_bodyA.res, run_expand_store.res, rv_simp, routedAt]
-    · simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_bodyA.res, run_expand_store.res, rv_simp]
-    · intro r hr
-      cases r <;> simp_all [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_bodyA.res, run_expand_store.res, rv_simp] <;> rfl
-    · intro A hA hn
-      simp only [Result.toState_getMem, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_bodyA.res, run_expand_store.res]
-      t3n []
-      rw [if_neg (by omega), if_neg (by omega)]
+  have upc : s1.pc = pcOf 1253 := by simp [s1, s0, run_expand_entry.res, run_expand_layer0.res, rv_simp, h8]
+  have u8 : s1.getReg .x8 = BitVec.ofNat 64 0 := by simp [s1, s0, run_expand_entry.res, run_expand_layer0.res, rv_simp, h8]
+  have u20 : s1.getReg .x20 = BitVec.ofNat 64 step := by simp [s1, s0, run_expand_entry.res, run_expand_layer0.res, rv_simp, h20]
+  obtain ⟨t, ht, tpc, t16, t24, t28, tr, tf⟩ := expand_header_body (im := im) s1 upc 0 (by decide) u8 step hs u20
+  have hstep : (s.getReg .x20).toNat % 256 = step := by rw [h20, BitVec.toNat_ofNat]; omega
+  refine ⟨t, (((h0.trans h1).trans ht)).of_eq (by omega) (by omega), tpc, ?_⟩
+  constructor
+  · rw [t16, packedAt, hstep]
+    simp [s1, s0, run_expand_entry.res, run_expand_layer0.res, rv_simp, routed, routedAt, h8, T3.hyperW]
+  · rw [t24]
+    simp [s1, s0, run_expand_entry.res, run_expand_layer0.res, rv_simp, routed, routedAt]
+  · exact t28
+  · have r0 : RegsExcept s s1 [.x6, .x7, .x10, .x11, .x12, .x28, .x30] := by
+      intro r hr
+      cases r <;> simp_all [s1, s0, run_expand_entry.res, run_expand_layer0.res, rv_simp] <;> rfl
+    exact (r0.trans tr).mono (by simp)
+  · have f0 : Frame s s1 (fun _ => False) := by
+      intro A hA hn
+      simp [s1, s0, run_expand_entry.res, run_expand_layer0.res, rv_simp]
+    exact (f0.trans tf).mono (fun A _ h => by rcases h with h | h; exact h.elim; exact h)
 theorem expand_header_1 (s : MachineState) (hpc : s.pc = pcOf 1032)
-    (h8 : s.getReg .x8 = 1#64) :
-    ∃ t, Steps im s 35 35 t ∧ t.pc = pcOf 1041 ∧ ExpHeaderPost s t 7 := by
+    (h8 : s.getReg .x8 = 1#64) (step : Nat) (hs : step < 256) (h20 : s.getReg .x20 = BitVec.ofNat 64 step) :
+    ∃ t, Steps im s (35 + Keygen.mrkX 1 + ExpandLabel.hdrX step) (35 + Keygen.mrkX 1 + ExpandLabel.hdrX step) t ∧
+      t.pc = pcOf 1041 ∧ ExpHeaderPost s t 7 := by
   let s0 := run_expand_entry.res.toState s
   have h0 := steps_expand_entry (im := im) s hpc
   let s1 := run_expand_layer0.res.toState s0
   have h1 := steps_expand_layer0 (im := im) s0 (by simp [s0, run_expand_entry.res, rv_simp, h8])
   let s2 := run_expand_layer1.res.toState s1
-  have h2 := steps_expand_layer1 (im := im) s1 (by simp [s0, s1, run_expand_entry.res, run_expand_layer0.res, rv_simp, h8])
+  have h2 := steps_expand_layer1 (im := im) s1 (by simp [s1, s0, run_expand_entry.res, run_expand_layer0.res, rv_simp, h8])
   let s3 := run_expand_inc.res.toState s2
-  have h3 := steps_expand_inc (im := im) s2 (by simp [s0, s1, s2, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, rv_simp, h8])
-  let s4 := run_expand_bodyA.res.toState s3
-  have h4 := steps_expand_body (im := im) s3 (by simp [s0, s1, s2, s3, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, rv_simp, h8])
-  let s5 := run_expand_store.res.toState s4
-  have h5 := steps_expand_store (im := im) s4 (by simp [s0, s1, s2, s3, s4, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, run_expand_bodyA.res, rv_simp, h8])
-  refine ⟨s5, (((((h0.trans h1).trans h2).trans h3).trans h4).trans h5), ?_, ?_⟩
-  · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, run_expand_bodyA.res, run_expand_store.res, rv_simp]
-  · constructor
-    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, run_expand_bodyA.res, run_expand_store.res, rv_simp, packedAt, routedAt, h8, T3.hyperW]
-    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, run_expand_bodyA.res, run_expand_store.res, rv_simp, routedAt]
-    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, run_expand_bodyA.res, run_expand_store.res, rv_simp]
-    · intro r hr
-      cases r <;> simp_all [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, run_expand_bodyA.res, run_expand_store.res, rv_simp] <;> rfl
-    · intro A hA hn
-      simp only [Result.toState_getMem, s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, run_expand_bodyA.res, run_expand_store.res]
-      t3n []
-      rw [if_neg (by omega), if_neg (by omega)]
+  have h3 := steps_expand_inc (im := im) s2 (by simp [s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, rv_simp, h8])
+  have upc : s3.pc = pcOf 1253 := by simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, rv_simp, h8]
+  have u8 : s3.getReg .x8 = BitVec.ofNat 64 1 := by simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, rv_simp, h8]
+  have u20 : s3.getReg .x20 = BitVec.ofNat 64 step := by simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, rv_simp, h20]
+  obtain ⟨t, ht, tpc, t16, t24, t28, tr, tf⟩ := expand_header_body (im := im) s3 upc 1 (by decide) u8 step hs u20
+  have hstep : (s.getReg .x20).toNat % 256 = step := by rw [h20, BitVec.toNat_ofNat]; omega
+  refine ⟨t, (((((h0.trans h1).trans h2).trans h3).trans ht)).of_eq (by omega) (by omega), tpc, ?_⟩
+  constructor
+  · rw [t16, packedAt, hstep]
+    simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, rv_simp, routed, routedAt, h8, T3.hyperW]
+  · rw [t24]
+    simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, rv_simp, routed, routedAt]
+  · exact t28
+  · have r0 : RegsExcept s s3 [.x6, .x7, .x10, .x11, .x12, .x28, .x30] := by
+      intro r hr
+      cases r <;> simp_all [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, rv_simp] <;> rfl
+    exact (r0.trans tr).mono (by simp)
+  · have f0 : Frame s s3 (fun _ => False) := by
+      intro A hA hn
+      simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, rv_simp]
+    exact (f0.trans tf).mono (fun A _ h => by rcases h with h | h; exact h.elim; exact h)
 theorem expand_header_2 (s : MachineState) (hpc : s.pc = pcOf 1032)
-    (h8 : s.getReg .x8 = 2#64) :
-    ∃ t, Steps im s 36 36 t ∧ t.pc = pcOf 1041 ∧ ExpHeaderPost s t 6 := by
+    (h8 : s.getReg .x8 = 2#64) (step : Nat) (hs : step < 256) (h20 : s.getReg .x20 = BitVec.ofNat 64 step) :
+    ∃ t, Steps im s (36 + Keygen.mrkX 2 + ExpandLabel.hdrX step) (36 + Keygen.mrkX 2 + ExpandLabel.hdrX step) t ∧
+      t.pc = pcOf 1041 ∧ ExpHeaderPost s t 6 := by
   let s0 := run_expand_entry.res.toState s
   have h0 := steps_expand_entry (im := im) s hpc
   let s1 := run_expand_layer0.res.toState s0
   have h1 := steps_expand_layer0 (im := im) s0 (by simp [s0, run_expand_entry.res, rv_simp, h8])
   let s2 := run_expand_layer1.res.toState s1
-  have h2 := steps_expand_layer1 (im := im) s1 (by simp [s0, s1, run_expand_entry.res, run_expand_layer0.res, rv_simp, h8])
+  have h2 := steps_expand_layer1 (im := im) s1 (by simp [s1, s0, run_expand_entry.res, run_expand_layer0.res, rv_simp, h8])
   let s3 := run_expand_layer23.res.toState s2
-  have h3 := steps_expand_layer23 (im := im) s2 (by simp [s0, s1, s2, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, rv_simp, h8])
-  let s4 := run_expand_bodyA.res.toState s3
-  have h4 := steps_expand_body (im := im) s3 (by simp [s0, s1, s2, s3, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, rv_simp, h8])
-  let s5 := run_expand_store.res.toState s4
-  have h5 := steps_expand_store (im := im) s4 (by simp [s0, s1, s2, s3, s4, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, rv_simp, h8])
-  refine ⟨s5, (((((h0.trans h1).trans h2).trans h3).trans h4).trans h5), ?_, ?_⟩
-  · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, run_expand_store.res, rv_simp]
-  · constructor
-    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, run_expand_store.res, rv_simp, packedAt, routedAt, h8, T3.hyperW]
-    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, run_expand_store.res, rv_simp, routedAt]
-    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, run_expand_store.res, rv_simp]
-    · intro r hr
-      cases r <;> simp_all [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, run_expand_store.res, rv_simp] <;> rfl
-    · intro A hA hn
-      simp only [Result.toState_getMem, s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, run_expand_store.res]
-      t3n []
-      rw [if_neg (by omega), if_neg (by omega)]
+  have h3 := steps_expand_layer23 (im := im) s2 (by simp [s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, rv_simp, h8])
+  have upc : s3.pc = pcOf 1253 := by simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, rv_simp, h8]
+  have u8 : s3.getReg .x8 = BitVec.ofNat 64 2 := by simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, rv_simp, h8]
+  have u20 : s3.getReg .x20 = BitVec.ofNat 64 step := by simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, rv_simp, h20]
+  obtain ⟨t, ht, tpc, t16, t24, t28, tr, tf⟩ := expand_header_body (im := im) s3 upc 2 (by decide) u8 step hs u20
+  have hstep : (s.getReg .x20).toNat % 256 = step := by rw [h20, BitVec.toNat_ofNat]; omega
+  refine ⟨t, (((((h0.trans h1).trans h2).trans h3).trans ht)).of_eq (by omega) (by omega), tpc, ?_⟩
+  constructor
+  · rw [t16, packedAt, hstep]
+    simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, rv_simp, routed, routedAt, h8, T3.hyperW]
+  · rw [t24]
+    simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, rv_simp, routed, routedAt]
+  · exact t28
+  · have r0 : RegsExcept s s3 [.x6, .x7, .x10, .x11, .x12, .x28, .x30] := by
+      intro r hr
+      cases r <;> simp_all [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, rv_simp] <;> rfl
+    exact (r0.trans tr).mono (by simp)
+  · have f0 : Frame s s3 (fun _ => False) := by
+      intro A hA hn
+      simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, rv_simp]
+    exact (f0.trans tf).mono (fun A _ h => by rcases h with h | h; exact h.elim; exact h)
 theorem expand_header_3 (s : MachineState) (hpc : s.pc = pcOf 1032)
-    (h8 : s.getReg .x8 = 3#64) :
-    ∃ t, Steps im s 36 36 t ∧ t.pc = pcOf 1041 ∧ ExpHeaderPost s t 6 := by
+    (h8 : s.getReg .x8 = 3#64) (step : Nat) (hs : step < 256) (h20 : s.getReg .x20 = BitVec.ofNat 64 step) :
+    ∃ t, Steps im s (36 + Keygen.mrkX 3 + ExpandLabel.hdrX step) (36 + Keygen.mrkX 3 + ExpandLabel.hdrX step) t ∧
+      t.pc = pcOf 1041 ∧ ExpHeaderPost s t 6 := by
   let s0 := run_expand_entry.res.toState s
   have h0 := steps_expand_entry (im := im) s hpc
   let s1 := run_expand_layer0.res.toState s0
   have h1 := steps_expand_layer0 (im := im) s0 (by simp [s0, run_expand_entry.res, rv_simp, h8])
   let s2 := run_expand_layer1.res.toState s1
-  have h2 := steps_expand_layer1 (im := im) s1 (by simp [s0, s1, run_expand_entry.res, run_expand_layer0.res, rv_simp, h8])
+  have h2 := steps_expand_layer1 (im := im) s1 (by simp [s1, s0, run_expand_entry.res, run_expand_layer0.res, rv_simp, h8])
   let s3 := run_expand_layer23.res.toState s2
-  have h3 := steps_expand_layer23 (im := im) s2 (by simp [s0, s1, s2, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, rv_simp, h8])
-  let s4 := run_expand_bodyA.res.toState s3
-  have h4 := steps_expand_body (im := im) s3 (by simp [s0, s1, s2, s3, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, rv_simp, h8])
-  let s5 := run_expand_store.res.toState s4
-  have h5 := steps_expand_store (im := im) s4 (by simp [s0, s1, s2, s3, s4, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, rv_simp, h8])
-  refine ⟨s5, (((((h0.trans h1).trans h2).trans h3).trans h4).trans h5), ?_, ?_⟩
-  · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, run_expand_store.res, rv_simp]
-  · constructor
-    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, run_expand_store.res, rv_simp, packedAt, routedAt, h8, T3.hyperW]
-    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, run_expand_store.res, rv_simp, routedAt]
-    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, run_expand_store.res, rv_simp]
-    · intro r hr
-      cases r <;> simp_all [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, run_expand_store.res, rv_simp] <;> rfl
-    · intro A hA hn
-      simp only [Result.toState_getMem, s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, run_expand_store.res]
-      t3n []
-      rw [if_neg (by omega), if_neg (by omega)]
+  have h3 := steps_expand_layer23 (im := im) s2 (by simp [s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, rv_simp, h8])
+  have upc : s3.pc = pcOf 1253 := by simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, rv_simp, h8]
+  have u8 : s3.getReg .x8 = BitVec.ofNat 64 3 := by simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, rv_simp, h8]
+  have u20 : s3.getReg .x20 = BitVec.ofNat 64 step := by simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, rv_simp, h20]
+  obtain ⟨t, ht, tpc, t16, t24, t28, tr, tf⟩ := expand_header_body (im := im) s3 upc 3 (by decide) u8 step hs u20
+  have hstep : (s.getReg .x20).toNat % 256 = step := by rw [h20, BitVec.toNat_ofNat]; omega
+  refine ⟨t, (((((h0.trans h1).trans h2).trans h3).trans ht)).of_eq (by omega) (by omega), tpc, ?_⟩
+  constructor
+  · rw [t16, packedAt, hstep]
+    simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, rv_simp, routed, routedAt, h8, T3.hyperW]
+  · rw [t24]
+    simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, rv_simp, routed, routedAt]
+  · exact t28
+  · have r0 : RegsExcept s s3 [.x6, .x7, .x10, .x11, .x12, .x28, .x30] := by
+      intro r hr
+      cases r <;> simp_all [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, rv_simp] <;> rfl
+    exact (r0.trans tr).mono (by simp)
+  · have f0 : Frame s s3 (fun _ => False) := by
+      intro A hA hn
+      simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, rv_simp]
+    exact (f0.trans tf).mono (fun A _ h => by rcases h with h | h; exact h.elim; exact h)
 end SigGolfCandidate.T3M.Expand.SharedRecover.PackedBlocks
 end
 -- ==== merged from T3M_Keygen_Tree ====
@@ -2310,7 +2463,7 @@ theorem sub120_spec {image : Image} {b : Nat} (h : SubAt image b) (s : MachineSt
     (hdis : NODE + 64 ≤ arena + 32 * k ∨ arena + 32 * k + 32 ≤ NODE)
     (h2 : s.getReg .x2 = BitVec.ofNat 64 arena) (h24 : s.getReg .x24 = BitVec.ofNat 64 k)
     (h9 : s.getReg .x9 = BitVec.ofNat 64 tree) (h21 : s.getReg .x21 = BitVec.ofNat 64 h0) :
-    ∃ t n, n ≤ 60 ∧ Steps image s n n t ∧ t.pc = pcOf (b + 140) ∧
+    ∃ t n, n ≤ 64 ∧ Steps image s n n t ∧ t.pc = pcOf (b + 140) ∧
       t.getReg .x29 = BitVec.ofNat 64 (k % 2) ∧ t.getReg .x30 = BitVec.ofNat 64 (NODE + 48) ∧
       t.getMem (BitVec.ofNat 64 NODE) = s.getMem (BitVec.ofNat 64 (arena + 32 * k)) ∧
       t.getMem (BitVec.ofNat 64 (NODE + 8)) = s.getMem (BitVec.ofNat 64 (arena + 32 * k + 8)) ∧
@@ -2457,7 +2610,7 @@ theorem sub120_full {image : Image} {b : Nat} (h : SubAt image b) (s : MachineSt
     (hdis : NODE + 64 ≤ arena + 32 * k ∨ arena + 32 * k + 32 ≤ NODE)
     (h2 : s.getReg .x2 = BitVec.ofNat 64 arena) (h24 : s.getReg .x24 = BitVec.ofNat 64 k)
     (h9 : s.getReg .x9 = BitVec.ofNat 64 tree) (h21 : s.getReg .x21 = BitVec.ofNat 64 h0) :
-    ∃ t n, n ≤ 66 ∧ Steps image s n n t ∧ t.pc = pcOf (b + 146) ∧
+    ∃ t n, n ≤ 70 ∧ Steps image s n n t ∧ t.pc = pcOf (b + 146) ∧
       t.getReg .x10 = BitVec.ofNat 64 NODE ∧ t.getReg .x11 = BitVec.ofNat 64 64 ∧
       t.getReg .x12 = BitVec.ofNat 64 NOUT ∧ t.getReg .x29 = BitVec.ofNat 64 (k % 2 * 2 ^ 4) ∧
       t.getMem (BitVec.ofNat 64 NODE) = s.getMem (BitVec.ofNat 64 (arena + 32 * k)) ∧

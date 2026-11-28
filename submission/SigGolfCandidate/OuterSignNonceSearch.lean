@@ -17,7 +17,7 @@ theorem nonce_search {sk : SecretKey} {cache : Bytes 131072} {msg : SigGolfCandi
     (hfail : ∀t,JoinedPost OuterImages.signImage t none t → Q none t)
     (hrest : ∀rho s,NoncePost sk cache msg rho s → ∀c a t,
       JoinedPost OuterImages.signImage s (some (c,a)) t → TBSim OuterImages.signImage sk t W (K rho c a) Q) :
-    TBSim OuterImages.signImage sk (sinit sk cache msg) (SigGolfCandidate.T3M.Sign.frontC+(1+((11*2^17)*200+20+W))) (do
+    TBSim OuterImages.signImage sk (sinit sk cache msg) (SigGolfCandidate.T3M.Sign.frontC+(1+((11*2^17)*200+28+W))) (do
       let tag ← SigGolfCandidate.T3.privateMac (cacheDec cache).region
       if tag ≠ (cacheDec cache).tag then pure none else do
         let rho ← SigGolfCandidate.T3.privateNonce msg
@@ -39,7 +39,7 @@ theorem nonce_search {sk : SecretKey} {cache : Bytes 131072} {msg : SigGolfCandi
         exact hn.search.msg k hk
       · exact (htables rho s hn).frame (fu.mono (fun _ _ h=>h.elim))
     apply TBSim.steps su
-    refine TBSim.bind (search_to_forest OuterSignFrontCodes.look OuterSignFrontCodes.success OuterSignFrontCodes.failureJump OuterSignFrontCodes.failure OuterSignFrontCodes.halt hp pu) (W₂:=W) ?_
+    refine TBSim.bind (search_to_forest OuterSignFrontCodes.look OuterSignFrontCodes.success OuterSignFrontCodes.jstub OuterSignFrontCodes.failureJump OuterSignFrontCodes.failure OuterSignFrontCodes.halt hp pu) (W₂:=W) ?_
     intro r t ht
     cases r with
     | none => exact (TBSim.pure (hfail t ht)).mono (by omega) (fun _ _ h=>h)

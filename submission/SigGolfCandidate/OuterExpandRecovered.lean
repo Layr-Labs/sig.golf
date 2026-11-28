@@ -13,7 +13,7 @@ def recoveredWitness (w : SigGolfCandidate.Research.SharedForest.Witness) (outpu
     M (Option RecoveredLayers) := do
   let forest ← OuterForestCorrectness.recoverForest (WCT9.digestIndex output) (forestSelectionFromOutput output)
     (forestWordsFromOutput output) w.signature.forest
-  recoverHintedLayers w.signature (WCT9.digestIndex output) ((w.signature.layers 0).path WCT9.topJ)
+  recoverHintedLayers w.signature (hyperIndex (WCT9.digestIndex output)) ((w.signature.layers 0).path WCT9.topJ)
     4 (.pair forest.1.1 forest.1.2)
 
 theorem recovered (answers : Correctness.Answers) (message : Message) (pk : Digest)
@@ -21,7 +21,7 @@ theorem recovered (answers : Correctness.Answers) (message : Message) (pk : Dige
     (w : SigGolfCandidate.Research.SharedForest.Witness) (ns5 : List Nat)
     (he : evalWithAnswerFn answers (OuterExpand.expandN message pk sig)=some (output,w,ns5)) :
     ∃ result,evalWithAnswerFn answers (recoveredWitness w output)=some result ∧
-      OuterSigning.policyHintsValid (WCT9.digestIndex output) w.signature.policyHints result.digits result.lows=true ∧
+      OuterSigning.policyHintsValid (hyperIndex (WCT9.digestIndex output)) w.signature.policyHints result.digits result.lows=true ∧
       (∀lay,w.counters lay=result.counters.getD lay.val 0) ∧
       evalWithAnswerFn answers (digest w.signature.rho message w.digestCounter)=output ∧
       digestAccepted output=true ∧ w.topHigh = !(result.lows.getD 0 true) ∧
@@ -40,13 +40,13 @@ theorem recovered (answers : Correctness.Answers) (message : Message) (pk : Dige
     (forestWordsFromOutput output) sig.forest)
   let other := ((fillTopSignature sig 0).layers 0).path WCT9.topJ
   let other' := ((fillTopSignature sig c).layers 0).path WCT9.topJ
-  let result' : RecoveredLayers := {result with root:=evalWithAnswerFn answers (WCT9.topNode index result.foldedTop other')}
-  have hr0 : evalWithAnswerFn answers (recoverHintedLayers sig index other 4 (.pair forest.1.1 forest.1.2))=some result := by
+  let result' : RecoveredLayers := {result with root:=evalWithAnswerFn answers (WCT9.topNode (hyperIndex index) result.foldedTop other')}
+  have hr0 : evalWithAnswerFn answers (recoverHintedLayers sig (hyperIndex index) other 4 (.pair forest.1.1 forest.1.2))=some result := by
     rw [recoverHintedLayers_fill _ _ _ _ _ (by decide)] at hr
     exact hr
-  have hr1 := eval_recoverHintedLayers_other answers sig index other other' 4 (.pair forest.1.1 forest.1.2)
+  have hr1 := eval_recoverHintedLayers_other answers sig (hyperIndex index) other other' 4 (.pair forest.1.1 forest.1.2)
   rw [hr0] at hr1
-  have hr2 : evalWithAnswerFn answers (recoverHintedLayers (fillTopSignature sig c) index other'
+  have hr2 : evalWithAnswerFn answers (recoverHintedLayers (fillTopSignature sig c) (hyperIndex index) other'
       4 (.pair forest.1.1 forest.1.2))=some result' := by
     rw [recoverHintedLayers_fill _ _ _ _ _ (by decide)]
     exact hr1

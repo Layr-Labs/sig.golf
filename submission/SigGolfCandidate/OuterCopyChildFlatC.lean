@@ -35,7 +35,8 @@ theorem outside16 (coord : Fin 9) (j : Fin 128) (X : Nat)
   · exact htail ht
 
 structure Post (coord j : Nat) (u : MachineState) (res : Nat×Nat×Nat×Digest) (t : MachineState) : Prop where
-  pc : t.pc=(u.getReg .x1+2024#64) &&& ~~~1#64
+  /-- C47: expand's coordinate-8 grinder exits with `jal zero,46862`. -/
+  pc : t.pc=pcOf 46862
   a1 : t.getReg .x11=64
   a2 : t.getReg .x12=BitVec.ofNat 64 (coordRegion coord-handO j)
   top : DigAt t (coordRegion coord-handO j+OuterGroundCore.offset coord (heapOf 5 j)/8) res.2.2.2
@@ -68,7 +69,7 @@ theorem flatten (coord : Fin 9) (j : Fin 128) (index : Nat) (u t : MachineState)
     · exact Or.inl hx
     · exact Or.inr (Or.inr hx)
   refine ⟨?_,hp.a1,hp.a2,hp.top,hp.outer,?_,hp.slot0,hp.slot1,hp.nle,?_,?_,h6.nle,h6.n0,hp.saves,hp.scr,?_,?_⟩
-  · rw [hp.pc,vu]
+  · exact hp.pc
   · intro r h3 h10 h11 h12
     rw [hp.keep r h3 h10 h11 h12,vu]
   · intro hsel

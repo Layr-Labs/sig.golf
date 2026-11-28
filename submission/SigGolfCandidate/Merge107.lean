@@ -220,8 +220,8 @@ theorem verifyP_walk_wots_route (answers : Answers) (m : Message) (pk : Digest) 
       evalWithAnswerFn answers (digest (wrho w) m (wdc w)) = N ∧
       (.inl (.inr (pad64 (digestInput (wrho w) m (wdc w)))) : Spec.Domain) ∈ queried answers (verifyP m pk w) ∧
       Shaped N w ∧
-      (WotsPrimitiveRoute (WCT9.digestIndex N) answers (entriesOf answers (queried answers (verifyP m pk w))) ∨
-       ((∀ l : Layer, BC.GoodZ answers w (WCT9.digestIndex N) l) ∧
+      (WotsPrimitiveRoute (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) answers (entriesOf answers (queried answers (verifyP m pk w))) ∨
+       ((∀ l : Layer, BC.GoodZ answers w (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) l) ∧
           evalWithAnswerFn answers
               (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N) =
             Extract.honestTop answers (WCT9.digestIndex N) ∧
@@ -230,14 +230,15 @@ theorem verifyP_walk_wots_route (answers : Answers) (m : Message) (pk : Digest) 
   classical
   obtain ⟨N, hdc, hN, hdq, hS, hlay, hqF, hqL⟩ := WctExtract.verifyP_walk_wct answers m pk w hv
   refine ⟨N, hdc, hN, hdq, hS, ?_⟩
-  have hidx : WCT9.digestIndex N < 2 ^ 31 := Nat.mod_lt _ (by norm_num)
-  rcases layersBC_wots_walk_route answers w (WCT9.digestIndex N) hidx 4 (by decide) le_rfl (.pair _ _) trivial
+  have hidx : SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N) < 2 ^ 31 := SigGolfCandidate.T3.hyperIndex_lt _
+  rcases layersBC_wots_walk_route answers w (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) hidx 4 (by decide) le_rfl (.pair _ _) trivial
       (hpk ▸ hlay) with
     hprim | ⟨hgood, hroot⟩
   · exact Or.inl (hprim.mono (entriesOf_mono hqL))
   · right
     refine ⟨fun l => hgood l l.isLt, ?_, hqF⟩
-    rw [show (4 - 1 : Nat) = 3 from rfl, Extract.honestMsg_three] at hroot
+    rw [show (4 - 1 : Nat) = 3 from rfl, Extract.honestMsg_three,
+      SigGolfCandidate.T3.hyperIndex_invol (WCT9.digestIndex_lt N)] at hroot
     simp only [WCT9.LayerMsg.pair.injEq] at hroot
     exact Prod.ext hroot.1 hroot.2
 theorem verifyP_wots_cases_route (answers : Answers) (m : Message) (pk : Digest) (w : WBytes)
@@ -247,8 +248,8 @@ theorem verifyP_wots_cases_route (answers : Answers) (m : Message) (pk : Digest)
       evalWithAnswerFn answers (digest (wrho w) m (wdc w)) = N ∧
       (.inl (.inr (pad64 (digestInput (wrho w) m (wdc w)))) : Spec.Domain) ∈ queried answers (verifyP m pk w) ∧
       Shaped N w ∧
-      (WotsPrimitiveRoute (WCT9.digestIndex N) answers (entriesOf answers (queried answers (verifyP m pk w))) ∨
-       ((∀ l : Layer, BC.GoodZ answers w (WCT9.digestIndex N) l) ∧ WctExtract.WctHonest answers N w ∧
+      (WotsPrimitiveRoute (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) answers (entriesOf answers (queried answers (verifyP m pk w))) ∨
+       ((∀ l : Layer, BC.GoodZ answers w (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) l) ∧ WctExtract.WctHonest answers N w ∧
          ∀ q ∈ queried answers (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N),
             q ∈ queried answers (verifyP m pk w))) := by
   classical

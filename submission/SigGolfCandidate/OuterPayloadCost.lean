@@ -56,7 +56,7 @@ theorem expand_cost_le_payload_field (answers : Answers) (cache : SigGolfCandida
         hres (hroot.trans hpk.symm)
       have hf := OuterRecoverBudget.forest_cost answers (digestIndex output)
         (forestSelectionFromOutput output) (forestWordsFromOutput output) original.signature.forest
-      have hle := SigGolfCandidate.Research.SharedForest.topField_sib_le answers (digestIndex output)
+      have hle := SigGolfCandidate.Research.SharedForest.topField_sib_le answers (hyperIndex (digestIndex output))
       rw [← hsib] at hle
       rw [hrho] at hx
       dsimp only [rho] at hx hr

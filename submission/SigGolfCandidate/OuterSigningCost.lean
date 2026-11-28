@@ -15,9 +15,9 @@ theorem signFromOutput_cost (answers : Answers) (cache : SigGolfCandidate.T3.Cac
     (rho : Digest) (counter : BitVec 32) (output : HashOutput) :
     cost answers (OuterSigning.signFromOutput cache rho counter output) =
       cost answers (OuterForestMoment.forest (digestIndex output) (forestSelectionFromOutput output) (forestWordsFromOutput output)) +
-      cost answers (prepareRoots (digestIndex output)) +
-      cost answers (OuterSigning.searchPreparedLayers cache (digestIndex output)
-        (evalWithAnswerFn answers (prepareRoots (digestIndex output)))
+      cost answers (prepareRoots (hyperIndex (digestIndex output))) +
+      cost answers (OuterSigning.searchPreparedLayers cache (hyperIndex (digestIndex output))
+        (evalWithAnswerFn answers (prepareRoots (hyperIndex (digestIndex output))))
         (evalWithAnswerFn answers (OuterForestMoment.forest (digestIndex output)
           (forestSelectionFromOutput output) (forestWordsFromOutput output))).2) := by
   simp only [OuterSigning.signFromOutput, cost_bind]
@@ -27,51 +27,52 @@ theorem signFromOutput_recovery_cost_le (answers : Answers) (cache : SigGolfCand
     (hcache : cache.region = cacheRegion (maskedTop answers)) (rho : Digest)
     (counter : BitVec 32) (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
     (he : evalWithAnswerFn answers (OuterSigning.signFromOutput cache rho counter output) = some w) :
-    cost answers (recoverHintedLayers w.signature (digestIndex output) ((w.signature.layers 0).path topJ) 4
+    cost answers (recoverHintedLayers w.signature (hyperIndex (digestIndex output)) ((w.signature.layers 0).path topJ) 4
       (.pair (evalWithAnswerFn answers (OuterForestCorrectness.recoverForest (digestIndex output)
         (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).1.1
         (evalWithAnswerFn answers (OuterForestCorrectness.recoverForest (digestIndex output)
           (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).1.2)) ≤
       cost answers (OuterSigning.signFromOutput cache rho counter output) + (13124 + 106485) := by
   let index := digestIndex output
+  let lindex := hyperIndex index
   let built := evalWithAnswerFn answers (OuterForestMoment.forest index (forestSelectionFromOutput output) (forestWordsFromOutput output))
-  let prepared := evalWithAnswerFn answers (prepareRoots index)
+  let prepared := evalWithAnswerFn answers (prepareRoots lindex)
   unfold OuterSigning.signFromOutput at he
   simp only [evalWithAnswerFn_bind] at he
-  cases hs : evalWithAnswerFn answers (OuterSigning.searchPreparedLayers cache index prepared built.2) with
+  cases hs : evalWithAnswerFn answers (OuterSigning.searchPreparedLayers cache lindex prepared built.2) with
   | none =>
-    dsimp only [index, prepared, built] at hs
+    dsimp only [index, lindex, prepared, built] at hs
     simp only [hs, evalWithAnswerFn_pure, reduceCtorEq] at he
   | some layers =>
-    have hf := OuterPreparedFacts.searchPreparedLayers_some answers cache index prepared built.2 layers hs
-    dsimp only [index, prepared, built] at hs
+    have hf := OuterPreparedFacts.searchPreparedLayers_some answers cache lindex prepared built.2 layers hs
+    dsimp only [index, lindex, prepared, built] at hs
     simp only [hs, evalWithAnswerFn_pure, Option.some.injEq] at he
     subst w
     let sig : SigGolfCandidate.Research.SharedForest.Signature := ⟨rho, layers.policyHints, built.1,
       fun lay => piecesSignature lay (layers.pieces.getD lay.val ([], []))⟩
     have hp : ∀ lay, lay ≠ 0 → evalWithAnswerFn answers
-        (recoverLayerPair (mainSignature sig) index lay (layers.digits.getD lay.val [])) =
-        builtPair answers lay (route index lay).2 := by
+        (recoverLayerPair (mainSignature sig) lindex lay (layers.digits.getD lay.val [])) =
+        builtPair answers lay (route lindex lay).2 := by
       intro lay hl
-      apply recoverLayerPair_wotsPieces answers sig index lay hl _ (hf.validDigits lay)
+      apply recoverLayerPair_wotsPieces answers sig lindex lay hl _ (hf.validDigits lay)
       change piecesSignature lay (layers.pieces.getD lay.val ([], [])) = _
-      rw [hf.honest_pieces hcache (digestIndex_lt output)]
-    have hm0 : topPair 1 prepared.one.levels = builtPair answers 1 (route index 1).2 := by
-      dsimp only [prepared]; rw [prepareRoots_result]; exact fixedPrepared_pair answers index 1
-    have hm1 : topPair 2 prepared.two.levels = builtPair answers 2 (route index 2).2 := by
-      dsimp only [prepared]; rw [prepareRoots_result]; exact fixedPrepared_pair answers index 2
-    have hm2 : topPair 3 prepared.three.levels = builtPair answers 3 (route index 3).2 := by
-      dsimp only [prepared]; rw [prepareRoots_result]; exact fixedPrepared_pair answers index 3
+      rw [hf.honest_pieces hcache (hyperIndex_lt _)]
+    have hm0 : topPair 1 prepared.one.levels = builtPair answers 1 (route lindex 1).2 := by
+      dsimp only [prepared]; rw [prepareRoots_result]; exact fixedPrepared_pair answers lindex 1
+    have hm1 : topPair 2 prepared.two.levels = builtPair answers 2 (route lindex 2).2 := by
+      dsimp only [prepared]; rw [prepareRoots_result]; exact fixedPrepared_pair answers lindex 2
+    have hm2 : topPair 3 prepared.three.levels = builtPair answers 3 (route lindex 3).2 := by
+      dsimp only [prepared]; rw [prepareRoots_result]; exact fixedPrepared_pair answers lindex 3
     have hc := OuterPreparedCost.recovery_cost_le hf sig ((sig.layers 0).path topJ) rfl hm0 hm1 hm2 hp
     have hforest : (evalWithAnswerFn answers (OuterForestCorrectness.recoverForest index (forestSelectionFromOutput output)
       (forestWordsFromOutput output) built.1)).1 = built.2 := OuterForestCorrectness.forest_honest answers index _ _
-    change cost answers (recoverHintedLayers sig index ((sig.layers 0).path topJ) 4
+    change cost answers (recoverHintedLayers sig lindex ((sig.layers 0).path topJ) 4
       (.pair (evalWithAnswerFn answers (OuterForestCorrectness.recoverForest index (forestSelectionFromOutput output)
         (forestWordsFromOutput output) built.1)).1.1
         (evalWithAnswerFn answers (OuterForestCorrectness.recoverForest index (forestSelectionFromOutput output)
           (forestWordsFromOutput output) built.1)).1.2)) ≤ _
     rw [hforest, signFromOutput_cost]
-    dsimp only [index, prepared, built] at hc ⊢
+    dsimp only [index, lindex, prepared, built] at hc ⊢
     omega
 
 
@@ -80,26 +81,27 @@ theorem signFromOutput_topSib (answers : Answers) (cache : SigGolfCandidate.T3.C
     (counter : BitVec 32) (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
     (he : evalWithAnswerFn answers (OuterSigning.signFromOutput cache rho counter output) = some w) :
     (w.signature.layers 0).path topJ =
-      treeValue (builtTree answers 0 0) 11 ((route (digestIndex output) 0).1 / 2 ^ 11 ^^^ 1) := by
+      treeValue (builtTree answers 0 0) 11 ((route (hyperIndex (digestIndex output)) 0).1 / 2 ^ 11 ^^^ 1) := by
   let index := digestIndex output
+  let lindex := hyperIndex index
   let built := evalWithAnswerFn answers (OuterForestMoment.forest index (forestSelectionFromOutput output)
     (forestWordsFromOutput output))
-  let prepared := evalWithAnswerFn answers (prepareRoots index)
+  let prepared := evalWithAnswerFn answers (prepareRoots lindex)
   unfold OuterSigning.signFromOutput at he
   simp only [evalWithAnswerFn_bind] at he
-  cases hs : evalWithAnswerFn answers (OuterSigning.searchPreparedLayers cache index prepared built.2) with
+  cases hs : evalWithAnswerFn answers (OuterSigning.searchPreparedLayers cache lindex prepared built.2) with
   | none =>
-    dsimp only [index, prepared, built] at hs
+    dsimp only [index, lindex, prepared, built] at hs
     simp only [hs, evalWithAnswerFn_pure, reduceCtorEq] at he
   | some layers =>
-    have hf := OuterPreparedFacts.searchPreparedLayers_some answers cache index prepared built.2 layers hs
-    dsimp only [index, prepared, built] at hs
+    have hf := OuterPreparedFacts.searchPreparedLayers_some answers cache lindex prepared built.2 layers hs
+    dsimp only [index, lindex, prepared, built] at hs
     simp only [hs, evalWithAnswerFn_pure, Option.some.injEq] at he
     subst w
-    have hp := hf.honest_pieces hcache (digestIndex_lt output) 0
+    have hp := hf.honest_pieces hcache (hyperIndex_lt _) 0
     change (piecesSignature 0 (layers.pieces.getD (0 : Layer).val ([], []))).path topJ = _
-    rw [hp, SigGolfCandidate.Research.SharedForest.route_top_tree _ (digestIndex_lt output)]
-    simp [piecesSignature, wotsPieces, topJ, wotsTree_top, height, index]
+    rw [hp, SigGolfCandidate.Research.SharedForest.route_top_tree _ (hyperIndex_lt _)]
+    simp [piecesSignature, wotsPieces, topJ, wotsTree_top, height, index, lindex]
 
 #print axioms signFromOutput_cost
 #print axioms signFromOutput_recovery_cost_le

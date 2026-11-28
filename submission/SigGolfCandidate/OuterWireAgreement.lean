@@ -27,8 +27,9 @@ theorem source_of (f g : Hash) (message : SigGolfCandidate.T3.Message) (pk : Dig
       (fun k=>WCT9.embed (forestRank output k.val)) =
       OuterFixedForest.forest (WCT9.digestIndex output) (forestSelectionFromOutput output)
         (forestWordsFromOutput output) w.signature.forest w.ftsNonces w.ftsNonces16 ns5)
-    (hl : ∀left right,layersCanonicalBC wb (WCT9.digestIndex output) 4 (.pair left right)=
-      SigGolfCandidate.Research.SharedForest.verifyLayers w (WCT9.digestIndex output) 4 (.pair left right))
+    (hl : ∀left right,layersCanonicalBC wb (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 4 (.pair left right)=
+      SigGolfCandidate.Research.SharedForest.verifyLayers w (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 4
+        (.pair left right))
     (hagree : Agree f g (mrealize 0 (OuterVerifySource.verify message pk w ns5))) :
     Agree f g (mrealize 0 (ClaudeWCT.W9.T3M.Paired.verifyPOld message pk wb)) := by
   have hb : ¬w.digestCounter.toNat≥WCT9.digestVerifyWindow := by

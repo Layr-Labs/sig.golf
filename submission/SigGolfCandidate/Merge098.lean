@@ -1168,8 +1168,9 @@ theorem kshr (x : Word) (k : Nat) (hk : k < 64) : BinOp.eval .srl x (BitVec.ofNa
   simp only [BinOp.eval, BitVec.toNat_ofNat]
   rw [Nat.mod_eq_of_lt (show k < 2 ^ 64 by omega), Nat.mod_eq_of_lt hk]
 
-/-- Leaf entry (144..157): leaf header words, `gp = ra`, then `jal ra, COEFGEN`. -/
-theorem kg27_spec (s : MachineState) (hpc : s.pc = pcOf 144) (lay leaf : Nat) (hlay : lay < 4)
+/-- Leaf entry (144..157): leaf header words, `gp = ra`, then `jal ra, COEFGEN`. C47: keygen keeps the single marker
+bit (no L3 stub); it only builds top leaves (`lay = 0`), so `lay < 3` (`LH.label_or0`). -/
+theorem kg27_spec (s : MachineState) (hpc : s.pc = pcOf 144) (lay leaf : Nat) (hlay : lay < 3)
     (hleaf : leaf < 2 ^ T3.hyperW lay) (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) (h18 : s.getReg .x18 = BitVec.ofNat 64 leaf) :
     ∃ t, Steps image s 21 21 t ∧ t.pc = pcOf 612 ∧ t.getReg .x1 = pcOf 158 ∧ t.getReg .x3 = s.getReg .x1 ∧
       t.getMem (BitVec.ofNat 64 (LEAFPK + 16)) = T3.hyperWord lay leaf ∧
@@ -1183,14 +1184,14 @@ theorem kg27_spec (s : MachineState) (hpc : s.pc = pcOf 144) (lay leaf : Nat) (h
   · simp [bk27B.res, rv_simp]
   · simp only [Result.toState_getMem, bk27B.res, LEAFPK]
     t3n [h18]
-    rw [LH.mark_bv lay hlay _ h8]
+    rw [LH.mark_bv lay (by omega) _ h8]
     exact LH.label_or0 lay leaf hlay hleaf
   · simp only [Result.toState_getMem, bk27B.res, LEAFPK]
     t3n []
   · intro r hr
     by_cases h8r : r = .x8
     · subst h8r; simp only [Result.toState_getReg, bk27B.res]
-      exact LH.restE_eval s lay hlay h8
+      exact LH.restE_eval s lay (by omega) h8
     · simp at hr; cases r <;> simp_all [bk27B.res, rv_simp] <;> rfl
   · intro A hA hn
     simp only [LEAFPK] at hn
@@ -2642,7 +2643,7 @@ theorem topLeaf_tsim (hpc : s0.pc = pcOf 144) {cc : List Digest × Digest} (hk :
   have hnb : leafBlocks A.lay = 13 := by unfold leafBlocks; rw [show chainCount A.lay = A.n from rfl, hn]
   have hleaf : A.leaf < 4096 := by have := hpre.hleafHeight; rw [h0.1] at this; exact this
   obtain ⟨t1, st1, t1pc, t1x1, t1x3, t1l16, t1l24, t1r, t1f⟩ :=
-    kg27_spec s0 hpc A.lay.val A.leaf A.lay.isLt (by rw [h0.1]; show A.leaf < 2 ^ 12; omega) hpre.x8 hpre.x18
+    kg27_spec s0 hpc A.lay.val A.leaf (by rw [h0.1]; decide) (by rw [h0.1]; show A.leaf < 2 ^ 12; omega) hpre.x8 hpre.x18
   have fp : ∀ X, X < PRIV + 64 → t1.getMem (BitVec.ofNat 64 X) = s0.getMem (BitVec.ofNat 64 X) := fun X hX =>
     t1f.get (by simp only [PRIV] at hX; omega) (by simp only [PRIV, LEAFPK] at hX ⊢; omega)
   have hp : KPriv sk t1 :=
@@ -2696,8 +2697,8 @@ theorem topLeaf_tsim (hpc : s0.pc = pcOf 144) {cc : List Digest × Digest} (hk :
 end top
 
 /-- Cycle bound of one keygen top leaf (COMPUTED by `decide` over the 8 leaf classes; campaign T51: max 205,853 at
-`leaf % 4 = 3`). -/
-def topLeafW : Nat := 207512
+`leaf % 4 = 3`; C47: the chain headers' step-code stub (`KeygenLabel.hdrX`) makes the max 208,739, at `leaf % 4 = 3`). -/
+def topLeafW : Nat := 208739
 theorem topLeaf_bound (r o : Nat) (hr : r < 4) (ho : o < 2) :
     topLeafK r o ≤ topLeafC r o ∧ topLeafC r o ≤ topLeafW := by
   interval_cases r <;> interval_cases o <;> decide
@@ -3693,8 +3694,8 @@ def topNodeProg (level heap : Nat) (l r : Digest) : T3.M Digest :=
   if level = 12 then nodeHash 3 0 0 heap l r else Prod.snd <$> topNodeAt level heap l r
 
 /-- Cycle bound of one node at height `h` (`h = 12`: the root, no nonce). C42: the label remap of heaps 4/5/6 adds up
-to 10 steps (`KeygenLabel.result_count`). -/
-def nodeW (h : Nat) : Nat := if h = 12 then 91 else 117 + 21 * (topNonceCap h - 1)
+to 10 steps (`KeygenLabel.result_count`); C47: +4 (the label chain's heap-3/5 classes, `sub120_full` 66 -> 70). -/
+def nodeW (h : Nat) : Nat := if h = 12 then 95 else 121 + 21 * (topNonceCap h - 1)
 
 theorem nonceBytes_zero : nonceBytes 0 = zero16 := by decide
 theorem nodeHash_top (heap : Nat) (l r : Digest) :
@@ -3726,7 +3727,7 @@ include hpre htop hh12
 theorem node_prefix {ℓ : Nat} (hl : ℓ < 12) {levels : List (List Digest)} {pre : List Digest}
     (hi : pre.length < 2 ^ (12 - ℓ - 1)) {t : MachineState} (ht : TNodeInv s0 B ℓ levels pre t)
     (hpc : t.pc = pcOf 235) :
-    ∃ t2 n, n ≤ 68 ∧ Steps image t n n t2 ∧ t2.pc = pcOf 263 ∧
+    ∃ t2 n, n ≤ 72 ∧ Steps image t n n t2 ∧ t2.pc = pcOf 263 ∧
       t2.getReg .x10 = BitVec.ofNat 64 NODE ∧ t2.getReg .x11 = BitVec.ofNat 64 64 ∧
       t2.getMem (BitVec.ofNat 64 (NODE + 32)) = 0 ∧
       T2Facts t2 B.arena (2 ^ (12 - ℓ - 1) + pre.length) ((levels.getD ℓ []).getD (2 * pre.length) 0)
@@ -7128,6 +7129,10 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 noncomputable local instance instDecidableEqCache_w9largeResidualT3 : DecidableEq SigGolfCandidate.T3.Cache := Classical.decEq _
 def digestIndex (N : HashOutput) : Fin (2^31) := ⟨WCT9.digestIndex N, WCT9.digestIndex_lt N⟩
+/-- C47 (B): the hypertree index `j = hyperIndex (digestIndex N)`; the layers are routed by it, the FTS keeps
+`digestIndex N`. -/
+def hyperIdx (N : HashOutput) : Fin (2^31) :=
+  ⟨SigGolfCandidate.T3.hyperIndex (digestIndex N).val, SigGolfCandidate.T3.hyperIndex_lt _⟩
 /-- Observable secret-side coordinates: WOTS seeds and FTS seeds (the latter are family evaluations, see
 `FamResidual`; the hidden FTS coefficients are not observables). -/
 abbrev SeedIndex := ChainGraph.Address ⊕ WctAddr
@@ -7385,7 +7390,7 @@ def layerPath (index : Fin (2^31)) (lay : Layer) : List Coord :=
 def layerItems (digitsOf : Wots.LeafAddr → List Nat) (index : Fin (2^31)) : List Coord :=
   (List.finRange 4).flatMap fun lay => layerChains digitsOf index lay ++ layerPath index lay
 def signItemsWith (digitsOf : Wots.LeafAddr → List Nat) (N : HashOutput) : List Coord :=
-  ftsItems (digestIndex N) N ++ layerItems digitsOf (digestIndex N)
+  ftsItems (digestIndex N) N ++ layerItems digitsOf (hyperIdx N)
 noncomputable def signItems (A : Answers) (N : HashOutput) : List Coord :=
   signItemsWith (Wots.referenceDigits A) N
 def RouteOk (A : Answers) (index : Nat) : Prop :=
@@ -7397,14 +7402,16 @@ noncomputable def signDisclosed (A : Answers) (published : SigGolfCandidate.T3.C
     List Coord :=
   if request.cache = published then
     match signDigest A request.message with
-    | some (_, N) => if RouteOk A (WCT9.digestIndex N) then signItems A N else []
+    | some (_, N) => if RouteOk A (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) then signItems A N else []
     | none => []
   else []
 def msgSlots (L : EncLeaf) : List (Coord × Nat) :=
   if h : L.1.lay.val < 3 then
     [(.inl (.node (topNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (childIndex_treeBits L h) 0)), 0),
       (.inl (.node (topNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (childIndex_treeBits L h) 1)), 3)]
-  else [(.inl (.wctNode (ftsTopNode (childIndex L) 8 0)), 0), (.inl (.wctNode (ftsTopNode (childIndex L) 8 1)), 3)]
+  -- C47 (B): an L3 leaf at position `p` signs the FTS top of instance `hyperIndex p`.
+  else [(.inl (.wctNode (ftsTopNode (ClaudeWCT.W9.T3.Security.CanonEncoding.hyperChild L) 8 0)), 0),
+    (.inl (.wctNode (ftsTopNode (ClaudeWCT.W9.T3.Security.CanonEncoding.hyperChild L) 8 1)), 3)]
 /-- Trials read through a coordinate (tree nodes: the trials of its position). -/
 def coordTrialDeps : Coord → List Coord
   | .inl (.node m) => trialDeps m
@@ -7601,8 +7608,9 @@ def msgVals (vals : Coord → Digest) (L : EncLeaf) : WCT9.LayerMsg :=
   if h : L.1.lay.val < 3 then
     .pair (selVals vals (.inl (.node (topNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (childIndex_treeBits L h) 0))))
       (selVals vals (.inl (.node (topNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (childIndex_treeBits L h) 1))))
-  else .pair (vals (.inl (.wctNode (ftsTopNode (childIndex L) 8 0))))
-    (vals (.inl (.wctNode (ftsTopNode (childIndex L) 8 1))))
+  -- C47 (B): an L3 leaf at position `p` signs the FTS top of instance `hyperIndex p` (Merge058 `msgLabel`).
+  else .pair (vals (.inl (.wctNode (ftsTopNode (ClaudeWCT.W9.T3.Security.CanonEncoding.hyperChild L) 8 0))))
+    (vals (.inl (.wctNode (ftsTopNode (ClaudeWCT.W9.T3.Security.CanonEncoding.hyperChild L) 8 1))))
 noncomputable def firstUnknownMsg (K : Coord → Prop) (L : EncLeaf) : Option (Coord × Nat) :=
   (msgSlots L).find? fun cs => decide (¬K cs.1)
 def StructuralContact (A : Answers) (K : Coord → Prop) (input : HashInput) (answer : HashOutput) : Prop :=
@@ -7736,7 +7744,7 @@ def ftsItems (index : Fin (2^31)) (output : HashOutput) : List Coord :=
  (List.finRange 9).flatMap fun k => wctOpened index k output ++ wctPath index k output
 noncomputable def signItems (answers : Answers) (output : HashOutput) : List Coord :=
  ftsItems (digestIndex output) output ++ layerItems
-   (Wots.CanonicalRef.referenceDigits answers (Wots.CanonicalRef.sourceMessages answers)) (digestIndex output)
+   (Wots.CanonicalRef.referenceDigits answers (Wots.CanonicalRef.sourceMessages answers)) (hyperIdx output)
 def RouteOk (answers : Answers) (index : Nat) : Prop :=
  ∀lay : Layer,(Wots.CanonicalRef.referenceSearch answers (Wots.CanonicalRef.sourceMessages answers)
    (SigGolfCandidate.T3.Security.LargeResidual.routeAddr index lay)).isSome
@@ -7747,7 +7755,7 @@ noncomputable def signDisclosed (answers : Answers) (published : SigGolfCandidat
     (request : SigGolfCandidate.T3.Security.Request) : List Coord :=
  if request.cache=published then
    match signDigest answers request.message with
-   | some (_,output) => if RouteOk answers (WCT9.digestIndex output) then signItems answers output else []
+   | some (_,output) => if RouteOk answers (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) then signItems answers output else []
    | none => []
  else []
 end ClaudeWCT.W9.T3.Security.LargeResidual.Paired
@@ -10999,10 +11007,11 @@ noncomputable def readImpl (a : AuxData) : QueryImpl SigGolfCandidate.T3.Spec (O
 def assembleSig (rho : Digest) (N : HashOutput) (v : Coord → Digest) (digitsOf : Wots.LeafAddr → List Nat) :
     Signature :=
   let index := digestIndex N
+  let jdx := hyperIdx N
   ⟨rho,
     fun k => ⟨fun t => v (wctItem (index, k, WCT9.child N k, t) (4 - WCT9.wordDigit (WCT9.rank N k) t)),
       fun l => ((wctPath index k N).map v).getD l.val 0⟩,
-    fun lay => piecesSignature lay ((layerChains digitsOf index lay).map v, (layerPath index lay).map v)⟩
+    fun lay => piecesSignature lay ((layerChains digitsOf jdx lay).map v, (layerPath jdx lay).map v)⟩
 def trialRows (rho : Digest) (m : Message) (found : Option (BitVec 32 × HashOutput)) : List HashInput :=
   (List.range (match found with | some (c, _) => c.toNat + 1 | none => WCT9.digestAttemptLimit)).map fun c =>
     pad64 (digestInput rho m (BitVec.ofNat 32 c))
@@ -11012,7 +11021,7 @@ noncomputable def signFinish (a : AuxData) (st : RouterState) (rho : Digest)
   match found with
   | none => pure (none, st)
   | some (_, N) =>
-      if RouteOkR a (WCT9.digestIndex N) then do
+      if RouteOkR a (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) then do
         let items := signItemsWith (routerDigits a) N
         let pairs ← discloseAll U items
         pure (some (assembleSig rho N (lookupVal pairs) (routerDigits a)),

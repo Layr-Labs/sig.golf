@@ -12,17 +12,18 @@ set_option maxRecDepth 100000
 set_option exponentiation.threshold 10000000
 attribute [local irreducible] Finset.univ
 
+/-- C47 (B): the layers are routed by `hyperIndex` of the digest index. -/
 noncomputable def routeInitial (i : Fin (2^31)) : ENNReal :=
-  (indexInitial i.val : ENNReal) / ClaudeWCT.Numerics.CanonicalCompression.scale
+  (indexInitial (hyperIndex i.val) : ENNReal) / ClaudeWCT.Numerics.CanonicalCompression.scale
 
 theorem routeInitial_sum :
     (∑ i : Fin (2^31), routeInitial i) ≤
       ((2^31 : Nat) : ENNReal) * (meanInitial : ENNReal) / ClaudeWCT.Numerics.CanonicalCompression.scale := by
   simp only [routeInitial, div_eq_mul_inv]
   rw [← Finset.sum_mul]
-  have h : (∑ i : Fin (2^31), (indexInitial i.val : ENNReal)) ≤
+  have h : (∑ i : Fin (2^31), (indexInitial (hyperIndex i.val) : ENNReal)) ≤
       ((2^31 : Nat) : ENNReal) * (meanInitial : ENNReal) := by
-    exact_mod_cast OuterIndexMean.index_initial_sum
+    exact_mod_cast OuterIndexMean.index_initial_sum_hyper
   exact mul_le_mul' h le_rfl
 
 theorem routeInitial_average :

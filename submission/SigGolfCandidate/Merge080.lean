@@ -162,14 +162,27 @@ theorem zeroSet_spec {im : Image} (hcode : CodeAt im (pcOf 42149) cZero2) (s : M
     rw [Result.toState_getReg]
     cases r <;> first | rfl | (exfalso; simp_all)
   · intro A _ _; rfl
-theorem idx_spec {im : Image} (hcode : CodeAt im (pcOf 42231) cIdx) (s : MachineState) (hpc : s.pc = pcOf 42231) :
-    ∃ t, Steps im s 4 4 t ∧ t.pc = pcOf 42235 ∧
-      t.getReg .x22 = s.getMem (BitVec.ofNat 64 0x60) >>> 33 ∧ t.getReg .x18 = BitVec.ofNat 64 LPLAN ∧
+theorem xor_m1 (v : BitVec 64) : v ^^^ (BitVec.ofNat 64 18446744073709551615) = ~~~v := by
+  rw [show (BitVec.ofNat 64 18446744073709551615) = BitVec.allOnes 64 from by decide, BitVec.xor_allOnes]
+/-- `(~d) >> 33 = 2^31 - 1 - (d >> 33)`: the routed hypertree index of the digest's index. -/
+theorem not_shr33 (d : Word) : (~~~d) >>> 33 = BitVec.ofNat 64 (2 ^ 31 - 1 - (d >>> 33).toNat) := by
+  apply BitVec.eq_of_toNat_eq
+  have hd := d.isLt
+  simp only [BitVec.toNat_ushiftRight, BitVec.toNat_not, BitVec.toNat_ofNat, Nat.shiftRight_eq_div_pow]
+  omega
+/-- C47: `42232: jal 88876`, the stub `xori s6,s6,-1; srli s6,s6,33; jal 42233`: `s6 = (~d) >> 33 = j`. -/
+theorem idx_spec {im : Image} (hcode : CodeAt im (pcOf 42231) cIdx) (hstub : CodeAt im (pcOf 88876) cIdxStub)
+    (s : MachineState) (hpc : s.pc = pcOf 42231) :
+    ∃ t, Steps im s 7 7 t ∧ t.pc = pcOf 42235 ∧
+      t.getReg .x22 = BitVec.ofNat 64 (2 ^ 31 - 1 - (s.getMem (BitVec.ofNat 64 0x60) >>> 33).toNat) ∧
+      t.getReg .x18 = BitVec.ofNat 64 LPLAN ∧
       RegsExcept s t [.x18, .x22] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_, symRun_sound RIdx (by exact hcode) s hpc (by simp [RIdx.res, rv_simp]), ?_, ?_, ?_, ?_, ?_⟩
-  · simp [Result.toState_pc, RIdx.res, E.eval]
-  · simp [RIdx.res, rv_simp]
-  · simp [RIdx.res, rv_simp, LPLAN]
+  have hb : CodeAt im (pcOf 42233) (cIdx.drop 2) := SigGolfCandidate.T3M.codeAt_sub 2 hcode (by decide) (by rfl)
+  refine ⟨_, SigGolfCandidate.T3M.LH.chain3_sound RIdx hcode hpc (by rfl) RIdxS hstub (by rfl) RIdxB hb
+    (by simp [RIdxB.res, rv_simp]), ?_, ?_, ?_, ?_, ?_⟩
+  · simp [Result.toState_pc, RIdxB.res, E.eval]
+  · simp [RIdxB.res, rv_simp, xor_m1, not_shr33]
+  · simp [RIdxB.res, rv_simp, LPLAN]
   · intro r hr
     simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
     obtain ⟨h18, h22⟩ := hr
@@ -813,8 +826,9 @@ set_option maxRecDepth 20000 in
 theorem run2_spec (s : MachineState) (hpc : s.pc = pcOf 42142) (idx : Nat) (hidx : idx < 2 ^ 31)
     (hix : s.getMem (BitVec.ofNat 64 0x60) >>> 33 = BitVec.ofNat 64 idx) (hp : LPlanAt s)
     (hfl : ∀ c < 9, ∃ f < 2, s.getMem (BitVec.ofNat 64 (Compact.holdAt c + 16)) = BitVec.ofNat 64 f) :
-    ∃ t, Steps im s 39570 39570 t ∧ t.pc = pcOf 42716 ∧
-      ∀ A < 2 ^ 64, t.getMem (BitVec.ofNat 64 A) = run2Mem (fun B => s.getMem (BitVec.ofNat 64 B)) idx A := by
+    ∃ t, Steps im s 39573 39573 t ∧ t.pc = pcOf 42716 ∧
+      ∀ A < 2 ^ 64, t.getMem (BitVec.ofNat 64 A) =
+        run2Mem (fun B => s.getMem (BitVec.ofNat 64 B)) (SigGolfCandidate.T3.hyperIndex idx) A := by
   have hM' : MEMORY_BYTES = 16777216 := rfl
   have hW : WIT = 0x800 := rfl
   have hWO : WOUT = 0xB58 := rfl
@@ -861,32 +875,36 @@ theorem run2_spec (s : MachineState) (hpc : s.pc = pcOf 42142) (idx : Nat) (hidx
     rw [m6a A hA]; unfold topMem; split
     · rw [m5b, m5 _ (by omega)]; rfl
     · rw [m5b, m5 A hA]; rfl
-  obtain ⟨u6, s6, p6, x22, x18, r6, f6⟩ := idx_spec (code_cIdx hc) u6a p6a
+  obtain ⟨u6, s6, p6, x22, x18, r6, f6⟩ := idx_spec (code_cIdx hc) (code_cIdxStub hc) u6a p6a
   have hp6 : LPlanAt u6 := fun k hk => by
     rw [f6 _ (by omega) (fun h => h), e5 _ (by omega)]
     unfold topMem
     rw [if_neg (by omega), stMem_out _ _ (Or.inr (by omega))]
     exact hp k hk
-  have x22' : u6.getReg .x22 = BitVec.ofNat 64 idx := by
-    rw [x22, show (96#64 : Word) = BitVec.ofNat 64 0x60 from rfl, e5 _ (by omega)]
-    unfold topMem
-    rw [if_neg (by omega), stMem_out _ _ (Or.inl (by omega))]
-    exact hix
+  have hjdx : SigGolfCandidate.T3.hyperIndex idx < 2 ^ 31 := SigGolfCandidate.T3.hyperIndex_lt idx
+  have x22' : u6.getReg .x22 = BitVec.ofNat 64 (SigGolfCandidate.T3.hyperIndex idx) := by
+    have hm : u6a.getMem (BitVec.ofNat 64 0x60) = s.getMem (BitVec.ofNat 64 0x60) := by
+      rw [e5 _ (by omega)]
+      unfold topMem
+      rw [if_neg (by omega), stMem_out _ _ (Or.inl (by omega))]
+    rw [x22, hm, hix, toNat_ofNat_lt (by omega)]
+    unfold SigGolfCandidate.T3.hyperIndex
+    rw [Nat.mod_eq_of_lt hidx]
   have e6 : ∀ A < 2 ^ 64, u6.getMem (BitVec.ofNat 64 A) =
       topMem (stMem (fun B => s.getMem (BitVec.ofNat 64 B))) A := fun A hA => by
     rw [f6 A hA (fun h => h), e5 A hA]
-  obtain ⟨u7, s7, p7, r7, m7⟩ := layer_spec hc 1 (by omega) u6 _ e6 (by rw [p6]; rfl) idx hidx x22' x18 hp6
+  obtain ⟨u7, s7, p7, r7, m7⟩ := layer_spec hc 1 (by omega) u6 _ e6 (by rw [p6]; rfl) (SigGolfCandidate.T3.hyperIndex idx) hjdx x22' x18 hp6
   have hp7 : LPlanAt u7 := fun k hk => by
-    rw [m7 _ (by omega), layMem_out _ 1 (by omega) idx _ (Or.inr (by unfold chDst lvDst; simp; omega)),
+    rw [m7 _ (by omega), layMem_out _ 1 (by omega) (SigGolfCandidate.T3.hyperIndex idx) _ (Or.inr (by unfold chDst lvDst; simp; omega)),
       ← e6 _ (by omega)]
     exact hp6 k hk
-  obtain ⟨u8, s8, p8, r8, m8⟩ := layer_spec hc 2 (by omega) u7 _ m7 (by rw [p7]; rfl) idx hidx
+  obtain ⟨u8, s8, p8, r8, m8⟩ := layer_spec hc 2 (by omega) u7 _ m7 (by rw [p7]; rfl) (SigGolfCandidate.T3.hyperIndex idx) hjdx
     (by rw [r7.get (by decide), x22']) (by rw [r7.get (by decide), x18]) hp7
   have hp8 : LPlanAt u8 := fun k hk => by
-    rw [m8 _ (by omega), layMem_out _ 2 (by omega) idx _ (Or.inr (by unfold chDst lvDst; simp; omega)),
+    rw [m8 _ (by omega), layMem_out _ 2 (by omega) (SigGolfCandidate.T3.hyperIndex idx) _ (Or.inr (by unfold chDst lvDst; simp; omega)),
       ← m7 _ (by omega)]
     exact hp7 k hk
-  obtain ⟨u9, s9, p9, r9, m9⟩ := layer_spec hc 3 (by omega) u8 _ m8 (by rw [p8]; rfl) idx hidx
+  obtain ⟨u9, s9, p9, r9, m9⟩ := layer_spec hc 3 (by omega) u8 _ m8 (by rw [p8]; rfl) (SigGolfCandidate.T3.hyperIndex idx) hjdx
     (by rw [r8.get (by decide), r7.get (by decide), x22']) (by rw [r8.get (by decide), r7.get (by decide), x18]) hp8
   obtain ⟨u10, s10, p10, r10, m10⟩ := tail_spec (code_cTail hc) u9 (by rw [p9]; rfl)
   refine ⟨u10, (((((((((((((s1.trans s2a).trans s2).trans s3a).trans s3).trans s4).trans s5).trans s5b).trans
@@ -896,7 +914,8 @@ theorem run2_spec (s : MachineState) (hpc : s.pc = pcOf 42142) (idx : Nat) (hidx
   unfold run2Mem tailMem
   beta_reduce
   have g : ∀ B < 2 ^ 64, u9.getMem (BitVec.ofNat 64 B) =
-      layMem (layMem (layMem (topMem (stMem (fun B => s.getMem (BitVec.ofNat 64 B)))) 1 idx) 2 idx) 3 idx B := m9
+      layMem (layMem (layMem (topMem (stMem (fun B => s.getMem (BitVec.ofNat 64 B)))) 1 (SigGolfCandidate.T3.hyperIndex idx)) 2 (SigGolfCandidate.T3.hyperIndex idx)) 3
+        (SigGolfCandidate.T3.hyperIndex idx) B := m9
   rw [g _ (by omega), g _ (by omega), g _ (by omega), g A hA]
 end
 end ClaudeWCT.W9.Machine.Expand.Compact2
@@ -1269,8 +1288,11 @@ theorem ppSlot_le (leaf j : Nat) (hj : j < 12) (hl : leaf < 4096) : ppSlot leaf 
   split
   · exact (slots_ok.1 _ (Nat.mod_lt _ (by norm_num)) j (by omega)).2
   · have := slots_ok.2.1 (leaf / 64) (by omega) (j - 6) (by omega); omega
-def cPost : List (BitVec 32) := [100676355,54743827,263863,218003,1307539,1295251,5479955,4428691,29590451,15927,3683520019,8261171,933507,9322243,30847011,31896611,1266579,1307539,1295251,5479955,4428691,29590451,15927,3616411155,8261171,933507,9322243,30849059,31898659,2315155,1307539,1295251,5479955,4428691,29590451,15927,3549302291,8261171,933507,9322243,64401443,65451043,3363731,1307539,1295251,5479955,4428691,29590451,15927,3482193427,8261171,933507,9322243,64403491,65453091,4412307,1307539,1295251,5479955,4428691,29590451,15927,3415084563,8261171,933507,9322243,97955875,99005475,5460883,1307539,1295251,5479955,4428691,29590451,15927,3347975699,8261171,933507,9322243,97957923,99007523,6509459,1307539,1295251,5479955,4428691,29590451,15927,3280866835,8261171,933507,9322243,131510307,132559907,7558035,1307539,1295251,5479955,4428691,29590451,15927,3213757971,8261171,933507,9322243,131512355,132561955,8606611,1307539,1295251,5479955,4428691,29590451,15927,3146649107,8261171,933507,9322243,165064739,166114339,9655187,1307539,1295251,5479955,4428691,29590451,15927,3079540243,8261171,933507,9322243,165066787,166116387,10703763,1307539,1295251,5479955,4428691,29590451,15927,3012431379,8261171,933507,9322243,198619171,199668771,11752339,1307539,1295251,5479955,4428691,29590451,15927,2945322515,8261171,933507,9322243,198621219,199670819,13751,2944763283,13879,3750102547,372771,8750483,4274384099,16780855,3087928851,66286483,3380115,8258867,6509459,3380115,8258995,537232787,13879,2944796179,344963,4428691,12813235,441987,8830723,30650403,31700003,1393539,4428691,12813235,17219203,25607939,30650403,31700003,2442115,4428691,12813235,33996419,42385155,30650403,31700003,3490691,4428691,12813235,50773635,59162371,30650403,31700003,4539267,4428691,12813235,67550851,75939587,30650403,31700003,5587843,4428691,12813235,84328067,92716803,30650403,31700003,377731,4428691,12813235,101105283,109494019,30650403,31700003,1426307,4428691,12813235,117882499,126271235,30650403,31700003,2474883,4428691,12813235,134659715,143048451,30650403,31700003,3523459,4428691,12813235,151436931,159825667,30650403,31700003,4572035,4428691,12813235,168214147,176602883,30650403,31700003,5620611,4428691,12813235,184991363,193380099,30650403,31700003,616575087,1299,115]
+/-- C47: word 43501 (`srli t1,t1,52`) jumps to the stub 88879..88881 (`xori t1,t1,-1; srli t1,t1,52; jal 43502`):
+`t1 = (~d) >> 52`, the top leaf of the routed hypertree index `j`. -/
+def cPost : List (BitVec 32) := [100676355,1350746223,263863,218003,1307539,1295251,5479955,4428691,29590451,15927,3683520019,8261171,933507,9322243,30847011,31896611,1266579,1307539,1295251,5479955,4428691,29590451,15927,3616411155,8261171,933507,9322243,30849059,31898659,2315155,1307539,1295251,5479955,4428691,29590451,15927,3549302291,8261171,933507,9322243,64401443,65451043,3363731,1307539,1295251,5479955,4428691,29590451,15927,3482193427,8261171,933507,9322243,64403491,65453091,4412307,1307539,1295251,5479955,4428691,29590451,15927,3415084563,8261171,933507,9322243,97955875,99005475,5460883,1307539,1295251,5479955,4428691,29590451,15927,3347975699,8261171,933507,9322243,97957923,99007523,6509459,1307539,1295251,5479955,4428691,29590451,15927,3280866835,8261171,933507,9322243,131510307,132559907,7558035,1307539,1295251,5479955,4428691,29590451,15927,3213757971,8261171,933507,9322243,131512355,132561955,8606611,1307539,1295251,5479955,4428691,29590451,15927,3146649107,8261171,933507,9322243,165064739,166114339,9655187,1307539,1295251,5479955,4428691,29590451,15927,3079540243,8261171,933507,9322243,165066787,166116387,10703763,1307539,1295251,5479955,4428691,29590451,15927,3012431379,8261171,933507,9322243,198619171,199668771,11752339,1307539,1295251,5479955,4428691,29590451,15927,2945322515,8261171,933507,9322243,198621219,199670819,13751,2944763283,13879,3750102547,372771,8750483,4274384099,16780855,3087928851,66286483,3380115,8258867,6509459,3380115,8258995,537232787,13879,2944796179,344963,4428691,12813235,441987,8830723,30650403,31700003,1393539,4428691,12813235,17219203,25607939,30650403,31700003,2442115,4428691,12813235,33996419,42385155,30650403,31700003,3490691,4428691,12813235,50773635,59162371,30650403,31700003,4539267,4428691,12813235,67550851,75939587,30650403,31700003,5587843,4428691,12813235,84328067,92716803,30650403,31700003,377731,4428691,12813235,101105283,109494019,30650403,31700003,1426307,4428691,12813235,117882499,126271235,30650403,31700003,2474883,4428691,12813235,134659715,143048451,30650403,31700003,3523459,4428691,12813235,151436931,159825667,30650403,31700003,4572035,4428691,12813235,168214147,176602883,30650403,31700003,5620611,4428691,12813235,184991363,193380099,30650403,31700003,616575087,1299,115]
 def cPro : List (BitVec 32) := cPost.take 3
+def cProStub : List (BitVec 32) := [0xfff34313,0x3435313,0xaf5d306f]
 def cG (j : Nat) : List (BitVec 32) := (cPost.drop (3 + 13 * j)).take 13
 def cZs : List (BitVec 32) := (cPost.drop 159).take 4
 def cZl : List (BitVec 32) := (cPost.drop 163).take 3
@@ -1281,6 +1303,8 @@ section
 variable {im : Image} (hc : CompactCodeAt im)
 include hc
 theorem code_cPro : CodeAt im (pcOf 43500) cPro := codeAt_of_compact_window hc (by decide) (by decide +kernel)
+theorem code_cProStub : CodeAt im (pcOf 88879) cProStub :=
+  SigGolfCandidate.T3M.codeAt_sub 3 hc.jstubs (by decide) (by decide)
 theorem code_cZs : CodeAt im (pcOf 43659) cZs := codeAt_of_compact_window hc (by decide) (by decide +kernel)
 theorem code_cZl : CodeAt im (pcOf 43663) cZl := codeAt_of_compact_window hc (by decide) (by decide +kernel)
 theorem code_cTs : CodeAt im (pcOf 43666) cTs := codeAt_of_compact_window hc (by decide) (by decide +kernel)
@@ -1290,6 +1314,8 @@ theorem code_cP (j : Nat) (hj : j < 12) : CodeAt im (pcOf (43677 + 7 * j)) (cP j
   interval_cases j <;> exact codeAt_of_compact_window hc (by decide) (by decide +kernel)
 end
 sym_block RPro := symRun cfgC cPro (pcOf 43500) 40
+sym_block RProS := symRunAux cfgC cProStub (pcOf 88879) 40 RPro.res.st
+sym_block RProB := symRunAux cfgC (cPro.drop 2) (pcOf 43502) 40 RProS.res.st
 sym_block RZs := symRun cfgC cZs (pcOf 43659) 40
 sym_block RZl := symRun cfgC cZl (pcOf 43663) 40
 sym_block RTs := symRun cfgC cTs (pcOf 43666) 40
@@ -1338,12 +1364,14 @@ section
 variable {im : Image} (hc : CompactCodeAt im)
 include hc
 theorem pro_spec (s : MachineState) (hpc : s.pc = pcOf 43500) :
-    ∃ t, Steps im s 3 3 t ∧ t.pc = pcOf 43503 ∧ t.getReg .x6 = s.getMem (BitVec.ofNat 64 96) >>> 52 ∧
+    ∃ t, Steps im s 6 6 t ∧ t.pc = pcOf 43503 ∧ t.getReg .x6 = (~~~(s.getMem (BitVec.ofNat 64 96))) >>> 52 ∧
       t.getReg .x13 = BitVec.ofNat 64 SCR ∧ RegsExcept s t [.x6, .x13] ∧ ∀ a, t.getMem a = s.getMem a := by
-  refine ⟨_, symRun_sound RPro (code_cPro hc) s hpc (by simp [RPro.res, rv_simp, accessValid_iff]), ?_, ?_, ?_, ?_, ?_⟩
-  · simp [RPro.res, rv_simp]
-  · simp [RPro.res, rv_simp]
-  · simp [RPro.res, rv_simp, SCR]
+  have hb : CodeAt im (pcOf 43502) (cPro.drop 2) := SigGolfCandidate.T3M.codeAt_sub 2 (code_cPro hc) (by decide) (by rfl)
+  refine ⟨_, SigGolfCandidate.T3M.LH.chain3_sound RPro (code_cPro hc) hpc (by rfl) RProS (code_cProStub hc) (by rfl)
+    RProB hb (by simp [RProB.res, rv_simp, accessValid_iff]), ?_, ?_, ?_, ?_, ?_⟩
+  · simp [RProB.res, rv_simp]
+  · simp [RProB.res, rv_simp, Compact2.xor_m1]
+  · simp [RProB.res, rv_simp, SCR]
   · intro r hr
     simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
     rw [Result.toState_getReg]
@@ -1622,11 +1650,11 @@ theorem p_spec (j : Nat) (hj : j < 12) (s : MachineState) (hpc : s.pc = pcOf (43
       by_cases q2 : A = ppNew leaf j
       · rw [if_pos (by rw [q2]), if_pos q2]
       · rw [if_neg (fun h => q2 ((ofNat_inj hA (by omega)).mp h)), if_neg q2]
-/-- The common post-pass: from 43500 to word 43761 (546 steps). Outside the scratch area the
-memory is `ppPlace M leaf 12`. -/
+/-- The common post-pass: from 43500 to word 43761 (549 steps; C47: the top leaf is that of `j`, `(~d) >> 52`).
+Outside the scratch area the memory is `ppPlace M leaf 12`. -/
 theorem post_prefix_spec (s : MachineState) (hpc : s.pc = pcOf 43500) (leaf : Nat) (hl : leaf < 4096)
-    (hix : s.getMem (BitVec.ofNat 64 96) >>> 52 = BitVec.ofNat 64 leaf) (ht : TopTabAt s) :
-    ∃ t, Steps im s 546 546 t ∧ t.pc = pcOf 43761 ∧
+    (hix : (~~~(s.getMem (BitVec.ofNat 64 96))) >>> 52 = BitVec.ofNat 64 leaf) (ht : TopTabAt s) :
+    ∃ t, Steps im s 549 549 t ∧ t.pc = pcOf 43761 ∧
       ∀ A < 2 ^ 64, ¬ (SCR ≤ A ∧ A < SCR + 192) →
         t.getMem (BitVec.ofNat 64 A) = ppPlace (fun B => s.getMem (BitVec.ofNat 64 B)) leaf 12 A := by
   have hS : SCR = 0x40000 := rfl
@@ -1781,11 +1809,11 @@ theorem ppPlace_congr (M M' : Nat → Word) (h : ∀ B < 2 ^ 64, M B = M' B) (le
     · exact h _ (by omega)
     · exact ih (by omega) A hA
 end Post
-/-- Pairing stage 1: the buffer pass (layout block), then the top-path post-pass (2295 + 546 steps, to 43761). -/
+/-- Pairing stage 1: the buffer pass (layout block), then the top-path post-pass (2295 + 549 steps, to 43761). -/
 theorem bufferPost_prefix_spec {im : Image} (hc : CompactCodeAt im) (s : MachineState) (hpc : s.pc = pcOf 42716)
-    (leaf : Nat) (hl : leaf < 4096) (hix : s.getMem (BitVec.ofNat 64 96) >>> 52 = BitVec.ofNat 64 leaf)
+    (leaf : Nat) (hl : leaf < 4096) (hix : (~~~(s.getMem (BitVec.ofNat 64 96))) >>> 52 = BitVec.ofNat 64 leaf)
     (ht : TopTabAt s) :
-    ∃ t, Steps im s 2841 2841 t ∧ t.pc = pcOf 43761 ∧
+    ∃ t, Steps im s 2844 2844 t ∧ t.pc = pcOf 43761 ∧
       ∀ A < 2 ^ 64, ¬ (Post.SCR ≤ A ∧ A < Post.SCR + 192) →
         t.getMem (BitVec.ofNat 64 A) = Post.ppPlace (bufferMem (fun B => s.getMem (BitVec.ofNat 64 B))) leaf 12 A := by
   have hTA : TOPA = 16776064 := rfl
@@ -2119,7 +2147,7 @@ theorem layerRegion_top_tail (p : Nat) (hp : 768 ≤ p) (n : Nat) :
     window (layerRegion N w 0) p n = window (layerRegionV6 N w 0) p n := by
   unfold layerRegion layerRegionV6 ClaudeWCT.W9.Machine.Expand.layerBytesV6
   have h63 : 64 * (height (0 : Layer) + chainCount (0 : Layer)) = 4032 := rfl
-  have htl : ((layerBytes 0 (route (WCT9.digestIndex N) 0).1 (w.signature.layers 0)).take 768).length = 768 := by
+  have htl : ((layerBytes 0 (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) 0).1 (w.signature.layers 0)).take 768).length = 768 := by
     rw [List.length_take, layerBytes_length, h63]; omega
   rw [if_pos (show (0 : Layer).val = 0 from rfl), if_pos (show (0 : Layer).val = 0 from rfl),
     if_pos (show (0 : Layer).val = 0 from rfl), List.append_assoc,
@@ -2252,10 +2280,10 @@ theorem zone_low (L : Layer) (hL : L.val ≠ 0) (o : Nat) (h1 : ClaudeWCT.W9.Mac
     (h8 : o % 8 = 0) :
     BitVec.ofNat 64 (readLE (window (ClaudeWCT.W9.Machine.Expand.OldW.witList N w) o 8)) =
       if o - ClaudeWCT.W9.Machine.Expand.OldW.layerBase L < 16 * ClaudeWCT.W9.Machine.Expand.OldW.pathSlots L then
-        pathOut (v6M N w) L.val (lroute L.val (WCT9.digestIndex N)) (o - ClaudeWCT.W9.Machine.Expand.OldW.layerBase L)
+        pathOut (v6M N w) L.val (lroute L.val (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N))) (o - ClaudeWCT.W9.Machine.Expand.OldW.layerBase L)
       else chOut (v6M N w) L.val (o - ClaudeWCT.W9.Machine.Expand.OldW.layerBase L - 16 * ClaudeWCT.W9.Machine.Expand.OldW.pathSlots L) := by
   have hW : WIT = 0x800 := rfl
-  set leaf := (route (WCT9.digestIndex N) L).1 with hleafdef
+  set leaf := (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) L).1 with hleafdef
   have hleaf : leaf < 2 ^ height L := ClaudeWCT.W9.Machine.Expand.OldW.route_leaf_lt _ _
   have hps : 16 * ClaudeWCT.W9.Machine.Expand.OldW.pathSlots L ≤ 16 * 25 ∧ ClaudeWCT.W9.Machine.Expand.OldW.layerBase L % 8 = 0 ∧
       ClaudeWCT.W9.Machine.Expand.OldW.pathSlots L ≥ 20 := by
@@ -2272,9 +2300,9 @@ theorem zone_low (L : Layer) (hL : L.val ≠ 0) (o : Nat) (h1 : ClaudeWCT.W9.Mac
   by_cases hp : o - ClaudeWCT.W9.Machine.Expand.OldW.layerBase L < 16 * ClaudeWCT.W9.Machine.Expand.OldW.pathSlots L
   · rw [if_pos hp, window_append_left _ _ _ _ (by rw [ClaudeWCT.W9.Machine.Expand.OldW.lowerPathBytes_length]; omega)]
     unfold pathOut
-    have hro := rootOff_eq_hi L hL (WCT9.digestIndex N)
+    have hro := rootOff_eq_hi L hL (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N))
     rw [← hleafdef] at hro
-    by_cases hrt : o - ClaudeWCT.W9.Machine.Expand.OldW.layerBase L = rootOff L.val (lroute L.val (WCT9.digestIndex N))
+    by_cases hrt : o - ClaudeWCT.W9.Machine.Expand.OldW.layerBase L = rootOff L.val (lroute L.val (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)))
     · rw [if_pos hrt, hrt, hro, ClaudeWCT.W9.Machine.Expand.OldW.lowerPath_hi hL hleaf]
       decide
     rw [if_neg hrt]
@@ -2332,7 +2360,7 @@ end ident3
 second pass's output (`out2old` at staging offset `8 i + 856`). -/
 theorem compact2_words (N : HashOutput) (w : WCT9.Witness) (i : Nat) (h1 : 8864 ≤ 8 * i) (h2 : 8 * i < 20104) :
     BitVec.ofNat 64 (readLE (window (ClaudeWCT.W9.Machine.Expand.OldW.witList N w) (8 * i) 8)) =
-      out2old (v6M N w) (WCT9.digestIndex N) (8 * i + 856) := by
+      out2old (v6M N w) (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) (8 * i + 856) := by
   unfold out2old
   rw [if_neg (show ¬ 8 * i + 856 < 8952 by omega)]
   by_cases htop : 8 * i + 856 < 13176
@@ -2354,7 +2382,7 @@ theorem compact2_words (N : HashOutput) (w : WCT9.Witness) (i : Nat) (h1 : 8864 
         (16 * ClaudeWCT.W9.Machine.Expand.OldW.pathSlots L + 2248) →
       BitVec.ofNat 64 (readLE (window (ClaudeWCT.W9.Machine.Expand.OldW.witList N w) (8 * i) 8)) =
         (if 8 * i + 856 - (lvDst (zoneLay (8 * i + 856)) - WIT) < pathTop (zoneLay (8 * i + 856)) then
-          pathOut (v6M N w) (zoneLay (8 * i + 856)) (lroute (zoneLay (8 * i + 856)) (WCT9.digestIndex N))
+          pathOut (v6M N w) (zoneLay (8 * i + 856)) (lroute (zoneLay (8 * i + 856)) (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)))
             (8 * i + 856 - (lvDst (zoneLay (8 * i + 856)) - WIT))
         else chOut (v6M N w) (zoneLay (8 * i + 856)) (8 * i + 856 - (chDst (zoneLay (8 * i + 856)) - WIT))) := by
     intro L hL hz h1 h2
@@ -2381,7 +2409,7 @@ theorem compact2_words (N : HashOutput) (w : WCT9.Witness) (i : Nat) (h1 : 8864 
 /-- C4: the second pass leaves the top path area in the old 64-byte stride layout (`layerRegionV6 N w 0`); the
 post-pass re-places it. -/
 theorem compact2_top_old (N : HashOutput) (w : WCT9.Witness) (i : Nat) (h1 : 8096 ≤ 8 * i) (h2 : 8 * i < 8864) :
-    out2old (v6M N w) (WCT9.digestIndex N) (8 * i + 856) =
+    out2old (v6M N w) (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) (8 * i + 856) =
       BitVec.ofNat 64 (readLE (window (layerRegionV6 N w 0) (8 * i - 8096) 8)) := by
   have h66 : height (0 : Layer) + ClaudeWCT.W9.Machine.Expand.chainSlotsV6 0 = 66 := rfl
   have hw6 := v6_layer N w 0 (8 * i - 8096) (by rw [h66]; omega)
@@ -2391,7 +2419,7 @@ theorem compact2_top_old (N : HashOutput) (w : WCT9.Witness) (i : Nat) (h1 : 809
     v6M_eq N w _ (by simp [layOffV6]; omega) (by simp [layOffV6]; omega), hw6]
 /-- Pairing stage 1: the staged rho / digest counter (second-pass offsets 20960 .. 20984) are the witness tail. -/
 theorem tail_words (N : HashOutput) (w : WCT9.Witness) (t : Nat) (ht : t < 4) :
-    out2old (v6M N w) (WCT9.digestIndex N) (20960 + 8 * t) =
+    out2old (v6M N w) (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) (20960 + 8 * t) =
       BitVec.ofNat 64 (readLE (window (ClaudeWCT.W9.Machine.Expand.OldW.witList N w) (23208 + 8 * t) 8)) := by
   rw [ClaudeWCT.W9.Machine.Expand.OldW.win_tail N w _ _ (by omega)]
   have hrho : ∀ d, d + 8 ≤ 16 → window (tailBytes w) d 8 = window (witListV6 N w) d 8 := fun d hd => by
@@ -2628,13 +2656,13 @@ theorem oldTop_sib (leaf : Nat) (ls : LayerSignature 0) (j : Nat) (hj : j < heig
 theorem postMem_top (N : HashOutput) (w : WCT9.Witness) (M : Nat → Word)
     (hold : ∀ q < 96, M (11000 + 8 * q) = BitVec.ofNat 64 (readLE (window (layerRegionV6 N w 0) (8 * q) 8)))
     (q : Nat) (hq : q < 96) :
-    Buffer.Post.ppPlace (Buffer.bufferMem M) (route (WCT9.digestIndex N) 0).1 12 (11000 + 8 * q) =
+    Buffer.Post.ppPlace (Buffer.bufferMem M) (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) 0).1 12 (11000 + 8 * q) =
       BitVec.ofNat 64 (readLE (window (ClaudeWCT.W9.Machine.Expand.OldW.witList N w) (8096 + 8 * q) 8)) := by
   have hw := ClaudeWCT.W9.Machine.Expand.OldW.win_topPath N w (8 * q) 8 (by omega)
   rw [show ClaudeWCT.W9.Machine.Expand.OldW.layerBase 0 = 8096 from rfl] at hw
   rw [hw]
   have hl6 : ∀ q < 96, window (layerRegionV6 N w 0) (8 * q) 8 =
-      window (layerBytes 0 (route (WCT9.digestIndex N) 0).1 (w.signature.layers 0)) (8 * q) 8 := by
+      window (layerBytes 0 (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) 0).1 (w.signature.layers 0)) (8 * q) 8 := by
     intro q hq
     have h63 : 64 * (height (0 : Layer) + chainCount (0 : Layer)) = 4032 := rfl
     unfold layerRegionV6 ClaudeWCT.W9.Machine.Expand.layerBytesV6
@@ -2642,12 +2670,12 @@ theorem postMem_top (N : HashOutput) (w : WCT9.Witness) (M : Nat → Word)
       window_append_left _ _ _ _ (by rw [List.length_take, layerBytes_length, h63]; omega),
       window_take _ _ _ _ (by omega)]
   replace hold : ∀ q < 96, M (11000 + 8 * q) = BitVec.ofNat 64 (readLE (window
-      (layerBytes 0 (route (WCT9.digestIndex N) 0).1 (w.signature.layers 0)) (8 * q) 8)) :=
+      (layerBytes 0 (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) 0).1 (w.signature.layers 0)) (8 * q) 8)) :=
     fun q hq => (hold q hq).trans (by rw [hl6 q hq])
-  have hl : (route (WCT9.digestIndex N) 0).1 < 4096 := by
-    have h1 : (route (WCT9.digestIndex N) 0).1 = WCT9.digestIndex N / 2 ^ 19 % 2 ^ 12 := rfl
+  have hl : (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) 0).1 < 4096 := by
+    have h1 : (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) 0).1 = (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) / 2 ^ 19 % 2 ^ 12 := rfl
     rw [h1]; exact Nat.mod_lt _ (by norm_num)
-  generalize (route (WCT9.digestIndex N) 0).1 = leaf at hl hold ⊢
+  generalize (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) 0).1 = leaf at hl hold ⊢
   generalize w.signature.layers 0 = ls at hold ⊢
   by_cases hs : ∃ j, j < 12 ∧ 16 * Buffer.Post.ppSlot leaf j ≤ 8 * q ∧ 8 * q < 16 * Buffer.Post.ppSlot leaf j + 16
   · obtain ⟨j, hj, h1, h2⟩ := hs
@@ -2685,10 +2713,10 @@ theorem postMem_words (N : HashOutput) (w : WCT9.Witness) (M : Nat → Word)
       BitVec.ofNat 64 (readLE (window (ClaudeWCT.W9.Machine.Expand.OldW.witList N w) (23208 + 8 * t) 8)))
     (hold : ∀ q < 96, M (11000 + 8 * q) = BitVec.ofNat 64 (readLE (window (layerRegionV6 N w 0) (8 * q) 8)))
     (i : Nat) (h1 : 1012 ≤ i) (h2 : i < 2905) :
-    Buffer.Post.ppPlace (Buffer.bufferMem M) (route (WCT9.digestIndex N) 0).1 12 (2904 + 8 * i) =
+    Buffer.Post.ppPlace (Buffer.bufferMem M) (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) 0).1 12 (2904 + 8 * i) =
       (wordsOf (ClaudeWCT.W9.Machine.Expand.OldW.witList N w)).getD i 0 := by
-  have hl : (route (WCT9.digestIndex N) 0).1 < 4096 := by
-    have h1 : (route (WCT9.digestIndex N) 0).1 = WCT9.digestIndex N / 2 ^ 19 % 2 ^ 12 := rfl
+  have hl : (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) 0).1 < 4096 := by
+    have h1 : (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) 0).1 = (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) / 2 ^ 19 % 2 ^ 12 := rfl
     rw [h1]; exact Nat.mod_lt _ (by norm_num)
   rw [wordsOf_getD' _ 2905 (ClaudeWCT.W9.Machine.Expand.OldW.witList_length_eq N w) i h2]
   by_cases htop : 8 * i < 8864
@@ -2735,8 +2763,9 @@ def lcEnd (c i : Nat) : Nat := if i = 5 then lI c else qI c (i + 1)
 def hdr8 (c : Nat) : Nat := 2049 + 65536 * c
 def hdr6 (c : Nat) : Nat := 1537 + 65536 * c
 /-- FTS chain word constant. C31: the coordinate steps the word by `-2048` (`chainK` is the submitted shared code's
-`lui/addi` constant). C46: FTS pairs share the coordinate step `-2048 (c / 2)`; odd coordinates add `0xc0000`. -/
-def chainK (c i : Nat) : Nat := 2^64 - 1536 + 256 * i - 2048 * (c / 2) + 786432 * (c % 2)
+`lui/addi` constant). C46: FTS pairs share the coordinate step `-2048 (c / 2)`; odd coordinates add `0xc0000`. C47:
+coordinate 8 is reflected (`sub t1,t2,t1`: `child << 20 - index << 33`) with the constant `8704 + 256 i`. -/
+def chainK (c i : Nat) : Nat := if c = 8 then 8704 + 256 * i else 2^64 - 1536 + 256 * i - 2048 * (c / 2) + 786432 * (c % 2)
 /-- C31: the retained reference image (`signReferenceCode`, which the certificate does not use) keeps the C4 chain
 constants (coordinate nibble `c + 1`); its checks (`qE`, `expS`) use `chainKR`. -/
 def chainKR (c i : Nat) : Nat := 2^64 - 1536 + 256 * i + 65536 * c
@@ -2757,9 +2786,13 @@ def leafLoE (c : Nat) : E :=
   else mkAdd (.bin .or (.bin .sll (.reg .x22) (cE 27)) (.bin .sll (.reg .x18) (cE 20))) (cE (0 + 65536 * c))
 def leafX7 (c : Nat) : E := if c = 0 then cE 0 else cE (0 + 65536 * c)
 def x29A (off : Nat) : Addr := ⟨some (.reg .x29), BitVec.ofNat 64 off⟩
-/-- C46: the two-word node low word is pair-shared (`-2048 (c / 2)`); leaf words add `0xc0000` on odd coordinates. -/
-def nodeLo7 (c index : Nat) : Nat := (2^64 - 2048 - 2048 * (c / 2)) + 2 ^ 33 * index
-def leafLo7 (c index j : Nat) : Nat := (2^64 - 2048 - 2048 * (c / 2) + 786432 * (c % 2)) + ClaudeWCT.WCT9.ftsSelMul c * j + 2 ^ 33 * index
+/-- C46: the two-word node low word is pair-shared (`-2048 (c / 2)`); leaf words add `0xc0000` on odd coordinates.
+C47: coordinate 8 uses pair 3's tag base `a5 = index << 33 - 8192` (its packed words are `a5 - 512 - h`) and its leaf
+word is reflected (`child << 20 - index << 33 + 8192`). -/
+def nodeLo7 (c index : Nat) : Nat := if c = 8 then (2^64 - 8192) + 2 ^ 33 * index else (2^64 - 2048 - 2048 * (c / 2)) + 2 ^ 33 * index
+def leafLo7 (c index j : Nat) : Nat :=
+  if c = 8 then 2 ^ 20 * j + 8192 + (2 ^ 64 - 2 ^ 33 * index % 2 ^ 64)
+  else (2^64 - 2048 - 2048 * (c / 2) + 786432 * (c % 2)) + ClaudeWCT.WCT9.ftsSelMul c * j + 2 ^ 33 * index
 /-- Z6 option F: the retained reference image (`signReferenceCode`, the `NewCodeAt` chain, which the certificate does not
 use) keeps its own bias-0 FTS words; the submitted shared code uses `nodeLo7`/`leafLo7` (−2048). -/
 def nodeLo7R (c index : Nat) : Nat := 0 + 65536 * c + 2 ^ 27 * index
@@ -3008,7 +3041,8 @@ theorem headLook_ok {im : Image} (h : Fetch im) : LookOK im headLook := h.head
 /-- Y6 R-odd: the installed chain-word store forms `index << 33 | child << ftsSelShift c` (the reference `qE` keeps the
 retained reference image's `27`/`20`). -/
 def qEW (c i : Nat) : E :=
-  .bin .add (.bin .or (.bin .sll (.reg .x22) (cE 33)) (.bin .sll (.reg .x18) (cE (ClaudeWCT.WCT9.ftsSelShift c))))
+  if c = 8 then .bin .add (.bin .sub (.bin .sll (.reg .x18) (cE 20)) (.bin .sll (.reg .x22) (cE 33))) (cE (chainK c i))
+  else .bin .add (.bin .or (.bin .sll (.reg .x22) (cE 33)) (.bin .sll (.reg .x18) (cE (ClaudeWCT.WCT9.ftsSelShift c))))
     (cE (chainK c i))
 def expSW (c i : Nat) : PRes :=
   pres [(.x6, cE 4), (.x7, cE (chainK c i)), (.x26, dE i), (.x29, cE CHAINW)]
@@ -3072,7 +3106,7 @@ def words4 : List (BitVec 32) := bv_list% 32 [0x50eb7,0x200e8e93,0x50e37,0x680e0
 def words5 : List (BitVec 32) := bv_list% 32 [0x50eb7,0x200e8e93,0x197313,0x531313,0x67e37,0x80e0e13,0x6e0e33,0xe3303,0x8e3383,0x26eb023,0x27eb423,0x21b1313,0x1a91393,0x730333,0xbf3b7,0x80038393,0x730333,0x6eb823,0xebc23,0x90313,0x137393,0x639393,0x135313,0x730333,0x8030313,0x431313,0x51637,0x60613,0x660633,0x50537,0x20050513,0x8000593,0x73]
 def words6 : List (BitVec 32) := bv_list% 32 [0x50eb7,0x200e8e93,0x50e37,0x6c0e0e13,0xe3303,0x8e3383,0x26eb023,0x27eb423,0x21b1313,0x1491393,0x730333,0xffffe3b7,0x38393,0x730333,0x6eb823,0xebc23,0x90313,0x8030313,0x431313,0x51637,0x60613,0x660633,0x50537,0x20050513,0x8000593,0x73]
 def words7 : List (BitVec 32) := bv_list% 32 [0x50eb7,0x200e8e93,0x197313,0x531313,0x67e37,0xc0e0e13,0x6e0e33,0xe3303,0x8e3383,0x26eb023,0x27eb423,0x21b1313,0x1a91393,0x730333,0xbe3b7,0x38393,0x730333,0x6eb823,0xebc23,0x90313,0x137393,0x639393,0x135313,0x730333,0x8030313,0x431313,0x51637,0x60613,0x660633,0x50537,0x20050513,0x8000593,0x73]
-def words8 : List (BitVec 32) := bv_list% 32 [0x50eb7,0x200e8e93,0x50e37,0x700e0e13,0xe3303,0x8e3383,0x26eb023,0x27eb423,0x21b1313,0x1491393,0x730333,0xffffe3b7,0x80038393,0x730333,0x6eb823,0xebc23,0x90313,0x137393,0x639393,0x135313,0x730333,0x8030313,0x431313,0x51637,0x60613,0x660633,0x50537,0x20050513,0x8000593,0x73]
+def words8 : List (BitVec 32) := bv_list% 32 [0x50eb7,0x200e8e93,0x50e37,0x700e0e13,0xe3303,0x8e3383,0x26eb023,0x27eb423,0x21b1313,0x1491393,0x40638333,0x23b7,0x38393,0x730333,0x6eb823,0xebc23,0x90313,0x137393,0x639393,0x135313,0x730333,0x8030313,0x431313,0x51637,0x60613,0x660633,0x50537,0x20050513,0x8000593,0x73]
 def entry (c : Nat) : Nat := [22780,22970,23192,23394,23616,23818,24040,24242,24464].getD c 0
 def hashPc (c : Nat) : Nat := [22800,23002,23217,23426,23641,23850,24065,24274,24493].getD c 0
 def words (c : Nat) : List (BitVec 32) := [words0,words1,words2,words3,words4,words5,words6,words7,words8].getD c []
@@ -3088,7 +3122,9 @@ def outOffset (c : Nat) : E := .bin .sll (.bin .add (physicalE c) (cE 128)) (cE 
 def padAddr (c off : Nat) : E :=
   if c%2=1 then .bin .add (branchShift 5) (cE (0x67000+64*(c/2)+off)) else cE (FORW+32*c+off)
 def padLoad (c off : Nat) : E := if c=0 then cE 0 else .ld (padAddr c off)
-def headerE (c : Nat) : E := mkAdd
+/-- C47: coordinate 8's leaf word is reflected: `child << 20 - index << 33 + 8192`. -/
+def headerE (c : Nat) : E := if c = 8 then
+  mkAdd (.bin .sub (.bin .sll (.reg .x18) (cE 20)) (.bin .sll (.reg .x22) (cE 33))) (cE 8192) else mkAdd
   (.bin .add (.bin .sll (.reg .x22) (cE 33)) (.bin .sll (.reg .x18) (cE (ClaudeWCT.WCT9.ftsSelShift c))))
     (cE (2^64-2048-2048*(c/2)+786432*(c%2)))
 def leafRegs (c : Nat) : List (Reg × E) :=
@@ -3115,7 +3151,7 @@ def words4 : List (BitVec 32) := bv_list% 32 [0x51e37,0xe0e13,0x591313,0x6e0e33,
 def words5 : List (BitVec 32) := bv_list% 32 [0x51e37,0xe0e13,0x591313,0x6e0e33,0x50537,0x30050513,0xe3303,0x8e3383,0x653023,0x753423,0x10e3303,0x18e3383,0x2653823,0x2753c23,0x21b1313,0xfffff3b7,0x80038393,0x730333,0x800393,0x796a63,0x2590206f,0x653823,0x53c23,0x400006f,0x653823,0x2b90106f,0x400393,0x2796863,0x195313,0xffe30313,0x531313,0x67e37,0x90e0e13,0x6e0e33,0xe3303,0x8e3383,0x2653023,0x2753423,0xc0006f,0x2053023,0x2053423,0x4000593,0x50637,0x50060613,0x6cc0106f]
 def words6 : List (BitVec 32) := bv_list% 32 [0x51e37,0xe0e13,0x591313,0x6e0e33,0x50537,0x30050513,0xe3303,0x8e3383,0x653023,0x753423,0x10e3303,0x18e3383,0x2653823,0x2753c23,0x21b1313,0xffffe3b7,0x38393,0x730333,0x800393,0x796a63,0x41230333,0x653823,0x53c23,0x300006f,0x653823,0x78c0106f,0x400393,0x2796063,0x50e37,0x6d0e0e13,0xe3303,0x8e3383,0x2653023,0x2753423,0xc0006f,0x2053023,0x2053423,0x4000593,0x50637,0x50060613,0x3a80106f]
 def words7 : List (BitVec 32) := bv_list% 32 [0x51e37,0xe0e13,0x591313,0x6e0e33,0x50537,0x30050513,0xe3303,0x8e3383,0x653023,0x753423,0x10e3303,0x18e3383,0x2653823,0x2753c23,0x21b1313,0xffffe3b7,0x38393,0x730333,0x800393,0x796a63,0x3c40206f,0x653823,0x53c23,0x400006f,0x653823,0x4500106f,0x400393,0x2796863,0x195313,0xffe30313,0x531313,0x67e37,0xd0e0e13,0x6e0e33,0xe3303,0x8e3383,0x2653023,0x2753423,0xc0006f,0x2053023,0x2053423,0x4000593,0x50637,0x50060613,0x540106f]
-def words8 : List (BitVec 32) := bv_list% 32 [0x51e37,0xe0e13,0x591313,0x6e0e33,0x50537,0x30050513,0xe3303,0x8e3383,0x653023,0x753423,0x10e3303,0x18e3383,0x2653823,0x2753c23,0x21b1313,0xffffe3b7,0x80038393,0x730333,0x800393,0x796a63,0x41230333,0x653823,0x53c23,0x300006f,0x653823,0x1000106f,0x400393,0x2796063,0x50e37,0x710e0e13,0xe3303,0x8e3383,0x2653023,0x2753423,0xc0006f,0x2053023,0x2053423,0x4000593,0x50637,0x50060613,0x50d0006f]
+def words8 : List (BitVec 32) := bv_list% 32 [0x51e37,0xe0e13,0x591313,0x6e0e33,0x50537,0x30050513,0xe3303,0x8e3383,0x653023,0x753423,0x10e3303,0x18e3383,0x2653823,0x2753c23,0x21b1313,0xffffe3b7,0xe0038393,0x730333,0x800393,0x796a63,0x41230333,0x653823,0x53c23,0x300006f,0x20030313,0x1000106f,0x400393,0x2796063,0x50e37,0x710e0e13,0xe3303,0x8e3383,0x2653023,0x2753423,0xc0006f,0x2053023,0x2053423,0x4000593,0x50637,0x50060613,0x50d0006f]
 def entry (c : Nat) : Nat := [22807, 23014, 23224, 23438, 23648, 23862, 24072, 24286, 24505].getD c 0
 def hashPc (c : Nat) : Nat := [22840, 23058, 23264, 23482, 23688, 23906, 24112, 24330, 24545].getD c 0
 def words (c : Nat) : List (BitVec 32) := [words0,words1,words2,words3,words4,words5,words6,words7,words8].getD c []
@@ -3132,17 +3168,26 @@ def labelStub4 : List (BitVec 32) := bv_list% 32 [0x13,0x13,0x13,0x13,0x7b1003ef
 def labelStub5 : List (BitVec 32) := bv_list% 32 [0x13,0x13,0x13,0x13,0x8013ef,0x353c23,0xd34fe06f]
 def labelStub6 : List (BitVec 32) := bv_list% 32 [0x13,0x13,0x13,0x13,0x779003ef,0x353c23,0x861fe06f]
 def labelStub7 : List (BitVec 32) := bv_list% 32 [0x13,0x13,0x13,0x13,0x7d1003ef,0x353c23,0xb9dfe06f]
-def labelStub8 : List (BitVec 32) := bv_list% 32 [0x13,0x13,0x13,0x13,0x741003ef,0x353c23,0xeedfe06f]
+/-- C47: coordinate 8's label stub calls the c8 two-word stub (26709), which stores both words itself. -/
+def labelStub8 : List (BitVec 32) := bv_list% 32 [0x13,0x13,0x13,0x13,0xfc013ef,0x13,0xeedfe06f]
 def labelStubPc (c : Nat) : Nat := 25562 + 7*c
 def labelStub (c : Nat) : List (BitVec 32) := [labelStub0,labelStub1,labelStub2,labelStub3,labelStub4,labelStub5,labelStub6,labelStub7,labelStub8].getD c []
 /-- C46: the two-word label stubs (`heapStub c`, at `heapStubPc c`): `gp := ftsHeapLabelC c s2` for heaps `2, 4..7` (the
 compares run on `s2 - 4, .., s2 - 7, s2 - 2`), any other heap `gp := s2`, back through `jalr zero,0(t2)`. The even stub
 (26598..26626, coordinates `0, 2, 4, 6, 8`) loads `930564|989957|M|64|989954`, the odd one (26627..26653) the
 `ftsHeapLabelO` words `929 * 2^50|0x1fc0c0000|0x7f00000|0xfff01|989954`. -/
-def heapStubPc (c : Nat) : Nat := if c%2=1 then 26627 else 26598
-def heapStubE : List (BitVec 32) := bv_list% 32 [0xffc90193,0x19863,0xe31b7,0x30418193,0x38067,0xffb90193,0x19863,0xf21b7,0xb0518193,0x38067,0xffa90193,0x19e63,0x600601b7,0x819193,0x318193,0x1219193,0x618193,0x38067,0xff990193,0x19663,0x4000193,0x38067,0xffe90193,0x19863,0xf21b7,0xb0218193,0x38067,0x90193,0x38067]
-def heapStubO : List (BitVec 32) := bv_list% 32 [0xffc90193,0x19863,0x3a11b7,0x2619193,0x38067,0xffb90193,0x19a63,0x7f01b7,0x30018193,0xa19193,0x38067,0xffa90193,0x19663,0x7f001b7,0x38067,0xff990193,0x19863,0x1001b7,0xf0118193,0x38067,0xffe90193,0x19863,0xf21b7,0xb0218193,0x38067,0x90193,0x38067]
-def heapStub (c : Nat) : List (BitVec 32) := if c%2=1 then heapStubO else heapStubE
+def heapStubPc (c : Nat) : Nat := if c = 8 then 26709 else if c%2=1 then 26627 else 26598
+def heapStubE : List (BitVec 32) := bv_list% 32 [0xffc90193,0x19863,0xe31b7,0x30418193,0x38067,0xffb90193,0x19863,0xffc1b7,0xde018193,0x38067,0xffa90193,0x19e63,0x600601b7,0x819193,0x318193,0x1219193,0x618193,0x38067,0xff990193,0x19663,0x4000193,0x38067,0xffe90193,0x19863,0xf21b7,0xb0218193,0x38067,0x90193,0x38067]
+def heapStubO : List (BitVec 32) := bv_list% 32 [0xffc90193,0x19863,0x3a11b7,0x2619193,0x38067,0xffb90193,0x19a63,0x7f01b7,0x30018193,0xa19193,0x38067,0xffa90193,0x19663,0x7f001b7,0x38067,0xff990193,0x19863,0x1001b7,0xf0118193,0x38067,0xffe90193,0x19863,0xf21b7,0xb0218193,0x38067,0x17c0006f,0x38067]
+/-- C47: the odd stub's fall-through (heap 3) jumps to `kStub` (26747..26751): `gp := K = 0xe7404003` (the verifier's
+packed coordinate-8 path base `ld s3,64(sp)`), back through `jalr zero,0(t2)`. -/
+def kStubPc : Nat := 26747
+def kStub : List (BitVec 32) := bv_list% 32 [0x73a021b7,0x118193,0x119193,0x118193,0x38067]
+/-- C47: coordinate 8's two-word stub (26709..26746, `t1 = a5'`): compares on `s2 - 2, .., s2 - 6` and stores
+`(lo, hi)` = heap 2 `(a5', 0)`, heaps 3..6 `(929 * 2^50 | 0x1fc0c0000 | 0x7f00000 | 21684, a5')`, else (heap 7)
+`(a5', 21684)`, back through `jalr zero,0(t2)`. -/
+def heapStub8 : List (BitVec 32) := bv_list% 32 [0xffe90193,0x19863,0x653823,0x53c23,0x38067,0xffd90193,0x19c63,0x3a11b7,0x2619193,0x353823,0x653c23,0x38067,0xffc90193,0x19e63,0x7f01b7,0x30018193,0xa19193,0x353823,0x653c23,0x38067,0xffb90193,0x19a63,0x7f001b7,0x353823,0x653c23,0x38067,0xffa90193,0x19c63,0x51b7,0x4b418193,0x353823,0x653c23,0x38067,0x653823,0x51b7,0x4b418193,0x353c23,0x38067]
+def heapStub (c : Nat) : List (BitVec 32) := if c = 8 then heapStub8 else if c%2=1 then heapStubO else heapStubE
 /-- C46: the odd packed-node stub of an odd coordinate `c` (`26586 + 3 (c / 2)`): `sub t1,t1,s2; addi t1,t1,-1024;
 jal zero,back` (the node site's `sub t1,t1,s2` is a jump to it). -/
 def oddStubPc (c : Nat) : Nat := 26586 + 3*(c/2)
@@ -3151,7 +3196,7 @@ def oddStub3 : List (BitVec 32) := bv_list% 32 [0x41230333,0xc0030313,0xf11fc06f
 def oddStub5 : List (BitVec 32) := bv_list% 32 [0x41230333,0xc0030313,0xda4fd06f]
 def oddStub7 : List (BitVec 32) := bv_list% 32 [0x41230333,0xc0030313,0xc39fd06f]
 def oddStub (c : Nat) : List (BitVec 32) := [oddStub1,oddStub3,oddStub5,oddStub7].getD (c/2) []
-def look (c n : Nat) : Option (BitVec 32) := if heapStubPc c ≤ n then (heapStub c)[n-heapStubPc c]? else if c%2=1 ∧ oddStubPc c ≤ n then (oddStub c)[n-oddStubPc c]? else if labelStubPc c ≤ n then (labelStub c)[n-labelStubPc c]? else if entry c ≤ n then (words c)[n-entry c]? else if c = 0 ∧ c4StubPc ≤ n then c4Stub[n-c4StubPc]? else none
+def look (c n : Nat) : Option (BitVec 32) := if c%2=1 ∧ kStubPc ≤ n then kStub[n-kStubPc]? else if heapStubPc c ≤ n then (heapStub c)[n-heapStubPc c]? else if c%2=1 ∧ oddStubPc c ≤ n then (oddStub c)[n-oddStubPc c]? else if labelStubPc c ≤ n then (labelStub c)[n-labelStubPc c]? else if entry c ≤ n then (words c)[n-entry c]? else if c = 0 ∧ c4StubPc ≤ n then c4Stub[n-c4StubPc]? else none
 /-- C46: the label stub's path `p`: heap `4 + p` for `p < 4`, heap 2 for `p = 4` (`p` taken compares, then the hit),
 every other heap `p = 5` (five taken compares, `gp := s2`). -/
 def labDirs (p : Nat) : List Dir := if p<5 then List.replicate p (.br true) ++ [.br false] else List.replicate 5 (.br true)
@@ -3165,30 +3210,43 @@ namespace ClaudeWCT.W9.Machine.Sign.SharedNode
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 
-def loE (c : Nat) : E := mkAdd (.bin .sll (.reg .x22) (cE 33)) (cE (2^64-2048-2048*(c/2)))
+/-- C47: the packed-node base constant (coordinate 8: `a5 - 512 = index << 33 - 8704`). -/
+def loK (c : Nat) : Nat := if c = 8 then 2^64-8704 else 2^64-2048-2048*(c/2)
+def loE (c : Nat) : E := mkAdd (.bin .sll (.reg .x22) (cE 33)) (cE (loK c))
 /-- C46: odd coordinates' packed node words take a further `-1024` (the odd packed-node stub). -/
 def hdrLo (c mode : Nat) : E :=
   if mode=0 then (if c%2=1 then .bin .add (.bin .sub (loE c) (.reg .x18)) (cE (2^64-1024)) else .bin .sub (loE c) (.reg .x18))
-  else loE c
+  else if c = 8 then mkAdd (.bin .sll (.reg .x22) (cE 33)) (cE (2^64-8192)) else loE c
 /-- C46: the label word `gp` after the label stub's path `p` (`ftsHeapLabelC c` of heap `4 + p` / 2, or `s2`). -/
 def labE (c p : Nat) : E :=
-  if p=4 then cE 989954 else if 5≤p then .reg .x18 else if c%2=1 then
+  if p=4 then cE 989954 else if 5≤p then (if c%2=1 then cE 3879747587 else .reg .x18) else if c%2=1 then
     (if p=0 then cE 1045961013456797696 else if p=1 then cE 8523612160 else if p=2 then cE 133169152 else cE 1048321)
-  else (if p=0 then cE 930564 else if p=1 then cE 989957 else if p=2 then cE 108112779336744966 else cE 64)
-def hdrHi (c mode p : Nat) : E := if mode=0 then cE 0 else labE c p
+  else (if p=0 then cE 930564 else if p=1 then cE 16760288 else if p=2 then cE 108112779336744966 else cE 64)
+/-- C47: coordinate 8's stub path `p` is heap `p + 2`; `gp` ends as `s2 - 2` (heap 2), the swapped label (heaps 3..6)
+or `21684` (heap 7). -/
+def labE8 (p : Nat) : E :=
+  if p=0 then .bin .add (.reg .x18) (cE (2^64-2)) else if p=1 then cE 1045961013456797696 else if p=2 then cE 8523612160
+  else if p=3 then cE 133169152 else cE 21684
+/-- C47: the stored `(lo, hi)` of coordinate 8's two-word node on path `p`: `(a5', 0)`, `(label, a5')` (heaps 3..6),
+`(a5', 21684)`. -/
+def lo8 (p : Nat) : E := if p=0 ∨ 5≤p then hdrLo 8 1 else labE8 p
+def hi8 (p : Nat) : E := if p=0 then cE 0 else if 5≤p then cE 21684 else hdrLo 8 1
+def hdrHi (c mode p : Nat) : E := if mode=0 then cE 0 else if c=8 then hi8 p else labE c p
+def hdrLoW (c mode p : Nat) : E := if mode≠0 ∧ c=8 then lo8 p else hdrLo c mode
 def padShift : E := .bin .sll (.bin .add (.bin .srl (.reg .x18) (cE 1)) (cE (2^64-2))) (cE 5)
 def padAddr (c off : Nat) : E :=
   if c%2=1 then .bin .add padShift (cE (0x67000+64*(c/2)+16+off)) else cE (FORW+32*c+16+off)
 def padWord (c mode off : Nat) : E := if mode=1 ∧ c≠0 then .ld (padAddr c off) else cE 0
 
 def regs (c mode p : Nat) : List (Reg × E) :=
-  (if mode=0 then [] else [(.x3,labE c p)]) ++ [(.x6,if mode=1 ∧ c≠0 then padWord c mode 0 else hdrLo c mode),
+  (if mode=0 then [] else [(.x3,if c=8 then labE8 p else labE c p)]) ++
+  [(.x6,if mode=1 ∧ c≠0 then padWord c mode 0 else hdrLo c mode),
    (.x7,if mode=1 ∧ c≠0 then padWord c mode 8 else cE (if mode=0 then 8 else 4)),
    (.x10,cE NODEW),(.x11,cE 64),(.x12,cE NOUTW),
    (.x28,if mode=1 ∧ c≠0 then padAddr c 0 else .bin .add sh5 (cE HEAPW))]
 def mem (c mode p : Nat) : SymMem :=
   [mwc (NODEW+40) (padWord c mode 8),mwc (NODEW+32) (padWord c mode 0),
-   mwc (NODEW+24) (hdrHi c mode p),mwc (NODEW+16) (hdrLo c mode),
+   mwc (NODEW+24) (hdrHi c mode p),mwc (NODEW+16) (hdrLoW c mode p),
    mwc (NODEW+56) (nodeLd 24),mwc (NODEW+48) (nodeLd 16),mwc (NODEW+8) (nodeLd 8),mwc NODEW (nodeLd 0)]
 def readObl : List Oblig :=
   [.ne (nodeAddr 24) ⟨none,BitVec.ofNat 64 NODEW⟩,.ne (nodeAddr 24) ⟨none,BitVec.ofNat 64 (NODEW+8)⟩,
@@ -3211,12 +3269,20 @@ def labBrs (p : Nat) : List Br :=
   else if p=3 then [labBr 7 false,labBr 6 true,labBr 5 true,labBr 4 true]
   else if p=4 then [labBr 2 false,labBr 7 true,labBr 6 true,labBr 5 true,labBr 4 true]
   else [labBr 2 true,labBr 7 true,labBr 6 true,labBr 5 true,labBr 4 true]
-def branches (mode p : Nat) : List Br :=
+/-- C47: coordinate 8's stub compares (heaps 2, 3, 4, 5, 6 in turn), latest first. -/
+def labBrs8 (p : Nat) : List Br :=
+  if p=0 then [labBr 2 false] else if p=1 then [labBr 3 false,labBr 2 true]
+  else if p=2 then [labBr 4 false,labBr 3 true,labBr 2 true]
+  else if p=3 then [labBr 5 false,labBr 4 true,labBr 3 true,labBr 2 true]
+  else if p=4 then [labBr 6 false,labBr 5 true,labBr 4 true,labBr 3 true,labBr 2 true]
+  else [labBr 6 true,labBr 5 true,labBr 4 true,labBr 3 true,labBr 2 true]
+def branches (c mode p : Nat) : List Br :=
   if mode=0 then [⟨.ltu,.reg .x18,cE 8,false⟩] else
-    ⟨.ltu,.reg .x18,cE 4,mode=2⟩ :: (labBrs p ++ [⟨.ltu,.reg .x18,cE 8,true⟩])
+    ⟨.ltu,.reg .x18,cE 4,mode=2⟩ :: ((if c=8 then labBrs8 p else labBrs p) ++ [⟨.ltu,.reg .x18,cE 8,true⟩])
 /-- C46: instructions of the label stub of coordinate `c` on path `p` (no `mul` left: steps = cycles). -/
 def labN (c p : Nat) : Nat :=
-  if p=0 then 5 else if p=4 then 13 else if 5≤p then 12 else if c%2=1 then (if p=3 then 11 else 8)
+  if c=8 then (if p=0 then 5 else if p=1 then 9 else if p≤3 then 12 else 15) else
+  if p=0 then 5 else if p=4 then 13 else if 5≤p then (if c%2=1 then 16 else 12) else if c%2=1 then (if p=3 then 11 else 8)
   else if p=1 then 7 else if p=2 then 12 else 10
 /-- C46: odd coordinates' packed nodes (`mode = 0`) take three more instructions (the odd packed-node stub). -/
 def cycles (c mode p : Nat) : Nat :=
@@ -3224,7 +3290,7 @@ def cycles (c mode p : Nat) : Nat :=
     (if mode=0 then 0 else 7+labN c p)
 def expected (c mode p : Nat) : PRes :=
   pres2 (regs c mode p) (mem c mode p) (obligations c mode) (hashPc c) false (cycles c mode p) (cycles c mode p)
-    (branches mode p)
+    (branches c mode p)
 end ClaudeWCT.W9.Machine.Sign.SharedNode
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedLeaf
@@ -3479,7 +3545,7 @@ namespace ClaudeWCT.W9.Machine.Sign.SharedDigest
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 def base (expand : Bool) : Nat := if expand then 45056 else 22600
-def signWords : List (BitVec 32) := bv_list% 32 [0x993,0x293,0x160337,0x30313,0x2869f063,0x20e37,0x120e0e13,0xe3823,0x13e3c23,0x20537,0x12050513,0x4000593,0x20637,0x16060613,0x80306f,0x20e37,0x160e0e13,0x18e3303,0x3235313,0x3a100393,0x22737c63,0xa13,0x208b7,0x16088893,0xfebab7,0xa8a93,0x8bc83,0x8cdc93,0x3ffcfc93,0x23300313,0x206cf863,0x19a8e33,0xe4303,0x6a0a33,0x8bc03,0x14c5c13,0x1fc7c13,0x18a8e33,0x400e4303,0x6a0a33,0x88bc83,0x21cdc93,0x3ffcfc93,0x23300313,0x1c6cfc63,0x19a8e33,0xe4303,0x6a0a33,0x8bc03,0x1bc5c13,0x1fc7c13,0x18a8e33,0x420e4303,0x6a0a33,0x88bc83,0x8cdc93,0x3ffcfc93,0x23300313,0x1a6cf063,0x19a8e33,0xe4303,0x6a0a33,0x88bc03,0x14c5c13,0x1fc7c13,0x18a8e33,0x400e4303,0x6a0a33,0x88bc83,0x2dcdc93,0x3ffcfc93,0x23300313,0x166cf463,0x19a8e33,0xe4303,0x6a0a33,0x88bc03,0x1bc5c13,0x1fc7c13,0x18a8e33,0x420e4303,0x6a0a33,0x108bc83,0x8cdc93,0x3ffcfc93,0x23300313,0x126cf863,0x19a8e33,0xe4303,0x6a0a33,0x108bc03,0x14c5c13,0x1fc7c13,0x18a8e33,0x400e4303,0x6a0a33,0x108bc83,0x21cdc93,0x3ffcfc93,0x23300313,0xe6cfc63,0x19a8e33,0xe4303,0x6a0a33,0x108bc03,0x1bc5c13,0x1fc7c13,0x18a8e33,0x420e4303,0x6a0a33,0x188bc83,0x8cdc93,0x3ffcfc93,0x23300313,0xc6cf063,0x19a8e33,0xe4303,0x6a0a33,0x188bc03,0x14c5c13,0x1fc7c13,0x18a8e33,0x400e4303,0x6a0a33,0x188bc83,0x21cdc93,0x3ffcfc93,0x23300313,0x86cf463,0x19a8e33,0xe4303,0x6a0a33,0x188bc03,0x1bc5c13,0x1fc7c13,0x18a8e33,0x420e4303,0x6a0a33,0x108bc83,0x2dcdc93,0x3ffcfc93,0x23300313,0x46cf863,0x19a8e33,0xe4303,0x6a0a33,0x108bc03,0x3ac5c13,0x1fc7c13,0x18a8e33,0x420e4303,0x6a0a33,0x30900313,0x26a7263,0x20e37,0x160e0e13,0xe3b03,0x21b5b13,0x20e37,0x550e0e13,0x16e3023,0xaf9f406f,0x198993,0xd7dff06f]
+def signWords : List (BitVec 32) := bv_list% 32 [0x993,0x293,0x160337,0x30313,0x2869f063,0x20e37,0x120e0e13,0xe3823,0x13e3c23,0x20537,0x12050513,0x4000593,0x20637,0x16060613,0x80306f,0x20e37,0x160e0e13,0x18e3303,0x3235313,0x3a100393,0x22737c63,0xa13,0x208b7,0x16088893,0xfebab7,0xa8a93,0x8bc83,0x8cdc93,0x3ffcfc93,0x23300313,0x206cf863,0x19a8e33,0xe4303,0x6a0a33,0x8bc03,0x14c5c13,0x1fc7c13,0x18a8e33,0x400e4303,0x6a0a33,0x88bc83,0x21cdc93,0x3ffcfc93,0x23300313,0x1c6cfc63,0x19a8e33,0xe4303,0x6a0a33,0x8bc03,0x1bc5c13,0x1fc7c13,0x18a8e33,0x420e4303,0x6a0a33,0x88bc83,0x8cdc93,0x3ffcfc93,0x23300313,0x1a6cf063,0x19a8e33,0xe4303,0x6a0a33,0x88bc03,0x14c5c13,0x1fc7c13,0x18a8e33,0x400e4303,0x6a0a33,0x88bc83,0x2dcdc93,0x3ffcfc93,0x23300313,0x166cf463,0x19a8e33,0xe4303,0x6a0a33,0x88bc03,0x1bc5c13,0x1fc7c13,0x18a8e33,0x420e4303,0x6a0a33,0x108bc83,0x8cdc93,0x3ffcfc93,0x23300313,0x126cf863,0x19a8e33,0xe4303,0x6a0a33,0x108bc03,0x14c5c13,0x1fc7c13,0x18a8e33,0x400e4303,0x6a0a33,0x108bc83,0x21cdc93,0x3ffcfc93,0x23300313,0xe6cfc63,0x19a8e33,0xe4303,0x6a0a33,0x108bc03,0x1bc5c13,0x1fc7c13,0x18a8e33,0x420e4303,0x6a0a33,0x188bc83,0x8cdc93,0x3ffcfc93,0x23300313,0xc6cf063,0x19a8e33,0xe4303,0x6a0a33,0x188bc03,0x14c5c13,0x1fc7c13,0x18a8e33,0x400e4303,0x6a0a33,0x188bc83,0x21cdc93,0x3ffcfc93,0x23300313,0x86cf463,0x19a8e33,0xe4303,0x6a0a33,0x188bc03,0x1bc5c13,0x1fc7c13,0x18a8e33,0x420e4303,0x6a0a33,0x108bc83,0x2dcdc93,0x3ffcfc93,0x23300313,0x46cf863,0x19a8e33,0xe4303,0x6a0a33,0x108bc03,0x3ac5c13,0x1fc7c13,0x18a8e33,0x420e4303,0x6a0a33,0x30900313,0x26a7263,0x20e37,0x160e0e13,0xe3b03,0x21b5b13,0x20e37,0x550e0e13,0x5950306f,0xaf9f406f,0x198993,0xd7dff06f]
 def expandWords : List (BitVec 32) := bv_list% 32 [0x993,0x293,0x160337,0x30313,0x2a69f263,0x20e37,0x120e0e13,0xe3823,0x13e3c23,0x20537,0x12050513,0x4000593,0x20637,0x16060613,0x7552506f,0x208b7,0x16088893,0x188b303,0x3235313,0x3a100393,0x24737e63,0xff9a37,0xb90a0a13,0xa93,0x8bc03,0x8c5c13,0x3ffc7c13,0x23300313,0x226c7e63,0x18a0333,0x34303,0x6a8ab3,0x8bc03,0x14c5c13,0x1fc7c13,0xff9337,0x19030313,0x1830333,0x34303,0x6a8ab3,0x88bc03,0x21c5c13,0x3ffc7c13,0x23300313,0x1e6c7e63,0x18a0333,0x34303,0x6a8ab3,0x8bc03,0x1bc5c13,0x1fc7c13,0xff9337,0x1b030313,0x1830333,0x34303,0x6a8ab3,0x88bc03,0x8c5c13,0x3ffc7c13,0x23300313,0x1a6c7e63,0x18a0333,0x34303,0x6a8ab3,0x88bc03,0x14c5c13,0x1fc7c13,0xff9337,0x19030313,0x1830333,0x34303,0x6a8ab3,0x88bc03,0x2dc5c13,0x3ffc7c13,0x23300313,0x166c7e63,0x18a0333,0x34303,0x6a8ab3,0x88bc03,0x1bc5c13,0x1fc7c13,0xff9337,0x1b030313,0x1830333,0x34303,0x6a8ab3,0x108bc03,0x8c5c13,0x3ffc7c13,0x23300313,0x126c7e63,0x18a0333,0x34303,0x6a8ab3,0x108bc03,0x14c5c13,0x1fc7c13,0xff9337,0x19030313,0x1830333,0x34303,0x6a8ab3,0x108bc03,0x21c5c13,0x3ffc7c13,0x23300313,0xe6c7e63,0x18a0333,0x34303,0x6a8ab3,0x108bc03,0x1bc5c13,0x1fc7c13,0xff9337,0x1b030313,0x1830333,0x34303,0x6a8ab3,0x188bc03,0x8c5c13,0x3ffc7c13,0x23300313,0xa6c7e63,0x18a0333,0x34303,0x6a8ab3,0x188bc03,0x14c5c13,0x1fc7c13,0xff9337,0x19030313,0x1830333,0x34303,0x6a8ab3,0x188bc03,0x21c5c13,0x3ffc7c13,0x23300313,0x66c7e63,0x18a0333,0x34303,0x6a8ab3,0x188bc03,0x1bc5c13,0x1fc7c13,0xff9337,0x1b030313,0x1830333,0x34303,0x6a8ab3,0x108bc03,0x2dc5c13,0x3ffc7c13,0x23300313,0x26c7e63,0x18a0333,0x34303,0x6a8ab3,0x108bc03,0x3ac5c13,0x1fc7c13,0xff9337,0x1b030313,0x1830333,0x34303,0x6a8ab3,0x30900313,0x6af463,0x180006f,0x198993,0xd59ff06f]
 def words (expand : Bool) : List (BitVec 32) := if expand then expandWords else signWords
  def look (expand : Bool) (n : Nat) : Option (BitVec 32) := if base expand ≤ n then (words expand)[n-base expand]? else none

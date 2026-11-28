@@ -36,7 +36,7 @@ theorem other_node {sk : BitVec 256} {tb ret heap A D coord index : Nat} {left p
     (hS16 : CodeAt OuterImages.signImage (pcOf SIGN_S16) signS16Words)
     (F : SignIn tb ret heap A D (OuterNodeRawModel.pre coord index heap left) (bytesLE 16 pad) (OuterNodeRawModel.rightBytes right) s)
     (hA : 2048≤A) (hAi : A<2^20) (hD : 2048≤D) (hDi : D<2^20) (hc : coord<9) (hh4 : 4≤heap) (hh128 : heap<128) :
-    TBSim OuterImages.signImage sk s (signW (2-signR tb) heap (signSel tb)+42)
+    TBSim OuterImages.signImage sk s (signW (2-signR tb) heap (signSel tb)+51)
       (signNode (2-signR tb) heap (signSel tb) (OuterNodeRawModel.pre coord index heap left) (bytesLE 16 pad) (OuterNodeRawModel.rightBytes right))
       (OuterSignInterface.Out s ret heap D (2-signR tb)) := by
   let P:=((fun a=>(0,a)) <$> publicHash (OuterNodeRawModel.pre coord index heap left++bytesLE 16 pad++OuterNodeRawModel.rightBytes right))
@@ -44,11 +44,11 @@ theorem other_node {sk : BitVec 256} {tb ret heap A D coord index : Nat} {left p
       RegsExcept s u [.x16,.x17]→u.getReg .x16=pcOf (tb+2)→
       u.getMem (BitVec.ofNat 64 1104)=s.getReg .x14→u.getMem (BitVec.ofNat 64 1112)=s.getReg .x17→
       u.getMem (BitVec.ofNat 64 1136)=s.getReg .x16→Frame s u (fun X=>X=1104 ∨ X=1112 ∨ X=1136)→
-      TBSim OuterImages.signImage sk u 42 P (OuterSignInterface.Out s ret heap D (2-signR tb)) := by
+      TBSim OuterImages.signImage sk u 51 P (OuterSignInterface.Out s ret heap D (2-signR tb)) := by
     intro u hn hup hr h16 sv0 sv1 sv4 hf
     have FI:=OuterSignInput.search F hr hf hA hAi hD hDi
     exact OuterSignPlainCase.fallback hT F hA hAi hD hDi (OuterSignHeader.fallback FI hc hh4 hh128) hn hup hr h16 sv0 sv1 sv4 hf
-  have H:=OuterSignTrip.sign_tramp_node hT hS16 F P 42 hp
+  have H:=OuterSignTrip.sign_tramp_node hT hS16 F P 51 hp
   exact H
 #print axioms outer_node
 #print axioms other_node

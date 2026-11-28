@@ -3680,7 +3680,7 @@ def payAfterDigest (cache : T3.Cache) (rho : Digest) (output : HashOutput) : M (
       pure (state.1 ++ [opening],
         state.2 ++ [((levels.getD 6 []).getD 0 0, (levels.getD 6 []).getD 1 0)])) ([], [])
   let top := WCT9.prevPair WCT9.ftsStart state.2
-  let some layers ← WCT9.signLayersBC cache index 4 (.pair top.1 top.2) | pure none
+  let some layers ← WCT9.signLayersBC cache (hyperIndex index) 4 (.pair top.1 top.2) | pure none
   pure (some ⟨rho, fun coord => state.1.getD coord.val ⟨fun _ => 0, fun _ => 0⟩,
     fun lay => piecesSignature lay (layers.getD lay.val ([], []))⟩)
 theorem signPayload_factor (cache : T3.Cache) (message : Message) :
@@ -5754,14 +5754,17 @@ theorem decodeProbe_of_hdrBlock {x : HashInput} {h : BitVec 128} (hx : hdrBlock 
   have hb := ftsChainHeader_byte0 a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val p.val
   rw [this] at hb
   omega
+/-- C47: coordinate 8's reflected chain words carry the tags `34..39`. -/
 theorem ftsChainHeader_byte1 (index coord selected i step : Nat) (hi : i < 6) :
-    130 ≤ (ftsChainHeader index coord selected i step).toNat / 256 % 256 ∧
+    (130 ≤ (ftsChainHeader index coord selected i step).toNat / 256 % 256 ∨
+      (34 ≤ (ftsChainHeader index coord selected i step).toNat / 256 % 256 ∧
+        (ftsChainHeader index coord selected i step).toNat / 256 % 256 < 40)) ∧
       2 ≤ (ftsChainHeader index coord selected i step).toNat / 256 % 256 % 8 := by
   rw [ftsChainHeader_toNat, ftsChainLow_tag, Nat.mod_eq_of_lt (by omega : i < 8)]
-  omega
-/-- C31: tags below 130 (or with tag % 8 below 2) are outside the FTS chain domain. -/
+  split_ifs <;> omega
+/-- C31: tags below 130 (or with tag % 8 below 2) are outside the FTS chain domain. C47: below 34. -/
 theorem decodeProbe_of_hdrBlock_tag {x : HashInput} {h : BitVec 128} (hx : hdrBlock x = bytesLE 16 h)
-    (ht : h.toNat / 256 % 256 < 130) : decodeProbe x = none := by
+    (ht : h.toNat / 256 % 256 < 34) : decodeProbe x = none := by
   rw [decodeProbe_eq_none]
   intro a p c he
   rw [he, hdrBlock_probeInput] at hx

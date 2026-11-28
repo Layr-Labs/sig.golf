@@ -15,7 +15,7 @@ def Post (L : W9Machine.Layout) (w : W9Machine.WBytes) (index : Nat) (k : Fin 9)
 
 theorem run (L : W9Machine.Layout) (sk : BitVec 256) (codes : OuterSharedBank.Codes L.image)
     (k : Fin 9) (raw : Fin 128) (rank : Fin 563)
-    (hchild : L.childWord raw=W9Drv.SharedBank.copyWord k.val raw.val)
+    (hchild : L.childWord raw=W9Drv.SharedBank.copyWord k.val raw.val) (hret : k.val=8 → L.returnWord k=4397)
     (hbase : Chain.base L k=9768-848*k.val)
     (hchain : ∀ w index u,N600.Pre L w index k raw rank u →
       TBSim L.image sk u 89 (N600.program w index k raw rank) (N600.Post L w index k raw u))
@@ -40,7 +40,7 @@ theorem run (L : W9Machine.Layout) (sk : BitVec 256) (codes : OuterSharedBank.Co
     unfold OuterNodeBufferGeometry.frameBase V3.regionOffset
     have :=k.isLt
     omega
-  exact (OuterSharedBank.run L sk k raw codes hchild hb _ index hi ends childEntry (hp.sharedChild hu)).mono
+  exact (OuterSharedBank.run L sk k raw codes hchild hret hb _ index hi ends childEntry (hp.sharedChild hu)).mono
     le_rfl (fun res t ht=>⟨ends,childEntry,hp,ht⟩)
 
 #print axioms run

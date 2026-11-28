@@ -15,6 +15,7 @@ import SigGolfCandidate.Merge051
 import SigGolfCandidate.Merge053
 import SigGolfCandidate.Merge055
 import SigGolfCandidate.Merge057
+import SigGolfCandidate.PathBlock
 set_option debug.skipKernelTC true
 set_option linter.all false
 
@@ -48,17 +49,35 @@ theorem markN_bv (lay : Nat) (hl : lay < 4) (x : Word) (hx : x = BitVec.ofNat 64
     (((if (x + x <<< 1 + (x + x <<< 1)).ult 12#64 = true then 1#64 else 0#64) ^^^ 1#64) + 1#64) <<< 22 <<<
       ((x + x <<< 1 + (x + x <<< 1)).toNat % 64) = BitVec.ofNat 64 (2 ^ (T3.hyperW lay + 16)) := by
   subst hx; interval_cases lay <;> decide
-theorem hyperWord_eq_honest {lay r : Nat} (hl : lay < 4) (hr : r < 2 ^ T3.hyperW lay) :
-    T3.hyperWord lay r = BitVec.ofNat 64 (r * 2 ^ 16 + 2 ^ (T3.hyperW lay + 16)) := by
+/-- C47 (B): the honest label word with its marker `hyperMark lay` (layer 3: the run of ones `2 ^ 64 - 2 ^ 47`). -/
+theorem hyperWord_eq_mark {lay r : Nat} (hl : lay < 4) (hr : r < 2 ^ T3.hyperW lay) :
+    T3.hyperWord lay r = BitVec.ofNat 64 (r * 2 ^ 16 + T3.hyperMark lay) := by
   apply BitVec.eq_of_toNat_eq
   rw [T3.hyperWord_toNat_honest hl hr, BitVec.toNat_ofNat, Nat.mod_eq_of_lt]
-  have := T3.hyperWord_honest_lt hr
-  have : 2 ^ (T3.hyperW lay + 17) ≤ 2 ^ 48 :=
-    Nat.pow_le_pow_right (by norm_num) (by have := T3.hyperW_le lay; omega)
-  omega
+  rcases T3.hyperWord_honest_bound hl hr with ⟨-, hb⟩ | ⟨-, -, hb⟩ <;> omega
+/-- C47: the C46 form, off layer 3. -/
+theorem hyperWord_eq_honest {lay r : Nat} (hl : lay < 3) (hr : r < 2 ^ T3.hyperW lay) :
+    T3.hyperWord lay r = BitVec.ofNat 64 (r * 2 ^ 16 + 2 ^ (T3.hyperW lay + 16)) := by
+  rw [hyperWord_eq_mark (by omega) hr, T3.hyperMark_of_ne (by omega)]
+/-- C47 (B): layer 3's stub negates the shifted marker: `0 - 2 ^ 47 = hyperMark 3`. -/
+theorem markL3_neg : (0#64 - BitVec.ofNat 64 (2 ^ (T3.hyperW 3 + 16))) = BitVec.ofNat 64 (T3.hyperMark 3) := by
+  rw [T3.hyperMark_three, T3.hyperW_three]
+  rfl
+/-- C47 (B): the row/leaf label word `r << 16 | hyperMark lay` (disjoint fields on every layer). -/
+theorem label_orMark (lay r : Nat) (hl : lay < 4) (hr : r < 2 ^ T3.hyperW lay) :
+    BitVec.ofNat 64 (r * 65536) ||| BitVec.ofNat 64 (T3.hyperMark lay) = T3.hyperWord lay r := by
+  have h16 : r * 65536 < 2 ^ (T3.hyperW lay + 16) := by
+    have h1 : (r + 1) * 65536 ≤ 2 ^ T3.hyperW lay * 65536 := Nat.mul_le_mul_right _ hr
+    rw [pow_add, show (2 : Nat) ^ 16 = 65536 from rfl]; omega
+  have hm : T3.hyperMark lay % 2 ^ (T3.hyperW lay + 16) = 0 := by
+    by_cases h3 : lay = 3
+    · subst h3; rw [T3.hyperMark_three, T3.hyperW_three]; norm_num
+    · rw [T3.hyperMark_of_ne h3]; exact Nat.mod_self _
+  rewrite [ofNat_or_disjoint' _ _ (T3.hyperW lay + 16) h16 hm, hyperWord_eq_mark hl hr]
+  rw [show (2 : Nat) ^ 16 = 65536 from rfl]
 /-- The producers' node-base word (Z6 option F): `(r << 16) | 0x201`, then the marker: the label word plus 0x201 (the
 lower node addend `lowerAdd = lowerK + 0x201` on the marker format). -/
-theorem label_or (lay r : Nat) (hl : lay < 4) (hr : r < 2 ^ T3.hyperW lay) :
+theorem label_or (lay r : Nat) (hl : lay < 3) (hr : r < 2 ^ T3.hyperW lay) :
     BitVec.ofNat 64 (r * 65536) ||| 513#64 ||| BitVec.ofNat 64 (2 ^ (T3.hyperW lay + 16)) =
       BitVec.ofNat 64 ((T3.hyperWord lay r).toNat + 513) := by
   have h16 : r * 65536 + 513 < 2 ^ (T3.hyperW lay + 16) := by
@@ -66,11 +85,12 @@ theorem label_or (lay r : Nat) (hl : lay < 4) (hr : r < 2 ^ T3.hyperW lay) :
     rw [pow_add, show (2 : Nat) ^ 16 = 65536 from rfl]; omega
   rewrite [show (513#64 : BitVec 64) = BitVec.ofNat 64 513 from rfl,
     ofNat_or_disjoint 513 (r * 65536) 16 (by norm_num) (by rw [show (2 : Nat) ^ 16 = 65536 from rfl, Nat.mul_mod_left]),
-    ofNat_or_disjoint' _ _ (T3.hyperW lay + 16) h16 (Nat.mod_self _), T3.hyperWord_toNat_honest hl hr]
+    ofNat_or_disjoint' _ _ (T3.hyperW lay + 16) h16 (Nat.mod_self _),
+    T3.hyperWord_toNat_honest_ne3 (by omega) (by omega) hr]
   apply congrArg (BitVec.ofNat 64)
   rw [show (2 : Nat) ^ 16 = 65536 from rfl]; omega
 /-- The producers' leaf/row label word (Z6 option F: the `ori 0x201` is a `nop`): `r << 16`, then the marker. -/
-theorem label_or0 (lay r : Nat) (hl : lay < 4) (hr : r < 2 ^ T3.hyperW lay) :
+theorem label_or0 (lay r : Nat) (hl : lay < 3) (hr : r < 2 ^ T3.hyperW lay) :
     BitVec.ofNat 64 (r * 65536) ||| BitVec.ofNat 64 (2 ^ (T3.hyperW lay + 16)) = T3.hyperWord lay r := by
   have h16 : r * 65536 < 2 ^ (T3.hyperW lay + 16) := by
     have h1 : (r + 1) * 65536 ≤ 2 ^ T3.hyperW lay * 65536 := Nat.mul_le_mul_right _ hr
@@ -92,9 +112,10 @@ namespace ClaudeWCT.Guess
 open SigGolfCandidate.T3 ClaudeWCT.WCT9
 open SphincsSecurity (bytesLE bytesLE_injective)
 set_option debug.skipKernelTC true in
+/-- C31: FTS chain tags are `≥ 130` with `tag % 8 ≥ 2`; C47 (C): coordinate 8's reflected chain tags are `34..39`. -/
 theorem decodeProbe_of_hdrBlock_tagOutside {x : HashInput} {h : BitVec 128}
     (hx : hdrBlock x = bytesLE 16 h)
-    (ht : h.toNat / 256 % 256 < 130 ∨ h.toNat / 256 % 256 % 8 < 2) : decodeProbe x = none := by
+    (ht : (h.toNat / 256 % 256 < 130 ∧ ¬ (34 ≤ h.toNat / 256 % 256 ∧ h.toNat / 256 % 256 < 40)) ∨ h.toNat / 256 % 256 % 8 < 2) : decodeProbe x = none := by
   rw [decodeProbe_eq_none]
   intro a p c he
   rw [he, hdrBlock_probeInput] at hx
@@ -103,7 +124,7 @@ theorem decodeProbe_of_hdrBlock_tagOutside {x : HashInput} {h : BitVec 128}
   rw [Nat.mod_eq_of_lt (by have := a.2.2.2.isLt; omega : a.2.2.2.val < 8)] at hb
   rw [← hh, ftsChainHeader_toNat] at ht
   have hi := a.2.2.2.isLt
-  omega
+  split_ifs at hb <;> omega
 end ClaudeWCT.Guess
 
 -- ==== merged from ClaudeWCT_W9_T3_Secc_WotsMask ====
@@ -235,12 +256,13 @@ theorem signedMsg_succ (T : Answers) (index m : Nat) (hm : m < 3) :
   simp only [dif_pos hl]
   rw [hlay, ← route_tree_succ index m hm]
   rfl
+/-- C47 (B): the L3 leaf routed by the hypertree index `hyperIndex index` signs the FTS top of instance `index`. -/
 theorem signedMsg_top (T : Answers) (index : Nat) (hindex : index < 2 ^ 31) :
     WCT9.LayerMsg.pair (Extract.honestTop T index).1 (Extract.honestTop T index).2 =
-      leafMsg T (routeLeaf index 3) := by
+      leafMsg T (routeLeaf (SigGolfCandidate.T3.hyperIndex index) 3) := by
   unfold leafMsg routeLeaf
   simp only [show ¬((3 : Layer).val < 3) by decide, dite_false]
-  rw [route_top_index, Nat.mod_eq_of_lt hindex]
+  rw [route_top_index, SigGolfCandidate.T3.hyperIndex_invol hindex]
 theorem routeLeaf_alias {index : Nat} (hindex : index < 2 ^ 31) {lay : Layer} {T : Answers} {counter : BitVec 32}
     {digits : List Nat} (hsearch : referenceSearch T (routeLeaf index lay) = some (counter, digits))
     (htree : a.key.tree < 2 ^ 40) (hleaf : a.key.leaf < 2 ^ 24)
@@ -331,12 +353,12 @@ theorem eval_maskAt_signPayload (answers : Answers) (a : ChainAddr) (htree : a.k
     refine Mask.eval_bind_of (Mask.eval_maskAt_of_respects answers a (Mask.respectsP_signForest a _ _)) ?_
     rw [ClaudeWCT.WCT9.eval_signForest]
     dsimp only
-    refine Mask.eval_bind_of (Mask.eval_signLayers_maskAt answers a htree hleaf cache _ (WCT9.digestIndex_lt _) 4
+    refine Mask.eval_bind_of (Mask.eval_signLayers_maskAt answers a htree hleaf cache _ (SigGolfCandidate.T3.hyperIndex_lt _) 4
       le_rfl _ (fun m hm => ?_)) ?_
     · obtain rfl : m = 3 := by omega
       rw [← Extract.honestTop_eq_wct9]
       exact Mask.signedMsg_top answers _ (WCT9.digestIndex_lt _)
-    · generalize evalWithAnswerFn answers (WCT9.signLayersBC cache (WCT9.digestIndex output) 4 _) = pieces
+    · generalize evalWithAnswerFn answers (WCT9.signLayersBC cache (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 4 _) = pieces
       rcases pieces with _ | pieces <;> rfl
 theorem eval_maskAt_sign (answers : Answers) (a : ChainAddr) (htree : a.key.tree < 2 ^ 40)
     (hleaf : a.key.leaf < 2 ^ 24) (published : SigGolfCandidate.T3.Cache) (request : Request) :
@@ -564,14 +586,14 @@ theorem queried_length_maskAt_signPayload (answers : Answers) (a : ChainAddr) (h
     rw [ClaudeWCT.WCT9.eval_signForest]
     dsimp only
     have hmsg : ∀ m, 4 = m + 1 → WCT9.LayerMsg.pair (ClaudeWCT.WCT9.honestTop answers (WCT9.digestIndex output)).1 (ClaudeWCT.WCT9.honestTop answers (WCT9.digestIndex output)).2 =
-        leafMsg answers (Mask.routeLeaf (WCT9.digestIndex output) (Fin.ofNat 4 m)) := fun m hm => by
+        leafMsg answers (Mask.routeLeaf (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) (Fin.ofNat 4 m)) := fun m hm => by
       obtain rfl : m = 3 := by omega
       rw [← Extract.honestTop_eq_wct9]
       exact Mask.signedMsg_top answers _ (WCT9.digestIndex_lt _)
-    refine Mask.count_bind_of (Mask.eval_signLayers_maskAt answers a htree hleaf cache _ (WCT9.digestIndex_lt _)
-      4 le_rfl _ hmsg) (Mask.count_signLayers_maskAt answers a htree hleaf cache _ (WCT9.digestIndex_lt _) 4
+    refine Mask.count_bind_of (Mask.eval_signLayers_maskAt answers a htree hleaf cache _ (SigGolfCandidate.T3.hyperIndex_lt _)
+      4 le_rfl _ hmsg) (Mask.count_signLayers_maskAt answers a htree hleaf cache _ (SigGolfCandidate.T3.hyperIndex_lt _) 4
       le_rfl _ hmsg) ?_
-    generalize evalWithAnswerFn answers (WCT9.signLayersBC cache (WCT9.digestIndex output) 4 _) = pieces
+    generalize evalWithAnswerFn answers (WCT9.signLayersBC cache (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 4 _) = pieces
     rcases pieces with _ | pieces <;> rfl
 theorem queried_length_maskAt_sign (answers : Answers) (a : ChainAddr) (htree : a.key.tree < 2 ^ 40)
     (hleaf : a.key.leaf < 2 ^ 24) (published : SigGolfCandidate.T3.Cache) (request : Request) :
@@ -660,6 +682,9 @@ theorem childIndex_lt (L : EncLeaf) : L.1.tree.val * 2 ^ height L.1.lay + L.1.le
   fin_cases lay <;> simp [treeBits, height] at ht hl ⊢ <;> omega
 def childIndex (L : EncLeaf) : Fin (2^31) :=
   ⟨L.1.tree.val * 2 ^ height L.1.lay + L.1.leaf.val, childIndex_lt L⟩
+/-- C47 (B): the FTS instance signed by the L3 leaf at hypertree position `childIndex L` (`hyperIndex`). -/
+def hyperChild (L : EncLeaf) : Fin (2^31) :=
+  ⟨SigGolfCandidate.T3.hyperIndex (childIndex L).val, SigGolfCandidate.T3.hyperIndex_lt _⟩
 theorem childIndex_treeBits (L : EncLeaf) (hlay : L.1.lay.val < 3) :
     (childIndex L).val < 2 ^ treeBits ⟨L.1.lay.val + 1, by omega⟩ := by
   obtain ⟨⟨lay, tree, leaf⟩, ht, hl⟩ := L
@@ -672,7 +697,7 @@ def msgLabel (labels : Labels) (L : EncLeaf) : WCT9.LayerMsg :=
   if h : L.1.lay.val < 3 then
     .pair (treeLabel labels ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (height ⟨L.1.lay.val + 1, by omega⟩ - 1) 0)
       (treeLabel labels ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (height ⟨L.1.lay.val + 1, by omega⟩ - 1) 1)
-  else .pair (ftsLabel labels (childIndex L) 8 6 0) (ftsLabel labels (childIndex L) 8 6 1)
+  else .pair (ftsLabel labels (hyperChild L) 8 6 0) (ftsLabel labels (hyperChild L) 8 6 1)
 theorem leafMsg_eq {answers : Answers} {labels : Labels} (h : Agrees answers labels) (L : EncLeaf) :
     Wots.leafMsg answers L.toWots = msgLabel labels L := by
   unfold Wots.leafMsg msgLabel EncLeaf.toWots
@@ -681,7 +706,7 @@ theorem leafMsg_eq {answers : Answers} {labels : Labels} (h : Agrees answers lab
   · rw [show L.1.tree.val * 2 ^ height L.1.lay + L.1.leaf.val = (childIndex L).val from rfl,
       honestPair_eq h ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (childIndex_treeBits L hlay)]
   · rw [show L.1.tree.val * 2 ^ height L.1.lay + L.1.leaf.val = (childIndex L).val from rfl,
-      Nat.mod_eq_of_lt (childIndex L).isLt, honestTop_eq h (childIndex L)]
+      show SigGolfCandidate.T3.hyperIndex (childIndex L).val = (hyperChild L).val from rfl, honestTop_eq h (hyperChild L)]
 def encKey (labels : Labels) (x : EncLeaf × Fin (2^22)) : EncKey :=
   ((x.1.1.lay, x.1.1.tree, x.1.1.leaf, msgLabel labels x.1), x.2)
 theorem hdrBlock_encQuery (key : EncKey) :
@@ -1322,11 +1347,11 @@ theorem respAt_signPayload (T : Answers) (cache : T3.Cache) (message : Message) 
   · exact RespAt.pure' _
   · dsimp only
     refine RespAt.bind (RespAt.of_respects (respects_signForest _ _) fun _ h => honestQ_of_nonEnc h) ?_
-    refine RespAt.bind (respAt_signLayers T cache _ (WCT9.digestIndex_lt _) 4 le_rfl _ (fun m hm => ?_)) ?_
+    refine RespAt.bind (respAt_signLayers T cache _ (SigGolfCandidate.T3.hyperIndex_lt _) 4 le_rfl _ (fun m hm => ?_)) ?_
     · obtain rfl : m = 3 := by omega
       rw [ClaudeWCT.WCT9.signForest_root, ← Extract.honestTop_eq_wct9]
       exact Mask.signedMsg_top T _ (WCT9.digestIndex_lt _)
-    · generalize evalWithAnswerFn T (WCT9.signLayersBC cache (WCT9.digestIndex output) 4 _) = pieces
+    · generalize evalWithAnswerFn T (WCT9.signLayersBC cache (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 4 _) = pieces
       rcases pieces with _ | pieces <;> exact RespAt.pure' _
 theorem respAt_sign (T : Answers) (published : T3.Cache) (request : Request) :
     RespAt T (HonestQ T) (FullGame.authenticatedSign published request) := by
@@ -2258,8 +2283,7 @@ set_option backward.isDefEq.respectTransparency false
 theorem topInput_nonEnc (coord index heap : Nat) (hcoord : coord < 9) (left pad right : Digest) :
     NonEnc (.inl (.inr (pad64 (WCT9.wctTopInput coord index heap left pad right)))) := by
   apply nonEnc_of_hdr _ (WCT9.wctNodeHeader coord index heap) ?_
-    (SigGolfCandidate.T3.Security.Wots.Enc.notHyper_of_tag (by
-      rw [WCT9.wctNodeHeader_tweakTag hcoord]; split <;> omega))
+    (SigGolfCandidate.T3.Security.Wots.Enc.notHyper_wctNodeHeader hcoord index heap)
   unfold WCT9.wctTopInput
   rw [List.append_assoc (SphincsSecurity.bytesLE 16 left ++ SphincsSecurity.bytesLE 16 _)]
   exact WCT9.hdrBlock_pad64_prefix _ _ _ (SphincsSecurity.bytesLE_length _ _)
@@ -2352,7 +2376,8 @@ noncomputable def sourceMessages (answers : Answers) (leaf : LeafAddr) : WCT9.La
       (leaf.tree * 2 ^ height leaf.lay + leaf.leaf)
     .pair pair.1 pair.2
   else
-    let pair := forestCommitment answers ((leaf.tree * 2 ^ height leaf.lay + leaf.leaf) % 2 ^ 31)
+    -- C47 (B): the L3 leaf at hypertree position `p` signs the forest of instance `hyperIndex p`.
+    let pair := forestCommitment answers (SigGolfCandidate.T3.hyperIndex (leaf.tree * 2 ^ height leaf.lay + leaf.leaf))
     .pair pair.1 pair.2
 
 theorem sourceMessages_fit (answers : Answers) (leaf : LeafAddr) :
@@ -2469,13 +2494,13 @@ theorem sourceMessages_route_lower (answers : Answers) (index : Nat) (lay : Laye
 
 theorem sourceMessages_route_bottom (answers : Answers) (index : Nat) (hindex : index < 2 ^ 31) :
     sourceMessages answers (sourceLeaf index 3) =
-      WCT9.LayerMsg.pair (forestCommitment answers index).1 (forestCommitment answers index).2 := by
+      WCT9.LayerMsg.pair (forestCommitment answers (SigGolfCandidate.T3.hyperIndex index)).1 (forestCommitment answers (SigGolfCandidate.T3.hyperIndex index)).2 := by
   have hroute : (route index 3).2 * 2 ^ height 3 + (route index 3).1 = index := by
     change index / 64 * 64 + (index / 1) % 64 = index
     rw [Nat.div_one]
     omega
   simp only [sourceMessages, sourceLeaf, show ¬ (3 : Layer).val < 3 by decide,
-    dite_false, hroute, Nat.mod_eq_of_lt hindex]
+    dite_false, hroute]
 
 private theorem bind_map_at_some {α β γ : Type} (o : Option α) (f : α → Option β)
     (g : α → β → γ) {a : α} {b : β} (ho : o = some a) (h : o.bind f = some b) :
@@ -2534,7 +2559,7 @@ theorem searchOf_route_bottom (answers : Answers) (index : Nat) (hindex : index 
     searchOf answers (sourceMessages answers) (sourceLeaf index 3) remaining =
       evalWithAnswerFn answers (WCT9.CanonicalPolicy.layerCounterSearchAt 3
         (WCT9.Policy75Safe23.threshold 3 remaining) (route index 3).2 (route index 3).1
-        (.pair (forestCommitment answers index).1 (forestCommitment answers index).2)
+        (.pair (forestCommitment answers (SigGolfCandidate.T3.hyperIndex index)).1 (forestCommitment answers (SigGolfCandidate.T3.hyperIndex index)).2)
         0 (WCT9.searchLimit 3)) := by
   unfold searchOf
   rw [sourceMessages_route_bottom answers index hindex]
@@ -2551,7 +2576,7 @@ reference cells, including the threshold context in every lower search. -/
 theorem searchPreparedLayers_reference (answers : Answers) (cache : SigGolfCandidate.T3.Cache) (index : Nat)
     (hindex : index < 2 ^ 31) (result : CanonicalLayers)
     (he : evalWithAnswerFn answers (searchPreparedLayers cache index
-      (evalWithAnswerFn answers (prepareRoots index)) (forestCommitment answers index)) = some result) :
+      (evalWithAnswerFn answers (prepareRoots index)) (forestCommitment answers (SigGolfCandidate.T3.hyperIndex index))) = some result) :
     ∀ lay : Layer,
       referenceContext answers (sourceMessages answers) (sourceLeaf index lay) =
         some (preparedContext index result lay) ∧
@@ -3136,11 +3161,12 @@ theorem signFromOutput_runEq {T T' : Answers}
   refine RunEq.bind (RunEq.of_respects (respects_prepareRoots _) hnon) ?_
   intro prepared hprepared
   refine RunEq.bind (searchPreparedLayers_runEq hdecisions hnon cache _
-    (digestIndex_lt output) prepared forest.2 ?_ ?_ ?_ ?_) ?_
+    (SigGolfCandidate.T3.hyperIndex_lt _) prepared forest.2 ?_ ?_ ?_ ?_) ?_
   · rw [←hprepared]; exact prepared_message0 T _
   · rw [←hprepared]; exact prepared_message1 T _
   · rw [←hprepared]; exact prepared_message2 T _
-  · rw [←hforest,buildForest_commitment,sourceMessages_route_bottom T _ (digestIndex_lt output)]
+  · rw [←hforest,buildForest_commitment,sourceMessages_route_bottom T _ (SigGolfCandidate.T3.hyperIndex_lt _),
+    SigGolfCandidate.T3.hyperIndex_invol (digestIndex_lt output)]
   · intro layers _
     cases layers <;> exact RunEq.pure' _ _ _
 
@@ -3639,8 +3665,9 @@ theorem signFromOutput_maskEq (T : Answers) (a : ChainAddr)
   intro forest hforest
   refine ExecEq.bind_effect (Mask.queried_length_prepareRoots_mask T (sourceMessages T) a hleaf _) ?_
   simp only [prepareRoots_result]
-  refine ExecEq.bind (searchPreparedLayers_maskEq T a htree hleaf cache _ (digestIndex_lt output) forest.2 ?_) ?_
-  · rw [←hforest,buildForest_commitment,sourceMessages_route_bottom T _ (digestIndex_lt output)]
+  refine ExecEq.bind (searchPreparedLayers_maskEq T a htree hleaf cache _ (SigGolfCandidate.T3.hyperIndex_lt _) forest.2 ?_) ?_
+  · rw [←hforest,buildForest_commitment,sourceMessages_route_bottom T _ (SigGolfCandidate.T3.hyperIndex_lt _),
+    SigGolfCandidate.T3.hyperIndex_invol (digestIndex_lt output)]
   · intro result _
     cases result <;> exact ExecEq.pure' _ _ _
 
@@ -4016,7 +4043,8 @@ set_option backward.isDefEq.respectTransparency false
 theorem referenceSearch_complete_of_routes (answers : Answers) (cache : SigGolfCandidate.T3.Cache)
     (hcomplete : ∀ index : Nat, index<2^31 → ∃ result,
       evalWithAnswerFn answers (searchPreparedLayers cache index
-        (evalWithAnswerFn answers (prepareRoots index)) (forestCommitment answers index))=some result)
+        (evalWithAnswerFn answers (prepareRoots index))
+          (forestCommitment answers (SigGolfCandidate.T3.hyperIndex index)))=some result)
     (L : LeafAddr) (hL : WotsExtract.SourceLeaf7 L) :
     referenceSearch answers (sourceMessages answers) L ≠ none := by
   obtain ⟨index,hi,hindex⟩ := sourceLeaf_surjective L hL
@@ -4306,7 +4334,7 @@ def msgLabel (labels : Labels) (L : EncLeaf) : WCT9.LayerMsg :=
   if h : L.1.lay.val < 3 then
     .pair (treeLabel labels ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (height ⟨L.1.lay.val + 1, by omega⟩ - 1) 0)
       (treeLabel labels ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (height ⟨L.1.lay.val + 1, by omega⟩ - 1) 1)
-  else .pair (CanonGraph.Paired.ftsLabel labels (childIndex L) 8 6 0) (CanonGraph.Paired.ftsLabel labels (childIndex L) 8 6 1)
+  else .pair (CanonGraph.Paired.ftsLabel labels (hyperChild L) 8 6 0) (CanonGraph.Paired.ftsLabel labels (hyperChild L) 8 6 1)
 def encKey (labels : Labels) (x : EncLeaf × Fin (2^22)) : EncKey :=
   ((x.1.1.lay, x.1.1.tree, x.1.1.leaf, msgLabel labels x.1), x.2)
 theorem encodingQuery_ne_cell (key : EncKey) (secrets : Secrets) (node : Node) (labels : Labels) :
@@ -4364,7 +4392,8 @@ theorem sourceMessages_eq {answers : Answers} {labels : Labels}
   · rw [show L.1.tree.val * 2 ^ height L.1.lay + L.1.leaf.val = (childIndex L).val from rfl,
       CanonGraph.Paired.honestPair_eq h ⟨L.1.lay.val+1,by omega⟩ (childIndex L) (childIndex_treeBits L hlay)]
   · rw [show L.1.tree.val * 2 ^ height L.1.lay + L.1.leaf.val = (childIndex L).val from rfl,
-      Nat.mod_eq_of_lt (childIndex L).isLt, forestCommitment_eq answers labels h (childIndex L)]
+      show SigGolfCandidate.T3.hyperIndex (childIndex L).val = (hyperChild L).val from rfl,
+      forestCommitment_eq answers labels h (hyperChild L)]
 
 theorem answers_encCell (U : Finset HashInput) (hU : CanonGraph.Paired.canonInputs ⊆ U)
     (hE : encInputs ⊆ U) (answers : Answers) (labels : Labels) (residual : U → HashOutput)
@@ -4462,7 +4491,7 @@ theorem expandN_unfold (answers : Answers) (m : Message) (pk : Digest) (σ : WCT
     (wit : WCT9.Witness) (he : evalWithAnswerFn answers (expandN0 m pk σ) = some (N, wit)) :
     ∃ counter cs,
       evalWithAnswerFn answers (WCT9.digestSearch σ.rho m 0 WCT9.digestAttemptLimit) = some (counter, N) ∧
-      evalWithAnswerFn answers (WCT9.expandLayersBC σ (WCT9.digestIndex N) 4
+      evalWithAnswerFn answers (WCT9.expandLayersBC σ (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) 4
         (.pair (evalWithAnswerFn answers (WCT9.recoverFts σ (WCT9.digestIndex N) N)).1
           (evalWithAnswerFn answers (WCT9.recoverFts σ (WCT9.digestIndex N) N)).2)) = some (pk, cs) ∧
       wit = ⟨σ, counter, fun lay => cs.getD lay.val 0⟩ := by
@@ -4472,7 +4501,7 @@ theorem expandN_unfold (answers : Answers) (m : Message) (pk : Digest) (σ : WCT
   | some found =>
       obtain ⟨counter, output⟩ := found
       simp only [hd, evalWithAnswerFn_bind] at he
-      cases hl : evalWithAnswerFn answers (WCT9.expandLayersBC σ (WCT9.digestIndex output) 4
+      cases hl : evalWithAnswerFn answers (WCT9.expandLayersBC σ (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 4
           (.pair (evalWithAnswerFn answers (WCT9.recoverFts σ (WCT9.digestIndex output) output)).1
             (evalWithAnswerFn answers (WCT9.recoverFts σ (WCT9.digestIndex output) output)).2)) with
       | none => simp only [hl, evalWithAnswerFn_pure, reduceCtorEq] at he
@@ -4488,9 +4517,9 @@ theorem expandN_unfold (answers : Answers) (m : Message) (pk : Digest) (σ : WCT
             subst hroot
             exact ⟨counter, cs, rfl, hl, rfl⟩
 theorem layer_of_shaped (answers : Answers) (N : HashOutput) (wit : WCT9.Witness) (lay : Layer) (digits : List Nat)
-    (hs : ClaudeWCT.W9.T3M.Extract.LayerShaped answers (witEnc N wit) (WCT9.digestIndex N) lay digits) :
+    (hs : ClaudeWCT.W9.T3M.Extract.LayerShaped answers (witEnc N wit) (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) lay digits) :
     wit.signature.layers lay = piecesSignature lay (WCT9.wotsPieces answers lay
-      (route (WCT9.digestIndex N) lay).2 (route (WCT9.digestIndex N) lay).1 digits) := by
+      (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) lay).2 (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) lay).1 digits) := by
   apply SigGolfCandidate.T3M.LayerSignature.ext'
   · funext i
     have hv : ClaudeWCT.W9.T3M.wvalueFor (witEnc N wit) lay digits i.val =
@@ -4508,15 +4537,15 @@ theorem layer_of_shaped (answers : Answers) (N : HashOutput) (wit : WCT9.Witness
 theorem layers_payload (answers : Answers) (published : SigGolfCandidate.T3.Cache)
     (hcache : published.region = Correctness.cacheRegion (Correctness.maskedTop answers))
     (N : HashOutput) (wit : WCT9.Witness)
-    (hgood : ∀ lay : Layer, ClaudeWCT.W9.T3M.Extract.Good answers (witEnc N wit) (WCT9.digestIndex N) lay) :
+    (hgood : ∀ lay : Layer, ClaudeWCT.W9.T3M.Extract.Good answers (witEnc N wit) (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) lay) :
     ∀ n, n ≤ 4 → ∀ (msg : WCT9.LayerMsg) (root : Digest) (cs : List (BitVec 32)),
-      (∀ k, n = k + 1 → msg = ClaudeWCT.W9.T3M.Extract.honestMsg answers (WCT9.digestIndex N) (Fin.ofNat 4 k)) →
-      evalWithAnswerFn answers (WCT9.expandLayersBC wit.signature (WCT9.digestIndex N) n msg) = some (root, cs) →
+      (∀ k, n = k + 1 → msg = ClaudeWCT.W9.T3M.Extract.honestMsg answers (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) (Fin.ofNat 4 k)) →
+      evalWithAnswerFn answers (WCT9.expandLayersBC wit.signature (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) n msg) = some (root, cs) →
       (∀ lay : Layer, lay.val < n → wit.counters lay = cs.getD lay.val 0) →
-      ∃ pieces, evalWithAnswerFn answers (WCT9.signLayersBC published (WCT9.digestIndex N) n msg) = some pieces ∧
+      ∃ pieces, evalWithAnswerFn answers (WCT9.signLayersBC published (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) n msg) = some pieces ∧
         pieces.length = n ∧ ∀ lay : Layer, lay.val < n →
           wit.signature.layers lay = piecesSignature lay (pieces.getD lay.val ([], [])) := by
-  have hidx : WCT9.digestIndex N < 2 ^ 31 := Nat.mod_lt _ (by decide)
+  have hidx : SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N) < 2 ^ 31 := SigGolfCandidate.T3.hyperIndex_lt _
   intro n
   induction n with
   | zero =>
@@ -4526,7 +4555,7 @@ theorem layers_payload (answers : Answers) (published : SigGolfCandidate.T3.Cach
       intro hn msg root cs hval hexp hctr
       have hv : (Fin.ofNat 4 n : Layer).val = n := Nat.mod_eq_of_lt (by omega)
       have hmsg := hval n rfl
-      have hlenAll := (WCT9.expandLayersBC_verified answers wit.signature (WCT9.digestIndex N) (n + 1) hn msg root cs
+      have hlenAll := (WCT9.expandLayersBC_verified answers wit.signature (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) (n + 1) hn msg root cs
         hexp).1
       simp only [WCT9.expandLayersBC, evalWithAnswerFn_bind] at hexp
       split at hexp
@@ -4543,10 +4572,10 @@ theorem layers_payload (answers : Answers) (published : SigGolfCandidate.T3.Cach
               rw [hctr _ (by rw [hv]; omega), ← hcs, hv]
               rfl
             · simp only [hn0, if_false, evalWithAnswerFn_bind] at hexp
-              generalize evalWithAnswerFn answers (WCT9.expandLayersBC wit.signature (WCT9.digestIndex N) n
-                (.pair (evalWithAnswerFn answers (WCT9.recoverLayerPair wit.signature (WCT9.digestIndex N)
+              generalize evalWithAnswerFn answers (WCT9.expandLayersBC wit.signature (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) n
+                (.pair (evalWithAnswerFn answers (WCT9.recoverLayerPair wit.signature (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N))
                   (Fin.ofNat 4 n) digits)).1 (evalWithAnswerFn answers (WCT9.recoverLayerPair wit.signature
-                    (WCT9.digestIndex N) (Fin.ofNat 4 n) digits)).2)) = res at hexp
+                    (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) (Fin.ofNat 4 n) digits)).2)) = res at hexp
               rcases res with _ | ⟨root', cs'⟩
               · simp at hexp
               · simp only [evalWithAnswerFn_pure, Option.some.injEq, Prod.mk.injEq] at hexp
@@ -4564,10 +4593,10 @@ theorem layers_payload (answers : Answers) (published : SigGolfCandidate.T3.Cach
           have hlayer := layer_of_shaped answers N wit (Fin.ofNat 4 n) digitsG hshape
           by_cases hn0 : n = 0
           · subst hn0
-            have ht : (route (WCT9.digestIndex N) 0).2 = 0 := route_top_tree (WCT9.digestIndex N) hidx
-            have htop := Correctness.eval_signTop_honest answers published (route (WCT9.digestIndex N) 0).1
-              digitsG hcache (route_leaf_bound (WCT9.digestIndex N) 0) hvalid
-            refine ⟨[WCT9.wotsPieces answers 0 0 (route (WCT9.digestIndex N) 0).1 digitsG], ?_, rfl, ?_⟩
+            have ht : (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) 0).2 = 0 := route_top_tree (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) hidx
+            have htop := Correctness.eval_signTop_honest answers published (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) 0).1
+              digitsG hcache (route_leaf_bound (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) 0) hvalid
+            refine ⟨[WCT9.wotsPieces answers 0 0 (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) 0).1 digitsG], ?_, rfl, ?_⟩
             · simp only [WCT9.signLayersBC, evalWithAnswerFn_bind, hs, ite_true, evalWithAnswerFn_pure,
                 Option.map_some, Option.getD_some]
               rw [show (Fin.ofNat 4 0 : Layer) = 0 from rfl, htop, WCT9.wotsPieces_top]
@@ -4577,9 +4606,9 @@ theorem layers_payload (answers : Answers) (published : SigGolfCandidate.T3.Cach
               rw [show (Fin.ofNat 4 0 : Layer) = 0 from rfl, ht] at hlayer
               exact hlayer
           · obtain ⟨k, rfl⟩ : ∃ k, n = k + 1 := ⟨n - 1, by omega⟩
-            have hrecover : evalWithAnswerFn answers (WCT9.recoverLayerPair wit.signature (WCT9.digestIndex N)
+            have hrecover : evalWithAnswerFn answers (WCT9.recoverLayerPair wit.signature (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N))
                 (Fin.ofNat 4 (k + 1)) digitsG) =
-                WCT9.builtPair answers (Fin.ofNat 4 (k + 1)) (route (WCT9.digestIndex N) (Fin.ofNat 4 (k + 1))).2 := by
+                WCT9.builtPair answers (Fin.ofNat 4 (k + 1)) (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) (Fin.ofNat 4 (k + 1))).2 := by
               apply WCT9.eval_recoverLayerPair_honest answers wit.signature _ _
                 (by intro h; have := congrArg Fin.val h; simp [Fin.ofNat] at this; omega) digitsG hvalid
               · intro i
@@ -4589,16 +4618,16 @@ theorem layers_payload (answers : Answers) (published : SigGolfCandidate.T3.Cach
                 rw [hlayer]
                 simp [piecesSignature, WCT9.wotsPieces, List.getD_eq_getElem, j.isLt]
             have hnext : WCT9.LayerMsg.pair (WCT9.builtPair answers (Fin.ofNat 4 (k + 1))
-                (route (WCT9.digestIndex N) (Fin.ofNat 4 (k + 1))).2).1
-                (WCT9.builtPair answers (Fin.ofNat 4 (k + 1)) (route (WCT9.digestIndex N) (Fin.ofNat 4 (k + 1))).2).2 =
-                ClaudeWCT.W9.T3M.Extract.honestMsg answers (WCT9.digestIndex N) (Fin.ofNat 4 k) := by
-              rw [ClaudeWCT.W9.T3.Security.BPB.honestMsg_lower answers (WCT9.digestIndex N) k (by omega)]
+                (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) (Fin.ofNat 4 (k + 1))).2).1
+                (WCT9.builtPair answers (Fin.ofNat 4 (k + 1)) (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) (Fin.ofNat 4 (k + 1))).2).2 =
+                ClaudeWCT.W9.T3M.Extract.honestMsg answers (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) (Fin.ofNat 4 k) := by
+              rw [ClaudeWCT.W9.T3.Security.BPB.honestMsg_lower answers (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) k (by omega)]
               rfl
             simp only [show k + 1 ≠ 0 by omega, if_false, evalWithAnswerFn_bind, hrecover] at hexp
-            generalize hres : evalWithAnswerFn answers (WCT9.expandLayersBC wit.signature (WCT9.digestIndex N) (k + 1)
-              (.pair (WCT9.builtPair answers (Fin.ofNat 4 (k + 1)) (route (WCT9.digestIndex N) (Fin.ofNat 4 (k + 1))).2).1
+            generalize hres : evalWithAnswerFn answers (WCT9.expandLayersBC wit.signature (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) (k + 1)
+              (.pair (WCT9.builtPair answers (Fin.ofNat 4 (k + 1)) (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) (Fin.ofNat 4 (k + 1))).2).1
                 (WCT9.builtPair answers (Fin.ofNat 4 (k + 1))
-                  (route (WCT9.digestIndex N) (Fin.ofNat 4 (k + 1))).2).2)) = res at hexp
+                  (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) (Fin.ofNat 4 (k + 1))).2).2)) = res at hexp
             rcases res with _ | ⟨root', cs'⟩
             · simp at hexp
             simp only [evalWithAnswerFn_pure, Option.some.injEq, Prod.mk.injEq] at hexp
@@ -4614,12 +4643,12 @@ theorem layers_payload (answers : Answers) (published : SigGolfCandidate.T3.Cach
               rw [hv] at this
               simp at this
             have htree := WCT9.eval_buildTreeP_result answers hl0
-              (route (WCT9.digestIndex N) (Fin.ofNat 4 (k + 1))).2
-              (route (WCT9.digestIndex N) (Fin.ofNat 4 (k + 1))).1 digitsG hvalid
-              (route_leaf_bound (WCT9.digestIndex N) _)
+              (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) (Fin.ofNat 4 (k + 1))).2
+              (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) (Fin.ofNat 4 (k + 1))).1 digitsG hvalid
+              (route_leaf_bound (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) _)
             refine ⟨pieces ++ [WCT9.wotsPieces answers (Fin.ofNat 4 (k + 1))
-              (route (WCT9.digestIndex N) (Fin.ofNat 4 (k + 1))).2
-              (route (WCT9.digestIndex N) (Fin.ofNat 4 (k + 1))).1 digitsG], ?_,
+              (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) (Fin.ofNat 4 (k + 1))).2
+              (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) (Fin.ofNat 4 (k + 1))).1 digitsG], ?_,
               by simp [hplen], ?_⟩
             · have nz : ∀ (h : NeZero 4) (x : Nat), @Fin.ofNat 4 h x = @Fin.ofNat 4 (Nat.instNeZeroSucc) x :=
                 fun _ _ => rfl
@@ -4629,8 +4658,8 @@ theorem layers_payload (answers : Answers) (published : SigGolfCandidate.T3.Cach
               simp only [evalWithAnswerFn_bind, hs', htree, show k + 1 ≠ 0 by omega, ite_false, WCT9.topPair_take,
                 WCT9.map_range_take_path]
               have hpair : WCT9.topPair (Fin.ofNat 4 (k + 1)) (WCT9.wotsTree answers (Fin.ofNat 4 (k + 1))
-                  (route (WCT9.digestIndex N) (Fin.ofNat 4 (k + 1))).2) =
-                  WCT9.builtPair answers (Fin.ofNat 4 (k + 1)) (route (WCT9.digestIndex N) (Fin.ofNat 4 (k + 1))).2 :=
+                  (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) (Fin.ofNat 4 (k + 1))).2) =
+                  WCT9.builtPair answers (Fin.ofNat 4 (k + 1)) (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) (Fin.ofNat 4 (k + 1))).2 :=
                 rfl
               rw [hpair, hpieces]
               rfl
@@ -4671,7 +4700,7 @@ theorem caseC_expansion_is_payload (answers : Answers) (published : SigGolfCandi
     (message : Message) (pk : Digest) (signature : WCT9.Signature) (N : HashOutput) (wit : WCT9.Witness)
     (hcache : published.region = Correctness.cacheRegion (Correctness.maskedTop answers))
     (he : evalWithAnswerFn answers (expandN0 message pk signature) = some (N, wit))
-    (hgood : ∀ lay : Layer, ClaudeWCT.W9.T3M.Extract.Good answers (witEnc N wit) (WCT9.digestIndex N) lay)
+    (hgood : ∀ lay : Layer, ClaudeWCT.W9.T3M.Extract.Good answers (witEnc N wit) (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) lay)
     (hfts : ClaudeWCT.W9.T3M.WctExtract.WctHonest answers N (witEnc N wit)) :
     evalWithAnswerFn answers (ClaudeWCT.W9.T3.Security.BPB.payloadForNonce published signature.rho message) =
       some signature := by
@@ -4688,7 +4717,7 @@ theorem caseC_expansion_is_payload (answers : Answers) (published : SigGolfCandi
     (.pair (WCT9.honestTop answers (WCT9.digestIndex N)).1 (WCT9.honestTop answers (WCT9.digestIndex N)).2) pk cs
     (fun k hk => by
       obtain rfl : k = 3 := by omega
-      exact (ClaudeWCT.W9.T3.Security.BPB.honestMsg_three answers _).symm)
+      rw [ClaudeWCT.W9.T3.Security.BPB.honestMsg_three, SigGolfCandidate.T3.hyperIndex_invol (WCT9.digestIndex_lt N)])
     (by rw [F.sig, ← hrf]; exact hel)
     (fun lay _ => by rw [hwit])
   have hO : ∀ coord : WCT9.Coord,
@@ -4855,17 +4884,17 @@ attribute [local irreducible] Paired.witEnc CanonicalRef.sourceMessages
 theorem good_shape_witEnc (answers : Answers) (output : HashOutput)
     (w : SigGolfCandidate.Research.SharedForest.Witness)
     (hg : ∀ lay, Good answers (CanonicalRef.sourceMessages answers) (Paired.witEnc output w)
-      (WCT9.digestIndex output) lay) :
+      (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay) :
     ∀ lay, HonestHint answers (CanonicalRef.sourceMessages answers) (Paired.witEnc output w)
-      (WCT9.digestIndex output) lay → ∃ digits, WCT9.CanonicalPolicy.decode lay
+      (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay → ∃ digits, WCT9.CanonicalPolicy.decode lay
       (evalWithAnswerFn answers (WCT9.encodingHash lay (WCT9.layerEncodingInput lay
-        (route (WCT9.digestIndex output) lay).2 (route (WCT9.digestIndex output) lay).1
-        (CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) lay)) (w.counters lay)))) =
+        (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay).2 (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay).1
+        (CanonicalRef.sourceMessages answers (routeLeaf (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay)) (w.counters lay)))) =
       some digits ∧ w.signature.layers lay = piecesSignature lay (WCT9.wotsPieces answers lay
-        (route (WCT9.digestIndex output) lay).2 (route (WCT9.digestIndex output) lay).1 digits) := by
-  exact good_shape_readout answers (CanonicalRef.sourceMessages answers) (WCT9.digestIndex output)
+        (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay).2 (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay).1 digits) := by
+  exact good_shape_readout answers (CanonicalRef.sourceMessages answers) (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output))
     (Paired.witEnc output w) w.signature w.counters hg (Paired.wbcCtr_witEnc output w)
-    (fun lay => sourceMessages_pair answers (routeLeaf (WCT9.digestIndex output) lay))
+    (fun lay => sourceMessages_pair answers (routeLeaf (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay))
     (Paired.wvalueFor_witEnc output w) (Paired.wpath_witEnc output w)
 end ClaudeWCT.W9.T3.Security.CanonicalExtract
 
@@ -7858,7 +7887,7 @@ def payloadCont (cache : SigGolfCandidate.T3.Cache) (rho : Digest) :
     Option (BitVec 32 × HashOutput) → M (Option ClaudeWCT.W9.T3.Security.Signature)
   | some (_, output) => do
       let forest ← WCT9.signForest (WCT9.digestIndex output) output
-      let some pieces ← WCT9.signLayersBC cache (WCT9.digestIndex output) 4 (.pair forest.2.1 forest.2.2) | pure none
+      let some pieces ← WCT9.signLayersBC cache (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 4 (.pair forest.2.1 forest.2.2) | pure none
       pure (some (WCT9.assembledSignature rho forest.1 pieces))
   | none => pure none
 
@@ -9797,11 +9826,11 @@ theorem hdrBlock_pad64_prefix (a : Digest) (h : BitVec 128) (rest : HashInput) :
     Guess.hdrBlock (pad64 (bytesLE 16 a ++ bytesLE 16 h ++ rest)) = bytesLE 16 h := by
   unfold Guess.hdrBlock pad64
   rw [List.append_assoc, List.append_assoc, List.drop_left' (bytesLE_length _ _), List.take_left' (bytesLE_length _ _)]
-theorem decodeProbe_prefix (a : Digest) {h : BitVec 128} (rest : HashInput) (ht : (h.toNat / 256 % 256 < 130 ∨ h.toNat / 256 % 256 % 8 < 2)) :
+theorem decodeProbe_prefix (a : Digest) {h : BitVec 128} (rest : HashInput) (ht : ((h.toNat / 256 % 256 < 130 ∧ ¬ (34 ≤ h.toNat / 256 % 256 ∧ h.toNat / 256 % 256 < 40)) ∨ h.toNat / 256 % 256 % 8 < 2)) :
     Guess.decodeProbe (pad64 (bytesLE 16 a ++ bytesLE 16 h ++ rest)) = none :=
   Guess.decodeProbe_of_hdrBlock_tagOutside (hdrBlock_pad64_prefix a h rest) ht
-theorem firstByte_header (t l tr p ix : Nat) (ht : t % 256 < 130) :
-    (header t l tr p ix).toNat / 256 % 256 < 130 ∨ (header t l tr p ix).toNat / 256 % 256 % 8 < 2 := by
+theorem firstByte_header (t l tr p ix : Nat) (ht : t % 256 < 34) :
+    ((header t l tr p ix).toNat / 256 % 256 < 130 ∧ ¬ (34 ≤ (header t l tr p ix).toNat / 256 % 256 ∧ (header t l tr p ix).toNat / 256 % 256 < 40)) ∨ (header t l tr p ix).toNat / 256 % 256 % 8 < 2 := by
   have h := header_tag t l tr p ix
   unfold tweakTag at h
   exact Or.inl (by omega)
@@ -9820,7 +9849,7 @@ theorem eval_congr_allowed {P : SigGolfCandidate.T3.Spec.Domain → Prop} {α : 
 section Free
 open SourceQueries
 theorem zero16_eq : zero16 = bytesLE 16 (0 : Digest) := by decide
-theorem shortHash_free (a : Digest) {h : BitVec 128} (rest : HashInput) (ht : (h.toNat / 256 % 256 < 130 ∨ h.toNat / 256 % 256 % 8 < 2)) :
+theorem shortHash_free (a : Digest) {h : BitVec 128} (rest : HashInput) (ht : ((h.toNat / 256 % 256 < 130 ∧ ¬ (34 ≤ h.toNat / 256 % 256 ∧ h.toNat / 256 % 256 < 40)) ∨ h.toNat / 256 % 256 % 8 < 2)) :
     AllQueriesSatisfy (shortHash (bytesLE 16 a ++ bytesLE 16 h ++ rest)) WFree := by
   unfold shortHash publicHash
   exact bind_allowed WFree ((allQueriesSatisfy_query_iff _ _).mpr (decodeProbe_prefix a rest ht))
@@ -9840,21 +9869,28 @@ theorem decodeProbe_of_hdrBlock_low {x : HashInput} {h : BitVec 128} (hx : Guess
 /-- C40: a header whose low word is below `2 ^ 19` is outside the translated FTS chain domain (every
 translated FTS chain word is at least `2 ^ 19`, `Extract.ftsChainLow_ge20`). -/
 theorem decodeProbe_of_hdrBlock_low20 {x : HashInput} {h : BitVec 128} (hx : Guess.hdrBlock x = bytesLE 16 h)
-    (ht : h.toNat % 2 ^ 64 < 2 ^ 19) : Guess.decodeProbe x = none := by
+    (ht : h.toNat % 2 ^ 64 < 2 ^ 19 ∧ (h.toNat % 2 ^ 64 < 8704 ∨ 10752 ≤ h.toNat % 2 ^ 64)) : Guess.decodeProbe x = none := by
   rw [Guess.decodeProbe_eq_none]
   intro a p c he
   rw [he, Guess.hdrBlock_probeInput] at hx
   have hh := bytesLE_injective hx
-  have hb := ClaudeWCT.W9.T3M.Extract.ftsChainLow_ge20 (show a.2.1.val < 15 by have := a.2.1.isLt; omega)
-    a.1.val a.2.2.1.val a.2.2.2.val p.val a.2.2.2.isLt
   have hl := WCT9.ftsChainLow_lt a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val p.val
   rw [← hh, WCT9.ftsChainHeader_toNat, Nat.mod_eq_of_lt (by omega)] at ht
-  omega
+  by_cases h8 : a.2.1.val = 8
+  · -- C47 (C): coordinate 8's reflected chain words are `≡ [8704, 10752)` modulo `2 ^ 20`.
+    rw [h8] at ht
+    have hm := ClaudeWCT.W9.T3M.Extract.ftsChainLow_eight_mod a.1.val a.2.2.1.val a.2.2.2.val p.val
+    have := Nat.mod_lt a.2.2.2.val (show 0 < 8 by decide)
+    have := Nat.mod_lt p.val (show 0 < 4 by decide)
+    omega
+  · have hb := ClaudeWCT.W9.T3M.Extract.ftsChainLow_ge20 (show a.2.1.val < 15 by have := a.2.1.isLt; omega) h8
+      a.1.val a.2.2.1.val a.2.2.2.val p.val a.2.2.2.isLt
+    omega
 /-- Probe separation (C31): chain tags are at least 130 with tag % 8 in 2..7, step bytes occupy 0 through 3,
 and every translated FTS word is at least `2 ^ 19` (C40; the C31 text used 4096). -/
 theorem shortHash_free' (a : Digest) {h : BitVec 128} (rest : HashInput)
-    (ht : (h.toNat / 256 % 256 < 130 ∨ h.toNat / 256 % 256 % 8 < 2) ∨ 4 ≤ h.toNat % 256 ∨
-      h.toNat % 2 ^ 64 < 2 ^ 19) :
+    (ht : ((h.toNat / 256 % 256 < 130 ∧ ¬ (34 ≤ h.toNat / 256 % 256 ∧ h.toNat / 256 % 256 < 40)) ∨ h.toNat / 256 % 256 % 8 < 2) ∨ 4 ≤ h.toNat % 256 ∨
+      (h.toNat % 2 ^ 64 < 2 ^ 19 ∧ (h.toNat % 2 ^ 64 < 8704 ∨ 10752 ≤ h.toNat % 2 ^ 64))) :
     AllQueriesSatisfy (shortHash (bytesLE 16 a ++ bytesLE 16 h ++ rest)) WFree := by
   rcases ht with ht | ht | ht
   · exact shortHash_free a rest ht
@@ -9866,8 +9902,8 @@ theorem shortHash_free' (a : Digest) {h : BitVec 128} (rest : HashInput)
       (decodeProbe_of_hdrBlock_low20 (hdrBlock_pad64_prefix a h rest) ht)) fun _ => pure_allowed _ _
 /-- C4: `shortHash_free'` for a hash keeping either half. -/
 theorem projHash_free' (high : Bool) (a : Digest) {h : BitVec 128} (rest : HashInput)
-    (ht : (h.toNat / 256 % 256 < 130 ∨ h.toNat / 256 % 256 % 8 < 2) ∨ 4 ≤ h.toNat % 256 ∨
-      h.toNat % 2 ^ 64 < 2 ^ 19) :
+    (ht : ((h.toNat / 256 % 256 < 130 ∧ ¬ (34 ≤ h.toNat / 256 % 256 ∧ h.toNat / 256 % 256 < 40)) ∨ h.toNat / 256 % 256 % 8 < 2) ∨ 4 ≤ h.toNat % 256 ∨
+      (h.toNat % 2 ^ 64 < 2 ^ 19 ∧ (h.toNat % 2 ^ 64 < 8704 ∨ 10752 ≤ h.toNat % 2 ^ 64))) :
     AllQueriesSatisfy (projHash high (bytesLE 16 a ++ bytesLE 16 h ++ rest)) WFree := by
   have hs := shortHash_free' a rest ht
   unfold shortHash publicHash at hs
@@ -9877,10 +9913,10 @@ theorem projHash_free' (high : Bool) (a : Digest) {h : BitVec 128} (rest : HashI
 /- C4 (b3cc11b's `nodeTweak_probe_safeS`): every node tweak is probe-safe; the top labels by their low word
 `topNodeWord heap < 4096`. -/
 set_option debug.skipKernelTC true in
-theorem nodeTweak_probe_safeS (tag lay tree heap : Nat) (htag : tag % 256 < 130) :
-    ((nodeTweak tag lay tree heap).toNat / 256 % 256 < 130 ∨ (nodeTweak tag lay tree heap).toNat / 256 % 256 % 8 < 2) ∨
+theorem nodeTweak_probe_safeS (tag lay tree heap : Nat) (htag : tag % 256 < 34) :
+    (((nodeTweak tag lay tree heap).toNat / 256 % 256 < 130 ∧ ¬ (34 ≤ (nodeTweak tag lay tree heap).toNat / 256 % 256 ∧ (nodeTweak tag lay tree heap).toNat / 256 % 256 < 40)) ∨ (nodeTweak tag lay tree heap).toNat / 256 % 256 % 8 < 2) ∨
     4 ≤ (nodeTweak tag lay tree heap).toNat % 256 ∨
-      (nodeTweak tag lay tree heap).toNat % 2 ^ 64 < 2 ^ 19 := by
+      ((nodeTweak tag lay tree heap).toNat % 2 ^ 64 < 2 ^ 19 ∧ ((nodeTweak tag lay tree heap).toNat % 2 ^ 64 < 8704 ∨ 10752 ≤ (nodeTweak tag lay tree heap).toNat % 2 ^ 64)) := by
   by_cases ht : tag = 3 ∧ lay = 0
   · obtain ⟨rfl, rfl⟩ := ht
     have hl := nodeTweak_top_low tree heap
@@ -9888,21 +9924,16 @@ theorem nodeTweak_probe_safeS (tag lay tree heap : Nat) (htag : tag % 256 < 130)
     -- C40: heap 9's label ra has marker 0xc7; every other top label is below 2^19 or has tag < 130 / tag % 8 < 2
     -- C42: heap 6's label `0x01801800000c0006` has marker 6. C46: heaps 4/5/2's (930564, 989957, 989954) have tags
     -- 51, 27, 27 (the FTS probe bound is now 2^19: odd coordinates' index-0 chain words go down to 778752).
+    -- C47: heap 5's label sp (0xffbde0) has marker 0xe0; heap 3's K (0xe7404003) has tag 64 (outside the FTS
+    -- chain tags 34..39 and 130..255).
     rcases SigGolfCandidate.T3.topNodeWord_small_or_special heap with h | h | h | h | h
-    · right; right; omega
-    · right; right; omega
-    · right; right; omega
+    · omega
+    · omega
+    · omega
     · have := SigGolfCandidate.T3.TopNine.cases h
-      rcases this with h | h | h
-      · right; right; omega
-      · right; left; omega
-      · right; right; omega
+      omega
     · unfold SigGolfCandidate.T3.TopStep at h
-      rcases h with h | h | h | h
-      · left; left; omega
-      · left; left; omega
-      · right; left; omega
-      · left; left; omega
+      omega
   · by_cases hlow : tag = 3 ∧ lay < 4
     · obtain ⟨rfl,h4⟩ := hlow
       have hg := nodeTweak_lower_tag (by omega : lay ≠ 0) h4 tree heap
@@ -9919,13 +9950,14 @@ theorem nodeTweak_probe_safeS (tag lay tree heap : Nat) (htag : tag % 256 < 130)
         · rw [if_pos hn] at htag hm
           unfold FtsNew at hn
           exact Or.inr (Or.inl (by omega))
-        · rw [if_neg hn] at htag
-          exact Or.inl (by omega)
+        · -- C47 (C): non-packed tags `248 - 8 k`, 224 (coordinate 8), swapped 0 / 84.
+          rw [if_neg hn] at htag
+          exact Or.inl (by split_ifs at htag <;> omega)
       · rw [nodeTweak_other hf]
         have hg := header_tag tag lay tree 0 heap
         unfold tweakTag at hg
         exact Or.inl (by omega)
-theorem shortHash_header_free (a : Digest) (t l tr p ix : Nat) (rest : HashInput) (ht : t % 256 < 130) :
+theorem shortHash_header_free (a : Digest) (t l tr p ix : Nat) (rest : HashInput) (ht : t % 256 < 34) :
     AllQueriesSatisfy (shortHash (bytesLE 16 a ++ bytesLE 16 (header t l tr p ix) ++ rest)) WFree :=
   shortHash_free a rest (firstByte_header t l tr p ix ht)
 theorem privatePair_free {t : Nat} (l tr p ix : Nat) (ht : t % 256 ≠ 8) :
@@ -9991,7 +10023,7 @@ theorem leafHash_free (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
     exact Guess.decodeProbe_of_hdrBlock_tagOutside (ClaudeWCT.W9.T3M.Extract.hdrBlock_leafInput lay tree leaf ends)
       (by have := leafTweak_tag lay tree leaf; unfold tweakTag at this; omega)
   · intro _; exact pure_allowed _ _
-theorem nodeHash_free (tag lay tree heap : Nat) (left right : Digest) (ht : tag % 256 < 130) :
+theorem nodeHash_free (tag lay tree heap : Nat) (left right : Digest) (ht : tag % 256 < 34) :
     AllQueriesSatisfy (nodeHash tag lay tree heap left right) WFree := by
   unfold nodeHash
   rw [List.append_assoc]
@@ -10024,11 +10056,11 @@ theorem buildLeaf_free (lay : Layer) (tree leaf : Nat) (digits : List Nat) (sign
     split
     · exact pure_allowed _ _
     · exact bind_allowed WFree (leafHash_free _ _ _ _) fun _ => pure_allowed _ _
-theorem buildLevel_free (tag lay tree h level : Nat) (nodes : List Digest) (ht : tag % 256 < 130) :
+theorem buildLevel_free (tag lay tree h level : Nat) (nodes : List Digest) (ht : tag % 256 < 34) :
     AllQueriesSatisfy (buildLevel tag lay tree h level nodes) WFree := by
   unfold buildLevel
   exact mapM_allowed WFree _ _ fun _ => nodeHash_free _ _ _ _ _ _ ht
-theorem buildLevels_free (tag lay tree h : Nat) (leaves : List Digest) (ht : tag % 256 < 130) :
+theorem buildLevels_free (tag lay tree h : Nat) (leaves : List Digest) (ht : tag % 256 < 34) :
     AllQueriesSatisfy (buildLevels tag lay tree h leaves) WFree := by
   unfold buildLevels
   exact foldlM_allowed WFree _ _ (fun levels level =>
@@ -10268,7 +10300,7 @@ set_option debug.skipKernelTC true in
 theorem wctLeafHash_free (index coord selected : Nat) (ends : List Digest) :
     AllQueriesSatisfy (WCT9.leafHash index coord selected ends) WFree := by
   unfold WCT9.leafHash
-  exact shortHash_free _ _ (by have := WCT9.ftsLeafHeader_tweakTag index coord selected; unfold tweakTag at this; omega)
+  exact shortHash_free _ _ (by have := WCT9.ftsLeafHeader_tweakTag index coord selected; unfold tweakTag at this; split_ifs at this <;> omega)
 theorem wctForestPk_free (index : Nat) (pairs : List (Digest × Digest)) :
     AllQueriesSatisfy (WCT9.forestPk index pairs) WFree := by
   unfold WCT9.forestPk WCT9.forestInput
@@ -10279,9 +10311,9 @@ theorem wctLeafHashP_free (index coord selected : Nat) (pad : Digest) (ends : Li
     AllQueriesSatisfy (WCT9.leafHashP index coord selected pad ends) WFree := by
   unfold WCT9.leafHashP WCT9.leafInputP
   rw [List.append_assoc (bytesLE 16 _ ++ bytesLE 16 _) (bytesLE 16 pad)]
-  exact shortHash_free _ _ (by have := WCT9.ftsLeafHeader_tweakTag index coord selected; unfold tweakTag at this; omega)
+  exact shortHash_free _ _ (by have := WCT9.ftsLeafHeader_tweakTag index coord selected; unfold tweakTag at this; split_ifs at this <;> omega)
 theorem highHash_free' (a : Digest) {h : BitVec 128} (rest : HashInput)
-    (ht : (h.toNat / 256 % 256 < 130 ∨ h.toNat / 256 % 256 % 8 < 2) ∨ 4 ≤ h.toNat % 256) :
+    (ht : ((h.toNat / 256 % 256 < 130 ∧ ¬ (34 ≤ h.toNat / 256 % 256 ∧ h.toNat / 256 % 256 < 40)) ∨ h.toNat / 256 % 256 % 8 < 2) ∨ 4 ≤ h.toNat % 256) :
     AllQueriesSatisfy (WCT9.highHash (bytesLE 16 a ++ bytesLE 16 h ++ rest)) WFree := by
   unfold WCT9.highHash publicHash
   rcases ht with ht | ht
@@ -10296,8 +10328,8 @@ theorem wctLeafHashH_free (heap index coord selected : Nat) (pad : Digest) (ends
   unfold WCT9.leafHashH WCT9.leafInputP
   rw [List.append_assoc (bytesLE 16 _ ++ bytesLE 16 _) (bytesLE 16 pad), WCT9.ftsHash_eq]
   split
-  · exact highHash_free' _ _ (Or.inl (by have := WCT9.ftsLeafHeader_tweakTag index coord selected; unfold tweakTag at this; omega))
-  · exact shortHash_free _ _ (by have := WCT9.ftsLeafHeader_tweakTag index coord selected; unfold tweakTag at this; omega)
+  · exact highHash_free' _ _ (Or.inl (by have := WCT9.ftsLeafHeader_tweakTag index coord selected; unfold tweakTag at this; split_ifs at this <;> omega))
+  · exact shortHash_free _ _ (by have := WCT9.ftsLeafHeader_tweakTag index coord selected; unfold tweakTag at this; split_ifs at this <;> omega)
 set_option debug.skipKernelTC true in
 theorem wctTopHash_free (coord index heap : Nat) (left pad right : Digest) :
     AllQueriesSatisfy (WCT9.wctTopHash coord index heap left pad right) WFree := by
@@ -10317,7 +10349,8 @@ theorem wctTopHash_free (coord index heap : Nat) (left pad right : Digest) :
       have hg := nodeTweak_fts_tag (lay := WCT9.nodeLayer coord) (by unfold WCT9.nodeLayer; omega) (by unfold WCT9.nodeLayer; omega) index heap
       rw [if_neg hn] at hg
       unfold tweakTag at hg
-      omega
+      -- C47 (C): non-packed tags `248 - 8 k`, 224 (coordinate 8), swapped 0 / 84.
+      split_ifs at hg <;> omega
   · left; left
     rw [nodeTweak_other (by unfold WCT9.nodeLayer; omega)]
     have ht := header_tag 3 (WCT9.nodeLayer coord) index 0 heap
@@ -10529,7 +10562,7 @@ noncomputable def signerCore (published : SigGolfCandidate.T3.Cache) (request : 
         (privateNonce request.message)) request.message 0 WCT9.digestAttemptLimit) with
     | none => none
     | some (_, output) =>
-        match evalWithAnswerFn (wA hU ω 0) (WCT9.signLayersBC request.cache (WCT9.digestIndex output) 4
+        match evalWithAnswerFn (wA hU ω 0) (WCT9.signLayersBC request.cache (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 4
             (.pair (WCT9.honestTop (wA hU ω 0) (WCT9.digestIndex output)).1 (WCT9.honestTop (wA hU ω 0) (WCT9.digestIndex output)).2)) with
         | none => none
         | some pieces => some (evalWithAnswerFn (wA hU ω 0) (privateNonce request.message), output, pieces)
@@ -10559,7 +10592,7 @@ theorem sign_answers (g : CanonTable.HiddenF) (published : SigGolfCandidate.T3.C
         simp only
         rw [honestForest_world hU ω g 0 (WCT9.digestIndex output) (outIndex_lt output),
           eval_free hU ω g 0 (signLayersBC_free _ _ _ _)]
-        cases evalWithAnswerFn (wA hU ω 0) (WCT9.signLayersBC request.cache (WCT9.digestIndex output) 4
+        cases evalWithAnswerFn (wA hU ω 0) (WCT9.signLayersBC request.cache (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 4
           (.pair (WCT9.honestTop (wA hU ω 0) (WCT9.digestIndex output)).1 (WCT9.honestTop (wA hU ω 0) (WCT9.digestIndex output)).2)) with
         | none => rfl
         | some pieces => rfl
@@ -11713,8 +11746,8 @@ noncomputable def signerCore (cache : SigGolfCandidate.T3.Cache) (message : Mess
   match evalWithAnswerFn answers (sharedDigestSearch rho message 0 digestAttemptLimit) with
   | none => none
   | some (_, output) =>
-      match evalWithAnswerFn answers (searchPreparedLayers cache (digestIndex output)
-          (evalWithAnswerFn answers (prepareRoots (digestIndex output)))
+      match evalWithAnswerFn answers (searchPreparedLayers cache (SigGolfCandidate.T3.hyperIndex (digestIndex output))
+          (evalWithAnswerFn answers (prepareRoots (SigGolfCandidate.T3.hyperIndex (digestIndex output))))
           (forestCommitment answers (digestIndex output))) with
       | none => none
       | some layers => some (rho, output, layers)
@@ -11731,8 +11764,8 @@ def assembleWith (answers : Answers) (core : Digest × HashOutput × CanonicalLa
 theorem signFromOutput_answers (hidden : CanonTable.HiddenF) (cache : SigGolfCandidate.T3.Cache)
     (rho : Digest) (counter : BitVec 32) (output : HashOutput) :
     evalWithAnswerFn (wA hU omega hidden) (signFromOutput cache rho counter output) =
-      (evalWithAnswerFn (wA hU omega 0) (searchPreparedLayers cache (digestIndex output)
-        (evalWithAnswerFn (wA hU omega 0) (prepareRoots (digestIndex output)))
+      (evalWithAnswerFn (wA hU omega 0) (searchPreparedLayers cache (SigGolfCandidate.T3.hyperIndex (digestIndex output))
+        (evalWithAnswerFn (wA hU omega 0) (prepareRoots (SigGolfCandidate.T3.hyperIndex (digestIndex output))))
         (forestCommitment (wA hU omega 0) (digestIndex output)))).map
         (fun layers => (⟨assembleWith (wA hU omega hidden) (rho, output, layers), counter,
           fun lay => layers.counters.getD lay.val 0, !(layers.lows.getD 0 true), [], fun _ => [], [], []⟩ :
@@ -11741,8 +11774,8 @@ theorem signFromOutput_answers (hidden : CanonTable.HiddenF) (cache : SigGolfCan
   rw [buildForest_commitment, eval_free hU omega hidden 0 (prepareRoots_free _),
     forestCommitment_world hU omega hidden 0 (digestIndex output) (digestIndex_lt output),
     eval_free hU omega hidden 0 (searchPreparedLayers_free _ _ _ _)]
-  cases evalWithAnswerFn (wA hU omega 0) (searchPreparedLayers cache (digestIndex output)
-      (evalWithAnswerFn (wA hU omega 0) (prepareRoots (digestIndex output)))
+  cases evalWithAnswerFn (wA hU omega 0) (searchPreparedLayers cache (SigGolfCandidate.T3.hyperIndex (digestIndex output))
+      (evalWithAnswerFn (wA hU omega 0) (prepareRoots (SigGolfCandidate.T3.hyperIndex (digestIndex output))))
       (forestCommitment (wA hU omega 0) (digestIndex output))) <;> rfl
 
 theorem signPayload_answers (hidden : CanonTable.HiddenF) (cache : SigGolfCandidate.T3.Cache) (message : Message) :
@@ -11758,8 +11791,8 @@ theorem signPayload_answers (hidden : CanonTable.HiddenF) (cache : SigGolfCandid
   | some found =>
       obtain ⟨counter, output⟩ := found
       simp only [hs, evalWithAnswerFn_bind, signFromOutput_answers]
-      cases evalWithAnswerFn (wA hU omega 0) (searchPreparedLayers cache (digestIndex output)
-          (evalWithAnswerFn (wA hU omega 0) (prepareRoots (digestIndex output)))
+      cases evalWithAnswerFn (wA hU omega 0) (searchPreparedLayers cache (SigGolfCandidate.T3.hyperIndex (digestIndex output))
+          (evalWithAnswerFn (wA hU omega 0) (prepareRoots (SigGolfCandidate.T3.hyperIndex (digestIndex output))))
           (forestCommitment (wA hU omega 0) (digestIndex output))) <;> rfl
 
 noncomputable def openedFor (cache : SigGolfCandidate.T3.Cache) (message : Message) : List Guess.GCoord :=
@@ -14170,7 +14203,7 @@ noncomputable def hashL (ω : CanonTable.Omega U) (x : HashInput) : OracleComp W
   | none => if x ∈ digestInputs then birthReq x else pure (wA hU ω 0 (.inl (.inr x)))
 noncomputable def signerLayersW (ω : CanonTable.Omega U) (request : Request) (output : HashOutput) :
     Option (List Pieces) :=
-  evalWithAnswerFn (wA hU ω 0) (WCT9.signLayersBC request.cache (WCT9.digestIndex output) 4
+  evalWithAnswerFn (wA hU ω 0) (WCT9.signLayersBC request.cache (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 4
     (.pair (WCT9.honestTop (wA hU ω 0) (WCT9.digestIndex output)).1 (WCT9.honestTop (wA hU ω 0) (WCT9.digestIndex output)).2))
 noncomputable def finishL (ω : CanonTable.Omega U) (request : Request) (rho : Digest) :
     Option (BitVec 32 × HashOutput) → OracleComp WSpecL (Option Signature)
@@ -14253,8 +14286,8 @@ noncomputable local instance : DecidableEq SigGolfCandidate.T3.Cache := Classica
 
 noncomputable def signerLayersW (omega : CanonTable.Omega U) (request : Request) (output : HashOutput) :
     Option CanonicalLayers :=
-  evalWithAnswerFn (wA hU omega 0) (searchPreparedLayers request.cache (WCT9.digestIndex output)
-    (evalWithAnswerFn (wA hU omega 0) (prepareRoots (WCT9.digestIndex output)))
+  evalWithAnswerFn (wA hU omega 0) (searchPreparedLayers request.cache (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output))
+    (evalWithAnswerFn (wA hU omega 0) (prepareRoots (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output))))
     (forestCommitment (wA hU omega 0) (WCT9.digestIndex output)))
 
 noncomputable def finishL (omega : CanonTable.Omega U) (request : Request) (rho : Digest) :
@@ -15364,7 +15397,7 @@ theorem inline_signL (ω : CanonTable.Omega U) (published : SigGolfCandidate.T3.
     · simp only [finishL, simulateQ_pure, Guess.discloseAll, List.mapM_nil, pure_bind, Option.map_none]
     · simp only [finishL]
       unfold signerLayersW
-      generalize evalWithAnswerFn (wA hU ω 0) (WCT9.signLayersBC request.cache (WCT9.digestIndex output) 4
+      generalize evalWithAnswerFn (wA hU ω 0) (WCT9.signLayersBC request.cache (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 4
         (.pair (WCT9.honestTop (wA hU ω 0) (WCT9.digestIndex output)).1 (WCT9.honestTop (wA hU ω 0) (WCT9.digestIndex output)).2)) = L
       rcases L with _ | pieces
       · simp only [simulateQ_pure, Guess.discloseAll, List.mapM_nil, pure_bind, Option.map_none]
@@ -15680,8 +15713,8 @@ theorem inline_signL (omega : CanonTable.Omega U) (published : SigGolfCandidate.
     · simp only [finishL, simulateQ_pure]
     · simp only [finishL]
       unfold signerLayersW
-      generalize evalWithAnswerFn (wA hU omega 0) (searchPreparedLayers request.cache (WCT9.digestIndex output)
-        (evalWithAnswerFn (wA hU omega 0) (prepareRoots (WCT9.digestIndex output)))
+      generalize evalWithAnswerFn (wA hU omega 0) (searchPreparedLayers request.cache (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output))
+        (evalWithAnswerFn (wA hU omega 0) (prepareRoots (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output))))
         (forestCommitment (wA hU omega 0) (WCT9.digestIndex output))) = layers
       rcases layers with _ | layers
       · simp only [simulateQ_pure]
@@ -20199,14 +20232,22 @@ def prxBase (b : Nat) : Nat := if b = 354 then 42726 else 1508
 def p_0s : List (BitVec 32) := [0xf49333,0x1230333,0x1031313,0x13,0x20d1706f,0x13,0x13,0x13,0x13,0x20e37,0x260e0e13,0x6e3823,0x100393,0x7e3c23,0xa74ff06f]
 def p_0e : List (BitVec 32) := [0xf49333,0x1230333,0x1031313,0x13,0x589c506f,0x13,0x13,0x13,0x13,0x20e37,0x260e0e13,0x6e3823,0x100393,0x7e3c23,0xb79d606f]
 def p_0 (b : Nat) : List (BitVec 32) := if b = 354 then p_0e else p_0s
-/-- L-hyper A: the row tweak's straight-line marker trampoline: `t1 |= 2 ^ (hyperW lay + 16)` for `s0 = lay`
-(`t5` scratch, `s0` scaled to `6 lay` and restored), then back to the row block's word 9. -/
-def rt_0s : List (BitVec 32) := [0x141f13,0x1e40433,0x840433,0x803f33,0x1f0f13,0x1cf1f13,0x8f1f33,0x1e36333,0x640413,0x345413,0xde0e806f]
-def rt_0e : List (BitVec 32) := [0x141f13,0x1e40433,0x840433,0x803f33,0x1f0f13,0x1cf1f13,0x8f1f33,0x1e36333,0x640413,0x345413,0xa643a06f]
+/-- L-hyper A: the row tweak's marker trampoline: `t5 = 2 ^ (hyperW lay + 16)` for `s0 = lay` (`s0` scaled to `6 lay`),
+C47 (B): word 7 jumps to the L3 marker stub `rs_0` (which ORs `t5` into `t1`, negated on layer 3), back at word 8
+(`s0` restored), then back to the row block's word 9. -/
+def rt_0s : List (BitVec 32) := [0x141f13,0x1e40433,0x840433,0x803f33,0x1f0f13,0x1cf1f13,0x8f1f33,0x73d0006f,0x640413,0x345413,0xde0e806f]
+def rt_0e : List (BitVec 32) := [0x141f13,0x1e40433,0x840433,0x803f33,0x1f0f13,0x1cf1f13,0x8f1f33,0xb146706f,0x640413,0x345413,0xa643a06f]
 def rt_0 (b : Nat) : List (BitVec 32) := if b = 354 then rt_0e else rt_0s
 def rtBase (b : Nat) : Nat := if b = 354 then 245324 else 25707
+/-- C47 (B): the row tweak's L3 marker stub: `addi s0,s0,-18; bne s0,zero,+8; sub t5,zero,t5; addi s0,s0,18;
+or t1,t1,t5; jal` back to the trampoline's word 8 (sign 26689..26694, expand 88856..88861). -/
+def rs_0s : List (BitVec 32) := [0xfee40413,0x41463,0x41e00f33,0x1240413,0x1e36333,0x8b4ff06f]
+def rs_0e : List (BitVec 32) := [0xfee40413,0x41463,0x41e00f33,0x1240413,0x1e36333,0x4dd9806f]
+def rs_0 (b : Nat) : List (BitVec 32) := if b = 354 then rs_0e else rs_0s
+def rsBase (b : Nat) : Nat := if b = 354 then 88856 else 26689
 def PrxCode (image : Image) (b : Nat) : Prop :=
-  CodeAt image (pcOf (prxBase b)) (p_0 b) ∧ CodeAt image (pcOf (rtBase b)) (rt_0 b)
+  CodeAt image (pcOf (prxBase b)) (p_0 b) ∧ CodeAt image (pcOf (rtBase b)) (rt_0 b) ∧
+    CodeAt image (pcOf (rsBase b)) (rs_0 b)
 def tcEntry (b : Nat) : Nat := if b = 354 then 1272 else 1523
 def topSelectBase (b : Nat) : Nat := if b = 354 then 43032 else 21024
 def tcBase (b : Nat) : Nat := topSelectBase b + 3
@@ -20453,7 +20494,9 @@ theorem codeAt_a_41 {image : Image} {b : Nat} {rewardCondition : Prop} (h : Kern
 theorem codeAt_p_0 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) : CodeAt image (pcOf (prxBase b)) (p_0 b) :=
   h.2.2.1.1
 theorem codeAt_rt_0 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) : CodeAt image (pcOf (rtBase b)) (rt_0 b) :=
-  h.2.2.1.2
+  h.2.2.1.2.1
+theorem codeAt_rs_0 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) : CodeAt image (pcOf (rsBase b)) (rs_0 b) :=
+  h.2.2.1.2.2
 theorem codeAt_p_0b {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (prxBase b + 9)) ((p_0 b).drop 9) := by
   have hc := codeAt_p_0 h
@@ -20989,38 +21032,23 @@ theorem runa_41 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact blkA354_41.trans (congrArg some (by kernel_rfl))
   · exact blkA543_41.trans (congrArg some (by kernel_rfl))
-sym_block blkP354_0 := symRun { noAlias := true } p_0e (pcOf 42726) 200
-sym_block blkP543_0 := symRun { noAlias := true } p_0s (pcOf 1508) 200
-sym_block blkR354_0 := symRunAux { noAlias := true } rt_0e (pcOf 245324) 200 blkP354_0.res.st
-sym_block blkR543_0 := symRunAux { noAlias := true } rt_0s (pcOf 25707) 200 blkP543_0.res.st
-sym_block blkQ354_0 := symRunAux { noAlias := true } (p_0e.drop 9) (pcOf 42735) 200 blkR354_0.res.st
-sym_block blkQ543_0 := symRunAux { noAlias := true } (p_0s.drop 9) (pcOf 1517) 200 blkR543_0.res.st
-def stpA_0 : SymState := blkP354_0.res.st
-def stpR_0 : SymState := blkR354_0.res.st
-def stp_0 : SymState := blkQ354_0.res.st
-def pcEp_0 (b : Nat) : E := .c (pcOf (b + 112))
-theorem runpA_0 {b : Nat} (hb : b = 354 ∨ b = 543) :
-    symRun { noAlias := true } (p_0 b) (pcOf (prxBase b)) 200 =
-      some ⟨stpA_0, .c (pcOf (rtBase b)), blkP354_0.res.stop, 5, 5⟩ := by
-  rcases hb with rfl | rfl
-  · exact blkP354_0.trans (congrArg some (by kernel_rfl))
-  · exact blkP543_0.trans (congrArg some (by kernel_rfl))
-theorem runpR_0 {b : Nat} (hb : b = 354 ∨ b = 543) :
-    symRunAux { noAlias := true } (rt_0 b) (pcOf (rtBase b)) 200 stpA_0 =
-      some ⟨stpR_0, .c (pcOf (prxBase b + 9)), blkR354_0.res.stop, 11, 11⟩ := by
-  rcases hb with rfl | rfl
-  · exact blkR354_0.trans (congrArg some (by kernel_rfl))
-  · exact (show symRunAux { noAlias := true } rt_0s (pcOf 25707) 200 stpA_0 = _ from
-      (congrArg (symRunAux { noAlias := true } rt_0s (pcOf 25707) 200) (by kernel_rfl :
-        stpA_0 = blkP543_0.res.st)).trans blkR543_0).trans (congrArg some (by kernel_rfl))
-theorem runp_0 {b : Nat} (hb : b = 354 ∨ b = 543) :
-    symRunAux { noAlias := true } ((p_0 b).drop 9) (pcOf (prxBase b + 9)) 200 stpR_0 =
-      some ⟨stp_0, pcEp_0 b, blkQ354_0.res.stop, 6, 6⟩ := by
-  rcases hb with rfl | rfl
-  · exact blkQ354_0.trans (congrArg some (by kernel_rfl))
-  · exact (show symRunAux { noAlias := true } (p_0s.drop 9) (pcOf 1517) 200 stpR_0 = _ from
-      (congrArg (symRunAux { noAlias := true } (p_0s.drop 9) (pcOf 1517) 200) (by kernel_rfl :
-        stpR_0 = blkR543_0.res.st)).trans blkQ543_0).trans (congrArg some (by kernel_rfl))
+/-- C47 (B): the row block 0..4, the trampoline 0..7, the L3 marker stub, the trampoline 8..10 and the row block
+9..14 as one path to `b + 112` (the stub's `bne s0,zero` is taken off layer 3). -/
+def prxLook (b n : Nat) : Option (BitVec 32) :=
+  if prxBase b ≤ n ∧ n < prxBase b + 15 then (p_0 b)[n - prxBase b]?
+  else if rtBase b ≤ n ∧ n < rtBase b + 11 then (rt_0 b)[n - rtBase b]?
+  else if rsBase b ≤ n ∧ n < rsBase b + 6 then (rs_0 b)[n - rsBase b]? else none
+def prxFallback : Verify.PRes := ⟨SymState.init, 0, false, 0, 0, [], none⟩
+def prxRun (b : Nat) (d : Bool) : Option Verify.PRes :=
+  Verify.pathAux {noAlias := true} (prxLook b) [pcOf (b + 112)] 60 (pcOf (prxBase b)) [.br d] (Verify.σK []) []
+path_block prxT := (prxRun 354 true).getD prxFallback
+path_block prxF := (prxRun 354 false).getD prxFallback
+theorem prxRun_T {b : Nat} (hb : b = 354 ∨ b = 543) :
+    prxRun b true = some { prxT.res with pc := pcOf (b + 112) } := by
+  rcases hb with rfl | rfl <;> kernel_rfl
+theorem prxRun_F {b : Nat} (hb : b = 354 ∨ b = 543) :
+    prxRun b false = some { prxF.res with pc := pcOf (b + 112) } := by
+  rcases hb with rfl | rfl <;> kernel_rfl
 sym_block blkC354_0 := symRun { noAlias := true } c_0e (pcOf 43035) 200
 sym_block blkC543_0 := symRun { noAlias := true } c_0s (pcOf 21027) 200
 def stc_0 : SymState := blkC354_0.res.st
@@ -21085,50 +21113,99 @@ theorem merge_w0_small (x i : Nat) (hx : x < 2 ^ 32) (hi : i < 2 ^ 32) :
 section blocks
 variable {image : Image} {b : Nat}
 def rowLo (lay : T3.Layer) (tree leaf : Nat) : BitVec 64 := T3.hyperWord lay.val (tree * 2 ^ T3.height lay + leaf)
+/-- C47 (B): the L3 marker stub's extra words: 6 on layer 3 (the `sub`), else 5 (= expand/sign `mrkX`). -/
+def mrkL (lay : Nat) : Nat := if lay = 3 then 6 else 5
+theorem mrkL_le (lay : Nat) : mrkL lay ≤ 6 := by unfold mrkL; split_ifs <;> omega
+theorem prxLook_ok {rewardCondition : Prop} (hK : KernAt image b rewardCondition) : Verify.LookOK image (prxLook b) := by
+  have pre : ∀ {base : Nat} {xs : List (BitVec 32)}, base < 2 ^ 30 → CodeAt image (pcOf base) xs →
+      ∀ n w, base ≤ n → xs[n-base]? = some w → image.code[n]? = some w := by
+    intro base xs hb hc n w hn hg
+    have hpc : (pcOf base).toNat = 4096 + 4 * base := by simp only [pcOf, BitVec.toNat_ofNat]; omega
+    obtain ⟨rest, hr⟩ := hc.2.2.2
+    rw [hpc, show (4096 + 4 * base - 0x1000) / 4 = base by omega] at hr
+    have hi : n-base < xs.length := (List.getElem?_eq_some_iff.mp hg).1
+    have he : (image.code.drop base)[n-base]? = some w := by
+      rw [← hr, List.getElem?_append_left hi]; exact hg
+    rwa [List.getElem?_drop, Nat.add_sub_cancel' hn] at he
+  have hb := hK.2.1
+  intro n w hw
+  unfold prxLook at hw
+  split_ifs at hw with h1 h2 h3
+  · exact pre (by rcases hb with rfl | rfl <;> decide) (codeAt_p_0 hK) n w h1.1 hw
+  · exact pre (by rcases hb with rfl | rfl <;> decide) (codeAt_rt_0 hK) n w h2.1 hw
+  · exact pre (by rcases hb with rfl | rfl <;> decide) (codeAt_rs_0 hK) n w h3.1 hw
 theorem prx_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (prxBase b))
     (lay : T3.Layer) (tree leaf : Nat) (hr : tree * 2 ^ T3.height lay + leaf < 2 ^ T3.hyperW lay.val)
     (h8 : s.getReg .x8 = BitVec.ofNat 64 lay.val) (h9 : s.getReg .x9 = BitVec.ofNat 64 tree)
     (h18 : s.getReg .x18 = BitVec.ofNat 64 leaf)
     (h15 : tree = 0 ∨ s.getReg .x15 = BitVec.ofNat 64 (T3.height lay)) :
-    ∃ t, Steps image s 22 22 t ∧ t.pc = pcOf (b + 112) ∧
+    ∃ t, Steps image s (22 + mrkL lay.val) (22 + mrkL lay.val) t ∧ t.pc = pcOf (b + 112) ∧
       t.getMem (BitVec.ofNat 64 (ENC + 16)) = rowLo lay tree leaf ∧
       t.getMem (BitVec.ofNat 64 (ENC + 24)) = BitVec.ofNat 64 1 ∧
       RegsExcept s t [.x6, .x7, .x28, .x30] ∧
       Frame s t (fun A => A = ENC + 16 ∨ A = ENC + 24) := by
-  have s1 := symRun_sound (runpA_0 hK.2.1) (codeAt_p_0 hK) s hpc (by simp [stpA_0, blkP354_0.res, rv_simp])
-  have s2 := (symRunAux_sound { noAlias := true } image s _ _ _ _ _ (runpR_0 hK.2.1) (codeAt_rt_0 hK)
-    (by simp [stpR_0, blkR354_0.res, rv_simp])).1
-  have s3 := (symRunAux_sound { noAlias := true } image s _ _ _ _ _ (runp_0 hK.2.1) (codeAt_p_0b hK)
-    (by simp [stp_0, blkQ354_0.res, rv_simp, accessValid_iff, MEMORY_BYTES])).1
-  rw [show SymState.toState stpA_0 s (pcOf (rtBase b)) = Result.toState ⟨stpA_0, .c (pcOf (rtBase b)),
-    blkP354_0.res.stop, 5, 5⟩ s by simp [Result.toState, E.eval]] at s2
-  rw [show SymState.toState stpR_0 s (pcOf (prxBase b + 9)) = Result.toState ⟨stpR_0, .c (pcOf (prxBase b + 9)),
-    blkR354_0.res.stop, 11, 11⟩ s by simp [Result.toState, E.eval]] at s3
-  refine ⟨_, (s1.trans s2).trans s3, ?_, ?_, ?_, ?_, ?_⟩
-  · simp [pcEp_0, Result.toState, E.eval]
-  · simp only [Result.toState_getMem, stp_0, blkQ354_0.res]
-    t3n [h9, h18, ENC]
-    rw [LH.mark_bv lay.val lay.isLt _ h8]
-    have hh : T3.height lay < 64 := by fin_cases lay <;> decide
-    have hsh : tree * 2 ^ ((s.getReg .x15).toNat % 64) = tree * 2 ^ T3.height lay := by
-      rcases h15 with h | h
-      · simp [h]
-      · rw [h, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega : T3.height lay < 2 ^ 64), Nat.mod_eq_of_lt hh]
-    rw [hsh]
-    exact LH.label_or0 lay.val _ lay.isLt hr
-  · simp only [Result.toState_getMem, stp_0, blkQ354_0.res]
-    t3n [ENC]
-  · intro r hr
-    clear s1 s2 s3
-    by_cases h8r : r = .x8
-    · subst h8r; simp only [Result.toState_getReg, stp_0, blkQ354_0.res]
-      exact LH.restE_eval s lay.val lay.isLt h8
-    · simp at hr; cases r <;> simp_all [stp_0, blkQ354_0.res, rv_simp] <;> rfl
-  · intro A hA hn
-    simp only [Result.toState_getMem, stp_0, blkQ354_0.res]
-    t3n []
-    simp only [ENC] at hn
-    rw [if_neg (by omega), if_neg (by omega)]
+  have hl := lay.isLt
+  have hh : T3.height lay < 64 := by fin_cases lay <;> decide
+  have hsh : tree * 2 ^ ((s.getReg .x15).toNat % 64) = tree * 2 ^ T3.height lay := by
+    rcases h15 with h | h
+    · simp [h]
+    · rw [h, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega : T3.height lay < 2 ^ 64), Nat.mod_eq_of_lt hh]
+  show ∃ t : MachineState, _ ∧ _ ∧ t.getMem _ = T3.hyperWord lay.val (tree * 2 ^ T3.height lay + leaf) ∧ _
+  by_cases h3 : lay.val = 3
+  · have hh' := Verify.pathRun_sound (known := []) (prxRun_F hK.2.1) (prxLook_ok hK) s hpc (by intro p hp; cases hp)
+      (by simp [prxF.res, Oblig.holds, Addr.eval, E.eval, memAccessValid_iff, MEMORY_BYTES, ENC])
+      (by
+        intro br hbr
+        simp only [prxF.res, List.mem_cons, List.not_mem_nil, or_false] at hbr
+        subst hbr
+        simp only [Verify.Br.holds, E.eval, BinOp.eval, CmpOp.eval, h8, h3]
+        decide)
+    refine ⟨_, hh'.1.of_eq (by simp [prxF.res, mrkL, h3]) (by simp [prxF.res, mrkL, h3]), rfl, ?_, ?_, ?_, ?_⟩
+    · simp only [Verify.PRes.toState, SymState.toState_getMem, prxF.res]
+      t3n [h9, h18, ENC]
+      rw [hsh, LH.mark_bv lay.val lay.isLt _ h8, h3, LH.markL3_neg]
+      rw [h3] at hr
+      exact LH.label_orMark 3 _ (by decide) hr
+    · simp only [Verify.PRes.toState, SymState.toState_getMem, prxF.res]
+      t3n [ENC]
+    · intro r hr'
+      by_cases h8r : r = .x8
+      · subst h8r; simp only [Verify.PRes.toState, SymState.toState, prxF.res, LH.y6E_fold, LH.restE_fold]
+        simp only [RegFile.get, if_neg (show Reg.x8 ≠ Reg.x0 by decide)]
+        exact LH.restE_eval s lay.val lay.isLt h8
+      · simp at hr'; cases r <;> simp_all [Verify.PRes.toState, prxF.res, rv_simp] <;> rfl
+    · intro A hA hn
+      simp only [Verify.PRes.toState, SymState.toState_getMem, prxF.res]
+      t3n []
+      simp only [ENC] at hn
+      rw [if_neg (by omega), if_neg (by omega)]
+  · have hh' := Verify.pathRun_sound (known := []) (prxRun_T hK.2.1) (prxLook_ok hK) s hpc (by intro p hp; cases hp)
+      (by simp [prxT.res, Oblig.holds, Addr.eval, E.eval, memAccessValid_iff, MEMORY_BYTES, ENC])
+      (by
+        intro br hbr
+        simp only [prxT.res, List.mem_cons, List.not_mem_nil, or_false] at hbr
+        subst hbr
+        simp only [Verify.Br.holds, E.eval, BinOp.eval, CmpOp.eval, h8]
+        have : lay.val = 0 ∨ lay.val = 1 ∨ lay.val = 2 := by omega
+        rcases this with h0 | h0 | h0 <;> rw [h0] <;> decide)
+    refine ⟨_, hh'.1.of_eq (by simp [prxT.res, mrkL, h3]) (by simp [prxT.res, mrkL, h3]), rfl, ?_, ?_, ?_, ?_⟩
+    · simp only [Verify.PRes.toState, SymState.toState_getMem, prxT.res]
+      t3n [h9, h18, ENC]
+      rw [hsh, LH.mark_bv lay.val lay.isLt _ h8, ← T3.hyperMark_of_ne h3]
+      exact LH.label_orMark lay.val _ lay.isLt hr
+    · simp only [Verify.PRes.toState, SymState.toState_getMem, prxT.res]
+      t3n [ENC]
+    · intro r hr'
+      by_cases h8r : r = .x8
+      · subst h8r; simp only [Verify.PRes.toState, SymState.toState, prxT.res, LH.y6E_fold, LH.restE_fold]
+        simp only [RegFile.get, if_neg (show Reg.x8 ≠ Reg.x0 by decide)]
+        exact LH.restE_eval s lay.val lay.isLt h8
+      · simp at hr'; cases r <;> simp_all [Verify.PRes.toState, prxT.res, rv_simp] <;> rfl
+    · intro A hA hn
+      simp only [Verify.PRes.toState, SymState.toState_getMem, prxT.res]
+      t3n []
+      simp only [ENC] at hn
+      rw [if_neg (by omega), if_neg (by omega)]
 theorem rowTweak_eq_rowLo (lay : T3.Layer) (tree leaf : Nat) :
     T3.rowTweak lay tree leaf = BitVec.ofNat 64 1 ++ rowLo lay tree leaf := rfl
 theorem rowTweak_lo (lay : T3.Layer) (tree leaf : Nat) :
@@ -21142,7 +21219,7 @@ theorem cs103_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition
     (h8 : s.getReg .x8 = BitVec.ofNat 64 lay.val) (h9 : s.getReg .x9 = BitVec.ofNat 64 tree)
     (h18 : s.getReg .x18 = BitVec.ofNat 64 leaf)
     (h15 : tree = 0 ∨ s.getReg .x15 = BitVec.ofNat 64 (T3.height lay)) :
-    ∃ t, Steps image s 24 24 t ∧ t.pc = pcOf (b + 113) ∧
+    ∃ t, Steps image s (24 + mrkL lay.val) (24 + mrkL lay.val) t ∧ t.pc = pcOf (b + 113) ∧
       t.getMem (BitVec.ofNat 64 (ENC + 16)) = rowLo lay tree leaf ∧
       t.getMem (BitVec.ofNat 64 (ENC + 24)) = BitVec.ofNat 64 1 ∧
       t.getReg .x19 = BitVec.ofNat 64 0 ∧
@@ -21166,7 +21243,7 @@ theorem cs103_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition
     · simp [st_112, blk354_112.res, rv_simp]
     · intro r hr; simp at hr; cases r <;> simp_all [st_112, blk354_112.res, rv_simp] <;> rfl
     · intro A _ _; simp [st_112, blk354_112.res, rv_simp]
-  refine ⟨t3, (s1.trans s2).trans s3, p3, ?_, ?_, x19, ((r1.trans r2).trans r3).mono (by decide),
+  refine ⟨t3, ((s1.trans s2).trans s3).of_eq (by omega) (by omega), p3, ?_, ?_, x19, ((r1.trans r2).trans r3).mono (by decide),
     ((f1.trans f2).trans f3).mono (fun A _ h => by simp_all)⟩
   · rw [f3.get (by simp only [ENC]; omega) (by simp), m16]
   · rw [f3.get (by simp only [ENC]; omega) (by simp), m24]
@@ -32089,7 +32166,7 @@ set_option maxHeartbeats 1500000
 set_option maxRecDepth 32768
 variable {image : Image} {sk : BitVec 256}
 theorem counterSearch_tbsim {A : CsArgs} {s0 : MachineState} (hK : KernAt image 543 (CanonicalHooks.Code image)) (hpre : CsPre 543 A s0) :
-    TBSim image sk s0 (25 + capLimit A.lay.val * csT A.lay + csOk A.lay)
+    TBSim image sk s0 (31 + capLimit A.lay.val * csT A.lay + csOk A.lay)
       (WCT9.CanonicalPolicy.layerCounterSearchAt A.lay A.floor A.tree A.leaf A.msg 0 (WCT9.searchLimit A.lay)) (CsPost image 543 A s0) := by
   obtain ⟨t, st, pt, h16, h24, h19, rt, ft⟩ := cs103_spec hK s0 hpre.pc A.lay A.tree A.leaf hpre.hroute
     hpre.x8 hpre.x9 hpre.x18 hpre.x15
@@ -32108,7 +32185,9 @@ theorem counterSearch_tbsim {A : CsArgs} {s0 : MachineState} (hK : KernAt image 
       (by simp only [ENC]; omega), hx32]⟩
   rw [← capLimit_eq]
   have := TBSim.steps st (TBSim.steps st' (cs_loop (sk := sk) hK hpre (capLimit A.lay.val) 0 t' (by omega) hI))
-  exact this.mono (le_of_eq (by ring)) (fun _ _ h => h)
+  -- C47 (B): the row tweak's L3 marker stub adds `mrkL lay ≤ 6` words.
+  have hm := mrkL_le A.lay.val
+  exact this.mono (by ring_nf; omega) (fun _ _ h => h)
 
 def csCost (lay : Layer) : Nat := (WCT9.searchLimit lay * csT lay)+8192
 

@@ -11,7 +11,7 @@ open SigGolfCandidate.T3 (HashOutput Digest M)
 open SigGolfCandidate.Research ClaudeWCT ClaudeWCT.W9.T3M
 open ClaudeWCT.W9.Machine.Expand ClaudeWCT.W9.Machine.Expand.SharedCompactMain
 
-def work : Nat := 5173+OuterForestHalted.work
+def work : Nat := 5181+OuterForestHalted.work
 
 theorem continue_search {sk : BitVec 256} {s0 s : MachineState} {pk : Digest} {b : SharedCodec.CBytes}
     (initial : InitialMemory b pk s0) (hh:(SharedCodec.sigDecC b).policyHints.toNat<12288)

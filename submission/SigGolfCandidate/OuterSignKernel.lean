@@ -40,12 +40,13 @@ theorem hooks : CanonicalHooks.Code OuterImages.signImage := by
 
 theorem kernel (P : Prop) (hP : P) : KernAt OuterImages.signImage 543 P := by
   have old:=SigGolfCandidate.T3M.Sign.SharedSearchCode.installed_kernel P hP
-  rcases old with ⟨⟨h0,h1⟩,hb,⟨h2,h3⟩,⟨h4,h5,h6⟩,h7,h8,h9,_⟩
-  refine ⟨⟨?_,?_⟩,hb,⟨?_,?_⟩,⟨?_,?_,?_⟩,?_,?_,?_,hP⟩
+  rcases old with ⟨⟨h0,h1⟩,hb,⟨h2,h3,h3s⟩,⟨h4,h5,h6⟩,h7,h8,h9,_⟩
+  refine ⟨⟨?_,?_⟩,hb,⟨?_,?_,?_⟩,⟨?_,?_,?_⟩,?_,?_,?_,hP⟩
   · exact OuterSignTransfers.code (b:=543) (by decide +kernel) h0
   · exact OuterSignTransfers.code (b:=capBase 543) (by decide +kernel) h1
   · exact OuterSignTransfers.code (b:=prxBase 543) (by decide +kernel) h2
   · exact OuterSignTransfers.code (b:=rtBase 543) (by decide +kernel) h3
+  · exact OuterSignTransfers.code_tail (b:=rsBase 543) (by decide +kernel) (by decide +kernel) h3s
   · exact OuterSignTransfers.code (b:=tcBase 543) (by decide +kernel) h4
   · exact OuterSignTransfers.code (b:=tcEntry 543) (by decide +kernel) h5
   · exact OuterSignTransfers.code (b:=stubBase 543) (by decide +kernel) h6

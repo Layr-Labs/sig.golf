@@ -20,7 +20,7 @@ theorem expanded_eq_signer_signature (answers : Answers) (cache : SigGolfCandida
     (w signed : SigGolfCandidate.Research.SharedForest.Witness) (ns : List Nat) (counter : BitVec 32)
     (he : evalWithAnswerFn answers (OuterExpand.expandN message pk sig) = some (output,w,ns))
     (hg : ∀ lay, Good answers (OuterLifted.ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.sourceMessages answers) (OuterExpand.witEncOuter output w ns)
-      (WCT9.digestIndex output) lay)
+      (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay)
     (ho : OuterLifted.ClaudeWCT.W9.T3M.Extract.Paired.ForestOpenings answers (OuterExpand.witEncOuter output w ns) (WCT9.digestIndex output)
       (rawChildFromOutput output) (fun coord => WCT9.embed (forestRank output coord.val)))
     (hs : evalWithAnswerFn answers (OuterSigning.signFromOutput cache sig.rho counter output) = some signed) :
@@ -36,8 +36,8 @@ theorem expanded_eq_signer_signature (answers : Answers) (cache : SigGolfCandida
   obtain ⟨da,la,hva,hsa,hpa⟩ := OuterExpansionSecurity.expanded_canonical_selections answers message pk sig output w ns he (fun lay=>(OuterGoodOverlay.good answers _ output w ns _ lay).mp (hg lay)) hf
   obtain ⟨db,lb,hvb,hsb,hpb⟩ := OuterLifted.ClaudeWCT.W9.T3.Security.CanonicalExtract.signFromOutput_canonical_selections answers cache hcache sig.rho counter output signed hs
   obtain ⟨_,_,hrho,_,hfs,_,_,_⟩ := OuterLifted.SigGolfCandidate.Research.SharedForest.signFromOutput_components answers cache sig.rho counter output signed hs
-  apply OuterLifted.SigGolfCandidate.Research.SharedForest.signature_unique_of_selections answers (WCT9.digestIndex output)
-    (fun lay => OuterLifted.ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) lay))
+  apply OuterLifted.SigGolfCandidate.Research.SharedForest.signature_unique_of_selections answers (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output))
+    (fun lay => OuterLifted.ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.sourceMessages answers (routeLeaf (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay))
     w.signature signed.signature w.counters signed.counters da db la lb _ (hforest.trans hfs.symm)
     hva hvb hsa hsb hpa hpb
   rw [hsig,nonce_retained,hrho]
@@ -48,7 +48,7 @@ theorem expanded_eq_signer_signature (answers : Answers) (cache : SigGolfCandida
     (w : SigGolfCandidate.Research.SharedForest.Witness) (ns : List Nat)
     (he : evalWithAnswerFn answers (OuterExpand.expandN message pk sig) = some (output,w,ns))
     (hg : ∀ lay, Good answers (OuterLifted.ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.sourceMessages answers) (OuterExpand.witEncOuter output w ns)
-      (WCT9.digestIndex output) lay)
+      (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay)
     (ho : OuterLifted.ClaudeWCT.W9.T3M.Extract.Paired.ForestOpenings answers (OuterExpand.witEncOuter output w ns) (WCT9.digestIndex output)
       (rawChildFromOutput output) (fun coord => WCT9.embed (forestRank output coord.val)))
     (hs : evalWithAnswerFn answers (OuterSigning.signPayload cache message) = some signedSig)

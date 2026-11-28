@@ -35,9 +35,9 @@ theorem suffix_done (ns : List Nat) {sk : BitVec 256} {r : Option (HashOutput ×
       rw [tm _ (by omega),OuterPostFrame.pp_mem _ _ _ hb.1 hb.2])
     have hscr (A:Nat) (h1:0x66700 ≤ A) (h2:A<0x66760) : t.getMem (BitVec.ofNat 64 A)=s.getMem (BitVec.ofNat 64 A) := by
       rw [tm A (by omega)]; exact PostEnc.ppMem_scratch _ _ A h1 h2
-    have hl : (SigGolfCandidate.T3.route (WCT9.digestIndex output) 0).1<4096 := by
+    have hl : (SigGolfCandidate.T3.route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0).1<4096 := by
       unfold SigGolfCandidate.T3.route; simp [SigGolfCandidate.T3.height]; omega
-    have tleaf : (t.getMem (BitVec.ofNat 64 0x66758)).toNat % 4096=(SigGolfCandidate.T3.route (WCT9.digestIndex output) 0).1 % 4096 := by
+    have tleaf : (t.getMem (BitVec.ofNat 64 0x66758)).toNat % 4096=(SigGolfCandidate.T3.route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0).1 % 4096 := by
       rw [hscr _ (by norm_num) (by norm_num),hn.2.2,BitVec.toNat_ofNat,Nat.mod_eq_of_lt (show _ < 2^64 by omega)]
     have tnon : ∀ j, j < 11 → t.getMem (PadWriter.nonceAddr j)=BitVec.ofNat 64 (w.topNonces.getD j 0) := by
       intro j hj

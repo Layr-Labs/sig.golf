@@ -27,6 +27,7 @@ theorem code_jB : CodeAt OuterImages.expandImage (pcOf 49286) cJB := OuterImageT
 theorem code_m4 : CodeAt OuterImages.expandImage (pcOf 49457) mBody := OuterImageTransfers.code (b:=49457) (by decide +kernel) ClaudeWCT.W9.Machine.Expand.PostPass.code_m4
 theorem code_mB : CodeAt OuterImages.expandImage (pcOf 49241) mBody := OuterImageTransfers.code (b:=49241) (by decide +kernel) ClaudeWCT.W9.Machine.Expand.PostPass.code_mB
 theorem code_mD : CodeAt OuterImages.expandImage (pcOf 49231) mBody := OuterImageTransfers.code (b:=49231) (by decide +kernel) ClaudeWCT.W9.Machine.Expand.PostPass.code_mD
+theorem code_DAStub : CodeAt OuterImages.expandImage (pcOf 88882) cDAStub := OuterImageTransfers.code (b:=88882) (by decide +kernel) ClaudeWCT.W9.Machine.Expand.PostPass.code_DAStub
 theorem code_mFG : CodeAt OuterImages.expandImage (pcOf 49439) mBody := OuterImageTransfers.code (b:=49439) (by decide +kernel) ClaudeWCT.W9.Machine.Expand.PostPass.code_mFG
 theorem code_mv4 : CodeAt OuterImages.expandImage (pcOf 49452) cMv4 := OuterImageTransfers.code (b:=49452) (by decide +kernel) ClaudeWCT.W9.Machine.Expand.PostPass.code_mv4
 theorem code_mvB : CodeAt OuterImages.expandImage (pcOf 49236) cMvB := OuterImageTransfers.code (b:=49236) (by decide +kernel) ClaudeWCT.W9.Machine.Expand.PostPass.code_mvB
@@ -49,7 +50,7 @@ theorem code_vals : CodeAt OuterImages.expandImage (pcOf 49469) cVals := OuterIm
 theorem code_z : CodeAt OuterImages.expandImage (pcOf 49466) zBody := OuterImageTransfers.code (b:=49466) (by decide +kernel) ClaudeWCT.W9.Machine.Expand.PostPass.code_z
 theorem code_zpro : CodeAt OuterImages.expandImage (pcOf 49462) cZPro := OuterImageTransfers.code (b:=49462) (by decide +kernel) ClaudeWCT.W9.Machine.Expand.PostPass.code_zpro
 theorem pp_spec (s : MachineState) (hpc : s.pc = pcOf 49400) :
-    ∃ t, Steps OuterImages.expandImage s 17535 ppCycles t ∧ t.pc = pcOf 54174 ∧
+    ∃ t, Steps OuterImages.expandImage s 17538 ppCycles t ∧ t.pc = pcOf 54174 ∧
       RegsExcept s t [.x6, .x7, .x10, .x28, .x29, .x30] ∧
       ∀ A < 2 ^ 64, t.getMem (BitVec.ofNat 64 A) =
         ppMem (leafOf (s.getMem (BitVec.ofNat 64 0x20160))) (fun B => s.getMem (BitVec.ofNat 64 B)) A := by
@@ -127,7 +128,7 @@ theorem pp_spec (s : MachineState) (hpc : s.pc = pcOf 49400) :
   -- values
   obtain ⟨u13, su13, pu13, ru13, _, mu13⟩ := vals_spec code_vals u12 pu12
   -- dispatch A
-  obtain ⟨u14, su14, pu14, u14_10, u14_29, u14_30, ru14, mu14⟩ := dA_spec code_DA u13 pu13
+  obtain ⟨u14, su14, pu14, u14_10, u14_29, u14_30, ru14, mu14⟩ := dA_spec code_DA code_DAStub u13 pu13
   have hleaf : u13.getMem (BitVec.ofNat 64 0x20160) = s.getMem (BitVec.ofNat 64 0x20160) := by
     rw [mu13 _ (by decide), vFun_20160, mu12 _ (by decide)]
     exact stages_20160 _
@@ -150,12 +151,12 @@ theorem pp_spec (s : MachineState) (hpc : s.pc = pcOf 49400) :
   · have hS := ((((((((((((((((((((((((((((((st1.trans su1).trans st2).trans su2).trans st3).trans su3).trans st4).trans su4).trans sv4).trans st5).trans su5).trans st6).trans su6).trans st7).trans su7).trans st8).trans su8).trans st9).trans su9).trans st10).trans su10).trans sv10).trans st11).trans su11).trans st12).trans su12).trans su13).trans su14).trans su15).trans su16).trans su17).trans su18
     have hk : 6 + 5 * 432 + 6 + 5 * 96 + 6 + 5 * 284 + 6 + 5 * 407 + RJA.res.steps + 5 + 5 * 321 + 5 + 5 * 331 +
         6 + 5 * 102 + 6 + 5 * 86 + 6 + 5 * 86 + 3 + 4 * 8 + RJB.res.steps + 5 + 5 * 958 + 4 + 3 * 421 + 586 +
-        RDA.res.steps + 25 + RDB.res.steps + 25 + RJ.res.steps = 17535 := by
-      rw [show RDA.res.steps = 15 from rfl, show RDB.res.steps = 7 from rfl, show RJ.res.steps = 1 from rfl,
+        (RDA.res.steps + RDAS.res.steps + RDAB.res.steps) + 25 + RDB.res.steps + 25 + RJ.res.steps = 17538 := by
+      rw [show RDA.res.steps = 4 from rfl, show RDAS.res.steps = 3 from rfl, show RDAB.res.steps = 11 from rfl, show RDB.res.steps = 7 from rfl, show RJ.res.steps = 1 from rfl,
         show RJA.res.steps = 1 from rfl, show RJB.res.steps = 1 from rfl]
     have hc : 6 + 5 * 432 + 6 + 5 * 96 + 6 + 5 * 284 + 6 + 5 * 407 + RJA.res.cycles + 5 + 5 * 321 + 5 + 5 * 331 +
         6 + 5 * 102 + 6 + 5 * 86 + 6 + 5 * 86 + 3 + 4 * 8 + RJB.res.cycles + 5 + 5 * 958 + 4 + 3 * 421 + 586 +
-        RDA.res.cycles + 25 + RDB.res.cycles + 25 + RJ.res.cycles = ppCycles := rfl
+        (RDA.res.cycles + RDAS.res.cycles + RDAB.res.cycles) + 25 + RDB.res.cycles + 25 + RJ.res.cycles = ppCycles := rfl
     exact Steps.of_eq hS hk hc
   · exact (((((((((((((((((((((((((((((((rt1.trans ru1).trans rt2).trans ru2).trans rt3).trans ru3).trans rt4).trans ru4).trans rv4).trans rt5).trans ru5).trans rt6).trans ru6).trans rt7).trans ru7).trans rt8).trans ru8).trans rt9).trans ru9).trans rr10).trans ru10).trans rv10).trans rt11).trans ru11).trans rr12).trans ru12).trans ru13).trans ru14).trans ru15).trans ru16).trans ru17).trans ru18).mono (by decide)
   · intro A hA

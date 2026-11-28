@@ -524,9 +524,9 @@ theorem prehash_step (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) (s0 : MachineStat
         have hsj := slot_props j (by omega)
         exact hj'.frame fr (by omega) (by omega) (by omega)
       · rw [fget _ (by omega) (by omega), h16]
-        exact (c.w0_low i m hi (by omega)).1
+        exact (c.w0_low i (T3.lowerStepCode m) hi (by have := lowerStepCode_lt8 (show m < 8 by omega); omega)).1
       · rw [fget _ (by omega) (by omega), h16]
-        exact (c.w0_low i m hi (by omega)).2
+        exact (c.w0_low i (T3.lowerStepCode m) hi (by have := lowerStepCode_lt8 (show m < 8 by omega); omega)).2
       · rw [fget _ (by omega) (by omega)]; exact h24
       · rw [pc_writeHash, hpc, if_neg (by omega), c.rungPc_succ i m hd, show (4 : Word) = BitVec.ofNat 64 4 from rfl,
           ofNat_add_ofNat]
@@ -567,14 +567,14 @@ theorem prehash_step (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) (s0 : MachineStat
           ofNat_add_ofNat]
         congr 1
 theorem rung_piece (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
-    (i m p : Nat) (hi : i < 51) (hm : m ≤ last i) (hp : p < 257181)
+    (i m p : Nat) (hi : i < 51) (h0 : 0 < m) (hm : m ≤ last i) (hp : p < 257181)
     (hrun : vrun p 3 = some (rungR m (if m = last i then some (termSlot i) else none) p)) (s : MachineState)
     (hpc : s.pc = pcOf p) (hR : ∀ x ∉ chainRegs, s.getReg x = s0.getReg x)
     (h10 : s.getReg .x10 = BitVec.ofNat 64 (c.blk i)) (hH : c.HdrOk i s) :
     ∃ t, Steps vimage s (if m = last i then 2 else 1) (if m = last i then 2 else 1) t ∧ fetch vimage t = some (.base .ECALL) ∧
       (∀ x, x ≠ .x12 → t.getReg x = s.getReg x) ∧
       (m = last i → t.getReg .x12 = BitVec.ofNat 64 (termSlot i)) ∧ (m < last i → t.getReg .x12 = s.getReg .x12) ∧
-      t.getMem (BitVec.ofNat 64 (c.blk i + 16)) = BitVec.ofNat 64 (c.w0 i + 2 ^ 8 * m) ∧
+      t.getMem (BitVec.ofNat 64 (c.blk i + 16)) = BitVec.ofNat 64 (c.w0 i + 2 ^ 8 * T3.lowerStepCode m) ∧
       Frame s t (fun A => A = c.blk i + 16) ∧ t.pc = pcOf (p + (if m = last i then 2 else 1)) := by
   have hb := c.blk_props hc i hi
   have hlast := last_bounds i
@@ -602,7 +602,7 @@ theorem rung_piece (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
     rw [show (16 : Word) = BitVec.ofNat 64 16 from rfl, ofNat_add_ofNat]
   have tmem : ∀ A, A < 2 ^ 64 → (r.toState s).getMem (BitVec.ofNat 64 A) =
       if A = c.blk i + 16 then
-        StoreKind.merge .b (s.getMem (BitVec.ofNat 64 (c.blk i + 16))) 1 (BitVec.ofNat 64 m)
+        StoreKind.merge .b (s.getMem (BitVec.ofNat 64 (c.blk i + 16))) 1 (BitVec.ofNat 64 (T3.lowerStepCode m))
       else s.getMem (BitVec.ofNat 64 A) := by
     intro A hA
     rw [Result.toState_getMem]
@@ -614,7 +614,7 @@ theorem rung_piece (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
         rw [show (16 : Word) = BitVec.ofNat 64 16 from rfl, ofNat_add_ofNat]
       simp only [E.eval, BinOp.eval]
       rw [e1]
-      simp only [StoreKind.merge, c.posE_eval hk hR i m hm]
+      simp only [StoreKind.merge, c.posE_eval hk hR i m h0 hm]
     · rfl
   refine ⟨r.toState s, hst, hec, fun x hx => hkeep.reg s (by simpa using hx), fun h2 => ?_, fun h2 => ?_, ?_,
     fun A hA hn => ?_, ?_⟩
@@ -627,6 +627,7 @@ theorem rung_piece (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
   · rw [tmem _ (by omega), if_pos rfl]
     obtain ⟨hl, hj, -⟩ := hH
     have hp := c.prefix_props
+    have hc8 := lowerStepCode_lt8 (show m < 8 by omega)
     rw [stepByte _ _ _ _ (by omega) (by omega) (by omega) hl hj]
     congr 1
     unfold w0
@@ -661,7 +662,7 @@ theorem tail_piece (i m p : Nat) (hp : p < 257181)
   · rw [Result.toState_pc]; simp only [hr, tailR]
     by_cases h2 : m = last i <;> simp [h2, E.eval]
 theorem rung_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
-    (i m : Nat) (hi : i < 51) (hm : m ≤ last i) (hp : c.rungPc i m < 257181)
+    (i m : Nat) (hi : i < 51) (h0 : 0 < m) (hm : m ≤ last i) (hp : c.rungPc i m < 257181)
     (hrun : vrun (c.rungPc i m) 3 = some (rungR m (if m = last i then some (termSlot i) else none) (c.rungPc i m)))
     (acc : List Digest) (v : Digest) (s : MachineState) (hs : c.StepInv s0 i acc m v s) :
     ∃ t, Steps vimage s (if m = last i then 2 else 1) (if m = last i then 2 else 1) t ∧ c.PreHash s0 i acc m v t := by
@@ -672,7 +673,7 @@ theorem rung_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.k
   have hmax := topMax_bounds i
   have hlastEq : last i + 1 = topMax i := by unfold last; omega
   obtain ⟨t, hst, hec, hreg, h12a, h12b, h16, hfr, hpc'⟩ :=
-    c.rung_piece hc hk i m (c.rungPc i m) hi hm hp hrun s hpc hR h10 hH
+    c.rung_piece hc hk i m (c.rungPc i m) hi h0 hm hp hrun s hpc hR h10 hH
   refine ⟨t, hst, ⟨⟨fun x hx => ?_, (hF.trans hfr).mono ?_, fun j hj => ?_⟩, hlen, h16, ?_, ?_, ?_, ?_, ?_, hec⟩⟩
   · rw [hreg x (ne_of_not_mem hx (by simp [chainRegs]))]; exact hR x hx
   · intro A _ h; rcases h with h | h
@@ -709,9 +710,9 @@ theorem lAt_eval (c : NCtx) (hc : c.ok) {s : MachineState} (h19 : s.getReg .x4 =
   rw [c.base_off hc i hi k hk]
 theorem header_load (c : NCtx) {s : MachineState} (i d : Nat)
     (h28 : s.getReg .x28 = BitVec.ofNat 64 c.pre0) :
-    (hLoad i d).eval s = BitVec.ofNat 64 (c.w0 i + 2 ^ 8 * d) := by
+    (hLoad i d).eval s = BitVec.ofNat 64 (c.w0 i + 2 ^ 8 * T3.lowerStepCode d) := by
   rewrite [hLoad, addC_eval]
-  show s.getReg .x28 + (BitVec.ofNat 64 (i + 256 * d) - BitVec.ofNat 64 18446744073709551488) = _
+  show s.getReg .x28 + (BitVec.ofNat 64 (i + 256 * T3.lowerStepCode d) - BitVec.ofNat 64 18446744073709551488) = _
   rewrite [h28, SigGolfCandidate.T3M.LCtx.bv385]
   apply congrArg (BitVec.ofNat 64)
   unfold w0 «prefix» pre0
@@ -896,7 +897,7 @@ theorem headJ_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
     rw [RegFile.get_set_ne _ _ (by decide +kernel), RegFile.get_set_self _ _ (by decide +kernel), addC_eval, a0e]
     exact c.oAt_eval hc i hi _ rfl
   have tmem : ∀ A, A < 2 ^ 64 → t1.getMem (BitVec.ofNat 64 A) =
-      if A = c.blk i + 16 then BitVec.ofNat 64 (c.w0 i + 2 ^ 8 * c.dig i)
+      if A = c.blk i + 16 then BitVec.ofNat 64 (c.w0 i + 2 ^ 8 * T3.lowerStepCode (c.dig i))
       else s.getMem (BitVec.ofNat 64 A) := by
     intro A hA
     rw [ht1, Result.toState_getMem]
@@ -974,7 +975,7 @@ theorem headJTerm_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p �
     rw [ht1, Result.toState_getReg]; simp only [hr, headJDTerm]
     rw [RegFile.get_set_ne _ _ (by decide +kernel), RegFile.get_set_self _ _ (by decide +kernel), a0e]
   have tmem : ∀ A, A < 2 ^ 64 → t1.getMem (BitVec.ofNat 64 A) =
-      if A = c.blk i + 16 then BitVec.ofNat 64 (c.w0 i + 2 ^ 8 * c.dig i)
+      if A = c.blk i + 16 then BitVec.ofNat 64 (c.w0 i + 2 ^ 8 * T3.lowerStepCode (c.dig i))
       else s.getMem (BitVec.ofNat 64 A) := by
     intro A hA
     rw [ht1, Result.toState_getMem]
@@ -1060,7 +1061,7 @@ theorem headR_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
   have a0e : (addC (E.reg .x4) (off i)).eval s = BitVec.ofNat 64 (c.blk i) := by
     rw [addC_eval]; simp only [E.eval, h19]; exact c.base_off0 hc i hi
   have tmem : ∀ A, A < 2 ^ 64 → (r.toState s).getMem (BitVec.ofNat 64 A) =
-      if A = c.blk i + 16 then BitVec.ofNat 64 (c.w0 i + 2 ^ 8 * c.dig i)
+      if A = c.blk i + 16 then BitVec.ofNat 64 (c.w0 i + 2 ^ 8 * T3.lowerStepCode (c.dig i))
       else if A = c.blk i + 24 then c.padHeader i else s.getMem (BitVec.ofNat 64 A) := by
     intro A hA
     rw [Result.toState_getMem]
@@ -1138,7 +1139,7 @@ theorem headRTerm_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p �
   have a0e : (addC (E.reg .x4) (off i)).eval s = BitVec.ofNat 64 (c.blk i) := by
     rw [addC_eval]; simp only [E.eval, h19]; exact c.base_off0 hc i hi
   have tmem : ∀ A, A < 2 ^ 64 → (r.toState s).getMem (BitVec.ofNat 64 A) =
-      if A = c.blk i + 16 then BitVec.ofNat 64 (c.w0 i + 2 ^ 8 * c.dig i)
+      if A = c.blk i + 16 then BitVec.ofNat 64 (c.w0 i + 2 ^ 8 * T3.lowerStepCode (c.dig i))
       else if A = c.blk i + 24 then c.padHeader i else s.getMem (BitVec.ofNat 64 A) := by
     intro A hA
     rw [Result.toState_getMem]
@@ -1513,7 +1514,7 @@ theorem steps_good (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
           (Verify.ccM (c.rest i (m+1) (Verify.vHalf (topHigh i m) a)) (fun v => K (acc++[v]))) := by
         intro a
         have hrun := c.chk_rung hds i (m+1) hi (by omega) (by omega)
-        obtain ⟨u,hu,hp⟩ := c.rung_step hc hk i (m+1) hi (by omega)
+        obtain ⟨u,hu,hp⟩ := c.rung_step hc hk i (m+1) hi (by omega) (by omega)
           (by have := c.rungPc_lt hds i (m+1) hi (by omega); omega) hrun acc _ _
           ((hpost a).1 (by omega))
         have ht := ih (m+1) (by omega) (by omega) _ _ hp
@@ -3261,8 +3262,9 @@ def hL (lay : Nat) : Nat := [12,7,6,6].getD lay 0
 leaves the right top value at `WIT + 48`, so no copy), top 5, L1/L2 6 (C2/C3, as #866; T1: the L1/L2 transition
 heads lose `addi tp,tp,720`, 7 -> 6). L-hyper (F): the L3 head ORs the marker `2^31` into `s6` (no `ori`), 6.
 C41: the top head (`addi a0; addi tp; sd t3; ecall`) loses its `slli s7,t6,5`, which moved into the layer-1
-height-6 fold (its heap-3 label is `s7`), 4 -> 3; `s7` reaches the head already set and is kept. -/
-def stepsA (lay : Nat) : Nat := if lay = 3 then 5 else if lay = 0 then 3 else 6
+height-6 fold (its heap-3 label is `s7`), 4 -> 3; `s7` reaches the head already set and is kept. C47 (B): the L3 head
+complements `s6` (`xori s6,s6,-1`) instead of loading and ORing the marker, 5 -> 4. -/
+def stepsA (lay : Nat) : Nat := if lay = 3 then 4 else if lay = 0 then 3 else 6
 def retOff (lay : Nat) : Nat := if lay = 0 then 9 else if lay = 3 then 38 else 41
 /-- T1 (tp-merge): lower frame bases `F` (tp = F + 944, the L3 head's `jalr tp` link); index 0 is a placeholder satisfying the `LCtx` frame
 facts (the top layer has no lower frame). -/
@@ -3298,20 +3300,20 @@ def bufferBias (lay : Nat) : Nat := [14336,17968,21224,24480].getD lay 0
 def bufferBase (lay : Nat) : Nat := [15288,18752,22008,25264].getD lay 0
 def preK (lay : Nat) : List (Reg × Word) :=
   if lay = 3 then [(.x5, 0)] ++ [(.x8, BitVec.ofNat 64 4095), (.x11, 64), (.x26, 108112779336744966), (.x13, 989954), 
-    (.x2, BitVec.ofNat 64 0xffbde0), (.x19, 3), (.x20, 930564), (.x21, 989957), (.x6, 0)]
+    (.x2, BitVec.ofNat 64 0xffbde0), (.x19, 3879747587), (.x20, 930564), (.x6, 0)]
   else baseK ++ [(.x6, 0), (.x9, 0x7fc01),
     (.x1, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x11, 64),
-    (.x13, 989954), (.x19, 3), (.x20, 930564), (.x21, 989957), (.x26, 108112779336744966), 
+    (.x13, 989954), (.x19, 3879747587), (.x20, 930564), (.x26, 108112779336744966), 
     (.x5, 0), (.x2, BitVec.ofNat 64 0xffbde0), (.x27, 0x3fe00), (.x4, BitVec.ofNat 64 (bufferBias (lay+1)))]
 def layK (lay : Nat) : List (Reg × Word) :=
   baseK ++ [(.x6, 0), (.x11, 64),
-    (.x13, 989954), (.x19, 3), (.x20, 930564), (.x21, 989957), (.x26, 108112779336744966), 
+    (.x13, 989954), (.x19, 3879747587), (.x20, 930564), (.x26, 108112779336744966), 
     (.x2, BitVec.ofNat 64 0xffbde0)] ++
     (if lay = 3 then [] else [(.x9, 0x7fc01), (.x1, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x5, 0), (.x27, 0x3fe00), (.x4, BitVec.ofNat 64 (bufferBias lay))])
 def chainK (lay : Nat) : List (Reg × Word) :=
   baseK ++ [(.x6, 0), (.x9, 0x7fc01),
     (.x1, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x11, 64),
-    (.x13, 989954), (.x19, 3), (.x20, 930564), (.x21, 989957), (.x26, 108112779336744966), 
+    (.x13, 989954), (.x19, 3879747587), (.x20, 930564), (.x26, 108112779336744966), 
     (.x5, 0), (.x27, 0x3fe00), (.x4, BitVec.ofNat 64 (bufferBias lay))]
 def bK (lay : Nat) : List (Reg × Word) := layK lay ++ [(.x10, 4256)]
 def rReg (lay : Nat) : Reg := if lay = 3 then .x22 else .x31
@@ -3325,10 +3327,14 @@ def ctrBr (lay : Nat) (d : Bool) : Br := ⟨if lay = 3 then .ltu else .geu, ctrE
 def setupPc (_lay p : Nat) : Nat := p
 def setupAcceptDir (lay : Nat) : Bool := decide (lay = 3)
 def hdrA (lay : Nat) : Nat := if lay = 3 then TOPLOAD + 32 else HDATA + 8 * lay
-/-- L-hyper (F): the L3 head ORs the layer marker (data word `hdrA 3` = `2^31`) into the routed register `s6`, so every
-lower layer's routed register (`treeE`, a right shift) carries its marker, and forms the label word with one shift. -/
-def x22E3 : E := .bin .or (.reg .x22) (.ld (kw (hdrA 3)))
+/-- C47 (B): the L3 head complements the routed register (`xori s6,s6,-1`): with `s6 = 2^31 - 1 - j` on entry it holds
+`j + 2^64 - 2^31` (the hypertree index `j` above the run of ones at bits 31..63), so the layer-3 label word
+`t3 = s6 << 16` carries the marker `hyperMark 3`, and `srliw` (`treeE3`) gives layer 2 its routed register
+`2^25 + j / 64` (the old marked format). -/
+def x22E3 : E := .bin .xor (.reg .x22) (kw (2 ^ 64 - 1))
 def t3E3 : E := .bin .sll x22E3 (kw 16)
+/-- C47 (B): layer 3's tree register `srliw t6,s6,6`. -/
+def treeE3 : E := .bin (.w .srl) (.reg .x22) (kw 6)
 /-- The FTS leaves both roots directly in the layer-3 encoding row (left at `WIT`, right at `WIT + 48`). Entry
 writes the row tweak's low word at `WIT + 16` (C3: its high word `WIT + 24` is a witness pad) and retains the final
 hash destination in `a2`; for the lower layers only the tweak word. -/
@@ -3400,14 +3406,14 @@ def specBl (lay _p : Nat) : Spec :=
   ⟨[(.x16, a6E), (.x17, a7E), (.x23, s23E lay), (.x25, s9mE lay), (.x29, t4E lay),
     (.x14, x14l lay)] ++ (if lay = 3 then [
       (.x24, .ld (kw TOPLOAD)), (.x1, .ld (kw (TOPLOAD + 8))), (.x9, .ld (kw (TOPLOAD + 24))),
-      (.x31, treeE 3), (.x27, .bin .srl (maskE 3) (kw 1)), (.x4, kw 24480)] else []),
+      (.x31, treeE3), (.x27, .bin .srl (maskE 3) (kw 1)), (.x4, kw 24480)] else []),
    [], 0, false, bSt lay, [a6Br true, a7Br false], some (tgtl lay), bCy lay⟩
 /-- SGV1: a HIGH path (`brs` its guard conditions, `x` its extra steps and cycles over LOW). -/
 def specBlHiG (lay _p : Nat) (brs : List Br) (x : Nat) : Spec :=
   ⟨[(.x16, a6HiE), (.x17, a7HiE), (.x23, s23E lay), (.x25, s9mHiE lay), (.x29, t4HiE lay),
     (.x14, x14Hi lay)] ++ (if lay = 3 then [
       (.x24, .ld (kw TOPLOAD)), (.x1, .ld (kw (TOPLOAD + 8))), (.x9, .ld (kw (TOPLOAD + 24))),
-      (.x31, treeE 3), (.x27, .bin .srl (maskE 3) (kw 1)), (.x4, kw 24480)] else []),
+      (.x31, treeE3), (.x27, .bin .srl (maskE 3) (kw 1)), (.x4, kw 24480)] else []),
    [], 0, false, bSt lay + x, brs, some (tgtHi lay), bCy lay + x⟩
 /-- SGV1 HIGH-b (`w1 ≥ 0`, `w0 < 0`). -/
 def specBlHi (lay p : Nat) : Spec := specBlHiG lay p [a6Br false, a7Br false] (hiX lay)

@@ -34,7 +34,8 @@ theorem outside (coord : Fin 9) (j : Fin 128) (X : Nat) (hx : X<8351744)
   · omega
 
 structure Post (coord j : Nat) (u : MachineState) (res : Nat×Nat×Digest) (t : MachineState) : Prop where
-  pc : t.pc=(u.getReg .x1+2024#64) &&& ~~~1#64
+  /-- C47: expand's coordinate-8 grinder exits with `jal zero,46862`. -/
+  pc : t.pc=pcOf 46862
   a1 : t.getReg .x11=64
   a2 : t.getReg .x12=BitVec.ofNat 64 (coordRegion coord-handO j)
   top : DigAt t (coordRegion coord-handO j+OuterGroundCore.offset coord (heapOf 5 j)/8) res.2.2
@@ -63,7 +64,7 @@ theorem flatten (coord : Fin 9) (j : Fin 128) (index : Nat) (pads sibs : Nat→D
     have ho:=stagesW_bound j.isLt (by decide) hoff
     omega
   refine ⟨?_,h11,h12,hd,hn,?_,?_,?_,hnle,?_,?_,?_⟩
-  · rw [hp,hregs]
+  · exact hp
   · intro r h3 h10 h11 h12
     rw [hkeep r h3 h10 h11 h12,hregs]
   · rw [rd _ (by unfold slotA SCR;omega) (Or.inr (by unfold slotA SCR;omega))

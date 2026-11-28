@@ -79,9 +79,9 @@ theorem signFromOutput_complete (answers : Answers) (hgood : ContextGood answers
     ∃ witness, evalWithAnswerFn answers (OuterSigning.signFromOutput cache rho counter output)=some witness := by
   let forest := evalWithAnswerFn answers
     (OuterForestMoment.forest (digestIndex output) (forestSelectionFromOutput output) (forestWordsFromOutput output))
-  let prepared := evalWithAnswerFn answers (prepareRoots (digestIndex output))
-  obtain ⟨layers,hl⟩ := searchPreparedLayers_complete answers hgood cache (digestIndex output)
-    (digestIndex_lt output) prepared forest.2
+  let prepared := evalWithAnswerFn answers (prepareRoots (hyperIndex (digestIndex output)))
+  obtain ⟨layers,hl⟩ := searchPreparedLayers_complete answers hgood cache (hyperIndex (digestIndex output))
+    (hyperIndex_lt _) prepared forest.2
   dsimp only [forest,prepared] at hl
   simp only [OuterSigning.signFromOutput,evalWithAnswerFn_bind,hl,evalWithAnswerFn_pure]
   exact ⟨_,rfl⟩

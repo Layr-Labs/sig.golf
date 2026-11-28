@@ -264,7 +264,7 @@ theorem xF_buildChildH (hS : GroundSet j S) (heap coord selected : Nat) (word : 
     unfold ClaudeWCT.WCT9.leafHashH
     refine notF_ftsHash heap (hdr := ClaudeWCT.WCT9.ftsLeafHeader i coord selected) ?_
       (fun c x hs he => ClaudeWCT.WCT9.ftsLeafHeader_ne_wctNodeHeader i coord selected (hS c x hs).1 j x
-        (by have := (hS c x hs).heap; omega) he)
+        (by have := (hS c x hs).heap; omega) (by have := (hS c x hs).heap; omega) he)
     unfold ClaudeWCT.WCT9.leafInputP
     simpa only [List.append_assoc] using
       queryHeader_padded (bytesLE 16 (st.1.getD 0 0)) (bytesLE 16 pad ++ (st.1.drop 1).flatMap (bytesLE 16))
@@ -804,10 +804,10 @@ theorem signFromOutput_forest (answers : Answers) (cache : SigGolfCandidate.T3.C
   let index := ClaudeWCT.WCT9.digestIndex output
   let built := evalWithAnswerFn answers (buildForest index (forestSelectionFromOutput output)
     (forestWordsFromOutput output))
-  let prepared := evalWithAnswerFn answers (prepareRoots index)
+  let prepared := evalWithAnswerFn answers (prepareRoots (SigGolfCandidate.T3.hyperIndex index))
   unfold SigGolfCandidate.Research.SharedForest.signFromOutput at he
   simp only [evalWithAnswerFn_bind] at he
-  cases hs : evalWithAnswerFn answers (searchPreparedLayers cache index prepared built.2) with
+  cases hs : evalWithAnswerFn answers (searchPreparedLayers cache (SigGolfCandidate.T3.hyperIndex index) prepared built.2) with
   | none =>
     dsimp only [index, prepared, built] at hs
     simp only [hs, evalWithAnswerFn_pure, reduceCtorEq] at he

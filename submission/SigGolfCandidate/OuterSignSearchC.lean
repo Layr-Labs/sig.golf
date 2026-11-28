@@ -11,7 +11,7 @@ open SigGolfCandidate.FtsGrind OuterNodeSearchInvariant OuterSignBlocks
 theorem check {im : Image} {A D n : Nat} {pre right : List UInt8}
     {s u : MachineState} {a : HashOutput} (F : Input A D pre right s)
     (heap : Nat) (hheap : heap=2 ∨ heap=3)
-    (hmem : s.getMem (BitVec.ofNat 64 (A+24))=BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap))
+    (hmem : s.getMem (BitVec.ofNat 64 (A+24))=0#64 ↔ heap=2)
     (hc : CodeAt im (pcOf 26190) c_checkCode) (hu : Stage s A D (pcOf 26190) n u)
     (hh : Answer A D n a u) :
     ∃ t,Steps im u 7 7 t ∧
@@ -30,7 +30,7 @@ theorem jump_exhaust {im : Image} (hc : CodeAt im (pcOf 26200) c_exhaustCode)
 
 theorem retry {im : Image} {A D n : Nat} {pre right : List UInt8}
     {s u : MachineState} {a : HashOutput} (F : Input A D pre right s) (heap : Nat) (hheap : heap=2 ∨ heap=3)
-    (hmem : s.getMem (BitVec.ofNat 64 (A+24))=BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap))
+    (hmem : s.getMem (BitVec.ofNat 64 (A+24))=0#64 ↔ heap=2)
     (hc : CodeAt im (pcOf 26190) c_checkCode) (hf : CodeAt im (pcOf 26197) c_retryCode)
     (hu : Stage s A D (pcOf 26190) n u) (hh : Answer A D n a u)
     (hz : ¬zeroOkH (OuterNodeSearchC.high heap) 4 a=true) (hn : n+1<4096) :
@@ -43,7 +43,7 @@ theorem retry {im : Image} {A D n : Nat} {pre right : List UInt8}
 
 theorem finish {im : Image} {sk : BitVec 256} {A D n : Nat} {pre right : List UInt8}
     {s u : MachineState} {a : HashOutput} (F : Input A D pre right s) (heap : Nat) (hheap : heap=2 ∨ heap=3)
-    (hmem : s.getMem (BitVec.ofNat 64 (A+24))=BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap))
+    (hmem : s.getMem (BitVec.ofNat 64 (A+24))=0#64 ↔ heap=2)
     (hc : CodeAt im (pcOf 26190) c_checkCode)
     (hp : CodeAt im (pcOf 26201) cleanupCode) (hd : CodeAt im (pcOf 26204) doneCode)
     (hu : Stage s A D (pcOf 26190) n u) (hh : Answer A D n a u)
@@ -55,7 +55,7 @@ theorem finish {im : Image} {sk : BitVec 256} {A D n : Nat} {pre right : List UI
 
 theorem exhaust {im : Image} {sk : BitVec 256} {A D n : Nat} {pre right : List UInt8}
     {s u : MachineState} {a : HashOutput} (F : Input A D pre right s) (heap : Nat) (hheap : heap=2 ∨ heap=3)
-    (hmem : s.getMem (BitVec.ofNat 64 (A+24))=BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap))
+    (hmem : s.getMem (BitVec.ofNat 64 (A+24))=0#64 ↔ heap=2)
     (hc : CodeAt im (pcOf 26190) c_checkCode) (hf : CodeAt im (pcOf 26197) c_retryCode)
     (hj : CodeAt im (pcOf 26200) c_exhaustCode)
     (hp : CodeAt im (pcOf 26201) cleanupCode) (hd : CodeAt im (pcOf 26204) doneCode)
@@ -75,7 +75,7 @@ theorem exhaust {im : Image} {sk : BitVec 256} {A D n : Nat} {pre right : List U
 
 theorem loop {im : Image} {sk : BitVec 256} {A D : Nat} {pre right : List UInt8}
     {s : MachineState} (F : Input A D pre right s) (heap : Nat) (hheap : heap=2 ∨ heap=3)
-    (hmem : s.getMem (BitVec.ofNat 64 (A+24))=BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap))
+    (hmem : s.getMem (BitVec.ofNat 64 (A+24))=0#64 ↔ heap=2)
     (hq : CodeAt im (pcOf 26188) c_preCode) (hc : CodeAt im (pcOf 26190) c_checkCode)
     (hf : CodeAt im (pcOf 26197) c_retryCode) (hj : CodeAt im (pcOf 26200) c_exhaustCode)
     (hp : CodeAt im (pcOf 26201) cleanupCode) (hd : CodeAt im (pcOf 26204) doneCode) :

@@ -316,9 +316,9 @@ def lowerChainBytes {lay : Layer} (ls : LayerSignature lay) : List UInt8 :=
 plan-placed path area (siblings, counter, row-tweak high word) followed by its chain blocks. -/
 def layerRegion (N : HashOutput) (w : WCT9.Witness) (lay : Layer) : List UInt8 :=
   if lay.val = 0 then
-    topPathBytes (route (WCT9.digestIndex N) lay).1 (w.signature.layers lay) ++
-      (zeros 192 ++ (layerBytes lay (route (WCT9.digestIndex N) lay).1 (w.signature.layers lay)).drop (64 * height lay))
-  else lowerPathBytes lay (route (WCT9.digestIndex N) lay).1 (w.signature.layers lay)
+    topPathBytes (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) lay).1 (w.signature.layers lay) ++
+      (zeros 192 ++ (layerBytes lay (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) lay).1 (w.signature.layers lay)).drop (64 * height lay))
+  else lowerPathBytes lay (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) lay).1 (w.signature.layers lay)
       (w.counters (Fin.ofNat 4 (lay.val - 1))) ++ lowerChainBytes (w.signature.layers lay)
 def endpointBytes (sig : WCT9.Signature) (lay : Layer) : List UInt8 :=
   (List.finRange (chainCount lay)).flatMap fun i => bytesLE 16 ((sig.layers lay).values i)
@@ -934,7 +934,7 @@ theorem route_leaf_lt (index : Nat) (lay : Layer) : (route index lay).1 < 2 ^ he
 theorem win_lowerPath (N : HashOutput) (w : WCT9.Witness) (lay : Layer) (hlay : lay.val ≠ 0) (o m : Nat)
     (h : o + m ≤ 16 * pathSlots lay) :
     window (witList N w) (layerBase lay + o) m =
-      window (lowerPathBytes lay (route (WCT9.digestIndex N) lay).1 (w.signature.layers lay)
+      window (lowerPathBytes lay (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) lay).1 (w.signature.layers lay)
         (w.counters (Fin.ofNat 4 (lay.val - 1)))) o m := by
   rw [win_layerRegion N w lay o m (by omega)]
   unfold layerRegion
@@ -1083,7 +1083,7 @@ theorem topPath_hp {j : Nat} (hj : j < height 0) :
 end topPath
 theorem win_topPath (N : HashOutput) (w : WCT9.Witness) (o m : Nat) (h : o + m ≤ 768) :
     window (witList N w) (layerBase 0 + o) m =
-      window (topPathBytes (route (WCT9.digestIndex N) 0).1 (w.signature.layers 0)) o m := by
+      window (topPathBytes (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex N)) 0).1 (w.signature.layers 0)) o m := by
   rw [win_layerRegion N w 0 o m (by rw [pathSlots_top]; omega)]
   unfold layerRegion
   rw [if_pos (show (0 : Layer).val = 0 from rfl),

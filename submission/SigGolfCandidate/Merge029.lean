@@ -154,8 +154,9 @@ theorem bytesLE8_marker (low : BitVec 64) :
 theorem bytesLE16_marker (hdr : BitVec 128) :
     ((bytesLE 16 hdr).getD 0 0).toNat = hdr.toNat % 256 := by
   simp [bytesLE, List.getD_eq_getElem?_getD, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
+/-- C47: marked low words other than the digest's `25984` and coordinate 8's heap-6 `21684`. -/
 theorem canonicalHeader_words (high low : BitVec 64)
-    (hm : 128 ≤ low.toNat % 256) (hne : low ≠ 25984#64) :
+    (hm : 128 ≤ low.toNat % 256) (hne : low ≠ 25984#64) (hne' : low ≠ 21684#64) :
     canonicalHeader (bytesLE 16 (high ++ low)) = bytesLE 8 low ++ List.replicate 8 0 := by
   rw [bytesLE_header_words]
   apply canonicalHeader_marked _ _ (bytesLE_length _ _)
@@ -163,11 +164,21 @@ theorem canonicalHeader_words (high low : BitVec 64)
   · intro he
     apply hne
     exact SphincsSecurity.bytesLE_injective he
+  · intro he
+    apply hne'
+    exact SphincsSecurity.bytesLE_injective he
 theorem canonicalHeader_high_irrelevant (high high' low : BitVec 64)
-    (hm : 128 ≤ low.toNat % 256) (hne : low ≠ 25984#64) :
+    (hm : 128 ≤ low.toNat % 256) (hne : low ≠ 25984#64) (hne' : low ≠ 21684#64) :
     canonicalHeader (bytesLE 16 (high ++ low)) =
       canonicalHeader (bytesLE 16 (high' ++ low)) := by
-  rw [canonicalHeader_words high low hm hne, canonicalHeader_words high' low hm hne]
+  rw [canonicalHeader_words high low hm hne hne', canonicalHeader_words high' low hm hne hne']
+/-- C47: a header with coordinate 8's heap-6 low word `21684` is its own canonical header (not marked). -/
+theorem canonicalHeader_ra (high : BitVec 64) :
+    canonicalHeader (bytesLE 16 (high ++ 21684#64)) = bytesLE 16 (high ++ 21684#64) := by
+  have ht : (bytesLE 16 (high ++ 21684#64)).take 8 = bytesLE 8 (21684#64) := by
+    rw [bytesLE_header_words, List.take_left' (bytesLE_length 8 _)]
+  unfold canonicalHeader
+  rw [if_neg (by simp [headerMarked, ht])]
 theorem canonicalHeader_high_zero (hdr : BitVec 128) (hz : hdr.extractLsb' 64 64 = 0) :
     canonicalHeader (bytesLE 16 hdr) = bytesLE 16 hdr := by
   have he : hdr = (0#64 ++ hdr.extractLsb' 0 64) := by
@@ -182,7 +193,9 @@ theorem bytesLE16_tag (hdr : BitVec 128) :
     ((bytesLE 16 hdr).getD 1 0).toNat = hdr.toNat / 256 % 256 := by
   simp [bytesLE, List.getD_eq_getElem?_getD, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
 theorem canonicalHeader_fts_words (high low : BitVec 64)
-    (hm : low.toNat % 256 < 4) (ht : 130 ≤ low.toNat / 256 % 256 ∧ 2 ≤ low.toNat / 256 % 256 % 8) :
+    (hm : low.toNat % 256 < 4)
+    (ht : (130 ≤ low.toNat / 256 % 256 ∨ (34 ≤ low.toNat / 256 % 256 ∧ low.toNat / 256 % 256 < 40)) ∧
+      2 ≤ low.toNat / 256 % 256 % 8) :
     canonicalHeader (bytesLE 16 (high ++ low)) = bytesLE 8 low ++ List.replicate 8 0 := by
   rw [bytesLE_header_words]
   apply canonicalHeader_fts_marked _ _ (bytesLE_length _ _)
@@ -193,7 +206,8 @@ theorem canonicalHeader_fts_words (high low : BitVec 64)
   exact ⟨hm,ht⟩
 theorem canonicalHeader_marker_ne (hdr : BitVec 128)
     (hm : hdr.toNat % 256 < 128)
-    (ht : ¬ (hdr.toNat % 256 < 4 ∧ 130 ≤ hdr.toNat / 256 % 256 ∧ 2 ≤ hdr.toNat / 256 % 256 % 8)) :
+    (ht : ¬ (hdr.toNat % 256 < 4 ∧ (130 ≤ hdr.toNat / 256 % 256 ∨ (34 ≤ hdr.toNat / 256 % 256 ∧
+      hdr.toNat / 256 % 256 < 40)) ∧ 2 ≤ hdr.toNat / 256 % 256 % 8)) :
     canonicalHeader (bytesLE 16 hdr) = bytesLE 16 hdr := by
   apply canonicalHeader_unmarked
   · rw [bytesLE16_marker]; omega

@@ -303,36 +303,61 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 set_option autoImplicit false
 set_option maxHeartbeats 1500000
 set_option maxRecDepth 10000
-def acceptedCode : List (BitVec 32) := [0x66e37,0xe0e13,0x20e3023,0x13e3423,0x8bb03,0x21b5b13,0x16e3823,0x20eb7,0x550e8e93,0x16eb023,0x6000e93,0x8b303,0x6eb023,0x88b303,0x6eb423,0x108b303,0x6eb823,0x188b303,0x6ebc23,0x48000e13,0x3eb7,0xb38e8e93]
+/-- C47: word 45241 (`sd s6,0(t4)`) jumps to the index-slot stub `acceptedStub` (88868..88875): `0x20550 := j =
+2^31 - 1 - index` (`xori -1; slli 33; srli 33; sd`), `s6` restored to the index the same way, back to 45242. -/
+def acceptedCode : List (BitVec 32) := [0x66e37,0xe0e13,0x20e3023,0x13e3423,0x8bb03,0x21b5b13,0x16e3823,0x20eb7,0x550e8e93,0x1ad2a06f,0x6000e93,0x8b303,0x6eb023,0x88b303,0x6eb423,0x108b303,0x6eb823,0x188b303,0x6ebc23,0x48000e13,0x3eb7,0xb38e8e93]
+def acceptedStub : List (BitVec 32) := [0xfffb4b13,0x21b1b13,0x21b5b13,0x16eb023,0xfffb4b13,0x21b1b13,0x21b5b13,0xe3cd506f]
 sym_block acceptedRun := symRun {noAlias:=true} acceptedCode (pcOf 45232) 100
+sym_block acceptedStubRun := symRunAux {noAlias:=true} acceptedStub (pcOf 88868) 100 acceptedRun.res.st
+sym_block acceptedBackRun := symRunAux {noAlias:=true} (acceptedCode.drop 10) (pcOf 45242) 100 acceptedStubRun.res.st
+private theorem xorM1 (v : BitVec 64) : v ^^^ (BitVec.ofNat 64 18446744073709551615) = ~~~v := by
+  rw [show (BitVec.ofNat 64 18446744073709551615) = BitVec.allOnes 64 from by decide, BitVec.xor_allOnes]
+private theorem ntA (w : BitVec 64) : (~~~(w >>> 33)) <<< 33 >>> 33 = BitVec.ofNat 64 (2147483647 - w.toNat >>> 33) := by
+  apply BitVec.eq_of_toNat_eq
+  have hw := w.isLt
+  simp only [BitVec.toNat_ushiftRight, BitVec.toNat_shiftLeft, BitVec.toNat_not, BitVec.toNat_ofNat, Nat.shiftLeft_eq,
+    Nat.shiftRight_eq_div_pow]
+  omega
+private theorem ntB (w : BitVec 64) : (~~~BitVec.ofNat 64 (2147483647 - w.toNat >>> 33)) <<< 33 >>> 33 = w >>> 33 := by
+  apply BitVec.eq_of_toNat_eq
+  have hw := w.isLt
+  simp only [BitVec.toNat_ushiftRight, BitVec.toNat_shiftLeft, BitVec.toNat_not, BitVec.toNat_ofNat, Nat.shiftLeft_eq,
+    Nat.shiftRight_eq_div_pow]
+  omega
+private theorem ntC (w : BitVec 64) :
+    BitVec.ofNat 64 (2147483647 - w.toNat >>> 33) = BitVec.ofNat 64 (2^31 - 1 - (w >>> 33).toNat) := by
+  rw [BitVec.toNat_ushiftRight]; rfl
 def finalScatterCode : List (BitVec 32) := [0x48000e13,0x20e3303,0x66eb7,0xe8e93,0x6ebc23,0x100313,0x26eb023,0x6000e13,0x20eb7,0x160e8e93,0xe3303,0x6eb023,0x8e3303,0x6eb423,0x10e3303,0x6eb823,0x18e3303,0x6ebc23,0x48000e13,0x3eb7,0xaf8e8e93]
 sym_block finalScatterRun := symRun {noAlias:=true} finalScatterCode (pcOf 46980) 100
 
 theorem accepted_steps {im : Image} (hc : CodeAt im (pcOf 45232) acceptedCode)
+    (hcs : CodeAt im (pcOf 88868) acceptedStub)
     (s : MachineState) (hpc : s.pc=pcOf 45232) (h17 : s.getReg .x17=0x20160) :
-    ∃t,Steps im s 22 22 t ∧ t.pc=pcOf 45254 ∧
+    ∃t,Steps im s 30 30 t ∧ t.pc=pcOf 45254 ∧
       t.getReg .x28=1152 ∧ t.getReg .x29=11064 ∧
       t.getMem 0x66020=0 ∧ t.getMem 0x66008=s.getReg .x19 ∧
       t.getMem 0x66010=s.getMem 0x20160 >>> 33 ∧
-      t.getMem 0x20550=s.getMem 0x20160 >>> 33 ∧
+      t.getMem 0x20550=BitVec.ofNat 64 (2^31 - 1 - (s.getMem 0x20160 >>> 33).toNat) ∧
       (∀i<4,t.getMem (BitVec.ofNat 64 (96+8*i))=s.getMem (BitVec.ofNat 64 (0x20160+8*i))) ∧
       RegsExcept s t [.x6,.x22,.x28,.x29] ∧
       Frame s t (fun A=>A=0x66020 ∨ A=0x66008 ∨ A=0x66010 ∨ A=0x20550 ∨ (96≤A ∧ A<128)) := by
-  refine ⟨_,symRun_sound acceptedRun hc s hpc ?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_⟩
-  · simp [acceptedRun.res,rv_simp,h17,accessValid_iff,MEMORY_BYTES]
+  have hb : CodeAt im (pcOf 45242) (acceptedCode.drop 10) := SigGolfCandidate.T3M.codeAt_sub 10 hc (by decide) (by rfl)
+  refine ⟨_,SigGolfCandidate.T3M.LH.chain3_sound acceptedRun hc hpc (by rfl) acceptedStubRun hcs (by rfl)
+    acceptedBackRun hb ?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_⟩
+  · simp [acceptedBackRun.res,rv_simp,h17,accessValid_iff,MEMORY_BYTES]
   · rfl
   · rfl
   · rfl
-  · simp [acceptedRun.res,rv_simp,h17]
-  · simp [acceptedRun.res,rv_simp,h17]
-  · simp [acceptedRun.res,rv_simp,h17]
-  · simp [acceptedRun.res,rv_simp,h17]
+  · simp [acceptedBackRun.res,rv_simp,h17]
+  · simp [acceptedBackRun.res,rv_simp,h17]
+  · simp [acceptedBackRun.res,rv_simp,h17]
+  · simp [acceptedBackRun.res,rv_simp,h17,xorM1,ntA,ntC]
   · intro i hi
-    interval_cases i <;> simp [acceptedRun.res,rv_simp,h17]
+    interval_cases i <;> simp [acceptedBackRun.res,rv_simp,h17]
   · intro r hr
     cases r <;> first | exact (hr (by decide)).elim | rfl
   · intro A hA hn
-    simp only [Result.toState_getMem,acceptedRun.res]
+    simp only [Result.toState_getMem,acceptedBackRun.res]
     t3n [h17]
     rw [Nat.mod_eq_of_lt (show A<18446744073709551616 by simpa using hA)]
     split_ifs <;> first | rfl | omega
@@ -610,6 +635,7 @@ theorem clear_witness_final {im : Image} (p : Word) (hc : CodeAt im p words)
 
 structure ClearCode (im : Image) : Prop where
   accepted : CodeAt im (pcOf 45232) acceptedCode
+  acceptedStub : CodeAt im (pcOf 88868) acceptedStub
   firstZero : CodeAt im (pcOf 45254) words
   finalScatter : CodeAt im (pcOf 46980) finalScatterCode
   finalZero : CodeAt im (pcOf 47001) words
@@ -617,15 +643,15 @@ structure ClearCode (im : Image) : Prop where
 
 theorem accepted_clear {im : Image} (hc : ClearCode im)
     (s : MachineState) (hp : s.pc=pcOf 45232) (h17 : s.getReg .x17=0x20160) :
-    ∃t,Steps im s 3739 3739 t ∧ t.pc=pcOf 45257 ∧
+    ∃t,Steps im s 3747 3747 t ∧ t.pc=pcOf 45257 ∧
       (∀A,A%8=0 → 1152≤A → A<11064 → t.getMem (BitVec.ofNat 64 A)=0) ∧
       t.getMem 0x66020=0 ∧ t.getMem 0x66008=s.getReg .x19 ∧
       t.getMem 0x66010=s.getMem 0x20160 >>> 33 ∧
-      t.getMem 0x20550=s.getMem 0x20160 >>> 33 ∧
+      t.getMem 0x20550=BitVec.ofNat 64 (2^31 - 1 - (s.getMem 0x20160 >>> 33).toNat) ∧
       (∀i,i<4 → t.getMem (BitVec.ofNat 64 (96+8*i))=s.getMem (BitVec.ofNat 64 (0x20160+8*i))) ∧
       RegsExcept s t [.x6,.x22,.x28,.x29] ∧
       Frame s t (fun A=>A=0x66020 ∨ A=0x66008 ∨ A=0x66010 ∨ A=0x20550 ∨ (96≤A ∧ A<128) ∨ (1152≤A ∧ A<11064)) := by
-  obtain ⟨u,su,pu,u28,u29,mode,ctr,index,idx,digest,ru,fu⟩:=accepted_steps hc.accepted s hp h17
+  obtain ⟨u,su,pu,u28,u29,mode,ctr,index,idx,digest,ru,fu⟩:=accepted_steps hc.accepted hc.acceptedStub s hp h17
   obtain ⟨t,ut,pt,zeros,rt,ft⟩:=clear_witness (pcOf 45254) hc.firstZero u pu u28 u29
   refine ⟨t,by convert su.trans ut using 1,pt,zeros,?_,?_,?_,?_,?_,(ru.trans rt).mono (by decide),?_⟩
   · exact (ft.get (by decide) (by decide)).trans mode
@@ -669,14 +695,19 @@ theorem SharedHandoff.code_of_driver {im : Image}
 theorem SharedHandoff.installed_code : SharedHandoff.Code Images.expandImage := SharedHandoff.code_of_driver codeAt_expand_shared_driver
 
 theorem SharedZero.code_of_driver {im : Image}
-    (hc : CodeAt im (pcOf 45056) Images.expandSharedDriver) : SharedZero.ClearCode im := by
+    (hc : CodeAt im (pcOf 45056) Images.expandSharedDriver) (hs : CodeAt im (pcOf 88868) SharedZero.acceptedStub) :
+    SharedZero.ClearCode im := by
   constructor
   · exact SharedCounterHooks.code_slice (off:=176) hc (by decide +kernel) (by decide +kernel)
+  · exact hs
   · exact SharedCounterHooks.code_slice (off:=198) hc (by decide +kernel) (by decide +kernel)
   · exact SharedCounterHooks.code_slice (off:=1924) hc (by decide +kernel) (by decide +kernel)
   · exact SharedCounterHooks.code_slice (off:=1945) hc (by decide +kernel) (by decide +kernel)
   · exact SharedCounterHooks.code_slice (off:=1948) hc (by decide +kernel) (by decide +kernel)
-theorem SharedZero.installed_code : SharedZero.ClearCode Images.expandImage := SharedZero.code_of_driver codeAt_expand_shared_driver
+theorem SharedZero.code_stub : CodeAt Images.expandImage (pcOf 88868) SharedZero.acceptedStub :=
+  (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
+theorem SharedZero.installed_code : SharedZero.ClearCode Images.expandImage :=
+  SharedZero.code_of_driver codeAt_expand_shared_driver SharedZero.code_stub
 
 theorem SharedScatter.after_of_driver {im : Image}
     (hc : CodeAt im (pcOf 45056) Images.expandSharedDriver) : CodeAt im (pcOf 46509) SharedScatter.afterCode := by
@@ -2723,7 +2754,7 @@ theorem submission_keygen_valid :
   rw [submission_keygen, submission_sizes, submission_layout]
   rw [Riscv.Image.Valid]
   rw [Riscv.Image.byteSize,
-    show Images.keygenImage.code.length = 1262 from Images.keygenCode_length,
+    show Images.keygenImage.code.length = 1281 from Images.keygenCode_length,
     show Images.keygenImage.data.length = 0 from Images.keygenData_length]
   rw [layoutValid_of_data_length _ _ _ 0 Images.keygenData_length]
   decide +kernel
@@ -2732,7 +2763,7 @@ theorem submission_sign_valid :
   rw [submission_sign, submission_sizes, submission_layout]
   rw [Riscv.Image.Valid]
   rw [Riscv.Image.byteSize,
-    show Images.signImage.code.length = 26672 from Images.signCode_length,
+    show Images.signImage.code.length = 26782 from Images.signCode_length,
     show Images.signImage.data.length = 86144 from Images.signData_length]
   rw [layoutValid_of_data_length _ _ _ 86144 Images.signData_length]
   decide +kernel
@@ -2794,7 +2825,7 @@ theorem submission_keygen_valid :
   rw [submission_keygen, submission_sizes, submission_layout]
   rw [Riscv.Image.Valid]
   rw [Riscv.Image.byteSize,
-    show Images.keygenImage.code.length = 1262 from Images.keygenCode_length,
+    show Images.keygenImage.code.length = 1281 from Images.keygenCode_length,
     show Images.keygenImage.data.length = 0 from Images.keygenData_length]
   rw [layoutValid_of_data_length _ _ _ 0 Images.keygenData_length]
   decide +kernel
@@ -2803,7 +2834,7 @@ theorem submission_sign_valid :
   rw [submission_sign, submission_sizes, submission_layout]
   rw [Riscv.Image.Valid]
   rw [Riscv.Image.byteSize,
-    show Images.signImage.code.length = 26672 from Images.signCode_length,
+    show Images.signImage.code.length = 26782 from Images.signCode_length,
     show Images.signImage.data.length = 86144 from Images.signData_length]
   rw [layoutValid_of_data_length _ _ _ 86144 Images.signData_length]
   decide +kernel

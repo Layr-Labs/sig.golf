@@ -38,7 +38,7 @@ def recW16 (B : Nat) (A : Nat) : Prop :=
 /-- After a copy routine: `Post` with the record, the zeroed scratch and the widened frame. -/
 structure PostC (L : Layout) (k : Fin 9) (raw : Fin 128) (u : MachineState)
     (res : Digest × Nat × Nat) (t : MachineState) : Prop where
-  pc : t.pc = pcOf (L.returnWord k + (if k.val = 8 then 506 else 503))
+  pc : t.pc = pcOf (L.returnWord k + (if k.val = 8 then 508 else 503))
   hashLen : t.getReg .x11 = 64
   top : DigAt t (handAddr L k raw) res.1
   a2 : t.getReg .x12 = BitVec.ofNat 64 (outputAddr L k raw)
@@ -433,7 +433,7 @@ theorem postC_of {L : W9Machine.Layout} (w : ClaudeWCT.W9.T3M.WBytes) (index : N
     change (x.getReg .x1 + _) &&& _ = _
     rw [hx.returnPC]
     simp only [if_pos hc, ↓reduceIte]
-    change (pcOf (L.returnWord k)+BitVec.ofNat 64 (4*506)) &&& ~~~1#64 = _
+    change (pcOf (L.returnWord k)+BitVec.ofNat 64 (4*508)) &&& ~~~1#64 = _
     rw [W9Drv.SharedBank.pcOf_add_words,pcOf_and_not1]
   · rw [← hh]; exact ht.top
   · rw [ht.a2, ho]
@@ -465,7 +465,7 @@ theorem postC_of {L : W9Machine.Layout} (w : ClaudeWCT.W9.T3M.WBytes) (index : N
 
 theorem sharedC_tbsim {L : W9Machine.Layout} {sk : BitVec 256} (k : Fin 9) (raw : Fin 128)
     (hf : SharedV3.first k.val = false) (hc : k.val = 8)
-    (hchild : L.childWord raw = copyBase (SharedV3.physical k.val raw.val))
+    (hchild : L.childWord raw = copyBase (SharedV3.physical k.val raw.val)) (hret : L.returnWord k = 4397)
     (hcode : CopyCodeAt L.image (SharedV3.physical k.val raw.val))
     (hbank : ChildCodeAt L.image (SharedV3.physical k.val raw.val))
     (hS : CodeAt L.image (pcOf SEARCH) searchWords)
@@ -486,7 +486,7 @@ theorem sharedC_tbsim {L : W9Machine.Layout} {sk : BitVec 256} (k : Fin 9) (raw 
       (SharedChild.childProgramG w index k raw ends) (SharedChild.PostC L k raw x) := by
   have hpj := SharedV3.physical_lt k.val raw.val raw.isLt
   have hp := pre_of_shared w index k raw ends x (bankPc (SharedV3.physical k.val raw.val) x) hx (fun _ => rfl)
-    (fun _ => rfl) rfl
+    (fun _ => rfl) rfl hret
   have H := childC_tbsim (sk := sk) hpj hcode hbank hS hT hS16 hT16 hp hlo hB rfl (by rw [hx.pc, hchild])
   have hd : decide (SigGolfCandidate.FtsGrind.SEL16 ≤ Chain.base L k) = decide (k.val < 4) := decide_eq_decide.mpr hsel
   rw [hw, hd] at H
@@ -550,7 +550,7 @@ def costG (k : Fin 9) : Nat := 102 + W_SEARCH (ftsWidth k.val) + SigGolfCandidat
 theorem childG_tbsim (L : W9Machine.Layout) (sk : BitVec 256) (k : Fin 9) (raw : Fin 128)
     (hwindow : (Frozen.image.code.drop 195584).take 59072=(L.image.code.drop 195584).take 59072)
     (hcodes : CopyCodes L.image)
-    (hchild : L.childWord raw = copyWord k.val raw.val)
+    (hchild : L.childWord raw = copyWord k.val raw.val) (hret : k.val = 8 → L.returnWord k = 4397)
     (hbase : Chain.base L k = 9768 - 848 * k.val)
     (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (ends : List Digest) (x : MachineState)
     (hx : SharedChild.Pre L w index k raw ends x) :
@@ -584,7 +584,7 @@ theorem childG_tbsim (L : W9Machine.Layout) (sk : BitVec 256) (k : Fin 9) (raw :
     by_cases hc : k.val = 8
     · have he : L.childWord raw = SharedCProof.copyBase (SharedV3.physical k.val raw.val) := by
         rw [hchild]; unfold copyWord SharedCProof.copyBase SharedCProof.cSlot; rw [if_neg hn, if_pos hc, hraw]
-      have H := SharedCProof.sharedC_tbsim (sk := sk) k raw hf hc he (hcodes.copyC _ hpj)
+      have H := SharedCProof.sharedC_tbsim (sk := sk) k raw hf hc he (hret hc) (hcodes.copyC _ hpj)
         (SharedCProof.childCodeAt_transfer _ hpj hwindow (SharedCProof.shared_code _ hpj))
         hcodes.search (hcodes.trampC _ hpj) hcodes.search16 (hcodes.tramp16C _ hpj) hlo hB hw hsel w index ends x hx
       exact H.mono (by have := copy_cost_C ⟨_, hpj⟩; dsimp only at this; unfold costG; omega) (fun _ _ h => h)

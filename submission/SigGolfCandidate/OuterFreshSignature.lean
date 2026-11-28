@@ -24,7 +24,7 @@ theorem fresh_signature_not_signed_digest (answers : Answers) (published : SigGo
     (he : evalWithAnswerFn answers (OuterExpand.expandN message pk sig)=some (output,w,ns))
     (hg : ∀lay,ClaudeWCT.W9.T3.Security.CanonicalExtract.Good answers
       (OuterLifted.ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.sourceMessages answers)
-      (OuterExpand.witEncOuter output w ns) (WCT9.digestIndex output) lay)
+      (OuterExpand.witEncOuter output w ns) (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay)
     (ho : OuterLifted.ClaudeWCT.W9.T3M.Extract.Paired.ForestOpenings answers (OuterExpand.witEncOuter output w ns)
       (WCT9.digestIndex output) (rawChildFromOutput output) (fun coord=>WCT9.embed (forestRank output coord.val))) :
     ¬SignedDigest log message sig.rho := by

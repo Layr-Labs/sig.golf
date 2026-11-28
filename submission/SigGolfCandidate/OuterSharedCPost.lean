@@ -37,12 +37,8 @@ theorem post_of {L : W9Machine.Layout} (w : ClaudeWCT.W9.T3M.WBytes) (index : Na
     split_ifs <;> omega
   have hsel:=(OuterChildModel.widths k).2
   refine ⟨?_,ht.a1,?_,?_,?_,?_,?_,?_,?_,?_,ht.nle16,?_,fun _=>ht.outer,?_,ht.saves,ht.scr,?_,?_⟩
-  · rw [ht.pc]
-    change (x.getReg .x1+_) &&& _=_
-    rw [hx.returnPC]
-    simp only [if_pos hc,↓reduceIte]
-    change (pcOf (L.returnWord k)+BitVec.ofNat 64 (4*506)) &&& ~~~1#64=_
-    rw [W9Drv.SharedBank.pcOf_add_words,pcOf_and_not1]
+  · -- C47: the c8 grinder jumps straight to the expand continuation (`jal zero,46862`).
+    rw [ht.pc,if_pos hc]
   · rw [←hh,hbase];exact ht.top
   · rw [ht.a2,←hbase,ho]
   · intro reg hr

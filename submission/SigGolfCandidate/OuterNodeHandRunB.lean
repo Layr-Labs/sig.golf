@@ -42,7 +42,7 @@ theorem run {im : Image} {sk : BitVec 256} (j : Fin 128) (coord : Fin 9) (index 
     norm_num
     have := j.isLt
     omega
-  have hn:=OuterNodeSourceFacts.record hc1 coord.isLt hi hh F ho
+  have hn:=OuterNodeSourceFacts.record hc1 coord.isLt hc8 hi hh F ho
   obtain ⟨raw,hraw,hout⟩:=ho
   refine ⟨hout.at_pc,?_,?_,hd,hn,?_,?_⟩
   · rw [hout.regs.get (by simp)];exact F.x11
@@ -50,8 +50,8 @@ theorem run {im : Image} {sk : BitVec 256} (j : Fin 128) (coord : Fin 9) (index 
   · intro r h3 h10 h11 h12
     rw [hout.regs.get (by simp)]
     exact hkeep r h3 h10 h11 h12
-  · have hhdr:=OuterNodeInputHeader.input_header F coord.isLt hh
-    have hr:=OuterNodeRecordHeader.record_address mid coord.val index hc1 coord.isLt hi (by
+  · have hhdr:=OuterNodeInputHeader.input_header F coord.isLt hh (fun h=>hc8 h.1)
+    have hr:=OuterNodeRecordHeader.record_address mid coord.val index hc1 coord.isLt hc8 hi (by
       rw [F.x10,ofNat_add_ofNat];exact hhdr.1)
     refine (hframe.trans hout.frame).mono ?_
     intro X hX hw

@@ -920,19 +920,19 @@ theorem slot_inj (leaf j j' : Nat) (hj : j < 11) (hj' : j' < 11) (h : topPlanSlo
     omega
 
 theorem noncePos_eq (output : HashOutput) (j : Nat) :
-    noncePos output j = 7664 + 16 * topPlanSlot (route (WCT9.digestIndex output) 0).1 j + 32 := by
+    noncePos output j = 7664 + 16 * topPlanSlot (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0).1 j + 32 := by
   unfold noncePos merkleBlock
   rw [if_pos (show (0 : Layer).val = 0 from rfl)]
   rfl
 
 theorem noncePos_bounds (output : HashOutput) (j : Nat) (hj : j < 11) :
     7696 ≤ noncePos output j ∧ noncePos output j + 16 ≤ 8320 := by
-  have := (slot_bound (route (WCT9.digestIndex output) 0).1 j hj).2.1
+  have := (slot_bound (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0).1 j hj).2.1
   rw [noncePos_eq]; omega
 
 theorem noncePos_disjoint (output : HashOutput) (j j' : Nat) (hj : j < 11) (hj' : j' < 11) (hne : j ≠ j') :
     noncePos output j + 16 ≤ noncePos output j' ∨ noncePos output j' + 16 ≤ noncePos output j := by
-  have := slot_inj (route (WCT9.digestIndex output) 0).1 j j' hj hj'
+  have := slot_inj (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0).1 j j' hj hj'
   rw [noncePos_eq, noncePos_eq]
   omega
 
@@ -1086,10 +1086,10 @@ def padList (M : Word → Word) (output : HashOutput) : List (Nat × Word) :=
 /-- With the saved leaf word at `0x66758` being the digest leaf (mod 4096), the pad writer stores nonce `j` at
 `0x10A0 + noncePos output j`. -/
 theorem padMem_eq (M : Word → Word) (output : HashOutput)
-    (hleaf : leafW M % 4096 = (route (WCT9.digestIndex output) 0).1 % 4096) :
+    (hleaf : leafW M % 4096 = (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0).1 % 4096) :
     padMem M = updF M (padList M output) := by
-  have hA : leafW M % 64 = (route (WCT9.digestIndex output) 0).1 % 64 := by omega
-  have hB : leafW M / 64 % 64 = (route (WCT9.digestIndex output) 0).1 / 64 % 64 := by omega
+  have hA : leafW M % 64 = (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0).1 % 64 := by omega
+  have hB : leafW M / 64 % 64 = (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0).1 / 64 % 64 := by omega
   have eA : ∀ i, i < 5 → offA (leafW M % 64) i + 11920 = nonceSlot output i := by
     intro i hi
     rw [nonceSlot, noncePos_eq, topPlanSlot, if_pos (by omega), offA, hA,
@@ -1135,7 +1135,7 @@ theorem padList_nodup (M : Word → Word) (output : HashOutput) : ((padList M ou
 
 /-- Nonce `j` lands at `0x10A0 + noncePos output j`. -/
 theorem padMem_nonce (M : Word → Word) (output : HashOutput)
-    (hleaf : leafW M % 4096 = (route (WCT9.digestIndex output) 0).1 % 4096) (j : Nat) (hj : j < 11) :
+    (hleaf : leafW M % 4096 = (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0).1 % 4096) (j : Nat) (hj : j < 11) :
     padMem M (BitVec.ofNat 64 (4256 + noncePos output j)) = M (nonceAddr j) := by
   rw [padMem_eq M output hleaf]
   exact updF_in _ M _ _ (padList_bound M output) (padList_nodup M output)
@@ -1143,7 +1143,7 @@ theorem padMem_nonce (M : Word → Word) (output : HashOutput)
 
 /-- Every other dword is unchanged. -/
 theorem padMem_other (M : Word → Word) (output : HashOutput)
-    (hleaf : leafW M % 4096 = (route (WCT9.digestIndex output) 0).1 % 4096) (A : Word)
+    (hleaf : leafW M % 4096 = (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0).1 % 4096) (A : Word)
     (hA : ∀ j, j < 11 → A ≠ BitVec.ofNat 64 (4256 + noncePos output j)) : padMem M A = M A := by
   rw [padMem_eq M output hleaf]
   apply updF_out
@@ -1196,7 +1196,7 @@ theorem witEncN_word_nonce (output : HashOutput) (w : SigGolfCandidate.Research.
 digest leaf (mod 4096) and `mem[0x66700 + 8 j] = w.topNonces[j]` (`j < 11`, mod `2^64`), then after the pad writer
 the 2720 dwords hold `Paired.witEncN output w`. -/
 theorem padMem_witEncN (M : Word → Word) (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
-    (hleaf : leafW M % 4096 = (route (WCT9.digestIndex output) 0).1 % 4096)
+    (hleaf : leafW M % 4096 = (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0).1 % 4096)
     (hn : ∀ j, j < 11 → M (nonceAddr j) = BitVec.ofNat 64 (w.topNonces.getD j 0))
     (hbuf : ∀ k, k < 2720 → M (BitVec.ofNat 64 (4256 + 8 * k)) = (Paired.witEnc output w).extractLsb' (64 * k) 64) :
     ∀ k, k < 2720 → padMem M (BitVec.ofNat 64 (4256 + 8 * k)) = (witEncN output w).extractLsb' (64 * k) 64 := by
@@ -1243,7 +1243,7 @@ def RecTable (M : Word → Word) (output : HashOutput) (w : SigGolfCandidate.Res
     (∀ m, m < 3 → M (BitVec.ofNat 64 (0x700000 + 32 * (lay.val - 1) + 16 - 8 * m)) =
       BitVec.ofNat 64 ((w.lowerNonces lay).getD (height lay - 4 + m) 0)) ∧
     M (BitVec.ofNat 64 (0x700000 + 32 * (lay.val - 1) + 24)) =
-      BitVec.ofNat 64 (2 ^ (height lay - 1) + (route (WCT9.digestIndex output) lay).1 / 2) ∧
+      BitVec.ofNat 64 (2 ^ (height lay - 1) + (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay).1 / 2) ∧
     M (BitVec.ofNat 64 (0x700000 + 32 * (lay.val - 1) + 256)) =
       BitVec.ofNat 64 ((w.lowerNonces lay).getD (height lay - 5) 0)
 
@@ -1263,16 +1263,16 @@ def postList (M : Word → Word) (output : HashOutput) : List (Nat × Word) :=
    (4256 + lowerNoncePos output 3 1, M (BitVec.ofNat 64 0x700140))]
 
 theorem pa_ground (output : HashOutput) (lay : Layer) (hl : lay ≠ 0) (j r m : Nat)
-    (h : pa r m = 4256 + layerBase lay + 16 * (lowerPlan lay (route (WCT9.digestIndex output) lay).1).getD j 0 + 32) :
+    (h : pa r m = 4256 + layerBase lay + 16 * (lowerPlan lay (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) lay).1).getD j 0 + 32) :
     pa r m = 4256 + lowerNoncePos output lay j := by
   rw [h, lowerNoncePos_eq output lay hl j]; omega
 
 theorem postMem_eq (M : Word → Word) (output : HashOutput) :
-    postMem M ((route (WCT9.digestIndex output) 1).1 / 2) ((route (WCT9.digestIndex output) 2).1 / 2)
-      ((route (WCT9.digestIndex output) 3).1 / 2) = updF M (postList M output) := by
-  have l1 : (route (WCT9.digestIndex output) 1).1 < 128 := lt_of_lt_of_eq (route_leaf_lt _ 1) (by decide)
-  have l2 : (route (WCT9.digestIndex output) 2).1 < 64 := lt_of_lt_of_eq (route_leaf_lt _ 2) (by decide)
-  have l3 : (route (WCT9.digestIndex output) 3).1 < 64 := lt_of_lt_of_eq (route_leaf_lt _ 3) (by decide)
+    postMem M ((route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 1).1 / 2) ((route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 2).1 / 2)
+      ((route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 3).1 / 2) = updF M (postList M output) := by
+  have l1 : (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 1).1 < 128 := lt_of_lt_of_eq (route_leaf_lt _ 1) (by decide)
+  have l2 : (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 2).1 < 64 := lt_of_lt_of_eq (route_leaf_lt _ 2) (by decide)
+  have l3 : (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 3).1 < 64 := lt_of_lt_of_eq (route_leaf_lt _ 3) (by decide)
   have p1 := padTab_layout.1 _ l1
   have p2 := padTab_layout.2.1 _ l2
   have p3 := padTab_layout.2.2 _ l3
@@ -1288,11 +1288,11 @@ theorem postMem_eq (M : Word → Word) (output : HashOutput) :
   have f1 := padTab4_layout.1 _ l1
   have f2 := padTab4_layout.2.1 _ l2
   have f3 := padTab4_layout.2.2 _ l3
-  have e14 : pa4 ((route (WCT9.digestIndex output) 1).1 / 2) = 4256 + lowerNoncePos output 1 2 := by
+  have e14 : pa4 ((route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 1).1 / 2) = 4256 + lowerNoncePos output 1 2 := by
     rw [f1, lowerNoncePos_eq output 1 (by decide) 2]; omega
-  have e24 : pa4 (64 + (route (WCT9.digestIndex output) 2).1 / 2) = 4256 + lowerNoncePos output 2 1 := by
+  have e24 : pa4 (64 + (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 2).1 / 2) = 4256 + lowerNoncePos output 2 1 := by
     rw [f2, lowerNoncePos_eq output 2 (by decide) 1]; omega
-  have e34 : pa4 (96 + (route (WCT9.digestIndex output) 3).1 / 2) = 4256 + lowerNoncePos output 3 1 := by
+  have e34 : pa4 (96 + (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 3).1 / 2) = 4256 + lowerNoncePos output 3 1 := by
     rw [f3, lowerNoncePos_eq output 3 (by decide) 1]; omega
   simp only [postMem]
   rw [e10, e11, e12, e14, e20, e21, e22, e24, e30, e31, e32, e34]
@@ -1364,12 +1364,12 @@ theorem groundList_nodup (output : HashOutput) (w : SigGolfCandidate.Research.Sh
 /-- Word-level: with the record table holding the ground nonces and the fold-0 heaps, the pad writer followed by the
 post-pass turns the 2720 `witEnc` dwords into `witEncG`. -/
 theorem postPadMem_witEncG (M : Word → Word) (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
-    (hleaf : leafW M % 4096 = (route (WCT9.digestIndex output) 0).1 % 4096)
+    (hleaf : leafW M % 4096 = (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0).1 % 4096)
     (hn : ∀ j, j < 11 → M (nonceAddr j) = BitVec.ofNat 64 (w.topNonces.getD j 0))
     (hrec : RecTable M output w)
     (hbuf : ∀ k, k < 2720 → M (BitVec.ofNat 64 (4256 + 8 * k)) = (Paired.witEnc output w).extractLsb' (64 * k) 64) :
-    ∀ k, k < 2720 → postMem (padMem M) ((route (WCT9.digestIndex output) 1).1 / 2)
-      ((route (WCT9.digestIndex output) 2).1 / 2) ((route (WCT9.digestIndex output) 3).1 / 2)
+    ∀ k, k < 2720 → postMem (padMem M) ((route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 1).1 / 2)
+      ((route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 2).1 / 2) ((route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 3).1 / 2)
       (BitVec.ofNat 64 (4256 + 8 * k)) = (witEncG output w).extractLsb' (64 * k) 64 := by
   intro k hk
   rw [postMem_eq, postList_padMem, postList_val M output w hrec]
@@ -1398,11 +1398,11 @@ theorem postPadMem_witEncG (M : Word → Word) (output : HashOutput) (w : SigGol
 
 /-- Every dword off the 11 top and 9 ground nonce slots is unchanged. -/
 theorem postPadMem_other (M : Word → Word) (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
-    (hleaf : leafW M % 4096 = (route (WCT9.digestIndex output) 0).1 % 4096) (hrec : RecTable M output w) (A : Word)
+    (hleaf : leafW M % 4096 = (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0).1 % 4096) (hrec : RecTable M output w) (A : Word)
     (hA : ∀ j, j < 11 → A ≠ BitVec.ofNat 64 (4256 + noncePos output j))
     (hA' : ∀ e ∈ groundFolds, A ≠ BitVec.ofNat 64 (4256 + lowerNoncePos output e.1 e.2)) :
-    postMem (padMem M) ((route (WCT9.digestIndex output) 1).1 / 2)
-      ((route (WCT9.digestIndex output) 2).1 / 2) ((route (WCT9.digestIndex output) 3).1 / 2) A = M A := by
+    postMem (padMem M) ((route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 1).1 / 2)
+      ((route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 2).1 / 2) ((route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 3).1 / 2) A = M A := by
   rw [postMem_eq, postList_padMem, postList_val M output w hrec, updF_out _ _ _ (fun p hp => ?_),
     padMem_other M output hleaf A hA]
   obtain ⟨e, he, rfl⟩ := List.mem_map.mp hp
@@ -1415,7 +1415,7 @@ the `ecall` at 55019 with `a0 = 0`; the witness dwords become `Paired.witEncG ou
 and the nine ground nonce slots change. -/
 theorem pad_hook_witEncG (s : MachineState) (hpc : s.pc = pcOf 54174) (output : HashOutput)
     (w : SigGolfCandidate.Research.SharedForest.Witness)
-    (hleaf : (s.getMem (BitVec.ofNat 64 0x66758)).toNat % 4096 = (route (WCT9.digestIndex output) 0).1 % 4096)
+    (hleaf : (s.getMem (BitVec.ofNat 64 0x66758)).toNat % 4096 = (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0).1 % 4096)
     (hn : ∀ j, j < 11 → s.getMem (nonceAddr j) = BitVec.ofNat 64 (w.topNonces.getD j 0))
     (hrec : RecTable s.getMem output w)
     (hbuf : ∀ k, k < 2720 → s.getMem (BitVec.ofNat 64 (4256 + 8 * k)) =
@@ -1426,11 +1426,11 @@ theorem pad_hook_witEncG (s : MachineState) (hpc : s.pc = pcOf 54174) (output : 
       (∀ k, k < 2720 → t.getMem (BitVec.ofNat 64 (4256 + 8 * k)) = (witEncG output w).extractLsb' (64 * k) 64) ∧
       (∀ A, (∀ j, j < 11 → A ≠ BitVec.ofNat 64 (4256 + noncePos output j)) →
         (∀ e ∈ groundFolds, A ≠ BitVec.ofNat 64 (4256 + lowerNoncePos output e.1 e.2)) → t.getMem A = s.getMem A) := by
-  have l1 : (route (WCT9.digestIndex output) 1).1 < 128 := lt_of_lt_of_eq (route_leaf_lt _ 1) (by decide)
-  have l2 : (route (WCT9.digestIndex output) 2).1 < 64 := lt_of_lt_of_eq (route_leaf_lt _ 2) (by decide)
-  have l3 : (route (WCT9.digestIndex output) 3).1 < 64 := lt_of_lt_of_eq (route_leaf_lt _ 3) (by decide)
-  obtain ⟨t, st, tp, t10, rt, mt⟩ := pad_hook s hpc ((route (WCT9.digestIndex output) 1).1 / 2)
-    ((route (WCT9.digestIndex output) 2).1 / 2) ((route (WCT9.digestIndex output) 3).1 / 2)
+  have l1 : (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 1).1 < 128 := lt_of_lt_of_eq (route_leaf_lt _ 1) (by decide)
+  have l2 : (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 2).1 < 64 := lt_of_lt_of_eq (route_leaf_lt _ 2) (by decide)
+  have l3 : (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 3).1 < 64 := lt_of_lt_of_eq (route_leaf_lt _ 3) (by decide)
+  obtain ⟨t, st, tp, t10, rt, mt⟩ := pad_hook s hpc ((route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 1).1 / 2)
+    ((route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 2).1 / 2) ((route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 3).1 / 2)
     (by omega) (by omega) (by omega) (hrec 1 (by decide)).2.1 (hrec 2 (by decide)).2.1 (hrec 3 (by decide)).2.1
   refine ⟨t, st, tp, t10, rt, fun k hk => ?_, fun A hA hA' => ?_⟩
   · rw [mt]; exact postPadMem_witEncG s.getMem output w hleaf hn hrec hbuf k hk

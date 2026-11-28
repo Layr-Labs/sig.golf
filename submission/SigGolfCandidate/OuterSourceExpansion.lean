@@ -11,13 +11,13 @@ theorem expand_complete_of_recovered (answers : Answers) (message : Message) (pk
     (sig : SigGolfCandidate.Research.SharedForest.Signature) (counter : BitVec 32) (output : HashOutput) (result : RecoveredLayers)
     (hd : evalWithAnswerFn answers (sharedDigestSearch sig.rho message 0 digestAttemptLimit) =
       some (counter, output))
-    (hr : evalWithAnswerFn answers (recoverHintedLayers sig (digestIndex output)
+    (hr : evalWithAnswerFn answers (recoverHintedLayers sig (hyperIndex (digestIndex output))
       ((sig.layers 0).path topJ) 4
       (.pair (evalWithAnswerFn answers (OuterForestCorrectness.recoverForest (digestIndex output)
         (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1.1
         (evalWithAnswerFn answers (OuterForestCorrectness.recoverForest (digestIndex output)
           (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1.2)) = some result)
-    (hh : OuterSigning.policyHintsValid (digestIndex output) sig.policyHints result.digits result.lows = true) (hpk : result.root = pk)
+    (hh : OuterSigning.policyHintsValid (hyperIndex (digestIndex output)) sig.policyHints result.digits result.lows = true) (hpk : result.root = pk)
     :
     ∃ w, evalWithAnswerFn answers (OuterExpand.expandN message pk sig) = some w := by
   have hhbound : sig.policyHints.toNat < 12288 := by
@@ -28,16 +28,16 @@ theorem expand_complete_of_recovered (answers : Answers) (message : Message) (pk
     (forestWordsFromOutput output) sig.forest)).1
   let sig0 := fillTopSignature sig 0
   let result0 : RecoveredLayers := {result with
-    root := evalWithAnswerFn answers (topNode index result.foldedTop ((sig0.layers 0).path topJ))}
-  have hr0 : evalWithAnswerFn answers (recoverHintedLayers sig0 index
+    root := evalWithAnswerFn answers (topNode (hyperIndex index) result.foldedTop ((sig0.layers 0).path topJ))}
+  have hr0 : evalWithAnswerFn answers (recoverHintedLayers sig0 (hyperIndex index)
       ((sig0.layers 0).path topJ) 4 (.pair forest.1 forest.2)) = some result0 := by
     dsimp only [sig0]
     rw [recoverHintedLayers_fill _ _ _ _ _ le_rfl,
-      eval_recoverHintedLayers_other answers sig index ((sig.layers 0).path topJ)]
+      eval_recoverHintedLayers_other answers sig (hyperIndex index) ((sig.layers 0).path topJ)]
     rw [hr]
     rfl
-  have hroot : evalWithAnswerFn answers (topNode index result.foldedTop ((sig.layers 0).path topJ)) = pk := by
-    have he := eval_recoverHintedLayers_other answers sig index ((sig.layers 0).path topJ)
+  have hroot : evalWithAnswerFn answers (topNode (hyperIndex index) result.foldedTop ((sig.layers 0).path topJ)) = pk := by
+    have he := eval_recoverHintedLayers_other answers sig (hyperIndex index) ((sig.layers 0).path topJ)
       ((sig.layers 0).path topJ) 4 (.pair forest.1 forest.2)
     rw [hr] at he
     simp only [Option.map_some, Option.some.injEq] at he
@@ -54,8 +54,8 @@ theorem expand_complete_of_recovered (answers : Answers) (message : Message) (pk
   · dsimp only [result0, sig0] at hzero
     rw [if_pos hzero, evalWithAnswerFn_pure]
     exact ⟨_, rfl⟩
-  · have hz : evalWithAnswerFn answers (topNode index result.foldedTop ((sig0.layers 0).path topJ)) ≠ pk := hzero
-    have hcompletion : evalWithAnswerFn answers (topNode index result.foldedTop
+  · have hz : evalWithAnswerFn answers (topNode (hyperIndex index) result.foldedTop ((sig0.layers 0).path topJ)) ≠ pk := hzero
+    have hcompletion : evalWithAnswerFn answers (topNode (hyperIndex index) result.foldedTop
         (setTop ((sig0.layers 0).path topJ) (((sig.layers 0).path topJ).toNat / 2 ^ 108))) = pk := by
       rw [topPath_fill_signature, setTop_setTop, setTop_self]
       exact hroot
@@ -63,7 +63,7 @@ theorem expand_complete_of_recovered (answers : Answers) (message : Message) (pk
       intro he
       rw [he, topPath_fill_signature, setTop_setTop] at hcompletion
       exact hz hcompletion
-    obtain ⟨c, hc⟩ := searchTop_complete answers index result.foldedTop ((sig0.layers 0).path topJ)
+    obtain ⟨c, hc⟩ := searchTop_complete answers (hyperIndex index) result.foldedTop ((sig0.layers 0).path topJ)
       pk searchFuel 1 (((sig.layers 0).path topJ).toNat / 2 ^ 108) (by omega)
       (by have ht := top_lt ((sig.layers 0).path topJ); unfold searchFuel; omega) hcompletion
     dsimp only [sig0] at hz

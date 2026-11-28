@@ -14,7 +14,7 @@ def verify (message : Message) (pk : Digest) (w : SigGolfCandidate.Research.Shar
   if !verifyDigestAccepted output then return false
   let forest←OuterFixedForest.forest (digestIndex output) (forestSelectionFromOutput output)
     (forestWordsFromOutput output) w.signature.forest w.ftsNonces w.ftsNonces16 ns5
-  let some root←verifyLayers w (digestIndex output) 4 (.pair forest.1 forest.2) | pure false
+  let some root←verifyLayers w (hyperIndex (digestIndex output)) 4 (.pair forest.1 forest.2) | pure false
   pure (root==pk)
 
 def fromRecovered (sig : SigGolfCandidate.Research.SharedForest.Signature) (counter : BitVec 32)
@@ -26,7 +26,7 @@ theorem from_recovered (answers : Answers) (message : Message) (pk : Digest)
     (sig : SigGolfCandidate.Research.SharedForest.Signature) (counter : BitVec 32) (output : HashOutput) (result : RecoveredLayers)
     (ho : evalWithAnswerFn answers (digest sig.rho message counter)=output)
     (ha : verifyDigestAccepted output=true)
-    (hr : evalWithAnswerFn answers (recoverHintedLayers sig (digestIndex output) ((sig.layers 0).path topJ) 4
+    (hr : evalWithAnswerFn answers (recoverHintedLayers sig (hyperIndex (digestIndex output)) ((sig.layers 0).path topJ) 4
       (.pair (evalWithAnswerFn answers (OuterForestCorrectness.recoverForest (digestIndex output)
         (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1.1
         (evalWithAnswerFn answers (OuterForestCorrectness.recoverForest (digestIndex output)
@@ -38,7 +38,7 @@ theorem from_recovered (answers : Answers) (message : Message) (pk : Digest)
   have hc : ¬counter.toNat≥digestVerifyWindow:=Nat.not_le.mpr counter.isLt
   let forest:=evalWithAnswerFn answers (OuterForestCorrectness.recoverForest (digestIndex output)
       (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)
-  have hv:=(recoverHintedLayers_verified answers sig (digestIndex output) 4 le_rfl _ _ hr).2.2.2.2
+  have hv:=(recoverHintedLayers_verified answers sig (hyperIndex (digestIndex output)) 4 le_rfl _ _ hr).2.2.2.2
     (fromRecovered sig counter result forest.2.1 forest.2.2.1) rfl (by intros;rfl) rfl rfl (by intros;rfl)
   dsimp only [fromRecovered, forest] at hv
   have hn:=OuterFixedForestReplay.eval_forest answers (digestIndex output) (forestSelectionFromOutput output)

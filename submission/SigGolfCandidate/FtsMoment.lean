@@ -231,7 +231,7 @@ theorem notF_leafHashH (heap coord selected : Nat) (pad : Digest) (ends : List D
   unfold ClaudeWCT.WCT9.leafHashH
   refine notF_ftsHash heap (hdr := ClaudeWCT.WCT9.ftsLeafHeader index coord selected) ?_
     (fun c x hs he => ClaudeWCT.WCT9.ftsLeafHeader_ne_wctNodeHeader index coord selected (hS c x hs).1 index x
-      (by have := (hS c x hs).heap; omega) he)
+      (by have := (hS c x hs).heap; omega) (by have := (hS c x hs).heap; omega) he)
   unfold ClaudeWCT.WCT9.leafInputP
   simpa only [List.append_assoc] using
     queryHeader_padded (bytesLE 16 (ends.getD 0 0)) (bytesLE 16 pad ++ (ends.drop 1).flatMap (bytesLE 16))
@@ -807,20 +807,14 @@ theorem topTweak_ne_fts (heap' : Nat) {coord index heap : Nat} (hp : FP coord in
   have ht := congrArg tweakTag he
   rw [nodeTweak_top_tag, ClaudeWCT.WCT9.wctNodeHeader_tweakTag hp.1, if_pos hn] at ht
   have hc9 := hp.1
-  rcases topNodeWord_small_or_special heap' with hs | hs | hs | hs | hs
-  · omega
-  · rw [hs] at ht
-    norm_num at ht
-    omega
-  · rw [hs] at ht
-    norm_num at ht
-    omega
-  · -- C40: the height-9 labels have tags 254, 113 (ra), 46 or 47; packed FTS node tags are `247 - 8 coord`.
-    have := TopNine.cases hs
-    omega
-  · -- C42: the heap-4/5/6 labels have tags 51, 27 and 0.
-    unfold TopStep at hs
-    omega
+  -- C40: the height-9 labels have tags 254, 113 (ra), 46 or 47; packed FTS node tags are `247 - 8 coord` (C47: 221
+  -- on coordinate 8). C42/C47: the TopStep labels have tags 51, 189, 0, 27 and 64.
+  split_ifs at ht <;> rcases topNodeWord_small_or_special heap' with hs | hs | hs | hs | hs <;>
+    first
+    | omega
+    | (rw [hs] at ht; norm_num at ht; omega)
+    | (have := TopNine.cases hs; omega)
+    | (unfold TopStep at hs; omega)
 
 section FAvoid
 variable (secret : BitVec 256) (target : HashInput) (coord index heap : Nat) (ht : FQ coord index heap target)

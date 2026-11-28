@@ -16,13 +16,13 @@ theorem selections (answers : Answers) (message : Message) (pk : Digest)
     sig.policyHints.toNat < 12288 ∧ ∃ counter result c,
       evalWithAnswerFn answers (sharedDigestSearch sig.rho message 0 WCT9.digestAttemptLimit) =
         some (counter, output) ∧
-      evalWithAnswerFn answers (recoverHintedLayers (fillTopSignature sig 0) (WCT9.digestIndex output)
+      evalWithAnswerFn answers (recoverHintedLayers (fillTopSignature sig 0) (hyperIndex (WCT9.digestIndex output))
         (((fillTopSignature sig 0).layers 0).path WCT9.topJ) 4
         (.pair (evalWithAnswerFn answers (OuterForestCorrectness.recoverForest (WCT9.digestIndex output)
           (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1.1
           (evalWithAnswerFn answers (OuterForestCorrectness.recoverForest (WCT9.digestIndex output)
           (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1.2)) = some result ∧
-      OuterSigning.policyHintsValid (WCT9.digestIndex output) sig.policyHints result.digits result.lows = true ∧
+      OuterSigning.policyHintsValid (hyperIndex (WCT9.digestIndex output)) sig.policyHints result.digits result.lows = true ∧
       w.signature = fillTopSignature sig c ∧ w.digestCounter = counter ∧
       (∀ lay, w.counters lay = result.counters.getD lay.val 0) ∧ w.topHigh = !(result.lows.getD 0 true) := by
   unfold OuterExpand.expandN at he
@@ -40,7 +40,7 @@ theorem selections (answers : Answers) (message : Message) (pk : Digest)
         let forest := evalWithAnswerFn answers (OuterForestCorrectness.recoverForest (WCT9.digestIndex N)
           (forestSelectionFromOutput N) (forestWordsFromOutput N) sig.forest)
         cases hr : evalWithAnswerFn answers (recoverHintedLayers (fillTopSignature sig 0)
-          (WCT9.digestIndex N) (((fillTopSignature sig 0).layers 0).path WCT9.topJ) 4
+          (hyperIndex (WCT9.digestIndex N)) (((fillTopSignature sig 0).layers 0).path WCT9.topJ) 4
           (.pair forest.1.1 forest.1.2)) with
         | none =>
             dsimp only [forest] at hr
@@ -48,14 +48,14 @@ theorem selections (answers : Answers) (message : Message) (pk : Digest)
         | some result =>
             dsimp only [forest] at hr
             simp only [hr] at he
-            by_cases hp : OuterSigning.policyHintsValid (WCT9.digestIndex N) sig.policyHints result.digits result.lows = true
+            by_cases hp : OuterSigning.policyHintsValid (hyperIndex (WCT9.digestIndex N)) sig.policyHints result.digits result.lows = true
             · simp only [hp, Bool.not_true, Bool.false_eq_true, if_false] at he
               by_cases hk : result.root = pk
               · simp only [hk, if_true, evalWithAnswerFn_pure, Option.some.injEq, Prod.mk.injEq] at he
                 obtain ⟨rfl, rfl, rfl⟩ := he
                 exact ⟨by omega, counter, result, 0, (by first | exact hd | rfl), (by first | exact hr | rfl), hp, rfl, rfl, fun _ => rfl, rfl⟩
               · simp only [hk, if_false, evalWithAnswerFn_bind] at he
-                cases hc : evalWithAnswerFn answers (WCT9.searchTop (WCT9.digestIndex N) result.foldedTop
+                cases hc : evalWithAnswerFn answers (WCT9.searchTop (hyperIndex (WCT9.digestIndex N)) result.foldedTop
                   (((fillTopSignature sig 0).layers 0).path WCT9.topJ) pk WCT9.searchFuel 1) with
                 | none => simp only [hc, evalWithAnswerFn_pure, reduceCtorEq] at he
                 | some c =>

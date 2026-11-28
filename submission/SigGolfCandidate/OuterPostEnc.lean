@@ -14,8 +14,8 @@ theorem pp_witEnc (s : MachineState) (hpc : s.pc = pcOf 49400) (output : HashOut
       s.getMem (BitVec.ofNat 64 (2904 + 8 * j)) = oldWord output (ClaudeWCT.W9.T3M.Paired.mainWitness w) (8 * j))
     (hC : s.getMem (BitVec.ofNat 64 (2904 + 8 * 2789)) =
       replaceByte (oldWord output (ClaudeWCT.W9.T3M.Paired.mainWitness w) (8 * 2789)) 0 (ClaudeWCT.W9.Machine.Expand.OldW.choiceByte w.topHigh).toBitVec)
-    (hleaf : leafOf (s.getMem (BitVec.ofNat 64 0x20160)) % 4096 = (route (WCT9.digestIndex output) 0).1 % 4096) :
-    ∃ t, Steps OuterImages.expandImage s 17535 ppCycles t ∧ t.pc = pcOf 54174 ∧
+    (hleaf : leafOf (s.getMem (BitVec.ofNat 64 0x20160)) % 4096 = (route (SigGolfCandidate.T3.hyperIndex (WCT9.digestIndex output)) 0).1 % 4096) :
+    ∃ t, Steps OuterImages.expandImage s 17538 ppCycles t ∧ t.pc = pcOf 54174 ∧
       RegsExcept s t [.x6, .x7, .x10, .x28, .x29, .x30] ∧
       (∀ k, k < 2720 → t.getMem (BitVec.ofNat 64 (4256 + 8 * k)) = (ClaudeWCT.W9.T3M.Paired.witEnc output w).extractLsb' (64 * k) 64) ∧
       ∀ A < 2 ^ 64, t.getMem (BitVec.ofNat 64 A) =

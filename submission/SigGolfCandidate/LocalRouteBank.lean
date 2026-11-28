@@ -11,17 +11,29 @@ set_option maxRecDepth 100000
 set_option exponentiation.threshold 10000000
 attribute [local irreducible] Finset.univ
 
+/-- C47 (B): the layers are routed by `hyperIndex` of the digest index. -/
 noncomputable def routeInitial (i : Fin (2^31)) : ENNReal :=
-  (indexInitial i.val : ENNReal) / ClaudeWCT.Numerics.CanonicalCompression.scale
+  (indexInitial (SigGolfCandidate.T3.hyperIndex i.val) : ENNReal) / ClaudeWCT.Numerics.CanonicalCompression.scale
+
+/-- C47 (B): `hyperIndex` is an involution of `[0, 2^31)`, so the index sum is unchanged. -/
+theorem index_initial_sum_hyper :
+    (∑ i : Fin (2^31), indexInitial (SigGolfCandidate.T3.hyperIndex i.val)) ≤ 2^31 * meanInitial := by
+  let e : Equiv.Perm (Fin (2^31)) := Function.Involutive.toPerm
+    (fun i => ⟨SigGolfCandidate.T3.hyperIndex i.val, SigGolfCandidate.T3.hyperIndex_lt _⟩)
+    (fun i => Fin.ext (SigGolfCandidate.T3.hyperIndex_invol i.isLt))
+  calc (∑ i : Fin (2^31), indexInitial (SigGolfCandidate.T3.hyperIndex i.val))
+      = ∑ i : Fin (2^31), indexInitial (e i).val := rfl
+    _ = ∑ i : Fin (2^31), indexInitial i.val := Equiv.sum_comp e (fun i => indexInitial i.val)
+    _ ≤ _ := ClaudeWCT.Numerics.LocalRoute.Tables.index_initial_sum
 
 theorem routeInitial_sum :
     (∑ i : Fin (2^31), routeInitial i) ≤
       ((2^31 : Nat) : ENNReal) * (meanInitial : ENNReal) / ClaudeWCT.Numerics.CanonicalCompression.scale := by
   simp only [routeInitial, div_eq_mul_inv]
   rw [← Finset.sum_mul]
-  have h : (∑ i : Fin (2^31), (indexInitial i.val : ENNReal)) ≤
+  have h : (∑ i : Fin (2^31), (indexInitial (SigGolfCandidate.T3.hyperIndex i.val) : ENNReal)) ≤
       ((2^31 : Nat) : ENNReal) * (meanInitial : ENNReal) := by
-    exact_mod_cast ClaudeWCT.Numerics.LocalRoute.Tables.index_initial_sum
+    exact_mod_cast index_initial_sum_hyper
   exact mul_le_mul' h le_rfl
 
 theorem routeInitial_average :
@@ -93,4 +105,5 @@ theorem routeDigest_step : SigGolfCandidate.T3.Budgets.signingZ *
 
 
 end ClaudeWCT.Bank.Paired.LocalRoute
+#print axioms ClaudeWCT.Bank.Paired.LocalRoute.index_initial_sum_hyper
 #print axioms ClaudeWCT.Bank.Paired.LocalRoute.routeDigest_step

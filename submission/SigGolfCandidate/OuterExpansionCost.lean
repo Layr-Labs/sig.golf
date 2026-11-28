@@ -15,7 +15,7 @@ theorem expand_cost_le_recovery_field (answers : Answers) (message : Message) (p
     (counter : BitVec 32) (output : HashOutput) (result : RecoveredLayers)
     (hd : evalWithAnswerFn answers (sharedDigestSearch sig.rho message 0 digestAttemptLimit) =
       some (counter, output))
-    (hr : evalWithAnswerFn answers (recoverHintedLayers sig (digestIndex output) ((sig.layers 0).path topJ) 4
+    (hr : evalWithAnswerFn answers (recoverHintedLayers sig (hyperIndex (digestIndex output)) ((sig.layers 0).path topJ) 4
       (.pair (evalWithAnswerFn answers (OuterForestCorrectness.recoverForest (digestIndex output)
         (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1.1
         (evalWithAnswerFn answers (OuterForestCorrectness.recoverForest (digestIndex output)
@@ -25,7 +25,7 @@ theorem expand_cost_le_recovery_field (answers : Answers) (message : Message) (p
       cost answers (sharedDigestSearch sig.rho message 0 digestAttemptLimit) +
       cost answers (OuterForestCorrectness.recoverForest (digestIndex output) (forestSelectionFromOutput output)
         (forestWordsFromOutput output) sig.forest) +
-      cost answers (recoverHintedLayers sig (digestIndex output) ((sig.layers 0).path topJ) 4
+      cost answers (recoverHintedLayers sig (hyperIndex (digestIndex output)) ((sig.layers 0).path topJ) 4
         (.pair (evalWithAnswerFn answers (OuterForestCorrectness.recoverForest (digestIndex output)
           (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1.1
           (evalWithAnswerFn answers (OuterForestCorrectness.recoverForest (digestIndex output)
@@ -35,16 +35,16 @@ theorem expand_cost_le_recovery_field (answers : Answers) (message : Message) (p
   let forest := evalWithAnswerFn answers (OuterForestCorrectness.recoverForest index (forestSelectionFromOutput output)
     (forestWordsFromOutput output) sig.forest)
   let sig0 := fillTopSignature sig 0
-  have hroot : evalWithAnswerFn answers (topNode index result.foldedTop ((sig.layers 0).path topJ)) = pk := by
-    have he := eval_recoverHintedLayers_other answers sig index ((sig.layers 0).path topJ)
+  have hroot : evalWithAnswerFn answers (topNode (hyperIndex index) result.foldedTop ((sig.layers 0).path topJ)) = pk := by
+    have he := eval_recoverHintedLayers_other answers sig (hyperIndex index) ((sig.layers 0).path topJ)
       ((sig.layers 0).path topJ) 4 (.pair forest.1.1 forest.1.2)
     rw [hr] at he
     simp only [Option.map_some, Option.some.injEq] at he
     exact (congrArg RecoveredLayers.root he).symm.trans hpk
-  have hr0 : evalWithAnswerFn answers (recoverHintedLayers sig index ((sig0.layers 0).path topJ) 4
+  have hr0 : evalWithAnswerFn answers (recoverHintedLayers sig (hyperIndex index) ((sig0.layers 0).path topJ) 4
       (.pair forest.1.1 forest.1.2)) = some {result with
-        root := evalWithAnswerFn answers (topNode index result.foldedTop ((sig0.layers 0).path topJ))} := by
-    rw [eval_recoverHintedLayers_other answers sig index ((sig.layers 0).path topJ)]
+        root := evalWithAnswerFn answers (topNode (hyperIndex index) result.foldedTop ((sig0.layers 0).path topJ))} := by
+    rw [eval_recoverHintedLayers_other answers sig (hyperIndex index) ((sig.layers 0).path topJ)]
     rw [hr]
     rfl
   unfold OuterExpand.expandN
@@ -53,7 +53,7 @@ theorem expand_cost_le_recovery_field (answers : Answers) (message : Message) (p
   · simp only [cost_bind, nonce_retained, hd,
       show (fillTopSignature sig 0).forest = sig.forest from rfl]
     rw [recoverHintedLayers_fill _ _ _ _ _ le_rfl,
-      cost_recoverHintedLayers_other answers sig (digestIndex output)
+      cost_recoverHintedLayers_other answers sig (hyperIndex (digestIndex output))
         (((fillTopSignature sig 0).layers 0).path topJ) ((sig.layers 0).path topJ)]
     simp only [Nat.add_assoc]
     apply Nat.add_le_add_left
@@ -70,7 +70,7 @@ theorem expand_cost_le_recovery_field (answers : Answers) (message : Message) (p
         refine le_trans (cost_bind_le answers _ _ 0 ?_) ?_
         · split <;> simp only [cost_pure, le_refl]
         · rw [Nat.add_zero]
-          have hcompletion : evalWithAnswerFn answers (topNode (digestIndex output) result.foldedTop
+          have hcompletion : evalWithAnswerFn answers (topNode (hyperIndex (digestIndex output)) result.foldedTop
               (setTop (((fillTopSignature sig 0).layers 0).path topJ) (topField ((sig.layers 0).path topJ)))) = pk := by
             rw [topPath_fill_signature, setTop_setTop]
             unfold topField
@@ -81,7 +81,7 @@ theorem expand_cost_le_recovery_field (answers : Answers) (message : Message) (p
             rw [he, topPath_fill_signature, setTop_setTop] at hcompletion
             exact hz hcompletion
           have ht := top_lt ((sig.layers 0).path topJ)
-          have := cost_searchTop_le_hit answers (digestIndex output) result.foldedTop
+          have := cost_searchTop_le_hit answers (hyperIndex (digestIndex output)) result.foldedTop
             (((fillTopSignature sig 0).layers 0).path topJ) pk searchFuel 1 (topField ((sig.layers 0).path topJ))
             (by omega) (by unfold searchFuel topField at *; omega) hcompletion
           omega
