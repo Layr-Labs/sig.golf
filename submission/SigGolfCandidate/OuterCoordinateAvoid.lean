@@ -14,29 +14,29 @@ variable {secret : BitVec 256} {index : Nat} {S : Nat → Nat → Prop}
     (hS : OuterSet index S) (coord : Nat) (hc : coord<9) (hco : ∀ c h,S c h→c≠coord)
 include hS hc hco
 
-theorem notF_hashN (heap n : Nat) (hh : heap<128) (l r : Digest) :
+theorem notF_hashN (heap n : Nat) (hh : heap<128) (h2 : 2≤heap) (l r : Digest) :
     AllQueriesSatisfy (hashN coord index heap n l r) (NotF secret index S) := by
-  have hne:=node_ne_set hS coord heap hc hh (fun hs => hco coord heap hs rfl)
+  have hne:=node_ne_set hS coord heap hc hh h2 (fun hs => hco coord heap hs rfl)
   unfold hashN publicQuery
   exact allQ_bind ((allQueriesSatisfy_query_iff _ _).mpr (notF_public (fTrial_header coord index heap n l r) hne))
     (fun _ => allQ_pure _)
 
-theorem notF_search (heap : Nat) (hh : heap<128) (l r : Digest) :
+theorem notF_search (heap : Nat) (hh : heap<128) (h2 : 2≤heap) (l r : Digest) :
     ∀ fuel n,AllQueriesSatisfy (search coord index heap l r fuel n) (NotF secret index S)
-  | 0,n => by unfold search;exact allQ_bind (notF_hashN hS coord hc hco heap n hh l r) (fun _ => allQ_pure _)
+  | 0,n => by unfold search;exact allQ_bind (notF_hashN hS coord hc hco heap n hh h2 l r) (fun _ => allQ_pure _)
   | fuel+1,n => by
     unfold search
-    apply allQ_bind (notF_hashN hS coord hc hco heap n hh l r)
+    apply allQ_bind (notF_hashN hS coord hc hco heap n hh h2 l r)
     intro v
     split
     · exact allQ_pure _
-    · exact notF_search heap hh l r fuel (n+1)
+    · exact notF_search heap hh h2 l r fuel (n+1)
 
 theorem notF_finish (nodes : Array Digest) :
     AllQueriesSatisfy (OuterHeapMoment.finish coord index nodes) (NotF secret index S) := by
   unfold OuterHeapMoment.finish nodeAt
-  exact allQ_bind (notF_search hS coord hc hco 3 (by decide) _ _ _ _) fun a =>
-    allQ_bind (notF_search hS coord hc hco 2 (by decide) _ _ _ _) fun b => allQ_pure _
+  exact allQ_bind (notF_search hS coord hc hco 3 (by decide) (by decide) _ _ _ _) fun a =>
+    allQ_bind (notF_search hS coord hc hco 2 (by decide) (by decide) _ _ _ _) fun b => allQ_pure _
 
 theorem notF_inner (first : Bool) (pads : Nat → PairRoot) (leaves : List Digest) :
     AllQueriesSatisfy (OuterInnerMoment.innerHeap first index coord pads leaves) (NotF secret index S) := by
@@ -45,7 +45,7 @@ theorem notF_inner (first : Bool) (pads : Nat → PairRoot) (leaves : List Diges
   intro nodes heap hh
   have hm : 4≤heap ∧ heap<128 := by rw [List.mem_reverse,List.mem_range'_1] at hh;omega
   unfold heapStep
-  exact allQ_bind (notF_sharedNode_external hS first coord heap pads _ _ hc hm.2
+  exact allQ_bind (notF_sharedNode_external hS first coord heap pads _ _ hc hm.2 (by omega)
     (fun hs => hco coord heap hs rfl)) fun _ => allQ_pure _
 
 theorem notF_build (selected : Child) (word : Rank) (pads : Nat → PairRoot) :

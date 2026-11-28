@@ -38,7 +38,7 @@ def recW16 (B : Nat) (A : Nat) : Prop :=
 /-- After a copy routine: `Post` with the record, the zeroed scratch and the widened frame. -/
 structure PostC (L : Layout) (k : Fin 9) (raw : Fin 128) (u : MachineState)
     (res : Digest × Nat × Nat) (t : MachineState) : Prop where
-  pc : t.pc = pcOf (L.returnWord k + (if k.val = 8 then 506 else if k.val % 2 = 1 then 503 else 502))
+  pc : t.pc = pcOf (L.returnWord k + (if k.val = 8 then 506 else 503))
   hashLen : t.getReg .x11 = 64
   top : DigAt t (handAddr L k raw) res.1
   a2 : t.getReg .x12 = BitVec.ofNat 64 (outputAddr L k raw)
@@ -144,10 +144,8 @@ theorem postC_of {L : W9Machine.Layout} (w : ClaudeWCT.W9.T3M.WBytes) (index : N
     change (x.getReg .x1 + _) &&& _ = _
     rw [hx.returnPC]
     simp only [hc, ↓reduceIte]
-    change (pcOf (L.returnWord k)+BitVec.ofNat 64 (4*502)) &&& ~~~1#64 = _
+    change (pcOf (L.returnWord k)+BitVec.ofNat 64 (4*503)) &&& ~~~1#64 = _
     rw [W9Drv.SharedBank.pcOf_add_words,pcOf_and_not1]
-    have hodd : ¬ k.val % 2 = 1 := by simp only [SharedV3.first, decide_eq_true_eq] at hf; omega
-    rw [if_neg hodd]
   · rw [← hh]; exact ht.top
   · rw [ht.a2, ho]
   · intro reg hr'
@@ -290,9 +288,6 @@ theorem postC_of {L : W9Machine.Layout} (w : ClaudeWCT.W9.T3M.WBytes) (index : N
     simp only [hc, ↓reduceIte]
     change (pcOf (L.returnWord k)+BitVec.ofNat 64 (4*503)) &&& ~~~1#64 = _
     rw [W9Drv.SharedBank.pcOf_add_words,pcOf_and_not1]
-    have hodd : k.val % 2 = 1 := by
-      have := k.isLt; simp only [SharedV3.first, decide_eq_false_iff_not] at hf; omega
-    rw [if_pos hodd]
   · rw [← hh]; exact ht.top
   · rw [ht.a2, ho]
   · intro reg hr'

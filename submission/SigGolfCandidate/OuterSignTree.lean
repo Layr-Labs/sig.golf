@@ -57,7 +57,7 @@ theorem step {c index : Nat} (hn:LookOK OuterImages.signImage (SharedNode.look c
     (hc:c<9) (hi:index<2^31) {s0 : MachineState} {pads : Nat→Digest}
     (hpad:∀h,h<128→SharedNode.PadAt c h (pads h) s0) (hz:SharedNode.SaveZ s0)
     (k : Nat) (hk:k<count c) (nodes : Array Digest) (t : MachineState) (h:Inv c index s0 k nodes t) :
-    TBSim OuterImages.signImage sk t (SharedNode.unitC+77865) (stepProgram index c pads nodes (127-k)) (Inv c index s0 (k+1)) := by
+    TBSim OuterImages.signImage sk t (SharedNode.unitC+77868) (stepProgram index c pads nodes (127-k)) (Inv c index s0 (k+1)) := by
   have hl:=limit_bounds c
   have hk127:k<127:=by unfold count at hk;omega
   have hh1:1≤127-k:=by omega
@@ -98,9 +98,9 @@ theorem heap_loop {c index : Nat} (hn:LookOK OuterImages.signImage (SharedNode.l
     (hc:c<9) (hi:index<2^31) {s0 : MachineState} {pads : Nat→Digest} {leaves : List Digest}
     (hpad:∀h,h<128→SharedNode.PadAt c h (pads h) s0) (hz:SharedNode.SaveZ s0)
     (h0:Inv c index s0 0 ((List.replicate 128 (0:Digest)++leaves).toArray) s0) :
-    TBSim OuterImages.signImage sk s0 (count c*(SharedNode.unitC+77865)) (heapProgram index c pads leaves) (Inv c index s0 (count c)) := by
+    TBSim OuterImages.signImage sk s0 (count c*(SharedNode.unitC+77868)) (heapProgram index c pads leaves) (Inv c index s0 (count c)) := by
   unfold heapProgram
-  exact TBSim.foldlM_range' 0 (count c) _ _ (Inv c index s0) (SharedNode.unitC+77865)
+  exact TBSim.foldlM_range' 0 (count c) _ _ (Inv c index s0) (SharedNode.unitC+77868)
     (fun k hk nodes t ht'=>by
       simp only[Nat.zero_add]
       exact step hn ht hc hi hpad hz k hk nodes t ht') h0

@@ -25,8 +25,8 @@ theorem E_node {β : Type} (secret : BitVec 256) (coord index heap : Nat) (hp : 
         (c.cacheQuery (fTrial coord index heap k left right) ans) := by
     intro c k ans hc x y hxy n l r
     exact (QueryCache.cacheQuery_of_ne (cache:=c) ans
-      (OuterGroundFresh.trial_ne ⟨hp.1,hp.2.1,hp.heap.2⟩
-        ⟨(hS x y hxy.1).1,(hS x y hxy.1).2.1,(hS x y hxy.1).heap.2⟩ hxy.2 k n left right l r)).trans (hc x y hxy n l r)
+      (OuterGroundFresh.trial_ne ⟨hp.1,hp.2.1,hp.heap⟩
+        ⟨(hS x y hxy.1).1,(hS x y hxy.1).2.1,(hS x y hxy.1).heap⟩ hxy.2 k n left right l r)).trans (hc x y hxy n l r)
   have hcap : cap coord-1<2^64 := by
     have hw:=width_bounds coord
     have hpow : 2^width coord≤2^5 := Nat.pow_le_pow_right (by decide) hw.2

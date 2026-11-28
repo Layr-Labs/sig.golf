@@ -13,7 +13,7 @@ open ClaudeWCT.W9.Machine.Expand.SharedScatter (coordRegion)
 
 def TailWrites (coord j X : Nat) : Prop :=
   (∃ off∈stagesW j 6,X=coordRegion coord+off) ∨
-    Work (coordRegion coord+blkO j 5) (coordRegion coord-handO j) X ∨ X=8323072+(15-coord)*4096
+    Work (coordRegion coord+blkO j 5) (coordRegion coord-handO j) X ∨ X=8323072+(15-coord/2)*4096
 
 theorem base_bounds (coord : Fin 9) : 1848≤coordRegion coord.val ∧ coordRegion coord.val<2^14 := by
   rw [OuterNodeControllerGeometry.actual_frame coord]
@@ -38,7 +38,7 @@ structure Post (coord j : Nat) (u : MachineState) (res : Nat×Nat×Digest) (t : 
   a1 : t.getReg .x11=64
   a2 : t.getReg .x12=BitVec.ofNat 64 (coordRegion coord-handO j)
   top : DigAt t (coordRegion coord-handO j+16) res.2.2
-  outer : t.getMem (BitVec.ofNat 64 (8323072+(15-coord)*4096))=BitVec.ofNat 64 res.2.1
+  outer : t.getMem (BitVec.ofNat 64 (8323072+(15-coord/2)*4096))=BitVec.ofNat 64 res.2.1
   keep : ∀ r : Reg, r ≠ .x3 → r ≠ .x10 → r ≠ .x11 → r ≠ .x12 → t.getReg r=u.getReg r
   slot0 : t.getMem (BitVec.ofNat 64 (slotA (coordRegion coord)))=BitVec.ofNat 64 (coordRegion coord+blkO j 3+WADJ)
   slot1 : t.getMem (BitVec.ofNat 64 (slotA (coordRegion coord)+8))=BitVec.ofNat 64 res.1

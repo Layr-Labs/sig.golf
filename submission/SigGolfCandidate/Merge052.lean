@@ -1182,9 +1182,10 @@ set_option autoImplicit false
 namespace W9Machine.V3
 open OracleComp SigGolfCandidate.T3 SigGolfCandidate.T3M
 open SphincsSecurity (bytesLE)
-/-- C31: the coordinate field is `2^16 - 2^11 · coordinate` (the verifier steps it with `addi a5,a5,-2048`). -/
+/-- C31: the coordinate field is `2^16 - 2^11 · coordinate` (the verifier steps it with `addi a5,a5,-2048`). C46: pairs
+share it (`2^16 - 2^11 · (coordinate / 2)`); odd coordinates add `0xc0000` (= 786432). -/
 def chainPrefix (index coord child : Nat) : Nat :=
-  index * 2 ^ 33 + (2 ^ 16 - 2 ^ 11 * (coord % 16)) + child * ClaudeWCT.WCT9.ftsSelMul coord
+  index * 2 ^ 33 + (2 ^ 16 - 2 ^ 11 * (coord % 16 / 2)) + 786432 * (coord % 2) + child * ClaudeWCT.WCT9.ftsSelMul coord
 def chainLow (index coord child chain step : Nat) : Nat :=
   SigGolfCandidate.T3.ftsBias (chainPrefix index coord child + (256 * chain + step) + 1)
 abbrev HeaderPad := BitVec 64
@@ -1224,12 +1225,13 @@ def chainProgram (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
       (chainPadA w k.val t.val) (chainPadB w k.val t.val)
       (chainPadC w k.val t.val) (reveal w k.val t.val d)
 def leafLow (index coord child : Nat) : Nat := ClaudeWCT.WCT9.ftsLeafLow index coord child
-def nodeLow (coord index : Nat) : Nat := ClaudeWCT.WCT9.ftsLeafLow index coord 0
-/-- Node tweak as the verifier writes it: packed heaps (`8..127`) carry subtraction of the heap modulo 2^64 and a witness high
-word `hp`; the other heaps carry `nodeLow` and the heap. -/
+/-- C46: the pair-shared tag base `a5` (`ftsNodeLow2`, = `index * 2^33 - 2048 * (coord / 2 + 1)` mod 2^64). -/
+def nodeLow (coord index : Nat) : Nat := ClaudeWCT.WCT9.ftsNodeLow2 index coord
+/-- Node tweak as the verifier writes it: packed heaps (`8..127`) carry subtraction of the heap (and C46: of 1024 on odd
+coordinates) modulo 2^64 and a witness high word `hp`; the other heaps carry `nodeLow` and the coordinate's heap label. -/
 def nodeHdr (coord index heap : Nat) (hp : BitVec 64) : Digest :=
-  if 8 ≤ heap ∧ heap < 128 then hp ++ BitVec.ofNat 64 (nodeLow coord index + 2^64 - heap)
-  else BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap) ++ BitVec.ofNat 64 (nodeLow coord index)
+  if 8 ≤ heap ∧ heap < 128 then hp ++ BitVec.ofNat 64 (nodeLow coord index + 2^64 - heap - 1024 * (coord % 2))
+  else BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabelC coord heap) ++ BitVec.ofNat 64 (nodeLow coord index)
 def nodeInput (coord index heap : Nat) (left : Digest) (hp : BitVec 64) (pad right : Digest) : HashInput :=
   bytesLE 16 left ++ bytesLE 16 (nodeHdr coord index heap hp) ++ bytesLE 16 pad ++ bytesLE 16 right
 /-- Nested FTS (r1-1): fold block offset of child level `level` in a region. Levels 0..4 follow the child plan;

@@ -46,7 +46,7 @@ theorem runB {im : Image} {sk : BitVec 256} {b A D : Nat} {pre right : List UInt
 
 theorem runC {im : Image} {sk : BitVec 256} {b A D : Nat} {pre right : List UInt8} {s : MachineState}
     (F : Input A D pre right s) (heap : Nat) (hheap : heap=2 ∨ heap=3)
-    (hmem : s.getMem (BitVec.ofNat 64 (A+24))=BitVec.ofNat 64 heap) (hc : CodeAt im (pcOf b) cCode) (hp : s.pc=pcOf b) :
+    (hmem : s.getMem (BitVec.ofNat 64 (A+24))=BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap)) (hc : CodeAt im (pcOf b) cCode) (hp : s.pc=pcOf b) :
     TBSim im sk s 77838 (searchH (OuterNodeSearchC.high heap) 4 pre right 4095 0)
       (OuterNodeSearchExit.Out s A D (pcOf b-4#64)) := by
   have c0:=codeAt_sub (seg:=c_saveCode) 0 hc (by decide) (by rfl)

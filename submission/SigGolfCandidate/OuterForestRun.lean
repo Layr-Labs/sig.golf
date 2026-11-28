@@ -15,7 +15,7 @@ open OuterForestStep (stepW)
 
 /-- E8: the expand forest pass, with the 9 ground nonces and their records. -/
 def forestW : Nat := 9*stepW
-theorem forestW_val : forestW=839259 := by decide
+theorem forestW_val : forestW=839367 := by decide
 
 /-- The forest pass's end: the hand-off pair, the frame, the fields, and the 9 nonce records. -/
 def ForestPost (initial : MachineState) (index : Nat) (raw : Fin 9 → Fin 128) (ranks : Fin 9 → Fin 563)

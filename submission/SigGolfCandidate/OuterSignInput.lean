@@ -39,3 +39,12 @@ theorem search : OuterNodeSearchInvariant.Input A D pre right u := by
 #print axioms plain
 #print axioms search
 end OuterSignInput
+
+namespace OuterSignClassifier
+open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv SigGolfCandidate.T3M
+/-- C46: the outer-root classifier (sign words 26654..26671) is installed in the patched sign image. -/
+theorem cls_code : CodeAt OuterImages.signImage (pcOf 26654) OuterSignBlocks.clsCode :=
+  OuterSignTransfers.code_tail (by decide) (by decide) (by sign_slice_fast)
+theorem cls_at : OuterSignEntry.ClsAt OuterImages.signImage := OuterSignEntry.cls_slices cls_code
+#print axioms cls_at
+end OuterSignClassifier

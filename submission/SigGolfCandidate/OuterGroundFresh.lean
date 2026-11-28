@@ -9,7 +9,8 @@ open SigGolfCandidate.T3.QuerySpace (queryHeader)
 open ClaudeWCT.W9.T3.Freshness.Paired.FtsFresh (fTrial_header)
 open SphincsSecurity (bytesLE_injective)
 
-def Position (coord index heap : Nat) : Prop := coord<9 ∧ index<2^31 ∧ heap<128
+/-- C46: a fold position (heap `2..127`: pair-mates share the tag base and are told apart on the fold heaps only). -/
+def Position (coord index heap : Nat) : Prop := coord<9 ∧ index<2^31 ∧ (2≤heap ∧ heap<128)
 
 theorem trial_ne {coord index heap coord' heap' : Nat}
     (h : Position coord index heap) (h' : Position coord' index heap')
@@ -18,8 +19,10 @@ theorem trial_ne {coord index heap coord' heap' : Nat}
   intro he
   have hh:=congrArg queryHeader he
   rw [fTrial_header,fTrial_header] at hh
-  obtain ⟨e1,-,e3⟩:=ClaudeWCT.WCT9.wctNodeHeader_injective h'.1 h'.2.1 (by have := h'.2.2;omega)
-    h.1 h.2.1 (by have := h.2.2;omega) (bytesLE_injective hh)
+  obtain ⟨e1,-,e3⟩:=ClaudeWCT.WCT9.wctNodeHeader_injective_of h'.1 h'.2.1 (by have := h'.2.2;omega)
+    h.1 h.2.1 (by have := h.2.2;omega)
+    (Or.inl ⟨ClaudeWCT.WCT9.ftsTwoOk_of h'.2.2.1 h'.2.2.2,ClaudeWCT.WCT9.ftsTwoOk_of h.2.2.1 h.2.2.2⟩)
+    (bytesLE_injective hh)
   exact hne ⟨e1,e3⟩
 
 def Fresh (cache : RCache) (coord index heap : Nat) (l r : Digest) : Prop :=
@@ -80,8 +83,9 @@ theorem header_ne_top (coord index heap heap' : Nat) (hc : coord<9) :
     rcases SigGolfCandidate.T3.topNodeWord_small_or_special heap' with hs | hs | hs | hs | hs <;>
       first | omega | (have := SigGolfCandidate.T3.TopNine.cases hs; omega) |
         (unfold SigGolfCandidate.T3.TopStep at hs; omega)
-  · rw [if_neg hn,ClaudeWCT.WCT9.ftsLeafLow_zero,Nat.mod_eq_of_lt (show coord<16 by omega)] at hl
-    unfold SigGolfCandidate.T3.ftsBiasN at hl
+  · rw [if_neg hn] at hl
+    unfold ClaudeWCT.WCT9.ftsNodeLow2 SigGolfCandidate.T3.ftsBiasN at hl
+    rw [Nat.mod_eq_of_lt (show coord<16 by omega)] at hl
     -- C42: the heap-4/5/6 labels are not multiples of 2048 (FTS two-word low words are, or wrap above `2 ^ 63`).
     rcases SigGolfCandidate.T3.topNodeWord_small_or_special heap' with hs | hs | hs | hs | hs <;>
       first | omega | (have := SigGolfCandidate.T3.TopNine.cases hs; omega) |

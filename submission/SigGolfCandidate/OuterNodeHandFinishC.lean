@@ -15,10 +15,10 @@ def Post (coord j : Nat) (u : MachineState) (res : Nat×Digest) (t : MachineStat
   t.pc=(u.getReg .x1+2024#64) &&& ~~~1#64 ∧
   t.getReg .x11=64 ∧ t.getReg .x12=BitVec.ofNat 64 (coordRegion coord-handO j) ∧
   DigAt t (coordRegion coord-handO j+OuterGroundCore.offset coord (heapOf 5 j)/8) res.2 ∧
-  t.getMem (BitVec.ofNat 64 (8323072+(15-coord)*4096))=BitVec.ofNat 64 res.1 ∧
+  t.getMem (BitVec.ofNat 64 (8323072+(15-coord/2)*4096))=BitVec.ofNat 64 res.1 ∧
   (∀ r : Reg, r ≠ .x3 → r ≠ .x10 → r ≠ .x11 → r ≠ .x12 → t.getReg r=u.getReg r) ∧
   Frame u t (fun X=>(∃ off∈stagesW j 6,X=coordRegion coord+off) ∨
-    Work (coordRegion coord+blkO j 5) (coordRegion coord-handO j) X ∨ X=8323072+(15-coord)*4096)
+    Work (coordRegion coord+blkO j 5) (coordRegion coord-handO j) X ∨ X=8323072+(15-coord/2)*4096)
 
 theorem pc_return (base site : Nat) : pcOf (base+site+2)-4#64=pcOf (base+site+1) := by
   rw [OuterNodeHelper.pc_offset (base+site) 2,OuterNodeHelper.pc_offset (base+site) 1]

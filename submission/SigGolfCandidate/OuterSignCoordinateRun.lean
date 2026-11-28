@@ -28,7 +28,7 @@ theorem writes_outside {c A : Nat} (hc:c<9)
     simp only [ZeroCell,ScrZero,NBUF,TBL,PRIVW,CHAINW,NODEW] at hA
     omega
 
-def cost (c : Nat) : Nat := 19+(14+21*SharedReuse.coefStepC+(128*SharedLeaves.cost+SharedTree.count c*(SharedNode.unitC+77865)+110))
+def cost (c : Nat) : Nat := 19+(14+21*SharedReuse.coefStepC+(128*SharedLeaves.cost+SharedTree.count c*(SharedNode.unitC+77868)+110))
 theorem ready_frame {sk N : BitVec 256} {s t : MachineState} {c : Nat} {rs : List Reg}
     (hc:c < 9) (h:Ready sk N s) (hr:RegsExcept s t rs) (h5:.x5 ∉ rs) (h22:.x22 ∉ rs)
     (hf:Frame s t (OuterSignCoordinate.coordinateW c)) : Ready sk N t := by

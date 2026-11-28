@@ -32,7 +32,7 @@ theorem rows_heap (hf:SharedReuse.Fetch OuterImages.signImage) {c index sel w : 
     (hpadL:∀j, j < 128  →  SharedLeaf.PadAt c (SharedNext.raw c j) (leftPads j) s)
     (hpadR:∀h, h < 128  →  SharedNode.PadAt c h (rightPads h) s)
     (hpc:s.pc=pcOf (leafI c)) (hb:BodySt sk 0 index (SharedNext.raw c sel) w s) (hz:SharedNode.SaveZ s) :
-    TBSim OuterImages.signImage sk s (128*SharedLeaves.cost+SharedTree.count c*(SharedNode.unitC+77865))
+    TBSim OuterImages.signImage sk s (128*SharedLeaves.cost+SharedTree.count c*(SharedNode.unitC+77868))
       (rowsHeap index c sel word coefs leftPads rightPads) (Post sk c index sel w s) := by
   unfold rowsHeap
   refine TBSim.bind (SharedLeaves.leaf_loop hf hl hh hn hc hsel hi hw hword hlen hcoef hpadL (SharedLeaves.Inv.init hpc hb))
@@ -87,10 +87,10 @@ theorem rows_finish (hf:SharedReuse.Fetch OuterImages.signImage) {c index sel w 
     (hpadL:∀j, j < 128 → SharedLeaf.PadAt c (SharedNext.raw c j) (leftPads j) s)
     (hpadR:∀h, h < 128 → SharedNode.PadAt c h (rightPads h) s)
     (hpc:s.pc=pcOf (leafI c)) (hb:BodySt sk 0 index (SharedNext.raw c sel) w s) (hz:SharedNode.SaveZ s) :
-    TBSim OuterImages.signImage sk s (128*SharedLeaves.cost+SharedTree.count c*(SharedNode.unitC+77865)+110)
+    TBSim OuterImages.signImage sk s (128*SharedLeaves.cost+SharedTree.count c*(SharedNode.unitC+77868)+110)
       (rowsHeap index c sel word coefs leftPads rightPads) (fun rv t=>Out c index s rv sel t) := by
   have hrun:=rows_heap hf hl hh hn hnode ht hc hsel hi hw hword hlen hcoef hpadL hpadR hpc hb hz
-  have h: TBSim OuterImages.signImage sk s (128*SharedLeaves.cost+SharedTree.count c*(SharedNode.unitC+77865)+110)
+  have h: TBSim OuterImages.signImage sk s (128*SharedLeaves.cost+SharedTree.count c*(SharedNode.unitC+77868)+110)
       (rowsHeap index c sel word coefs leftPads rightPads >>= pure) (fun rv t=>Out c index s rv sel t):=by
     refine TBSim.bind hrun (fun rv u hu=>?_)
     obtain ⟨t,n,st,hn,tpc,roots,paths,dummy,regs,frame⟩:=finish hfinish hpath hend hc hsel u
@@ -125,7 +125,7 @@ theorem coefs_rows_finish (hf:SharedReuse.Fetch OuterImages.signImage) {c old in
     (hpadL:∀j, j < 128 → SharedLeaf.PadAt c (SharedNext.raw c j) (leftPads j) s)
     (hpadR:∀h, h < 128 → SharedNode.PadAt c h (rightPads h) s)
     (hpc:s.pc=pcOf (lwuI c+1)) (hb:BodySt sk old index (SharedNext.raw c sel) w s) (hz:SharedNode.SaveZ s) :
-    TBSim OuterImages.signImage sk s (14+21*coefStepC+(128*SharedLeaves.cost+SharedTree.count c*(SharedNode.unitC+77865)+110))
+    TBSim OuterImages.signImage sk s (14+21*coefStepC+(128*SharedLeaves.cost+SharedTree.count c*(SharedNode.unitC+77868)+110))
       (program index c sel word leftPads rightPads) (fun rv t=>FullOut c index s rv sel t) := by
   unfold program
   refine TBSim.bind (SharedReuse.coefs_unit hf hc hi hpc hb) (fun coefs u hu=>?_)

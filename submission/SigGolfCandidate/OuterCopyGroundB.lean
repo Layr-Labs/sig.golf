@@ -172,6 +172,7 @@ theorem run (v : Digest) (s : MachineState) (hs : MidC j B k index u 3 v s) :
       a1 := by rw [virt_getReg]; exact hu.a1
       w0 := by rw [virt_getReg]; exact hu.w0
       heaps := fun h h1 h2 => by rw [virt_getReg]; exact hu.heaps h h1 h2
+      par := hu.par
       leafAt := fun i _ => digAt_rdD _ _
       padAt := fun l hl => by
         by_cases e : l = 4 ∨ l = 5

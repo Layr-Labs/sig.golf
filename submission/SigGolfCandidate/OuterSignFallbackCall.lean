@@ -12,7 +12,7 @@ open SigGolfCandidate.FtsGrind
 
 theorem run {sk : BitVec 256} {A D : Nat} {input : List UInt8} {s : MachineState}
     (F : OuterSignPlain.Input A D input s) (hb : OuterSignFallback.Bad A s) (hp : s.pc=pcOf 25338) :
-    TBSim OuterImages.signImage sk s 28 (publicHash input) (OuterSignPlain.Out s D) := by
+    TBSim OuterImages.signImage sk s 33 (publicHash input) (OuterSignPlain.Out s D) := by
   obtain ⟨u,su,up,ur,um⟩:=OuterControlRun.jump 25338 26156 (by decide) (by decide) OuterImageSignWindows.sign_jump s hp
   have fu : Frame s u (fun _=>False) := by intro X hX hn;exact um _
   have F' : OuterSignPlain.Input A D input u :=
@@ -29,7 +29,7 @@ theorem run {sk : BitVec 256} {A D : Nat} {input : List UInt8} {s : MachineState
       dhi:=F.dhi
       da:=F.da }
   have hb' : OuterSignFallback.Bad A u := by simpa only [OuterSignFallback.Bad,um] using hb
-  have H:=OuterSignFallback.run (sk:=sk) F' hb' OuterImageHelpers.sign_helper up
+  have H:=OuterSignFallback.run (sk:=sk) F' hb' OuterImageHelpers.sign_helper OuterSignClassifier.cls_at up
   refine TBSim.steps su (H.mono le_rfl ?_)
   intro r t ht
   refine ⟨ht.at_pc,?_,ht.output,?_⟩

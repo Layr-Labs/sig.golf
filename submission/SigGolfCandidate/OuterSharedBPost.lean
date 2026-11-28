@@ -35,8 +35,6 @@ theorem post_of {L : W9Machine.Layout} (w : ClaudeWCT.W9.T3M.WBytes) (index : Na
     simp only [hc,↓reduceIte]
     change (pcOf (L.returnWord k)+BitVec.ofNat 64 (4*503)) &&& ~~~1#64=_
     rw [W9Drv.SharedBank.pcOf_add_words,pcOf_and_not1]
-    have hodd : k.val%2=1 := by have := k.isLt;simp only [SharedV3.first,decide_eq_false_iff_not] at hf;omega
-    rw [if_pos hodd]
   · rw [←hh,hbase];exact ht.top
   · rw [ht.a2,←hbase,ho]
   · intro reg hr

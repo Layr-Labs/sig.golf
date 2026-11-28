@@ -25,7 +25,7 @@ theorem runC {im : Image} (pc : Word) (hc : CodeAt im pc c_checkCode) (s : Machi
     (ha : s.getReg .x10=BitVec.ofNat 64 input) (hb : s.getReg .x12=BitVec.ofNat 64 output)
     (hi : input<2^20) (hil : 2048 ≤ input) (him : input%8=0)
     (ho : output<2^20) (hol : 2048≤output) (hom : output%8=0)
-    (hh : heap=2 ∨ heap=3) (hmem : s.getMem (BitVec.ofNat 64 (input+24))=BitVec.ofNat 64 heap) :
+    (hh : heap=2 ∨ heap=3) (hmem : s.getMem (BitVec.ofNat 64 (input+24))=BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap)) :
     let off : Word:=if heap=3 then 8 else 24
     ∃ t,Steps im s 7 7 t ∧ RegsExcept s t [.x7] ∧
       t.pc=(if s.getMem (s.getReg .x12+off) >>> 60=0 then pc+44#64 else pc+28#64) ∧
@@ -33,11 +33,11 @@ theorem runC {im : Image} (pc : Word) (hc : CodeAt im pc c_checkCode) (s : Machi
   refine ⟨(cCheckAt pc).toState s,symRun_sound (c_check_at pc) hc s hp
     (OuterNodeMachineCCheck.obligs s input output heap ha hb hi hil him ho hol hom hh hmem),?_,?_,?_⟩
   · intro r hr;cases r <;> simp at hr <;> rfl
-  · have he : s.getMem (s.getReg .x10+24#64)=BitVec.ofNat 64 heap := by
+  · have he : s.getMem (s.getReg .x10+24#64)=BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap) := by
       simpa only [ha,ofNat_add_ofNat] using hmem
     rcases hh with rfl|rfl <;>
       simp [Result.toState_pc,cCheckAt,c_check.res,RegFile.get,E.eval,Addr.eval,BinOp.eval,CmpOp.eval,he,
-        OuterNodeMachineCCheck.sub16_add24]
+        OuterNodeMachineCCheck.sub16_add24,SigGolfCandidate.T3.ftsHeapLabel]
   · intro a;rfl
 
 #print axioms runB

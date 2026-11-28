@@ -194,6 +194,8 @@ structure ChildPre (j B k index : Nat) (leaf pads sibs tws : Nat → Digest) (u 
   padAt : ∀ l, l < 6 → DigAt u (B + padO j l) (pads l)
   sibAt : ∀ l, l < 6 → DigAt u (B + sibO l j) (sibs l)
   twAt : ∀ l, l < 6 → DigAt u (B + blkO j l + 16) (tws l)
+  /-- C46: the coordinate's parity (the bank's label scheme). -/
+  par : k = 8
 theorem childLook_ok {im : Image} {j : Nat} (h : ChildCodeAt im j) : LookOK im (childLook j) := by
   intro n w hw
   unfold childLook at hw
@@ -354,15 +356,21 @@ theorem nodeIn_blocks (k index j : Nat) (pads : Nat → Digest) (tws sibs : Nat 
     (toQ (pad64 (nodeIn k index j pads (hpOf j tws) sibs v l))).blocks = 1 := by
   unfold nodeIn; exact blocks_blk4 _ _ _ _
 set_option debug.skipKernelTC true in
-theorem hdr11_lo (k index heap : Nat) (hp : BitVec 64) :
+theorem hdr11_lo {k : Nat} (hk : k = 8) (index heap : Nat) (hp : BitVec 64) :
     (nodeHeader k index heap hp).extractLsb' 0 64 =
       BitVec.ofNat 64 (if 8 ≤ heap ∧ heap < 128 then w0n k index + 2 ^ 64 - heap else w0n k index) := by
   unfold nodeHeader V3.nodeHdr w0n
+  rw [show k % 2 = 0 by omega, Nat.mul_zero, Nat.sub_zero]
   split <;> exact BitVec.extractLsb'_append_eq_right
-theorem hdr11_hi (k index heap : Nat) (hp : BitVec 64) :
-    (nodeHeader k index heap hp).extractLsb' 64 64 = if 8 ≤ heap ∧ heap < 128 then hp else BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap) := by
+theorem hdr11_hi {k : Nat} (_hk : k = 8) (index heap : Nat) (hp : BitVec 64) :
+    (nodeHeader k index heap hp).extractLsb' 64 64 =
+      if 8 ≤ heap ∧ heap < 128 then hp else BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabelC k heap) := by
   unfold nodeHeader V3.nodeHdr
   split <;> exact BitVec.extractLsb'_append_eq_left
+/-- C46: coordinate 8's two-word levels carry `ftsHeapLabel`. -/
+theorem labelC_low {k : Nat} (hk : k = 8) {j l : Nat} (_hj : j < 128) (_hl4 : 4 ≤ l) (_hl : l < 6) :
+    SigGolfCandidate.T3.ftsHeapLabelC k (heapOf l j) = SigGolfCandidate.T3.ftsHeapLabel (heapOf l j) := by
+  subst hk; exact SigGolfCandidate.T3.ftsHeapLabelC_eight _
 set_option debug.skipKernelTC true in
 theorem ofNat_add_neg_wrap (a h : Nat) (hh : h < 2 ^ 64) :
     BitVec.ofNat 64 a + BitVec.ofNat 64 (2 ^ 64 - h) = BitVec.ofNat 64 (a + 2 ^ 64 - h) := by
@@ -469,22 +477,20 @@ theorem lvl_core {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im j
   have hw0 : 0 ≤ w0n k index ∧ w0n k index < 2 ^ 64 := by
     have := Nat.mod_lt index (show 0 < 2 ^ 31 by norm_num)
     have := Nat.mod_lt k (show 0 < 16 by norm_num)
-    unfold w0n V3.nodeLow
-    rw [ClaudeWCT.WCT9.ftsLeafLow_zero]
-    unfold SigGolfCandidate.T3.ftsBiasN
+    unfold w0n V3.nodeLow ClaudeWCT.WCT9.ftsNodeLow2 SigGolfCandidate.T3.ftsBiasN
     omega
   have hhdr : DigAt t (B + blkO j l + 16) (nodeHeader k index (heapOf l j) (hpOf j tws l)) := by
     by_cases h3 : l ≤ 3
     · have hpk := heapOf_packed j l hj h3
       constructor
-      · rw [hmem _ (by omega), if_neg (fun h => by have := h.1; omega), if_pos rfl, if_pos h3, hdr11_lo,
+      · rw [hmem _ (by omega), if_neg (fun h => by have := h.1; omega), if_pos rfl, if_pos h3, hdr11_lo hu.par,
           if_pos hpk]
         unfold lowE
         rw [addC_eval]
         simp only [E.eval]
         rw [hx15]
         exact ofNat_add_neg_wrap _ _ (by omega)
-      · rw [show B + blkO j l + 16 + 8 = B + blkO j l + 24 by omega, hdr11_hi, if_pos hpk]
+      · rw [show B + blkO j l + 16 + 8 = B + blkO j l + 24 by omega, hdr11_hi hu.par, if_pos hpk]
         by_cases hw : hiW j l = true
         · have hb0 : bitAt j l = 0 := by
             simp only [hiW, Bool.and_eq_true, decide_eq_true_eq] at hw; exact hw.2
@@ -503,10 +509,11 @@ theorem lvl_core {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im j
     · have hlo := heapOf_low j l hj (by omega) (by omega)
       have hnp : ¬ (8 ≤ heapOf l j ∧ heapOf l j < 128) := by omega
       constructor
-      · rw [hmem _ (by omega), if_neg (fun h => by have := h.1; omega), if_pos rfl, if_neg h3, hdr11_lo,
+      · rw [hmem _ (by omega), if_neg (fun h => by have := h.1; omega), if_pos rfl, if_neg h3, hdr11_lo hu.par,
           if_neg hnp, hx15]
       · rw [show B + blkO j l + 16 + 8 = B + blkO j l + 24 by omega, hmem _ (by omega),
-          if_pos ⟨rfl, fun h => absurd h h3⟩, if_neg h3, hdr11_hi, if_neg hnp]
+          if_pos ⟨rfl, fun h => absurd h h3⟩, if_neg h3, hdr11_hi hu.par, if_neg hnp,
+          labelC_low hu.par hj (by omega) (by omega)]
         have hs64 : s.getReg .x11 = BitVec.ofNat 64 64 := hs.a1 (by omega)
         have hr := heapReg_eval (s := s) (l := l) hj (by omega) (by omega) hs64 (fun h h1 h6 => by
           obtain ⟨n3, n10, n11, n12⟩ := heapReg_ne h h6
@@ -897,11 +904,11 @@ theorem sibO_v3 (j l : Nat) (hl : l < 6) : sibO l j = V3.sibOff j l := by
   unfold sibO V3.sibOff blkO bitAt
   rw [if_pos hl]
 theorem child_pre (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (k : Fin 9) (j : Fin 128) (ends : List Digest)
-    (u : MachineState) (hu : Child.Pre Frozen.layout w index k j ends u) :
+    (u : MachineState) (hu : Child.Pre Frozen.layout w index k j ends u) (hpar : k.val = 8) :
     ChildPre j.val (coordinateBase k) k.val index (V3.leafFields k.val index j.val (V3.leafPad w k.val) ends)
       (V3.nodePad w k.val j.val) (V3.sibling w k.val j.val) (V3.nodeTw w k.val j.val) u := by
   refine ⟨hu.pc, ?_, ?_, hu.hashMode, hu.baseReg, hu.hashInput, hu.hashLen, hu.nodeWord,
-    ?_, hu.leafAt, hu.padAt, ?_, ?_⟩
+    ?_, hu.leafAt, hu.padAt, ?_, ?_, hpar⟩
   · unfold coordinateBase
     omega
   · have hk := k.isLt
@@ -973,7 +980,7 @@ def encLoad (rd rs imm : Nat) : BitVec 32 :=
   BitVec.ofNat 32 (imm * 2 ^ 20 + rs * 2 ^ 15 + 3 * 2 ^ 12 + rd * 2 ^ 7 + 3)
 def childTmpl (j : Nat) : List (BitVec 32) :=
   [0, encI 12 8 (outO 0 j + 241), 0x00000073, encI 11 0 64] ++ (List.range 5).flatMap (lvlTmpl j) ++
-    [0x7d808067]
+    [0x7dc08067]
 def childWords (j : Nat) : List (BitVec 32) := childTmpl j
 def childLook (j n : Nat) : Option (BitVec 32) :=
   if childBase j ≤ n then (childWords j)[n - childBase j]? else none
@@ -1003,7 +1010,7 @@ def lvlRes (j l : Nat) : PRes :=
   ⟨⟨lvlRegs j l, lvlMem j l, lvlObl j l⟩, pcOf (childBase j + ecIdx j (l + 1)), true, lvlSt j l, lvlSt j l, [], none⟩
 def otherDest (j : Nat) : Nat := 16 * (1 - bitAt j 6)
 def aX9 (off : Nat) : Addr := ⟨some (.reg .x9), BitVec.ofNat 64 off⟩
-def retE : E := .bin .and (addC (.reg .x1) 2008) (.c (~~~1#64))
+def retE : E := .bin .and (addC (.reg .x1) 2012) (.c (~~~1#64))
 def p7Res (_j : Nat) : PRes :=
   ⟨⟨RegFile.init, [], []⟩, 0, false, 1, 1, [], some retE⟩
 def childPiecesOK (j : Nat) : Bool :=
@@ -1127,6 +1134,8 @@ structure ChildPre (j B k index : Nat) (leaf pads sibs tws : Nat → Digest) (u 
   padAt : ∀ l, l < 6 → DigAt u (B + padO j l) (pads l)
   sibAt : ∀ l, l < 6 → DigAt u (B + sibO l j) (sibs l)
   twAt : ∀ l, l < 6 → DigAt u (B + blkO j l + 16) (tws l)
+  /-- C46: the coordinate's parity (the bank's label scheme). -/
+  par : k % 2 = 0
 theorem childLook_ok {im : Image} {j : Nat} (h : ChildCodeAt im j) : LookOK im (childLook j) := by
   intro n w hw
   unfold childLook at hw
@@ -1293,15 +1302,24 @@ theorem nodeIn_blocks (k index j : Nat) (pads : Nat → Digest) (tws sibs : Nat 
     (toQ (pad64 (nodeIn k index j pads (hpOf j tws) sibs v l))).blocks = 1 := by
   unfold nodeIn; exact blocks_blk4 _ _ _ _
 set_option debug.skipKernelTC true in
-theorem hdr11_lo (k index heap : Nat) (hp : BitVec 64) :
+theorem hdr11_lo {k : Nat} (hk : k % 2 = 0) (index heap : Nat) (hp : BitVec 64) :
     (nodeHeader k index heap hp).extractLsb' 0 64 =
       BitVec.ofNat 64 (if 8 ≤ heap ∧ heap < 128 then w0n k index + 2 ^ 64 - heap else w0n k index) := by
   unfold nodeHeader V3.nodeHdr w0n
+  rw [show k % 2 = 0 by omega, Nat.mul_zero, Nat.sub_zero]
   split <;> exact BitVec.extractLsb'_append_eq_right
-theorem hdr11_hi (k index heap : Nat) (hp : BitVec 64) :
-    (nodeHeader k index heap hp).extractLsb' 64 64 = if 8 ≤ heap ∧ heap < 128 then hp else BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap) := by
+theorem hdr11_hi {k : Nat} (_hk : k % 2 = 0) (index heap : Nat) (hp : BitVec 64) :
+    (nodeHeader k index heap hp).extractLsb' 64 64 =
+      if 8 ≤ heap ∧ heap < 128 then hp else BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabelC k heap) := by
   unfold nodeHeader V3.nodeHdr
   split <;> exact BitVec.extractLsb'_append_eq_left
+/-- C46: the A routines' two-word levels (level 4, heaps 4..7) carry `ftsHeapLabel` (even coordinate). -/
+theorem labelC_low {k : Nat} (hk : k % 2 = 0) {j l : Nat} (hj : j < 128) (hl4 : 4 ≤ l) (hl : l < 5) :
+    SigGolfCandidate.T3.ftsHeapLabelC k (heapOf l j) = SigGolfCandidate.T3.ftsHeapLabel (heapOf l j) := by
+  obtain rfl : l = 4 := by omega
+  have e : heapOf 4 j = 4 + j / 32 := rfl
+  rw [e]
+  exact SigGolfCandidate.T3.ftsHeapLabelC_even hk (by omega) (by omega)
 set_option debug.skipKernelTC true in
 theorem ofNat_add_neg_wrap (a h : Nat) (hh : h < 2 ^ 64) :
     BitVec.ofNat 64 a + BitVec.ofNat 64 (2 ^ 64 - h) = BitVec.ofNat 64 (a + 2 ^ 64 - h) := by
@@ -1434,22 +1452,20 @@ theorem lvl_core {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im j
   have hw0 : 0 ≤ w0n k index ∧ w0n k index < 2 ^ 64 := by
     have := Nat.mod_lt index (show 0 < 2 ^ 31 by norm_num)
     have := Nat.mod_lt k (show 0 < 16 by norm_num)
-    unfold w0n V3.nodeLow
-    rw [ClaudeWCT.WCT9.ftsLeafLow_zero]
-    unfold SigGolfCandidate.T3.ftsBiasN
+    unfold w0n V3.nodeLow ClaudeWCT.WCT9.ftsNodeLow2 SigGolfCandidate.T3.ftsBiasN
     omega
   have hhdr : DigAt t (B + blkO j l + 16) (nodeHeader k index (heapOf l j) (hpOf j tws l)) := by
     by_cases h3 : l ≤ 3
     · have hpk := heapOf_packed j l hj h3
       constructor
-      · rw [hmem _ (by omega), if_neg (fun h => by have := h.1; omega), if_pos rfl, if_pos h3, hdr11_lo,
+      · rw [hmem _ (by omega), if_neg (fun h => by have := h.1; omega), if_pos rfl, if_pos h3, hdr11_lo hu.par,
           if_pos hpk]
         unfold lowE
         rw [addC_eval]
         simp only [E.eval]
         rw [hx15]
         exact ofNat_add_neg_wrap _ _ (by omega)
-      · rw [show B + blkO j l + 16 + 8 = B + blkO j l + 24 by omega, hdr11_hi, if_pos hpk]
+      · rw [show B + blkO j l + 16 + 8 = B + blkO j l + 24 by omega, hdr11_hi hu.par, if_pos hpk]
         rw [hmem _ (by omega), if_neg (fun h => h.2 h3), if_neg (by omega),
           show B + blkO j l + 24 = B + (blkO j l + 24) by omega,
           sU _ (by omega) (fun hm => tw_free hj (by omega) hm rfl)]
@@ -1460,10 +1476,11 @@ theorem lvl_core {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im j
     · have hlo := heapOf_low j l hj (by omega) (by omega)
       have hnp : ¬ (8 ≤ heapOf l j ∧ heapOf l j < 128) := by omega
       constructor
-      · rw [hmem _ (by omega), if_neg (fun h => by have := h.1; omega), if_pos rfl, if_neg h3, hdr11_lo,
+      · rw [hmem _ (by omega), if_neg (fun h => by have := h.1; omega), if_pos rfl, if_neg h3, hdr11_lo hu.par,
           if_neg hnp, hx15]
       · rw [show B + blkO j l + 16 + 8 = B + blkO j l + 24 by omega, hmem _ (by omega),
-          if_pos ⟨rfl, h3⟩, hdr11_hi, if_neg hnp]
+          if_pos ⟨rfl, h3⟩, hdr11_hi hu.par, if_neg hnp,
+          labelC_low hu.par hj (by omega) (by omega)]
         have hs64 : s.getReg .x11 = BitVec.ofNat 64 64 := hs.a1 (by omega)
         have hr := heapReg_eval (s := s) (l := l) hj (by omega) (by omega) hs64 (fun h h1 h6 => by
           obtain ⟨n3, n10, n11, n12⟩ := heapReg_ne h h6
@@ -1739,7 +1756,7 @@ def childLevelHi (k index j : Nat) (pads : Nat → Digest) (hps : Nat → BitVec
     (value : Digest) : M Digest :=
   V3.hashHi (nodeIn k index j pads hps sibs value 4)
 structure HandPost (B j : Nat) (u : MachineState) (computed : Digest) (t : MachineState) : Prop where
-  pc : t.pc = (u.getReg .x1 + 2008) &&& ~~~1#64
+  pc : t.pc = (u.getReg .x1 + 2012) &&& ~~~1#64
   a1 : t.getReg .x11 = 64
   top : DigAt t (B - handO j + 16) computed
   a2 : t.getReg .x12 = BitVec.ofNat 64 (B - handO j)
@@ -1777,7 +1794,7 @@ theorem tail_good {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im 
       simp only [p7Res, memEval_nil]
     have hp : HandPost B j u (ans.extractLsb' 128 128) z := by
       refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
-      · have e : z.pc = ((writeHash t ans).getReg .x1 + 2008) &&& ~~~1#64 := rfl
+      · have e : z.pc = ((writeHash t ans).getReg .x1 + 2012) &&& ~~~1#64 := rfl
         rw [e, writeHash_getReg, hkeep .x1 (by decide) (by decide) (by decide) (by decide)]
       · rw [hzreg, writeHash_getReg, h11]
       · have hd := DigAt.writeHash_hi t ans _ h12 hdest
@@ -1857,10 +1874,11 @@ def handReg (_j : Nat) : Reg := .x8
 def handRegN (_j : Nat) : Nat := 8
 def heapOf (l j : Nat) : Nat := 2 ^ (6 - l) + j / 2 ^ (l + 1)
 def w0n (k index : Nat) : Nat := W9Machine.V3.nodeLow k index
+/-- C46: the odd coordinates' label registers: heaps 2, 3 as for the even ones (a3, s3), heaps 4..7 t4, s2, s11, s1. -/
 def heapReg (h : Nat) : Reg :=
   match h with
-  | 1 => .x9 | 2 => .x13 | 3 => .x19 | 4 => .x20 | 5 => .x21 | 6 => .x26 | 7 => .x11 | _ => .x30
-def heapRegN (h : Nat) : Nat := [0,9,13,19,20,21,26,11].getD h 30
+  | 1 => .x9 | 2 => .x13 | 3 => .x19 | 4 => .x29 | 5 => .x18 | 6 => .x27 | 7 => .x9 | _ => .x30
+def heapRegN (h : Nat) : Nat := [0,9,13,19,29,18,27,9].getD h 30
 def encI (rd rs1 imm : Nat) : BitVec 32 := BitVec.ofNat 32 (imm % 4096 * 2 ^ 20 + rs1 * 2 ^ 15 + rd * 2 ^ 7 + 0x13)
 def encS (f3 rs2 off rs1 : Nat) : BitVec 32 :=
   BitVec.ofNat 32 (off / 32 * 2 ^ 25 + rs2 * 2 ^ 20 + rs1 * 2 ^ 15 + f3 * 2 ^ 12 + off % 32 * 2 ^ 7 + 0x23)
@@ -1875,7 +1893,7 @@ def skipA2 (j l : Nat) : Bool := decide (l < 5) && decide (outO (l + 1) j = outO
 witness memory for both bits (C1, no `sd zero,24(a0)`). -/
 def lvlTmpl (j l : Nat) : List (BitVec 32) :=
   [encI 10 8 (blkO j l + 241)] ++
-    (if l ≤ 3 then [encI 3 15 (4096 - heapOf l j), encS 3 3 16 10]
+    (if l ≤ 3 then [encI 3 15 (3072 - heapOf l j), encS 3 3 16 10]
      else [encS 3 15 16 10, encS 3 (heapRegN (heapOf l j)) 24 10]) ++
     (if skipA2 j l then [] else [if l = 5 then encI 12 8 (4096 - handO j + 241) else encI 12 8 (outO (l + 1) j + 241)]) ++
     [0x00000073]
@@ -1900,7 +1918,8 @@ def eX8 (off : Nat) : E := addC (.reg .x8) (BitVec.ofNat 64 (off + 241))
 def aX8 (off : Nat) : Addr := ⟨some (.reg .x8), BitVec.ofNat 64 (off + 241)⟩
 def p0Res (j : Nat) : PRes :=
   ⟨⟨RegFile.init.set .x12 (eX8 (outO 0 j)), [], []⟩, pcOf (childBase j + 2), true, 1, 1, [], none⟩
-def lowE (j l : Nat) : E := addC (.reg .x15) (BitVec.ofNat 64 (2 ^ 64 - heapOf l j))
+/-- C46: odd packed labels `a5 - 1024 - heap`. -/
+def lowE (j l : Nat) : E := addC (.reg .x15) (BitVec.ofNat 64 (2 ^ 64 - (1024 + heapOf l j)))
 def lvlRegs (j l : Nat) : RegFile :=
   let rf := if l = 0 then RegFile.init.set .x11 (.c 64) else RegFile.init
   let rf := rf.set .x10 (eX8 (blkO j l))
@@ -2032,11 +2051,13 @@ structure ChildPre (j B k index : Nat) (leaf pads sibs tws : Nat → Digest) (u 
   a0 : u.getReg .x10 = BitVec.ofNat 64 (B + leafO)
   a1 : u.getReg .x11 = BitVec.ofNat 64 128
   w0 : u.getReg .x15 = BitVec.ofNat 64 (w0n k index)
-  heaps : ∀ h, 2 ≤ h → h ≤ 6 → u.getReg (heapReg h) = BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel h)
+  heaps : ∀ h, 2 ≤ h → h ≤ 7 → u.getReg (heapReg h) = BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabelO h)
   leafAt : ∀ i, i < 8 → DigAt u (B + leafO + 16 * i) (leaf i)
   padAt : ∀ l, l < 6 → DigAt u (B + padO j l) (pads l)
   sibAt : ∀ l, l < 6 → DigAt u (B + sibO l j) (sibs l)
   twAt : ∀ l, l < 6 → DigAt u (B + blkO j l + 16) (tws l)
+  /-- C46: the coordinate's parity (the bank's label scheme). -/
+  par : k % 2 = 1
 theorem childLook_ok {im : Image} {j : Nat} (h : ChildCodeAt im j) : LookOK im (childLook j) := by
   intro n w hw
   unfold childLook at hw
@@ -2101,7 +2122,7 @@ theorem lvlRegs_other (j l : Nat) (r : Reg) (h3 : r ≠ .x3) (h10 : r ≠ .x10) 
   simp only
   split_ifs <;> simp only [RegFile.get_set_ne _ _ h3, RegFile.get_set_ne _ _ h10, RegFile.get_set_ne _ _ h11,
     RegFile.get_set_ne _ _ h12]
-theorem heapReg_ne (h : Nat) (hh : h ≤ 6) : heapReg h ≠ .x3 ∧ heapReg h ≠ .x10 ∧ heapReg h ≠ .x11 ∧ heapReg h ≠ .x12 := by
+theorem heapReg_ne (h : Nat) (hh : h ≤ 7) : heapReg h ≠ .x3 ∧ heapReg h ≠ .x10 ∧ heapReg h ≠ .x11 ∧ heapReg h ≠ .x12 := by
   interval_cases h <;> decide
 theorem lvlMem_get {s : MachineState} {B : Nat} (hB : 241 ≤ B ∧ s.getReg .x8 = BitVec.ofNat 64 (B - 241))
     (hb : B + 1024 < 2 ^ 64) (j : Nat) (hj : j < 128) (l A : Nat) (hl : l < 6) (hA : A < 2 ^ 64) :
@@ -2121,14 +2142,10 @@ theorem lvlMem_get {s : MachineState} {B : Nat} (hB : 241 ≤ B ∧ s.getReg .x8
     rw [memEval_cons, memEval_cons, memEval_nil, aX8_eval hB, aX8_eval hB]
     simp only [← Nat.add_assoc, E.eval, e24, e16, h3, not_false_eq_true, and_true]
 theorem heapReg_eval {s : MachineState} {j l : Nat} (hj : j < 128) (hl4 : 4 ≤ l) (hl : l ≤ 5)
-    (h64 : s.getReg .x11 = BitVec.ofNat 64 64)
-    (hheap : ∀ h, 2 ≤ h → h ≤ 6 → s.getReg (heapReg h) = BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel h)) :
-    s.getReg (heapReg (heapOf l j)) = BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel (heapOf l j)) := by
+    (hheap : ∀ h, 2 ≤ h → h ≤ 7 → s.getReg (heapReg h) = BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabelO h)) :
+    s.getReg (heapReg (heapOf l j)) = BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabelO (heapOf l j)) := by
   have hb := heapOf_low j l hj hl4 hl
-  by_cases he : heapOf l j = 7
-  · simpa [he, heapReg, SigGolfCandidate.T3.ftsHeapLabel] using h64
-  · have h6 : heapOf l j ≤ 6 := by omega
-    exact hheap _ hb.1 h6
+  exact hheap _ hb.1 hb.2
 theorem frame_writeHash4 (t : MachineState) (a : BitVec 256) (d : Nat)
     (h12 : t.getReg .x12 = BitVec.ofNat 64 d) (hd : d + 32 < 2 ^ 64) :
     Frame t (writeHash t a) (fun A => A = d ∨ A = d + 8 ∨ A = d + 16 ∨ A = d + 24) := by
@@ -2203,14 +2220,18 @@ theorem nodeIn_blocks (k index j : Nat) (pads : Nat → Digest) (tws sibs : Nat 
     (toQ (pad64 (nodeIn k index j pads (hpOf j tws) sibs v l))).blocks = 1 := by
   unfold nodeIn; exact blocks_blk4 _ _ _ _
 set_option debug.skipKernelTC true in
-theorem hdr11_lo (k index heap : Nat) (hp : BitVec 64) :
+/-- C46: odd coordinates' packed labels sit `1024` below the pair-shared base. -/
+theorem hdr11_lo {k : Nat} (hk : k % 2 = 1) (index heap : Nat) (hp : BitVec 64) :
     (nodeHeader k index heap hp).extractLsb' 0 64 =
-      BitVec.ofNat 64 (if 8 ≤ heap ∧ heap < 128 then w0n k index + 2 ^ 64 - heap else w0n k index) := by
+      BitVec.ofNat 64 (if 8 ≤ heap ∧ heap < 128 then w0n k index + 2 ^ 64 - (1024 + heap) else w0n k index) := by
   unfold nodeHeader V3.nodeHdr w0n
+  rw [hk, Nat.mul_one, Nat.sub_sub, Nat.add_comm heap 1024]
   split <;> exact BitVec.extractLsb'_append_eq_right
-theorem hdr11_hi (k index heap : Nat) (hp : BitVec 64) :
-    (nodeHeader k index heap hp).extractLsb' 64 64 = if 8 ≤ heap ∧ heap < 128 then hp else BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap) := by
-  unfold nodeHeader V3.nodeHdr
+/-- C46: odd coordinates' two-word labels are `ftsHeapLabelO`. -/
+theorem hdr11_hi {k : Nat} (hk : k % 2 = 1) (index heap : Nat) (hp : BitVec 64) :
+    (nodeHeader k index heap hp).extractLsb' 64 64 = if 8 ≤ heap ∧ heap < 128 then hp else BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabelO heap) := by
+  unfold nodeHeader V3.nodeHdr SigGolfCandidate.T3.ftsHeapLabelC
+  rw [if_pos hk]
   split <;> exact BitVec.extractLsb'_append_eq_left
 set_option debug.skipKernelTC true in
 theorem ofNat_add_neg_wrap (a h : Nat) (hh : h < 2 ^ 64) :
@@ -2344,22 +2365,20 @@ theorem lvl_core {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im j
   have hw0 : 0 ≤ w0n k index ∧ w0n k index < 2 ^ 64 := by
     have := Nat.mod_lt index (show 0 < 2 ^ 31 by norm_num)
     have := Nat.mod_lt k (show 0 < 16 by norm_num)
-    unfold w0n V3.nodeLow
-    rw [ClaudeWCT.WCT9.ftsLeafLow_zero]
-    unfold SigGolfCandidate.T3.ftsBiasN
+    unfold w0n V3.nodeLow ClaudeWCT.WCT9.ftsNodeLow2 SigGolfCandidate.T3.ftsBiasN
     omega
   have hhdr : DigAt t (B + blkO j l + 16) (nodeHeader k index (heapOf l j) (hpOf j tws l)) := by
     by_cases h3 : l ≤ 3
     · have hpk := heapOf_packed j l hj h3
       constructor
-      · rw [hmem _ (by omega), if_neg (fun h => by have := h.1; omega), if_pos rfl, if_pos h3, hdr11_lo,
+      · rw [hmem _ (by omega), if_neg (fun h => by have := h.1; omega), if_pos rfl, if_pos h3, hdr11_lo hu.par,
           if_pos hpk]
         unfold lowE
         rw [addC_eval]
         simp only [E.eval]
         rw [hx15]
-        exact ofNat_add_neg_wrap _ _ (by omega)
-      · rw [show B + blkO j l + 16 + 8 = B + blkO j l + 24 by omega, hdr11_hi, if_pos hpk]
+        exact ofNat_add_neg_wrap _ (1024 + heapOf l j) (by omega)
+      · rw [show B + blkO j l + 16 + 8 = B + blkO j l + 24 by omega, hdr11_hi hu.par, if_pos hpk]
         rw [hmem _ (by omega), if_neg (fun h => h.2 h3), if_neg (by omega),
           show B + blkO j l + 24 = B + (blkO j l + 24) by omega,
           sU _ (by omega) (fun hm => tw_free hj (by omega) hm rfl)]
@@ -2370,12 +2389,12 @@ theorem lvl_core {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im j
     · have hlo := heapOf_low j l hj (by omega) (by omega)
       have hnp : ¬ (8 ≤ heapOf l j ∧ heapOf l j < 128) := by omega
       constructor
-      · rw [hmem _ (by omega), if_neg (fun h => by have := h.1; omega), if_pos rfl, if_neg h3, hdr11_lo,
+      · rw [hmem _ (by omega), if_neg (fun h => by have := h.1; omega), if_pos rfl, if_neg h3, hdr11_lo hu.par,
           if_neg hnp, hx15]
       · rw [show B + blkO j l + 16 + 8 = B + blkO j l + 24 by omega, hmem _ (by omega),
-          if_pos ⟨rfl, h3⟩, hdr11_hi, if_neg hnp]
+          if_pos ⟨rfl, h3⟩, hdr11_hi hu.par, if_neg hnp]
         have hs64 : s.getReg .x11 = BitVec.ofNat 64 64 := hs.a1 (by omega)
-        have hr := heapReg_eval (s := s) (l := l) hj (by omega) (by omega) hs64 (fun h h1 h6 => by
+        have hr := heapReg_eval (s := s) (l := l) hj (by omega) (by omega) (fun h h1 h6 => by
           obtain ⟨n3, n10, n11, n12⟩ := heapReg_ne h h6
           rw [hkeep _ n3 n10 n11 n12]; exact hu.heaps h h1 h6)
         exact hr
@@ -2950,6 +2969,8 @@ structure ChildPre (j B k index : Nat) (leaf pads sibs tws : Nat → Digest) (u 
   padAt : ∀ l, l < 6 → DigAt u (B + padO j l) (pads l)
   sibAt : ∀ l, l < 6 → DigAt u (B + sibO l j) (sibs l)
   twAt : ∀ l, l < 6 → DigAt u (B + blkO j l + 16) (tws l)
+  /-- C46: the coordinate's parity (the bank's label scheme). -/
+  par : k = 8
 theorem childLook_ok {im : Image} {j : Nat} (h : ChildCodeAt im j) : LookOK im (childLook j) := by
   intro n w hw
   unfold childLook at hw
@@ -3116,15 +3137,21 @@ theorem nodeIn_blocks (k index j : Nat) (pads : Nat → Digest) (tws sibs : Nat 
     (toQ (pad64 (nodeIn k index j pads (hpOf j tws) sibs v l))).blocks = 1 := by
   unfold nodeIn; exact blocks_blk4 _ _ _ _
 set_option debug.skipKernelTC true in
-theorem hdr11_lo (k index heap : Nat) (hp : BitVec 64) :
+theorem hdr11_lo {k : Nat} (hk : k = 8) (index heap : Nat) (hp : BitVec 64) :
     (nodeHeader k index heap hp).extractLsb' 0 64 =
       BitVec.ofNat 64 (if 8 ≤ heap ∧ heap < 128 then w0n k index + 2 ^ 64 - heap else w0n k index) := by
   unfold nodeHeader V3.nodeHdr w0n
+  rw [show k % 2 = 0 by omega, Nat.mul_zero, Nat.sub_zero]
   split <;> exact BitVec.extractLsb'_append_eq_right
-theorem hdr11_hi (k index heap : Nat) (hp : BitVec 64) :
-    (nodeHeader k index heap hp).extractLsb' 64 64 = if 8 ≤ heap ∧ heap < 128 then hp else BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap) := by
+theorem hdr11_hi {k : Nat} (_hk : k = 8) (index heap : Nat) (hp : BitVec 64) :
+    (nodeHeader k index heap hp).extractLsb' 64 64 =
+      if 8 ≤ heap ∧ heap < 128 then hp else BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabelC k heap) := by
   unfold nodeHeader V3.nodeHdr
   split <;> exact BitVec.extractLsb'_append_eq_left
+/-- C46: coordinate 8's two-word levels carry `ftsHeapLabel`. -/
+theorem labelC_low {k : Nat} (hk : k = 8) {j l : Nat} (_hj : j < 128) (_hl4 : 4 ≤ l) (_hl : l < 6) :
+    SigGolfCandidate.T3.ftsHeapLabelC k (heapOf l j) = SigGolfCandidate.T3.ftsHeapLabel (heapOf l j) := by
+  subst hk; exact SigGolfCandidate.T3.ftsHeapLabelC_eight _
 set_option debug.skipKernelTC true in
 theorem ofNat_add_neg_wrap (a h : Nat) (hh : h < 2 ^ 64) :
     BitVec.ofNat 64 a + BitVec.ofNat 64 (2 ^ 64 - h) = BitVec.ofNat 64 (a + 2 ^ 64 - h) := by
@@ -3257,22 +3284,20 @@ theorem lvl_core {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im j
   have hw0 : 0 ≤ w0n k index ∧ w0n k index < 2 ^ 64 := by
     have := Nat.mod_lt index (show 0 < 2 ^ 31 by norm_num)
     have := Nat.mod_lt k (show 0 < 16 by norm_num)
-    unfold w0n V3.nodeLow
-    rw [ClaudeWCT.WCT9.ftsLeafLow_zero]
-    unfold SigGolfCandidate.T3.ftsBiasN
+    unfold w0n V3.nodeLow ClaudeWCT.WCT9.ftsNodeLow2 SigGolfCandidate.T3.ftsBiasN
     omega
   have hhdr : DigAt t (B + blkO j l + 16) (nodeHeader k index (heapOf l j) (hpOf j tws l)) := by
     by_cases h3 : l ≤ 3
     · have hpk := heapOf_packed j l hj h3
       constructor
-      · rw [hmem _ (by omega), if_neg (fun h => by have := h.1; omega), if_pos rfl, if_pos h3, hdr11_lo,
+      · rw [hmem _ (by omega), if_neg (fun h => by have := h.1; omega), if_pos rfl, if_pos h3, hdr11_lo hu.par,
           if_pos hpk]
         unfold lowE
         rw [addC_eval]
         simp only [E.eval]
         rw [hx15]
         exact ofNat_add_neg_wrap _ _ (by omega)
-      · rw [show B + blkO j l + 16 + 8 = B + blkO j l + 24 by omega, hdr11_hi, if_pos hpk]
+      · rw [show B + blkO j l + 16 + 8 = B + blkO j l + 24 by omega, hdr11_hi hu.par, if_pos hpk]
         rw [hmem _ (by omega), if_neg (fun h => h.2 h3), if_neg (by omega),
           show B + blkO j l + 24 = B + (blkO j l + 24) by omega,
           sU _ (by omega) (fun hm => tw_free hj (by omega) hm rfl)]
@@ -3283,10 +3308,11 @@ theorem lvl_core {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im j
     · have hlo := heapOf_low j l hj (by omega) (by omega)
       have hnp : ¬ (8 ≤ heapOf l j ∧ heapOf l j < 128) := by omega
       constructor
-      · rw [hmem _ (by omega), if_neg (fun h => by have := h.1; omega), if_pos rfl, if_neg h3, hdr11_lo,
+      · rw [hmem _ (by omega), if_neg (fun h => by have := h.1; omega), if_pos rfl, if_neg h3, hdr11_lo hu.par,
           if_neg hnp, hx15]
       · rw [show B + blkO j l + 16 + 8 = B + blkO j l + 24 by omega, hmem _ (by omega),
-          if_pos ⟨rfl, h3⟩, hdr11_hi, if_neg hnp]
+          if_pos ⟨rfl, h3⟩, hdr11_hi hu.par, if_neg hnp,
+          labelC_low hu.par hj (by omega) (by omega)]
         have hs64 : s.getReg .x11 = BitVec.ofNat 64 64 := hs.a1 (by omega)
         have hr := heapReg_eval (s := s) (l := l) hj (by omega) (by omega) hs64 (fun h h1 h6 => by
           obtain ⟨n3, n10, n11, n12⟩ := heapReg_ne h h6
@@ -3802,7 +3828,8 @@ theorem pre_of_shared {L : W9Machine.Layout} (w : ClaudeWCT.W9.T3M.WBytes) (inde
     (k : Fin 9) (raw : Fin 128) (ends : List Digest) (u t : MachineState)
     (hu : SharedChild.Pre L w index k raw ends u)
     (hr : ∀ r, t.getReg r = u.getReg r) (hm : ∀ a, t.getMem a = u.getMem a)
-    (hpc : t.pc = pcOf (childBase (SharedV3.physical k.val raw.val) + 1)) :
+    (hpc : t.pc = pcOf (childBase (SharedV3.physical k.val raw.val) + 1))
+    (hpar : k.val % 2 = 0 := by have := k.isLt; first | omega | (simp only [SharedV3.first, decide_eq_false_iff_not, decide_eq_true_eq, not_and] at *; omega)) :
     ChildPre (SharedV3.physical k.val raw.val) (Chain.base L k) k.val index
       (V3.leafFields k.val index raw.val (SharedV3.leafPad w k.val) ends)
       (SharedV3.nodePad w k.val (SharedV3.physical k.val raw.val))
@@ -3812,7 +3839,7 @@ theorem pre_of_shared {L : W9Machine.Layout} (w : ClaudeWCT.W9.T3M.WBytes) (inde
     fun a d h => ⟨(hm _).trans h.1, (hm _).trans h.2⟩
   refine ⟨hpc, ?_, ?_, (hr _).trans hu.hashMode, ⟨hu.baseReg.1, (hr _).trans hu.baseReg.2⟩,
     (hr _).trans hu.hashInput, (hr _).trans hu.hashLen, (hr _).trans hu.nodeWord,
-    ?_, ?_, ?_, ?_, ?_⟩
+    ?_, ?_, ?_, ?_, ?_, hpar⟩
   · unfold Chain.base coordinateBase Layout.shift; omega
   · have hk := k.isLt
     unfold Chain.base coordinateBase Layout.shift MEMORY_BYTES; omega
@@ -3844,7 +3871,8 @@ theorem pre_of_shared {L : W9Machine.Layout} (w : ClaudeWCT.W9.T3M.WBytes) (inde
     (k : Fin 9) (raw : Fin 128) (ends : List Digest) (u t : MachineState)
     (hu : SharedChild.Pre L w index k raw ends u)
     (hr : ∀ r, t.getReg r = u.getReg r) (hm : ∀ a, t.getMem a = u.getMem a)
-    (hpc : t.pc = pcOf (childBase (SharedV3.physical k.val raw.val) + 1)) :
+    (hpc : t.pc = pcOf (childBase (SharedV3.physical k.val raw.val) + 1))
+    (hpar : k.val % 2 = 1 := by have := k.isLt; first | omega | (simp only [SharedV3.first, decide_eq_false_iff_not, decide_eq_true_eq, not_and] at *; omega)) :
     ChildPre (SharedV3.physical k.val raw.val) (Chain.base L k) k.val index
       (V3.leafFields k.val index raw.val (SharedV3.leafPad w k.val) ends)
       (SharedV3.nodePad w k.val (SharedV3.physical k.val raw.val))
@@ -3854,14 +3882,19 @@ theorem pre_of_shared {L : W9Machine.Layout} (w : ClaudeWCT.W9.T3M.WBytes) (inde
     fun a d h => ⟨(hm _).trans h.1, (hm _).trans h.2⟩
   refine ⟨hpc, ?_, ?_, (hr _).trans hu.hashMode, ⟨hu.baseReg.1, (hr _).trans hu.baseReg.2⟩,
     (hr _).trans hu.hashInput, (hr _).trans hu.hashLen, (hr _).trans hu.nodeWord,
-    ?_, ?_, ?_, ?_, ?_⟩
+    ?_, ?_, ?_, ?_, ?_, hpar⟩
   · unfold Chain.base coordinateBase Layout.shift; omega
   · have hk := k.isLt
     unfold Chain.base coordinateBase Layout.shift MEMORY_BYTES; omega
   · intro h h2 h7
-    have he : heapReg h = Child.heapReg h := by interval_cases h <;> rfl
-    rw [hr, he]
-    exact hu.heaps h h2 h7
+    rw [hr]
+    interval_cases h
+    · exact hu.heaps 2 (by decide) (by decide)
+    · exact hu.heaps 3 (by decide) (by decide)
+    · exact hu.heapsO 4 (by decide) (by decide)
+    · exact hu.heapsO 5 (by decide) (by decide)
+    · exact hu.heapsO 6 (by decide) (by decide)
+    · exact hu.heapsO 7 (by decide) (by decide)
   · intro i hi
     exact hd _ _ (hu.leafAt i hi)
   · intro l hl
@@ -3886,7 +3919,8 @@ theorem pre_of_shared {L : W9Machine.Layout} (w : ClaudeWCT.W9.T3M.WBytes) (inde
     (k : Fin 9) (raw : Fin 128) (ends : List Digest) (u t : MachineState)
     (hu : SharedChild.Pre L w index k raw ends u)
     (hr : ∀ r, t.getReg r = u.getReg r) (hm : ∀ a, t.getMem a = u.getMem a)
-    (hpc : t.pc = pcOf (childBase (SharedV3.physical k.val raw.val) + 1)) :
+    (hpc : t.pc = pcOf (childBase (SharedV3.physical k.val raw.val) + 1))
+    (hpar : k.val = 8 := by have := k.isLt; first | omega | (simp only [SharedV3.first, decide_eq_false_iff_not, decide_eq_true_eq, not_and] at *; omega)) :
     ChildPre (SharedV3.physical k.val raw.val) (Chain.base L k) k.val index
       (V3.leafFields k.val index raw.val (SharedV3.leafPad w k.val) ends)
       (SharedV3.nodePad w k.val (SharedV3.physical k.val raw.val))
@@ -3896,7 +3930,7 @@ theorem pre_of_shared {L : W9Machine.Layout} (w : ClaudeWCT.W9.T3M.WBytes) (inde
     fun a d h => ⟨(hm _).trans h.1, (hm _).trans h.2⟩
   refine ⟨hpc, ?_, ?_, (hr _).trans hu.hashMode, ⟨hu.baseReg.1, (hr _).trans hu.baseReg.2⟩,
     (hr _).trans hu.hashInput, (hr _).trans hu.hashLen, (hr _).trans hu.nodeWord,
-    ?_, ?_, ?_, ?_, ?_⟩
+    ?_, ?_, ?_, ?_, ?_, hpar⟩
   · unfold Chain.base coordinateBase Layout.shift; omega
   · have hk := k.isLt
     unfold Chain.base coordinateBase Layout.shift MEMORY_BYTES; omega
@@ -3944,9 +3978,7 @@ theorem post_to_shared (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (k : Fin 9)
   refine ⟨?_, ht.a1, ?_, ?_, ?_, ?_⟩
   · rw [ht.pc, hr, hu.returnPC]
     simp only [hc, ↓reduceIte]
-    -- Y6 R-odd: settle the parity branch first; the remaining fact holds for every `k`.
-    have hodd : ¬ k.val % 2 = 1 := by simp only [SharedV3.first, decide_eq_true_eq] at hf; omega
-    rw [if_neg hodd]
+    -- C46: A and B children both return to `returnWord + 503`.
     fin_cases k <;> decide +kernel
   · rw [← hh]; exact ht.top
   · rw [ht.a2, ho]
@@ -3989,10 +4021,7 @@ theorem post_to_shared (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (k : Fin 9)
   refine ⟨?_, ht.a1, ?_, ?_, ?_, ?_⟩
   · rw [ht.pc, hr, hu.returnPC]
     simp only [hc, ↓reduceIte]
-    -- Y6 R-odd: settle the parity branch first; the remaining fact holds for every `k`.
-    have hodd : k.val % 2 = 1 := by
-      have := k.isLt; simp only [SharedV3.first, decide_eq_false_iff_not] at hf; omega
-    rw [if_pos hodd]
+    -- C46: A and B children both return to `returnWord + 503`.
     fin_cases k <;> decide +kernel
   · rw [← hh]; exact ht.top
   · rw [ht.a2, ho]
@@ -4590,7 +4619,7 @@ theorem tail_tbsim {im : Image} {j : Nat} (hj : j<128) (hcode : ChildCodeAt im j
       simp only [p7Res, memEval_nil]
     have hp : HandPost B j u (ans.extractLsb' 128 128) z := by
       refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
-      · have e : z.pc = ((writeHash t ans).getReg .x1 + 2008) &&& ~~~1#64 := rfl
+      · have e : z.pc = ((writeHash t ans).getReg .x1 + 2012) &&& ~~~1#64 := rfl
         rw [e, writeHash_getReg, hkeep .x1 (by decide) (by decide) (by decide) (by decide)]
       · rw [hzreg, writeHash_getReg, h11]
       · have hd := DigAt.writeHash_hi t ans _ h12 hdest
@@ -5034,10 +5063,8 @@ theorem post_to_shared_at {L : W9Machine.Layout} (w : ClaudeWCT.W9.T3M.WBytes) (
   refine ⟨?_, ht.a1, ?_, ?_, ?_, ?_⟩
   · rw [ht.pc, hr, hu.returnPC]
     simp only [hc, ↓reduceIte]
-    change (pcOf (L.returnWord k)+BitVec.ofNat 64 (4*502)) &&& ~~~1#64 = _
+    change (pcOf (L.returnWord k)+BitVec.ofNat 64 (4*503)) &&& ~~~1#64 = _
     rw [W9Drv.SharedBank.pcOf_add_words,pcOf_and_not1]
-    have hodd : ¬ k.val % 2 = 1 := by simp only [SharedV3.first, decide_eq_true_eq] at hf; omega
-    rw [if_neg hodd]
   · rw [← hh]; exact ht.top
   · rw [ht.a2, ho]
   · intro r hr'
@@ -5081,9 +5108,6 @@ theorem post_to_shared_at {L : W9Machine.Layout} (w : ClaudeWCT.W9.T3M.WBytes) (
     simp only [hc, ↓reduceIte]
     change (pcOf (L.returnWord k)+BitVec.ofNat 64 (4*503)) &&& ~~~1#64 = _
     rw [W9Drv.SharedBank.pcOf_add_words,pcOf_and_not1]
-    have hodd : k.val % 2 = 1 := by
-      have := k.isLt; simp only [SharedV3.first, decide_eq_false_iff_not] at hf; omega
-    rw [if_pos hodd]
   · rw [← hh]; exact ht.top
   · rw [ht.a2, ho]
   · intro r hr'

@@ -4873,7 +4873,7 @@ def treeC : Nat := 42 + (8 + 25)
 theorem hashInput_node (t : MachineState) {c index h : Nat} {pad L R : Digest} (hc : c < 9) (hidx : index < 2 ^ 31)
     (hh : h < 128) (h10 : t.getReg .x10 = BitVec.ofNat 64 NODEW) (h11 : t.getReg .x11 = BitVec.ofNat 64 64)
     (hL : DigAt t NODEW L) (m16 : t.getMem (BitVec.ofNat 64 (NODEW + 16)) = BitVec.ofNat 64 (nodeLoN c index h))
-    (m24 : t.getMem (BitVec.ofNat 64 (NODEW + 24)) = BitVec.ofNat 64 (if 8 ≤ h then 0 else SigGolfCandidate.T3.ftsHeapLabel h))
+    (m24 : t.getMem (BitVec.ofNat 64 (NODEW + 24)) = BitVec.ofNat 64 (if 8 ≤ h then 0 else SigGolfCandidate.T3.ftsHeapLabelC c h))
     (hP : DigAt t (NODEW + 32) pad)
     (hR : DigAt t (NODEW + 48) R) : hashInput t = toQ (pad64 (nodeIn c index h pad L R)) := by
   refine hashInput_of_words t _ 0 NODEW (by rw [pad64_of_aligned _ (by rw [nodeIn_len]), nodeIn_len]) h10 (by ao)
@@ -5615,8 +5615,22 @@ def hashProgram (c index h : Nat) (pad L R : Digest) : M Digest :=
   else if high c h then publicHash (nodeIn c index h pad L R) >>= fun o=>pure (o.extractLsb' 128 128)
   else shortHash (nodeIn c index h pad L R)
 
-/-- C42: at most `38 + 7 + 12` (an odd coordinate, heap 6: the heap-label stub's longest path). -/
-theorem cycles_le (c m p : Nat) : cycles c m p≤57 := by unfold cycles labN;split_ifs <;> omega
+/-- C42: at most `38 + 7 + 12` (an odd coordinate, heap 6: the heap-label stub's longest path). C46: on the paths
+the heaps take (`mode_lab`) the longest is `38 + 7 + 11` (an odd coordinate, heap 7). -/
+theorem cycles_le (c m p : Nat) (hmp : m=1 ↔ p<4) : cycles c m p≤57 := by
+  unfold cycles
+  by_cases hp : p<4
+  · have hm : m=1 := hmp.mpr hp
+    rw [if_pos hm,if_neg (by omega : m≠0)]
+    rcases Nat.mod_two_eq_zero_or_one c with hc|hc
+    · have hl : labN c p≤12 := by unfold labN;split_ifs <;> omega
+      split_ifs <;> omega
+    · have hl : labN c p≤11 := by unfold labN;split_ifs <;> omega
+      split_ifs <;> omega
+  · have hm : m≠1 := fun h=>hp (hmp.mp h)
+    have hl : labN c p≤13 := by unfold labN;split_ifs <;> omega
+    rw [if_neg hm]
+    split_ifs <;> omega
 
 theorem hashPc_tail (c : Nat) (hc:c<9) : pcOf (hashPc c)+4=pcOf (SharedTail.entry c) := by
   have h:∀c,c<9→pcOf (hashPc c)+4=pcOf (SharedTail.entry c):=by decide +kernel
@@ -5633,7 +5647,7 @@ theorem node_read (s : MachineState) {h : Nat} (h18:s.getReg .x18=BitVec.ofNat 6
 theorem readWords_node (t : MachineState) {c index h : Nat} {pad L R : Digest} (hc : c < 9) (hidx : index < 2 ^ 31)
     (hh : h < 128) (hL : DigAt t NODEW L)
     (m16 : t.getMem (BitVec.ofNat 64 (NODEW + 16)) = BitVec.ofNat 64 (nodeLoN c index h))
-    (m24 : t.getMem (BitVec.ofNat 64 (NODEW + 24)) = BitVec.ofNat 64 (if 8 ≤ h then 0 else SigGolfCandidate.T3.ftsHeapLabel h))
+    (m24 : t.getMem (BitVec.ofNat 64 (NODEW + 24)) = BitVec.ofNat 64 (if 8 ≤ h then 0 else SigGolfCandidate.T3.ftsHeapLabelC c h))
     (hP : DigAt t (NODEW + 32) pad) (hR : DigAt t (NODEW + 48) R) :
     t.readWords (BitVec.ofNat 64 NODEW) 8 = wordsOf (nodeIn c index h pad L R) := by
   have e:=wordsOf_node c index h pad L R hc hidx hh
@@ -5652,7 +5666,7 @@ theorem readWords_node (t : MachineState) {c index h : Nat} {pad L R : Digest} (
   · exact hR.2
 
 theorem input_of_readout (s u : MachineState) {c index h : Nat} {pad L R : Digest}
-    (hc:c<9) (hi:index<2^31) (hh:h<128) (hne:h≠1)
+    (hc:c<9) (hi:index<2^31) (hh:h<128) (hne:h≠1) (hev:c%2=0 ∧ c<8 → 4≤h)
     (h18:s.getReg .x18=BitVec.ofNat 64 h) (h22:s.getReg .x22=BitVec.ofNat 64 index)
     (hL:DigAt s (HEAPW+16*(2*h)) L) (hR:DigAt s (HEAPW+16*(2*h+1)) R)
     (hp:PadAt c h pad s)
@@ -5673,7 +5687,7 @@ theorem input_of_readout (s u : MachineState) {c index h : Nat} {pad L R : Diges
     exact hdrLo_eval s h22 h18 hc hi hh
   · rw[show NODEW+24=NODEW+8*3 by omega,hm 3 (by decide)]
     simp only[value,↓reduceIte]
-    exact hdrHi_eval s h18 hne
+    exact hdrHi_eval s hc h18 hne hev
   · rw[show NODEW+32=NODEW+8*4 by omega,hm 4 (by decide)]
     simp only[value,↓reduceIte]
     exact hP.1
@@ -5811,7 +5825,7 @@ def unitC : Nat := 80+(18*511+42)
 
 theorem hash_unit {im : Image} {sk : BitVec 256} {c index h : Nat} {pad L R : Digest}
     (hn:LookOK im (look c)) (ht:LookOK im (SharedTail.look c)) (hg:GrindCode im)
-    (hc:c<9) (hi:index<2^31) (hh1:1≤h) (hh:h<128) (hne:h≠1)
+    (hc:c<9) (hi:index<2^31) (hh1:1≤h) (hh:h<128) (hne:h≠1) (hev:c%2=0 ∧ c<8 → 4≤h)
     {s : MachineState} (hpc:s.pc=pcOf (entry c))
     (h5:s.getReg .x5=0) (h18:s.getReg .x18=BitVec.ofNat 64 h) (h22:s.getReg .x22=BitVec.ofNat 64 index)
     (hL:DigAt s (HEAPW+16*(2*h)) L) (hR:DigAt s (HEAPW+16*(2*h+1)) R) (hp:PadAt c h pad s) (hz:SaveZ s) :
@@ -5820,7 +5834,7 @@ theorem hash_unit {im : Image} {sk : BitVec 256} {c index h : Nat} {pad L R : Di
       t.getReg .x18=BitVec.ofNat 64 (h-1) ∧ DigAt t (HEAPW+16*h) root ∧
       RegsExcept s t [.x3,.x6,.x7,.x10,.x11,.x12,.x18,.x28,.x29] ∧ Frame s t (unitW h)) := by
   obtain ⟨u,su,upc,x10,x11,x12,um,ru,fu⟩:=step_node hn hc hh s hpc h18 h22
-  have hw:=input_of_readout s u hc hi hh hne h18 h22 hL hR hp um
+  have hw:=input_of_readout s u hc hi hh hne hev h18 h22 hL hR hp um
   obtain ⟨hpcb,hent⟩:=hashPc_lt c hc
   have hTv:SigGolfCandidate.FtsGrind.SIGN_TRAMP+5*c < 25390:=by
     simp only[SigGolfCandidate.FtsGrind.SIGN_TRAMP];omega
@@ -5919,7 +5933,7 @@ theorem hash_unit {im : Image} {sk : BitVec 256} {c index h : Nat} {pad L R : Di
           · exact hn (Or.inr (Or.inl h'))
           all_goals exact hsv (by simp only[saveCell];omega)
         rw[ho.frame.get hX hns,m1.get hX id,fu.get hX hnw]
-  · have:=cycles_le c (mode h) (lab h)
+  · have:=cycles_le c (mode h) (lab h) (mode_lab h)
     have:=signW_le c h (decide (c<4))
     unfold unitC
     omega
@@ -6003,7 +6017,12 @@ theorem step {c index : Nat} (hn:LookOK im (SharedNode.look c)) (ht:LookOK im (S
   have hp:SharedNode.PadAt c (127-k) (pads (127-k)) t:=
     pad_treeFrame (hpad _ hh) hc h.frame
   unfold stepProgram
-  refine (TBSim.bind (W₂:=0) (SharedNode.hash_unit hn ht hg hc hi hh1 hh (by unfold count at hk; omega) hpc h.x5 h.x18 h.x22
+  refine (TBSim.bind (W₂:=0) (SharedNode.hash_unit hn ht hg hc hi hh1 hh (by unfold count at hk; omega) (by
+      intro he
+      have hf : SharedTail.first c=true := by unfold SharedTail.first;exact decide_eq_true ⟨he.2,he.1⟩
+      unfold count SharedTail.limit at hk
+      rw [if_pos hf] at hk
+      omega) hpc h.x5 h.x18 h.x22
     (h.heap _ (by omega) (by omega)) (h.heap _ (by omega) (by omega)) hp
     (hz.frame h.frame (fun _ ha=>saveCell_treeW ha)))
     (fun value u hu=>TBSim.pure ?_)).mono (by omega) (fun _ _ h=>h)
@@ -10984,16 +11003,34 @@ theorem installed_grind : GrindCode Images.signImage := by
   exact h ⟨c,hc⟩
 theorem installed_labelStub (c : Fin 9) : CodeAt Images.signImage (pcOf (labelStubPc c.val)) (labelStub c.val) := by
   fin_cases c <;> sign_slice_fast
-/-- C42: the heap-label stub `STUB_s2` at 26538. -/
-theorem installed_heapStub : CodeAt Images.signImage (pcOf heapStubPc) heapStub := by
+/-- C46: the two-word label stubs (even coordinates and `c = 8` at 26598, odd coordinates at 26627). -/
+theorem installed_heapStubE : CodeAt Images.signImage (pcOf 26598) heapStubE := by
   sign_slice_fast
+theorem installed_heapStubO : CodeAt Images.signImage (pcOf 26627) heapStubO := by
+  sign_slice_fast
+theorem installed_heapStub (c : Nat) : CodeAt Images.signImage (pcOf (heapStubPc c)) (heapStub c) := by
+  unfold heapStubPc heapStub
+  split_ifs
+  · exact installed_heapStubO
+  · exact installed_heapStubE
+/-- C46: the odd packed-node stubs (`26586 + 3 (c / 2)`). -/
+theorem installed_oddStub (c : Nat) (hc : c<9) (ho : c%2=1) :
+    CodeAt Images.signImage (pcOf (oddStubPc c)) (oddStub c) := by
+  obtain rfl|rfl|rfl|rfl : c=1 ∨ c=3 ∨ c=5 ∨ c=7 := by omega
+  all_goals sign_slice_fast
 theorem installed_look (c : Nat) (hc : c<9) : LookOK Images.signImage (look c) := by
   intro n w hw
   unfold look at hw
   split at hw
   · rename_i hheap
-    have he := SharedReuse.codeAt_get_word (by decide : heapStubPc < 2^30) installed_heapStub hw
+    have hb : heapStubPc c < 2^30 := by unfold heapStubPc; split_ifs <;> decide
+    have he := SharedReuse.codeAt_get_word hb (installed_heapStub c) hw
     simpa [Nat.add_sub_cancel' hheap] using he
+  split at hw
+  · rename_i hodd
+    have hb : oddStubPc c < 2^30 := by unfold oddStubPc; omega
+    have he := SharedReuse.codeAt_get_word hb (installed_oddStub c hc hodd.1) hw
+    simpa [Nat.add_sub_cancel' hodd.2] using he
   split at hw
   · rename_i hlabel
     have hb : labelStubPc c < 2^30 := by

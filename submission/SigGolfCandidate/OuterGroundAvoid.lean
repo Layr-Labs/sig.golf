@@ -74,18 +74,20 @@ theorem notF_children (first : Bool) (coord : Nat) (word : Rank) (selected : Chi
   allQ_foldlM _ _ (fun _ _ => allQ_bind (notF_buildChildH hS _ _ _ _ _ _) fun _ => allQ_pure _) _
 
 
-theorem node_ne_set (coord heap : Nat) (hc : coord<9) (hh : heap<128)
+/-- C46: pair-mates share the tag base, so the heap must be a fold heap (`2 ≤ heap`). -/
+theorem node_ne_set (coord heap : Nat) (hc : coord<9) (hh : heap<128) (h2 : 2≤heap)
     (hn : ¬S coord heap) : ∀ c x,S c x→wctNodeHeader coord index heap≠wctNodeHeader c index x := by
   intro c x hs he
   have hp:=hS c x hs
-  obtain ⟨e1,-,e3⟩:=ClaudeWCT.WCT9.wctNodeHeader_injective hc hp.2.1 (by omega) hp.1 hp.2.1
-    (by have := hp.heap;omega) he
+  obtain ⟨e1,-,e3⟩:=ClaudeWCT.WCT9.wctNodeHeader_injective_of hc hp.2.1 (by omega) hp.1 hp.2.1
+    (by have := hp.heap;omega)
+    (Or.inl ⟨ClaudeWCT.WCT9.ftsTwoOk_of h2 hh,ClaudeWCT.WCT9.ftsTwoOk_of hp.heap.1 hp.heap.2⟩) he
   exact hn (e1 ▸ e3 ▸ hs)
 
 theorem notF_sharedNode_external (first : Bool) (coord heap : Nat) (pads : Nat → PairRoot) (l r : Digest)
-    (hc : coord<9) (hh : heap<128) (hn : ¬S coord heap) :
+    (hc : coord<9) (hh : heap<128) (h2 : 2≤heap) (hn : ¬S coord heap) :
     AllQueriesSatisfy (sharedNode first coord index heap pads l r) (NotF secret index S) := by
-  have hne:=node_ne_set hS coord heap hc hh hn
+  have hne:=node_ne_set hS coord heap hc hh h2 hn
   unfold sharedNode
   split
   · unfold sharedOuterHash

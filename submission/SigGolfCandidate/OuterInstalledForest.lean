@@ -11,7 +11,7 @@ namespace OuterInstalledForest
 open OracleComp RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv SigGolfCandidate.T3M W9Machine
 open ClaudeWCT.W9.Machine.Expand
 
-/-- C42: the dispatch step stub (expand words 88780..88789) in the submitted image (unpatched window `88339..`). -/
+/-- C42: the dispatch step stub (expand words 88780..88789; C46: ..88799) in the submitted image (unpatched window `88339..`). -/
 theorem stub : CodeAt OuterImages.expandImage (pcOf 88780) SharedDispatch.stub :=
   codeAt_of_window_eq (source:=Images.expandImage) (target:=OuterImages.expandImage) (start:=88339) (count:=147437)
     (by decide) (by decide) (by decide) (OuterImageWindows.high_window 88339 147437 (by decide) (by decide)).symm

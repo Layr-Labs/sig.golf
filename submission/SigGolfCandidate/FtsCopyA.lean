@@ -137,22 +137,20 @@ theorem lvl_coreC {im : Image} {j : Nat} (hj : j < 128) (hcode : CopyCodeAt im j
   have hw0 : 0 ≤ w0n k index ∧ w0n k index < 2 ^ 64 := by
     have := Nat.mod_lt index (show 0 < 2 ^ 31 by norm_num)
     have := Nat.mod_lt k (show 0 < 16 by norm_num)
-    unfold w0n V3.nodeLow
-    rw [ClaudeWCT.WCT9.ftsLeafLow_zero]
-    unfold SigGolfCandidate.T3.ftsBiasN
+    unfold w0n V3.nodeLow ClaudeWCT.WCT9.ftsNodeLow2 SigGolfCandidate.T3.ftsBiasN
     omega
   have hhdr : DigAt t (B + blkO j l + 16) (nodeHeader k index (heapOf l j) (hpOf j tws l)) := by
     by_cases h3 : l ≤ 3
     · have hpk := heapOf_packed j l hj h3
       constructor
-      · rw [hmem _ (by omega), if_neg (fun h => by have := h.1; omega), if_pos rfl, if_pos h3, hdr11_lo,
+      · rw [hmem _ (by omega), if_neg (fun h => by have := h.1; omega), if_pos rfl, if_pos h3, hdr11_lo hu.par,
           if_pos hpk]
         unfold lowE
         rw [addC_eval]
         simp only [E.eval]
         rw [hx15]
         exact ofNat_add_neg_wrap _ _ (by omega)
-      · rw [show B + blkO j l + 16 + 8 = B + blkO j l + 24 by omega, hdr11_hi, if_pos hpk]
+      · rw [show B + blkO j l + 16 + 8 = B + blkO j l + 24 by omega, hdr11_hi hu.par, if_pos hpk]
         rw [hmem _ (by omega), if_neg (fun h => h.2 h3), if_neg (by omega),
           show B + blkO j l + 24 = B + (blkO j l + 24) by omega,
           sU _ (by omega) (fun hm => tw_free hj (by omega) hm rfl)]
@@ -163,10 +161,11 @@ theorem lvl_coreC {im : Image} {j : Nat} (hj : j < 128) (hcode : CopyCodeAt im j
     · have hlo := heapOf_low j l hj (by omega) (by omega)
       have hnp : ¬ (8 ≤ heapOf l j ∧ heapOf l j < 128) := by omega
       constructor
-      · rw [hmem _ (by omega), if_neg (fun h => by have := h.1; omega), if_pos rfl, if_neg h3, hdr11_lo,
+      · rw [hmem _ (by omega), if_neg (fun h => by have := h.1; omega), if_pos rfl, if_neg h3, hdr11_lo hu.par,
           if_neg hnp, hx15]
       · rw [show B + blkO j l + 16 + 8 = B + blkO j l + 24 by omega, hmem _ (by omega),
-          if_pos ⟨rfl, h3⟩, hdr11_hi, if_neg hnp]
+          if_pos ⟨rfl, h3⟩, hdr11_hi hu.par, if_neg hnp,
+          labelC_low hu.par hj (by omega) (by omega)]
         have hs64 : s.getReg .x11 = BitVec.ofNat 64 64 := hs.a1 (by omega)
         have hr := heapReg_eval (s := s) (l := l) hj (by omega) (by omega) hs64 (fun h h1 h6 => by
           obtain ⟨n3, n10, n11, n12⟩ := heapReg_ne h h6
@@ -359,10 +358,10 @@ def preC (k index j : Nat) (tws sibs : Nat → Digest) (v : Digest) : List UInt8
 def rightC (j : Nat) (sibs : Nat → Digest) (v : Digest) : List UInt8 :=
   bytesLE 16 (if bitAt j 3 = 0 then sibs 3 else v)
 
-/-- Back at the caller (`ra + 2008`) after a copy routine: the bank's `HandPost`, plus the nonce record and the
+/-- Back at the caller (`ra + 2012`) after a copy routine: the bank's `HandPost`, plus the nonce record and the
 re-zeroed search scratch; the frame adds the record, the saves and `SCR`. -/
 structure HandPostC (B j : Nat) (u : MachineState) (res : Nat × Digest) (t : MachineState) : Prop where
-  pc : t.pc = (u.getReg .x1 + 2008) &&& ~~~1#64
+  pc : t.pc = (u.getReg .x1 + 2012) &&& ~~~1#64
   a1 : t.getReg .x11 = 64
   top : DigAt t (B - handO j + 16) res.2
   a2 : t.getReg .x12 = BitVec.ofNat 64 (B - handO j)
@@ -563,6 +562,7 @@ theorem lvl3C_tbsim (v : Digest) (s : MachineState) (hs : MidC j B k index u 3 v
       a1 := by rw [virt_getReg]; exact hu.a1
       w0 := by rw [virt_getReg]; exact hu.w0
       heaps := fun h h1 h2 => by rw [virt_getReg]; exact hu.heaps h h1 h2
+      par := hu.par
       leafAt := fun i _ => digAt_rdD _ _
       padAt := fun l hl => by
         by_cases e : l = 4
@@ -717,9 +717,7 @@ theorem and_one_zero (X : Nat) : (BitVec.ofNat 64 X &&& 1#64 = 0#64) ↔ X % 2 =
     simpa using h
 
 theorem w0n_even (k index : Nat) : w0n k index % 2 = 0 := by
-  unfold w0n V3.nodeLow
-  rw [ClaudeWCT.WCT9.ftsLeafLow_zero]
-  unfold SigGolfCandidate.T3.ftsBiasN
+  unfold w0n V3.nodeLow ClaudeWCT.WCT9.ftsNodeLow2 SigGolfCandidate.T3.ftsBiasN
   omega
 
 /-- After the level-2 trampoline: the routine at level 3 from the virtual entry `virt2`, the record. -/
@@ -844,7 +842,7 @@ theorem lvl2C_tbsim (v : Digest) (s : MachineState) (hs : MidC j B k index u 2 v
         mright := by
           rw [frame_readWordsG m1 _ 2 (by omega) (fun _ _ h => h), hright.words, right2C]
         label := by
-          rw [m1.get (by omega) (fun h => h), hhdr.1, hdr11_lo, if_pos hpk, and_one_zero]
+          rw [m1.get (by omega) (fun h => h), hhdr.1, hdr11_lo hu.par, if_pos hpk, and_one_zero]
           have := w0n_even k index
           rcases Bool.eq_false_or_eq_true (hiSel j 3) with hh | hh
           · rw [hh, if_pos rfl] at h16; simp only [hh, iff_true]; omega
@@ -910,7 +908,7 @@ end level2
 /-- Back at the caller after a copy routine: `HandPostC` with the level-2 record and the widened frame. -/
 structure HandPostC16 (B j : Nat) (u : MachineState) (sel : Bool) (res : Nat × Nat × Digest) (t : MachineState) :
     Prop where
-  pc : t.pc = (u.getReg .x1 + 2008) &&& ~~~1#64
+  pc : t.pc = (u.getReg .x1 + 2012) &&& ~~~1#64
   a1 : t.getReg .x11 = 64
   top : DigAt t (B - handO j + 16) res.2.2
   a2 : t.getReg .x12 = BitVec.ofNat 64 (B - handO j)
@@ -980,6 +978,7 @@ theorem childC_tbsim {im : Image} {j : Nat} (hj : j < 128) (hcode : CopyCodeAt i
         a1 := hu.a1
         w0 := hu.w0
         heaps := hu.heaps
+        par := hu.par
         leafAt := fun i hi => by
           have a1 := hfresh.2 (2 * i) (by omega)
           have a2 := hfresh.2 (2 * i + 1) (by omega)

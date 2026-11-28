@@ -54,6 +54,7 @@ theorem prepare (j : Fin 128) {B k index : Nat} {leaf pads sibs tws : Nat→Dige
       a1 := hu.a1
       w0 := hu.w0
       heaps := hu.heaps
+      par := hu.par
       leafAt := fun i hi => by
         have a1 := hfresh.2 (2 * i) (by omega)
         have a2 := hfresh.2 (2 * i + 1) (by omega)

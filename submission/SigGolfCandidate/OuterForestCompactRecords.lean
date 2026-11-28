@@ -37,6 +37,10 @@ theorem keep {image : Image} {w : W9Machine.WBytes} {index : Nat} {raw : Fin 9 â
       have hz : m.val = 0 := by omega
       simp only [hz,SharedV3.first] at hfirst
       contradiction
+    -- C46: records are pair-shared (`15 - m / 2`); `m` is odd, so `record m â‰  record k` for `m < k`.
+    have hmodd : m.val % 2 = 1 := by
+      simp only [SharedV3.first, decide_eq_false_iff_not] at hfirst
+      omega
     apply hf _ (by unfold OuterSharedPost.record;omega)
     intro hw
     rcases hw with hw|hw

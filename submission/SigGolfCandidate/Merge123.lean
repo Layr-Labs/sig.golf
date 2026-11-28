@@ -107,8 +107,8 @@ def Bank (u : MachineState) : Prop :=
 theorem Bank.congr {s t : MachineState} (h : Bank s)
     (hm : ∀ A, VERIFY_DATA ≤ A → A < VERIFY_DATA + 472 →
       t.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A)) : Bank t := by
-  obtain ⟨⟨f0, f1, f2⟩, ⟨htop, htop8⟩, ⟨mpad, mc, mj, mk, mg, md0, ma, ms⟩, d0, d8⟩ := h
-  refine ⟨⟨?_, ?_, ?_⟩, ⟨fun k hk => ?_, ?_⟩, ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩
+  obtain ⟨⟨f0, f1, f2⟩, ⟨htop, htop8⟩, ⟨mpad, mc, mj, mk, mg, md0, ma, ms, mo⟩, d0, d8⟩ := h
+  refine ⟨⟨?_, ?_, ?_⟩, ⟨fun k hk => ?_, ?_⟩, ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩
   · rw [hm _ (by unfold W9Drv.dataBase7 VERIFY_DATA; omega) (by unfold W9Drv.dataBase7 VERIFY_DATA; omega)]
     exact f0
   · rw [hm _ (by unfold W9Drv.dataBase7 VERIFY_DATA; omega) (by unfold W9Drv.dataBase7 VERIFY_DATA; omega)]
@@ -135,6 +135,8 @@ theorem Bank.congr {s t : MachineState} (h : Bank s)
     exact ma
   · rw [hm _ (by unfold W9Drv.dataBase7 VERIFY_DATA; omega) (by unfold W9Drv.dataBase7 VERIFY_DATA; omega)]
     exact ms
+  · rw [hm _ (by unfold W9Drv.dataBase7 VERIFY_DATA; omega) (by unfold W9Drv.dataBase7 VERIFY_DATA; omega)]
+    exact mo
   · rw [hm _ (le_refl _) (by unfold VERIFY_DATA; omega)]
     exact d0
   · rw [hm _ (by omega) (by omega)]
@@ -192,7 +194,7 @@ theorem init_word (m : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (w : By
 set_option maxRecDepth 200000 in
 theorem init_bank (m : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (w : Bytes 21756) (s : MachineState)
     (h : initialState submission .verify (m, pk, w) = some s) : Bank s := by
-  refine ⟨⟨?_, ?_, ?_⟩, ⟨fun k hk => ?_, ?_⟩, ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩
+  refine ⟨⟨?_, ?_, ?_⟩, ⟨fun k hk => ?_, ?_⟩, ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩
   · rw [show W9Drv.dataBase7 + 16 = VERIFY_DATA + 8 * 2 by unfold W9Drv.dataBase7 VERIFY_DATA; omega,
       init_word m pk w s h 2 (by omega)]
     decide +kernel
@@ -231,6 +233,9 @@ theorem init_bank (m : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (w : By
     decide +kernel
   · rw [show W9Drv.dataBase7 + 64 = VERIFY_DATA + 8 * 8 by unfold W9Drv.dataBase7 VERIFY_DATA; omega,
       init_word m pk w s h 8 (by omega)]
+    decide +kernel
+  · rw [show W9Drv.dataBase7 + 72 = VERIFY_DATA + 8 * 9 by unfold W9Drv.dataBase7 VERIFY_DATA; omega,
+      init_word m pk w s h 9 (by omega)]
     decide +kernel
   · rw [show VERIFY_DATA = VERIFY_DATA + 8 * 0 by rfl, init_word m pk w s h 0 (by omega)]
     decide +kernel
@@ -825,7 +830,7 @@ theorem goodQP_frozen {P : Hash → Prop} {s : MachineState} {N C A : Nat} {Q : 
 
 theorem fts_installed {P : Hash → Prop} :
     FtsGoodByCost W9Drv.SharedGate.Pre installedOut installedFts
-      (fun answer => 851 + SigGolfCandidate.Research.SharedForest.jointAccountingCost answer) P := by
+      (fun answer => 847 + SigGolfCandidate.Research.SharedForest.jointAccountingCost answer) P := by
   intro pk w answer state N C A Q K hstate hnone hnext
   have h := W9Drv.SharedCoord.fts_good (P := P) pk w answer state N C A Q K hstate hnone
     (fun top next hnextState => goodQP_frozen.mpr (hnext top next hnextState))

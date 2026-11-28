@@ -58,10 +58,10 @@ theorem sigAt_frame {c d sel : Nat} {rv : Row} {s t : MachineState} (hc:c < 9) (
       (writes_other_signature hc hd hne (by unfold SharedEnd.target slotP slotV;constructor <;> omega))
       (writes_other_signature hc hd hne (by unfold SharedEnd.target slotP slotV;constructor <;> omega))
 
-def forestStepBound : Nat := 19+(14+21*SharedReuse.coefStepC+(128*SharedLeaves.cost+126*(SharedNode.unitC+77865)+110))
+def forestStepBound : Nat := 19+(14+21*SharedReuse.coefStepC+(128*SharedLeaves.cost+126*(SharedNode.unitC+77868)+110))
 theorem cost_le (c : Nat) : OuterSignCoordinateRun.cost c ≤ forestStepBound := by
   have:=SharedTree.limit_bounds c
-  have hm : (127-SharedTail.limit c)*(SharedNode.unitC+77865) ≤ 126*(SharedNode.unitC+77865) := Nat.mul_le_mul_right _ (by omega)
+  have hm : (127-SharedTail.limit c)*(SharedNode.unitC+77868) ≤ 126*(SharedNode.unitC+77868) := Nat.mul_le_mul_right _ (by omega)
   unfold OuterSignCoordinateRun.cost forestStepBound SharedTree.count
   exact Nat.add_le_add_left (Nat.add_le_add_left (Nat.add_le_add_right (Nat.add_le_add_left hm (128*SharedLeaves.cost)) 110) (14+21*SharedReuse.coefStepC)) 19
 

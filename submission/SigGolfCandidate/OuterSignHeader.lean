@@ -39,30 +39,29 @@ theorem packed_low (coord index heap : Nat) (hh : FtsNew heap) (hc : coord<9) :
     · exfalso; have : 0<(ftsNodeWordH coord index heap).toNat%2048*2^53 := Nat.mul_pos h (by positivity); omega
   omega
 
+/-- C46: heaps `4..127` fail the classifier's label test (a packed node has high word 0; the heaps `4..7` labels are
+neither `3` nor `0xf1b02`). -/
 theorem fallback {A D coord index heap : Nat} {left right : Digest} {s : MachineState}
     (F : Input A D (OuterNodeRawModel.pre coord index heap left) (OuterNodeRawModel.rightBytes right) s)
     (hc : coord<9) (hh : 4≤heap) (hh128 : heap<128) : OuterSignFallback.Bad A s := by
   have hf:=fields F
   unfold OuterSignFallback.Bad
-  by_cases hp : 8≤heap
-  · refine Or.inr (Or.inl ?_)
-    rw [hf.1]
-    have hs : wctNodeHeader coord index heap=0#64++ftsNodeWordH coord index heap := by
-      unfold wctNodeHeader
-      rw [nodeTweak_ftsN (by unfold nodeLayer;omega) (by unfold nodeLayer;omega) index ⟨hp,hh128⟩]
-      have he : nodeLayer coord-4=coord := by unfold nodeLayer;omega
-      rw [he]
-    rw [hs,BitVec.extractLsb'_append_eq_right]
-    exact packed_low coord index heap ⟨hp,hh128⟩ hc
-  · refine Or.inr (Or.inr (Or.inr ?_))
-    rw [hf.2]
-    have hs : wctNodeHeader coord index heap=BitVec.ofNat 64 (ftsHeapLabel heap)++ftsNodeWord coord index := by
-      unfold wctNodeHeader
-      rw [nodeTweak_fts (by unfold nodeLayer;omega) (by unfold nodeLayer;omega) index (by unfold FtsNew;omega)]
-      have he : nodeLayer coord-4=coord := by unfold nodeLayer;omega
-      rw [he]
-    rw [hs,BitVec.extractLsb'_append_eq_left,BitVec.toNat_ofNat]
-    interval_cases heap <;> decide
+  refine Or.inr (Or.inl ?_)
+  rw [hf.2,wctNodeHeader_high hc]
+  have hv : (if FtsNew heap then 0 else ftsHeapLabelC coord heap)≠3 ∧
+      (if FtsNew heap then 0 else ftsHeapLabelC coord heap)≠989954 ∧
+      (if FtsNew heap then 0 else ftsHeapLabelC coord heap)<2^64 := by
+    by_cases hn : FtsNew heap
+    · rw [if_pos hn];decide
+    · rw [if_neg hn]
+      have h8 : heap<8 := by unfold FtsNew at hn;omega
+      rcases Nat.mod_two_eq_zero_or_one coord with hc2|hc2
+      · rw [ftsHeapLabelC_even hc2 hh (by omega)]
+        interval_cases heap <;> decide
+      · rw [ftsHeapLabelC_odd hc2]
+        interval_cases heap <;> decide
+  obtain ⟨h3,h9,hlt⟩:=hv
+  exact ⟨fun he=>h3 ((ofNat_inj hlt (by decide)).mp he),fun he=>h9 ((ofNat_inj hlt (by decide)).mp he)⟩
 #print axioms fields
 #print axioms packed_low
 #print axioms fallback

@@ -28,14 +28,14 @@ theorem ok (heap : Nat) (a : HashOutput) : zeroOkH (high heap) 4 a=true ↔
 theorem check {im : Image} {A D n : Nat} {pre right : List UInt8}
     {s u : MachineState} {pc : Word} {a : HashOutput} (F : Input A D pre right s)
     (heap : Nat) (hheap : heap=2 ∨ heap=3)
-    (hmem : s.getMem (BitVec.ofNat 64 (A+24))=BitVec.ofNat 64 heap)
+    (hmem : s.getMem (BitVec.ofNat 64 (A+24))=BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap))
     (hc : CodeAt im (pc+8#64) c_checkCode) (hu : Stage s A D (pc+8#64) n u)
     (hh : Answer A D n a u) :
     ∃ t,Steps im u 7 7 t ∧
       Stage s A D (if zeroOkH (high heap) 4 a then pc+52#64 else pc+36#64) n t ∧ Answer A D n a t := by
   have ga : u.getReg .x10=BitVec.ofNat 64 A := by rw [hu.regs.get (by decide)];exact F.x10
   have gx : u.getReg .x12=BitVec.ofNat 64 D := by rw [hu.regs.get (by decide)];exact F.x12
-  have heap_word : u.getMem (BitVec.ofNat 64 (A+24))=BitVec.ofNat 64 heap := by
+  have heap_word : u.getMem (BitVec.ofNat 64 (A+24))=BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap) := by
     rw [heap_preserved F hu.frame];exact hmem
   obtain ⟨t,hs,hr,hp,hm⟩:=OuterNodeCheckRun.runC (pc+8#64) hc u hu.at_pc A D heap ga gx
     F.ahi F.alo F.aa F.dhi F.dlo F.da hheap heap_word
@@ -57,7 +57,7 @@ theorem check {im : Image} {A D n : Nat} {pre right : List UInt8}
 theorem retry {im : Image} {A D n : Nat} {pre right : List UInt8}
     {s u : MachineState} {pc : Word} {a : HashOutput} (F : Input A D pre right s)
     (heap : Nat) (hheap : heap=2 ∨ heap=3)
-    (hmem : s.getMem (BitVec.ofNat 64 (A+24))=BitVec.ofNat 64 heap)
+    (hmem : s.getMem (BitVec.ofNat 64 (A+24))=BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap))
     (hc : CodeAt im (pc+8#64) c_checkCode) (hf : CodeAt im (pc+36#64) c_failureCode)
     (hu : Stage s A D (pc+8#64) n u) (hh : Answer A D n a u)
     (hz : ¬zeroOkH (high heap) 4 a=true) (hn : n+1<4096) :
@@ -72,7 +72,7 @@ theorem retry {im : Image} {A D n : Nat} {pre right : List UInt8}
 theorem finish {im : Image} {sk : BitVec 256} {A D n : Nat} {pre right : List UInt8}
     {s u : MachineState} {pc : Word} {a : HashOutput} (F : Input A D pre right s)
     (heap : Nat) (hheap : heap=2 ∨ heap=3)
-    (hmem : s.getMem (BitVec.ofNat 64 (A+24))=BitVec.ofNat 64 heap)
+    (hmem : s.getMem (BitVec.ofNat 64 (A+24))=BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap))
     (hc : CodeAt im (pc+8#64) c_checkCode) (hp : CodeAt im (pc+52#64) c_postCode)
     (hu : Stage s A D (pc+8#64) n u) (hh : Answer A D n a u)
     (hz : zeroOkH (high heap) 4 a=true) :
@@ -87,7 +87,7 @@ theorem finish {im : Image} {sk : BitVec 256} {A D n : Nat} {pre right : List UI
 theorem exhaust {im : Image} {sk : BitVec 256} {A D n : Nat} {pre right : List UInt8}
     {s u : MachineState} {pc : Word} {a : HashOutput} (F : Input A D pre right s)
     (heap : Nat) (hheap : heap=2 ∨ heap=3)
-    (hmem : s.getMem (BitVec.ofNat 64 (A+24))=BitVec.ofNat 64 heap)
+    (hmem : s.getMem (BitVec.ofNat 64 (A+24))=BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap))
     (hc : CodeAt im (pc+8#64) c_checkCode) (hf : CodeAt im (pc+36#64) c_failureCode)
     (hl : CodeAt im (pc+48#64) c_lastCode) (hp : CodeAt im (pc+52#64) c_postCode)
     (hu : Stage s A D (pc+8#64) n u) (hh : Answer A D n a u)
@@ -112,7 +112,7 @@ theorem exhaust {im : Image} {sk : BitVec 256} {A D n : Nat} {pre right : List U
 theorem loop {im : Image} {sk : BitVec 256} {A D : Nat} {pre right : List UInt8}
     {s : MachineState} {pc : Word} (F : Input A D pre right s)
     (heap : Nat) (hheap : heap=2 ∨ heap=3)
-    (hmem : s.getMem (BitVec.ofNat 64 (A+24))=BitVec.ofNat 64 heap)
+    (hmem : s.getMem (BitVec.ofNat 64 (A+24))=BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap))
     (hq : CodeAt im pc c_preHashCode) (hc : CodeAt im (pc+8#64) c_checkCode)
     (hf : CodeAt im (pc+36#64) c_failureCode) (hl : CodeAt im (pc+48#64) c_lastCode)
     (hp : CodeAt im (pc+52#64) c_postCode) :

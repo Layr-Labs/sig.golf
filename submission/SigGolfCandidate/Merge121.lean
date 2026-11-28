@@ -2132,7 +2132,7 @@ theorem lctxOfCk_known (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer)
   refine knownOK_fifteen s ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · exact knownOK_at _ s 0 (.x5, 0) hk rfl
   · exact knownOK_at _ s 6 (.x11, 64) hk rfl
-  · exact knownOK_at _ s 7 (.x13, 2) hk rfl
+  · exact knownOK_at _ s 7 (.x13, 989954) hk rfl
   · exact knownOK_at _ s 8 (.x19, 3) hk rfl
   · exact knownOK_at _ s 9 (.x20, 930564) hk rfl
   · exact knownOK_at _ s 10 (.x21, 989957) hk rfl
@@ -3093,7 +3093,7 @@ def lfBlocks (lay : Nat) : Nat := if lay = 0 then 13 else 11
 def lfSlot (lay j : Nat) : Nat := if lay = 0 then slotT j else bufferBias lay + slotL j
 def stabBits (lay : Nat) : Nat := if lay = 1 then 7 else 6
 def lfKeepK (lay : Nat) : List (Reg × Word) :=
-  [(.x9, 0x7fc01), (.x13, 2), (.x19, 3), (.x20, 930564), (.x21, 989957), (.x26, 108112779336744966),
+  [(.x9, 0x7fc01), (.x13, 989954), (.x19, 3), (.x20, 930564), (.x21, 989957), (.x26, 108112779336744966),
    (if lay = 0 then (.x4, BitVec.ofNat 64 s3v) else (.x4, BitVec.ofNat 64 (bufferBias lay))),
    (.x2, BitVec.ofNat 64 0xffbde0)] ++
   (if lay = 0 then [(.x1, BitVec.ofNat 64 M1c), (.x27, 0x3fe00)] else [(.x1, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x6, 0), (.x27, 0x3fe00)])
@@ -4101,11 +4101,11 @@ def mkDst (lay leaf : Nat) : Nat := if lay = 0 then mkCur 0 leaf 11 (leaf / 2048
 def mkMove (lay level : Nat) : Nat := if lay = 0 ∧ level = 11 then 0 else 1
 def mkHeap (lay ci sh l : Nat) : Nat := (2 ^ hL lay + sh * 2 ^ mkLo lay ci) / 2 ^ (l + 1)
 def mkK (lay : Nat) : List (Reg × Word) :=
-  gkL lay ++ (if lay = 0 then [(.x6, 520192), (.x1, BitVec.ofNat 64 M1c), (.x27, 0x3fe00)] else []) ++ [(if lay = 0 then (.x4, BitVec.ofNat 64 s3v) else (.x4, BitVec.ofNat 64 (bufferBias lay))), (.x13, 2),
+  gkL lay ++ (if lay = 0 then [(.x6, 520192), (.x1, BitVec.ofNat 64 M1c), (.x27, 0x3fe00)] else []) ++ [(if lay = 0 then (.x4, BitVec.ofNat 64 s3v) else (.x4, BitVec.ofNat 64 (bufferBias lay))), (.x13, 989954),
     (.x19, 3), (.x20, 930564), (.x21, 989957), (.x26, 108112779336744966), (.x5, 0)] ++
     (if lay = 0 then [] else [(.x2, BitVec.ofNat 64 0xffbde0)])
 def mkKc (lay : Nat) : List (Reg × Word) :=
-  gkL lay ++ (if lay = 0 then [(.x6, 520192), (.x1, BitVec.ofNat 64 M1c), (.x27, 0x3fe00)] else []) ++ [(if lay = 0 then (.x4, BitVec.ofNat 64 s3v) else (.x4, BitVec.ofNat 64 (bufferBias lay))), (.x13, 2),
+  gkL lay ++ (if lay = 0 then [(.x6, 520192), (.x1, BitVec.ofNat 64 M1c), (.x27, 0x3fe00)] else []) ++ [(if lay = 0 then (.x4, BitVec.ofNat 64 s3v) else (.x4, BitVec.ofNat 64 (bufferBias lay))), (.x13, 989954),
     (.x19, 3), (.x20, 930564), (.x21, 989957), (.x26, 108112779336744966), (.x5, 0)]
 def mkKeep : List Reg := [.x4, .x1, .x2, .x16, .x17, .x9, .x24, .x23, .x6, .x25, .x27, .x29, .x31]
 def mkEntSpec (lay ci sh : Nat) : Spec := let st := 1; ⟨[], [], mkShp lay ci sh + 1, true, st, [], none, st⟩

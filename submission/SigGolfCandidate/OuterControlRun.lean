@@ -20,8 +20,8 @@ theorem jump {im : Image} (a t : Nat) (ha : a<2^18) (ht : t<2^18)
 theorem post (s : MachineState) (hp : s.pc=pcOf 84218) :
     ∃ t,Steps OuterImages.expandImage s 21 21 t ∧ t.pc=pcOf 88280 ∧
       fetch OuterImages.expandImage t=some (.base .ECALL) ∧ RegsExcept s t [.x6,.x7] ∧
-      t.getMem 11088=s.getMem 8380416 ∧ t.getMem 9392=s.getMem 8372224 ∧
-      t.getMem 7696=s.getMem 8364032 ∧ t.getMem 6000=s.getMem 8355840 ∧ t.getMem 5152=s.getMem 8351744 ∧
+      t.getMem 11088=s.getMem 8384512 ∧ t.getMem 9392=s.getMem 8380416 ∧
+      t.getMem 7696=s.getMem 8376320 ∧ t.getMem 6000=s.getMem 8372224 ∧ t.getMem 5152=s.getMem 8368128 ∧
       ∀ X,X∉OuterNoncePostMachine.destinations → t.getMem X=s.getMem X := by
   obtain ⟨u,hjump,hpc,hg,hm⟩:=jump 84218 88260 (by decide) (by decide) OuterImageControlTransfers.post_jump s hp
   obtain ⟨t,hrun,htpc,hregs,h0,h1,h2,h3,h4,hframe⟩:=OuterNoncePostMachine.run OuterImageHelpers.expand_post u hpc

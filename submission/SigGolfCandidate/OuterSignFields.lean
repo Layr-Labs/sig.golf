@@ -21,25 +21,26 @@ theorem fts_low11 (coord index : Nat) (hc9 : coord<9) : ftsNodeWord coord index 
   rw [show 2^64=2048*2^53 from by decide,Nat.mul_mod_mul_right]
   simp [h]
 
-/-- C31: bits 11..15 of a two-word FTS node word are `31 - coordinate`. -/
+/-- C46: bits 11..15 of a two-word FTS node word are `31 - coordinate / 2`. -/
 theorem fts_field (coord index : Nat) (hc9 : coord<9) :
-    (ftsNodeWord coord index <<< 48) >>> 59=BitVec.ofNat 64 (31-coord) := by
+    (ftsNodeWord coord index <<< 48) >>> 59=BitVec.ofNat 64 (31-coord/2) := by
   have h:=OuterHeaderFields.coordField coord index hc9
   apply BitVec.eq_of_toNat_eq
   simp only [BitVec.toNat_ushiftRight,BitVec.toNat_shiftLeft,Nat.shiftRight_eq_div_pow,Nat.shiftLeft_eq_mul_pow,BitVec.toNat_ofNat]
   have hw:=(ftsNodeWord coord index).isLt
-  rw [Nat.mod_eq_of_lt (show 31-coord<2^64 by omega)]
+  rw [Nat.mod_eq_of_lt (show 31-coord/2<2^64 by omega)]
   rw [show 2^64=65536*2^48 from by decide,Nat.mul_mod_mul_right]
   rw [show 2^59=2048*2^48 from by decide,Nat.mul_div_mul_right _ _ (by positivity)]
   omega
 
+/-- C46: the classifier's coordinate field is 27 exactly for coordinate 8. -/
 theorem coordinate (coord : Nat) (hc9 : coord<9) :
-    BitVec.ofNat 64 (31-coord)=23#64 ↔ coord=8 := by
+    BitVec.ofNat 64 (31-coord/2)=27#64 ↔ coord=8 := by
   constructor
   · intro he
     have hn:=congrArg BitVec.toNat he
     rw [BitVec.toNat_ofNat,Nat.mod_eq_of_lt (by omega)] at hn
-    change 31-coord=23 at hn
+    change 31-coord/2=27 at hn
     omega
   · intro he
     subst he

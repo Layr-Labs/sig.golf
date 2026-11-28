@@ -9,14 +9,14 @@ open RiscvZkvm.Rv64 SigGolfCandidate.T3
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv SigGolfCandidate.T3M
 open W9Machine
 
-def record (coord : Nat) : Nat := 8323072+(15-coord)*4096
+def record (coord : Nat) : Nat := 8323072+(15-coord/2)*4096
 def Extra (coord X : Nat) : Prop := X=1152 ∨ X=1160 ∨ X=record coord
 
 def Writes (L : W9Machine.Layout) (k : Fin 9) (raw : Fin 128) (X : Nat) : Prop :=
   (SharedChild.writes L k raw X ∨ SharedChild.recW (Chain.base L k) X ∨ SharedChild.scratchW X ∨ SharedChild.recW16 (Chain.base L k) X) ∨ Extra k.val X
 
 structure Post (L : W9Machine.Layout) (k : Fin 9) (raw : Fin 128) (u : MachineState) (res : Digest×Nat×Nat×Nat) (t : MachineState) : Prop where
-  pc : t.pc=pcOf (L.returnWord k+(if k.val=8 then 506 else if k.val%2=1 then 503 else 502))
+  pc : t.pc=pcOf (L.returnWord k+(if k.val=8 then 506 else 503))
   hashLen : t.getReg .x11=64
   top : DigAt t (SharedChild.handAddr L k raw) res.1
   a2 : t.getReg .x12=BitVec.ofNat 64 (SharedChild.outputAddr L k raw)

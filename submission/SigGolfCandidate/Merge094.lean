@@ -1977,7 +1977,7 @@ theorem forest_suffix_good {sk : BitVec 256} {output : HashOutput} {b : SharedCo
       (WCT9.digestIndex output) (SharedForest.rawChildFromOutput output)
       (fun k=>SharedForest.forestRank output k.val) s 0
       (W9Machine.SharedV3.initialPair (Paired.witEnc output ⟨SharedCompactMain.forestSig (SharedCodec.sigDecC b),counter,fun _=>0,false,[],fun _=>[],[],[]⟩)) s) :
-    TBSim Images.expandImage sk s 3821741469 (forestProgram output b counter pk) (SuffixDone Images.expandImage) := by
+    TBSim Images.expandImage sk s 3821741577 (forestProgram output b counter pk) (SuffixDone Images.expandImage) := by
   have call:=SharedForestRun.installed_forest_good sk output ⟨SharedCompactMain.forestSig (SharedCodec.sigDecC b),counter,fun _=>0,false,[],fun _=>[],[],[]⟩
     (WCT9.digestIndex output) hi s hI
   unfold forestProgram
@@ -2216,7 +2216,7 @@ theorem forest_suffix_halted {sk : BitVec 256} {output : HashOutput} {b : Shared
       (WCT9.digestIndex output) (SharedForest.rawChildFromOutput output)
       (fun k=>SharedForest.forestRank output k.val) s 0
       (W9Machine.SharedV3.initialPair (Paired.witEnc output ⟨SharedCompactMain.forestSig (SharedCodec.sigDecC b),counter,fun _=>0,false,[],fun _=>[],[],[]⟩)) s) :
-    TBSim Images.expandImage sk s (3821741469+suffixW) (forestProgram output b counter pk)
+    TBSim Images.expandImage sk s (3821741577+suffixW) (forestProgram output b counter pk)
       ClaudeWCT.W9.Machine.ExpandLink.PairedExpPost := by
   simpa only [bind_pure] using
     (TBSim.bind (W₂:=suffixW) (forest_suffix_good hi hm hI) (fun _ _ h=>suffix_done h))
@@ -2407,7 +2407,7 @@ theorem initial_x5 (message : Message) (pk : PublicKey) (b : SharedCodec.CBytes)
 
 /-- Cycle budget after the digest search (layers + top + compaction/scatter + img-v6 witness tail). C42: the forest
 pass's 9 dispatches run the step stub (`+ 72`). -/
-def searchedW : Nat := 3821746642 + suffixW
+def searchedW : Nat := 3821746750 + suffixW
 
 theorem searched_continue {sk : BitVec 256} {s0 s : MachineState} {pk : Digest} {b : SharedCodec.CBytes}
     (initial : InitialMemory b pk s0) (hh:(SharedCodec.sigDecC b).policyHints.toNat<12288)

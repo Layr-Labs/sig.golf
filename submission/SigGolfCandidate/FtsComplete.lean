@@ -244,8 +244,7 @@ theorem nodeHdr_ne_cross (hS : GroundSet j S) (hi : i < 2 ^ 31) (hij : i ≠ j) 
     (hc : coord < 9) (hh : heap < 2 ^ 64) : ∀ c x, S c x → wctNodeHeader coord i heap ≠ wctNodeHeader c j x := by
   intro c x hs he
   have hp := hS c x hs
-  obtain ⟨-, e2, -⟩ := ClaudeWCT.WCT9.wctNodeHeader_injective hc hi hh hp.1 hp.2.1
-    (by have := hp.heap; omega) he
+  have e2 := ClaudeWCT.WCT9.wctNodeHeader_index_eq hc hi hp.1 hp.2.1 he
   exact hij e2
 
 theorem xF_chain (coord selected k start count : Nat) (value : Digest) (hi : k < 6) :

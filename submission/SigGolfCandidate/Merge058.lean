@@ -9837,10 +9837,10 @@ theorem decodeProbe_of_hdrBlock_low {x : HashInput} {h : BitVec 128} (hx : Guess
   have hl := WCT9.ftsChainLow_lt a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val p.val
   rw [← hh, WCT9.ftsChainHeader_toNat, Nat.mod_eq_of_lt (by omega)] at ht
   omega
-/-- C40: a header whose low word is below `2 ^ 20 - 2 ^ 15` is outside the translated FTS chain domain (every
-translated FTS chain word is at least `2 ^ 20 - 2 ^ 15`, `Extract.ftsChainLow_ge20`). -/
+/-- C40: a header whose low word is below `2 ^ 19` is outside the translated FTS chain domain (every
+translated FTS chain word is at least `2 ^ 19`, `Extract.ftsChainLow_ge20`). -/
 theorem decodeProbe_of_hdrBlock_low20 {x : HashInput} {h : BitVec 128} (hx : Guess.hdrBlock x = bytesLE 16 h)
-    (ht : h.toNat % 2 ^ 64 < 2 ^ 20 - 2 ^ 15) : Guess.decodeProbe x = none := by
+    (ht : h.toNat % 2 ^ 64 < 2 ^ 19) : Guess.decodeProbe x = none := by
   rw [Guess.decodeProbe_eq_none]
   intro a p c he
   rw [he, Guess.hdrBlock_probeInput] at hx
@@ -9851,10 +9851,10 @@ theorem decodeProbe_of_hdrBlock_low20 {x : HashInput} {h : BitVec 128} (hx : Gue
   rw [← hh, WCT9.ftsChainHeader_toNat, Nat.mod_eq_of_lt (by omega)] at ht
   omega
 /-- Probe separation (C31): chain tags are at least 130 with tag % 8 in 2..7, step bytes occupy 0 through 3,
-and every translated FTS word is at least `2 ^ 20 - 2 ^ 15` (C40; the C31 text used 4096). -/
+and every translated FTS word is at least `2 ^ 19` (C40; the C31 text used 4096). -/
 theorem shortHash_free' (a : Digest) {h : BitVec 128} (rest : HashInput)
     (ht : (h.toNat / 256 % 256 < 130 ∨ h.toNat / 256 % 256 % 8 < 2) ∨ 4 ≤ h.toNat % 256 ∨
-      h.toNat % 2 ^ 64 < 2 ^ 20 - 2 ^ 15) :
+      h.toNat % 2 ^ 64 < 2 ^ 19) :
     AllQueriesSatisfy (shortHash (bytesLE 16 a ++ bytesLE 16 h ++ rest)) WFree := by
   rcases ht with ht | ht | ht
   · exact shortHash_free a rest ht
@@ -9867,7 +9867,7 @@ theorem shortHash_free' (a : Digest) {h : BitVec 128} (rest : HashInput)
 /-- C4: `shortHash_free'` for a hash keeping either half. -/
 theorem projHash_free' (high : Bool) (a : Digest) {h : BitVec 128} (rest : HashInput)
     (ht : (h.toNat / 256 % 256 < 130 ∨ h.toNat / 256 % 256 % 8 < 2) ∨ 4 ≤ h.toNat % 256 ∨
-      h.toNat % 2 ^ 64 < 2 ^ 20 - 2 ^ 15) :
+      h.toNat % 2 ^ 64 < 2 ^ 19) :
     AllQueriesSatisfy (projHash high (bytesLE 16 a ++ bytesLE 16 h ++ rest)) WFree := by
   have hs := shortHash_free' a rest ht
   unfold shortHash publicHash at hs
@@ -9880,13 +9880,14 @@ set_option debug.skipKernelTC true in
 theorem nodeTweak_probe_safeS (tag lay tree heap : Nat) (htag : tag % 256 < 130) :
     ((nodeTweak tag lay tree heap).toNat / 256 % 256 < 130 ∨ (nodeTweak tag lay tree heap).toNat / 256 % 256 % 8 < 2) ∨
     4 ≤ (nodeTweak tag lay tree heap).toNat % 256 ∨
-      (nodeTweak tag lay tree heap).toNat % 2 ^ 64 < 2 ^ 20 - 2 ^ 15 := by
+      (nodeTweak tag lay tree heap).toNat % 2 ^ 64 < 2 ^ 19 := by
   by_cases ht : tag = 3 ∧ lay = 0
   · obtain ⟨rfl, rfl⟩ := ht
     have hl := nodeTweak_top_low tree heap
     unfold tweakLow at hl
-    -- C40: heap 9's label ra has marker 0xc7; every other top label is below 2^20 - 2^15 or has tag < 130 / tag % 8 < 2
-    -- C42: heap 6's label `0x01801800000c0006` has marker 6; heaps 4/5's (930564, 989957) are below 2^20 - 2^15.
+    -- C40: heap 9's label ra has marker 0xc7; every other top label is below 2^19 or has tag < 130 / tag % 8 < 2
+    -- C42: heap 6's label `0x01801800000c0006` has marker 6. C46: heaps 4/5/2's (930564, 989957, 989954) have tags
+    -- 51, 27, 27 (the FTS probe bound is now 2^19: odd coordinates' index-0 chain words go down to 778752).
     rcases SigGolfCandidate.T3.topNodeWord_small_or_special heap with h | h | h | h | h
     · right; right; omega
     · right; right; omega
@@ -9897,10 +9898,11 @@ theorem nodeTweak_probe_safeS (tag lay tree heap : Nat) (htag : tag % 256 < 130)
       · right; left; omega
       · right; right; omega
     · unfold SigGolfCandidate.T3.TopStep at h
-      rcases h with h | h | h
-      · right; right; omega
-      · right; right; omega
+      rcases h with h | h | h | h
+      · left; left; omega
+      · left; left; omega
       · right; left; omega
+      · left; left; omega
   · by_cases hlow : tag = 3 ∧ lay < 4
     · obtain ⟨rfl,h4⟩ := hlow
       have hg := nodeTweak_lower_tag (by omega : lay ≠ 0) h4 tree heap
@@ -10068,7 +10070,7 @@ theorem lowerNodeHash_free (lay : Layer) (tree heap : Nat) (left right : Digest)
   by_cases h0 : lay.val = 0
   · rw [h0, WCT9.merkleTweak_top]; exact nodeTweak_probe_safeS 3 0 tree heap (by decide)
   · rw [WCT9.merkleTweak_lower h0]
-    -- C41: a packed word has tag 7; a layer-1 pair label is below `2 ^ 18 < 2 ^ 20 - 2 ^ 15`.
+    -- C41: a packed word has tag 7; a layer-1 pair label is below `2 ^ 18 < 2 ^ 19`.
     have h7 : height lay ≤ 7 := by fin_cases lay <;> simp_all [height]
     have h128 : heap < 128 := lt_of_lt_of_le hh (le_trans (Nat.pow_le_pow_right (by decide) h7) (by norm_num))
     have := WCT9.lowerTweak_cases h128 lay.val tree
@@ -10084,7 +10086,7 @@ theorem lowerNodeHashN_free (lay : Layer) (tree heap n : Nat) (left right : Dige
   by_cases h0 : lay.val = 0
   · rw [h0, WCT9.merkleTweak_top]; exact nodeTweak_probe_safeS 3 0 tree heap (by decide)
   · rw [WCT9.merkleTweak_lower h0]
-    -- C41: a packed word has tag 7; a layer-1 pair label is below `2 ^ 18 < 2 ^ 20 - 2 ^ 15`.
+    -- C41: a packed word has tag 7; a layer-1 pair label is below `2 ^ 18 < 2 ^ 19`.
     have h7 : height lay ≤ 7 := by fin_cases lay <;> simp_all [height]
     have h128 : heap < 128 := lt_of_lt_of_le hh (le_trans (Nat.pow_le_pow_right (by decide) h7) (by norm_num))
     have := WCT9.lowerTweak_cases h128 lay.val tree

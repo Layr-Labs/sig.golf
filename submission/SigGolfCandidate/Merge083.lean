@@ -274,23 +274,23 @@ set_option maxRecDepth 100000
 namespace ClaudeWCT.W9.Machine.Sign.SharedNode
 set_option debug.skipKernelTC true
 open SigGolfCandidate.T3M.Verify
-theorem node_run_0 : ∀ mode,mode<3 → ∀ p,p<5 → (mode=1 ↔ p<4) → optBeq (runNode 0 mode p) (expected 0 mode p)=true := by
+theorem node_run_0 : ∀ mode,mode<3 → ∀ p,p<6 → (mode=1 ↔ p<4) → optBeq (runNode 0 mode p) (expected 0 mode p)=true := by
   decide +kernel
-theorem node_run_1 : ∀ mode,mode<3 → ∀ p,p<5 → (mode=1 ↔ p<4) → optBeq (runNode 1 mode p) (expected 1 mode p)=true := by
+theorem node_run_1 : ∀ mode,mode<3 → ∀ p,p<6 → (mode=1 ↔ p<4) → optBeq (runNode 1 mode p) (expected 1 mode p)=true := by
   decide +kernel
-theorem node_run_2 : ∀ mode,mode<3 → ∀ p,p<5 → (mode=1 ↔ p<4) → optBeq (runNode 2 mode p) (expected 2 mode p)=true := by
+theorem node_run_2 : ∀ mode,mode<3 → ∀ p,p<6 → (mode=1 ↔ p<4) → optBeq (runNode 2 mode p) (expected 2 mode p)=true := by
   decide +kernel
-theorem node_run_3 : ∀ mode,mode<3 → ∀ p,p<5 → (mode=1 ↔ p<4) → optBeq (runNode 3 mode p) (expected 3 mode p)=true := by
+theorem node_run_3 : ∀ mode,mode<3 → ∀ p,p<6 → (mode=1 ↔ p<4) → optBeq (runNode 3 mode p) (expected 3 mode p)=true := by
   decide +kernel
-theorem node_run_4 : ∀ mode,mode<3 → ∀ p,p<5 → (mode=1 ↔ p<4) → optBeq (runNode 4 mode p) (expected 4 mode p)=true := by
+theorem node_run_4 : ∀ mode,mode<3 → ∀ p,p<6 → (mode=1 ↔ p<4) → optBeq (runNode 4 mode p) (expected 4 mode p)=true := by
   decide +kernel
-theorem node_run_5 : ∀ mode,mode<3 → ∀ p,p<5 → (mode=1 ↔ p<4) → optBeq (runNode 5 mode p) (expected 5 mode p)=true := by
+theorem node_run_5 : ∀ mode,mode<3 → ∀ p,p<6 → (mode=1 ↔ p<4) → optBeq (runNode 5 mode p) (expected 5 mode p)=true := by
   decide +kernel
-theorem node_run_6 : ∀ mode,mode<3 → ∀ p,p<5 → (mode=1 ↔ p<4) → optBeq (runNode 6 mode p) (expected 6 mode p)=true := by
+theorem node_run_6 : ∀ mode,mode<3 → ∀ p,p<6 → (mode=1 ↔ p<4) → optBeq (runNode 6 mode p) (expected 6 mode p)=true := by
   decide +kernel
-theorem node_run_7 : ∀ mode,mode<3 → ∀ p,p<5 → (mode=1 ↔ p<4) → optBeq (runNode 7 mode p) (expected 7 mode p)=true := by
+theorem node_run_7 : ∀ mode,mode<3 → ∀ p,p<6 → (mode=1 ↔ p<4) → optBeq (runNode 7 mode p) (expected 7 mode p)=true := by
   decide +kernel
-theorem node_run_8 : ∀ mode,mode<3 → ∀ p,p<5 → (mode=1 ↔ p<4) → optBeq (runNode 8 mode p) (expected 8 mode p)=true := by
+theorem node_run_8 : ∀ mode,mode<3 → ∀ p,p<6 → (mode=1 ↔ p<4) → optBeq (runNode 8 mode p) (expected 8 mode p)=true := by
   decide +kernel
 end ClaudeWCT.W9.Machine.Sign.SharedNode
 
@@ -625,7 +625,11 @@ theorem ofNat_sub_wrap64 (x h : Nat) (hh : h < 2^64) :
   rw [BitVec.ofNat_sub_ofNat, Nat.mod_eq_of_lt hh]
   congr 1
   omega
-def nodeLoN (c index h : Nat) : Nat := if 8 ≤ h then nodeLo7 c index + 2^64 - h else nodeLo7 c index
+/-- C46: odd coordinates' packed node words take a further `-1024`. -/
+def nodeLoN (c index h : Nat) : Nat := if 8 ≤ h then nodeLo7 c index + 2^64 - h - 1024 * (c % 2) else nodeLo7 c index
+theorem ofNat_add_wrap64 (x : Nat) : BitVec.ofNat 64 (x + 2^64) = BitVec.ofNat 64 x := by
+  apply BitVec.eq_of_toNat_eq
+  rw [BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.add_mod_right]
 def nodeLoNR (c index h : Nat) : Nat := if 8 ≤ h then nodeLo7R c index + 2^64 - h else nodeLo7R c index
 theorem eval_nodeLoNE (s : MachineState) {c index h : Nat} (h22 : s.getReg .x22 = BitVec.ofNat 64 index)
     (h18 : s.getReg .x18 = BitVec.ofNat 64 h) (hc : c < 9) (hidx : index < 2 ^ 31) (hh : h < 128) :
@@ -794,7 +798,7 @@ theorem headerE_eval (s : MachineState) {c j index : Nat}
   have hs : ClaudeWCT.WCT9.ftsSelShift c < 64 := by unfold ClaudeWCT.WCT9.ftsSelShift; split_ifs <;> decide
   rw [mkAdd_eval,eval_bin,eval_sll_reg s h22 33 (by decide),eval_sll_reg s h18 _ hs,eval_cE]
   change (BitVec.ofNat 64 (index*2^33)+BitVec.ofNat 64 (j*2^ClaudeWCT.WCT9.ftsSelShift c))+
-    BitVec.ofNat 64 (2^64-2048-2048*c) = _
+    BitVec.ofNat 64 (2^64-2048-2048*(c/2)+786432*(c%2)) = _
   rw [ofNat_add_ofNat,ofNat_add_ofNat]
   apply congrArg (BitVec.ofNat 64)
   unfold leafLo7
@@ -814,17 +818,17 @@ set_option maxRecDepth 100000
 def mode (h : Nat) : Nat := if 8≤h then 0 else if 4≤h then 1 else 2
 theorem mode_lt (h : Nat) : mode h<3 := by unfold mode;split_ifs <;> omega
 theorem mode_one {h : Nat} (hm:mode h=1) : 4≤h ∧ h<8 := by unfold mode at hm;split_ifs at hm <;> omega
-/-- C42: the heap-label stub's path for heap `h` (`h - 4` for heaps `4..7`, else `4`). -/
-def lab (h : Nat) : Nat := if 4≤h ∧ h<8 then h-4 else 4
-theorem lab_lt (h : Nat) : lab h<5 := by unfold lab;split_ifs <;> omega
+/-- C46: the label stub's path for heap `h` (`h - 4` for heaps `4..7`, `4` for heap 2, else `5`). -/
+def lab (h : Nat) : Nat := if 4≤h ∧ h<8 then h-4 else if h=2 then 4 else 5
+theorem lab_lt (h : Nat) : lab h<6 := by unfold lab;split_ifs <;> omega
 theorem mode_lab (h : Nat) : mode h=1 ↔ lab h<4 := by
   unfold mode lab
   by_cases h8:8≤h
-  · rw[if_pos h8,if_neg (by omega)];decide
+  · rw[if_pos h8,if_neg (by omega)];split_ifs <;> decide
   · rw[if_neg h8]
     by_cases h4:4≤h
     · rw[if_pos h4,if_pos ⟨h4,by omega⟩];constructor <;> intro <;> omega
-    · rw[if_neg h4,if_neg (by omega)];decide
+    · rw[if_neg h4,if_neg (by omega)];split_ifs <;> decide
 
 def padBase (c h : Nat) : Nat := if c%2=1 then 0x67000+64*(c/2)+16+32*(h/2-2) else FORW+32*c+16
 def PadAt (c h : Nat) (pad : Digest) (s : MachineState) : Prop :=
@@ -834,7 +838,7 @@ theorem loE_eval (s : MachineState) {c index : Nat} (h22:s.getReg .x22=BitVec.of
     (loE c).eval s=BitVec.ofNat 64 (nodeLo7 c index) := by
   unfold loE
   rw[mkAdd_eval,eval_bin,eval_cE,binop_sll _ _ (by decide)]
-  change ((s.getReg .x22) <<< 33)+BitVec.ofNat 64 (2^64-2048-2048*c)=_
+  change ((s.getReg .x22) <<< 33)+BitVec.ofNat 64 (2^64-2048-2048*(c/2))=_
   rw[h22,ofNat_shl,ofNat_add_ofNat]
   apply congrArg (BitVec.ofNat 64)
   unfold nodeLo7
@@ -846,32 +850,55 @@ theorem hdrLo_eval (s : MachineState) {c index h : Nat}
     (hdrLo c (mode h)).eval s=BitVec.ofNat 64 (nodeLoN c index h) := by
   by_cases h8:8≤h
   · have hm:mode h=0:=by simp only[mode,if_pos h8]
-    rw[hdrLo,if_pos hm,nodeLoN,if_pos h8,eval_bin,loE_eval s h22]
-    change BitVec.ofNat 64 (nodeLo7 c index)-s.getReg .x18=_
-    rw[h18]
-    exact ofNat_sub_wrap64 _ _ (by omega)
+    have hsub : (E.bin .sub (loE c) (.reg .x18)).eval s=BitVec.ofNat 64 (nodeLo7 c index+2^64-h) := by
+      rw[eval_bin,loE_eval s h22]
+      change BitVec.ofNat 64 (nodeLo7 c index)-s.getReg .x18=_
+      rw[h18]
+      exact ofNat_sub_wrap64 _ _ (by omega)
+    rw[hdrLo,if_pos hm,nodeLoN,if_pos h8]
+    by_cases hodd:c%2=1
+    · rw[if_pos hodd,eval_bin,hsub,eval_cE]
+      change BitVec.ofNat 64 (nodeLo7 c index+2^64-h)+BitVec.ofNat 64 (2^64-1024)=_
+      rw[ofNat_add_ofNat,hodd,
+        show nodeLo7 c index+2^64-h+(2^64-1024)=(nodeLo7 c index+2^64-h-1024*1)+2^64 by unfold nodeLo7;omega]
+      exact ofNat_add_wrap64 _
+    · rw[if_neg hodd,hsub,show c%2=0 by omega,Nat.mul_zero,Nat.sub_zero]
   · have hm:mode h≠0:=by unfold mode;split_ifs <;> omega
     rw[hdrLo,if_neg hm,nodeLoN,if_neg h8]
     exact loE_eval s h22
 
-/-- C42: the label word stored by the heap-label stub is `ftsHeapLabel h` (heaps `2..7`; heap 1 is the root). -/
-theorem labE_eval (s : MachineState) {h : Nat} (h18:s.getReg .x18=BitVec.ofNat 64 h) (h8:h<8) (hne : h ≠ 1) :
-    (labE (lab h)).eval s=BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel h) := by
+/-- C46: the label word stored by the label stub is `ftsHeapLabelC c h` (heaps `2..7`; heap 1 is the root). Even
+coordinates below 8 never build heaps 2, 3 (`hev`; their labels there are Lean-only). -/
+theorem labE_eval (s : MachineState) {c h : Nat} (hc9 : c<9) (h18:s.getReg .x18=BitVec.ofNat 64 h) (h8:h<8)
+    (hne : h ≠ 1) (hev : c%2=0 ∧ c<8 → 4≤h) :
+    (labE c (lab h)).eval s=BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabelC c h) := by
   have e18:(E.reg .x18).eval s=BitVec.ofNat 64 h:=h18
-  interval_cases h
-  · exact e18
-  · exact absurd rfl hne
-  all_goals first | exact e18 | rfl
+  rcases Nat.mod_two_eq_zero_or_one c with hc|hc
+  · by_cases hc8 : c<8
+    · have h4 := hev ⟨hc,hc8⟩
+      rw [SigGolfCandidate.T3.ftsHeapLabelC_evenLow hc hc8]
+      unfold labE
+      simp only [hc]
+      interval_cases h <;> rfl
+    · obtain rfl : c=8 := by omega
+      rw [SigGolfCandidate.T3.ftsHeapLabelC_eight]
+      unfold labE
+      interval_cases h <;> first | exact absurd rfl hne | exact e18 | rfl
+  · rw [SigGolfCandidate.T3.ftsHeapLabelC_odd hc]
+    unfold labE
+    simp only [hc]
+    interval_cases h <;> first | exact absurd rfl hne | exact e18 | rfl
 
-theorem hdrHi_eval (s : MachineState) {h : Nat} (h18:s.getReg .x18=BitVec.ofNat 64 h) (hne : h ≠ 1) :
-    (hdrHi (mode h) (lab h)).eval s=BitVec.ofNat 64 (if 8≤h then 0 else SigGolfCandidate.T3.ftsHeapLabel h) := by
+theorem hdrHi_eval (s : MachineState) {c h : Nat} (hc9 : c<9) (h18:s.getReg .x18=BitVec.ofNat 64 h) (hne : h ≠ 1)
+    (hev : c%2=0 ∧ c<8 → 4≤h) :
+    (hdrHi c (mode h) (lab h)).eval s=BitVec.ofNat 64 (if 8≤h then 0 else SigGolfCandidate.T3.ftsHeapLabelC c h) := by
   by_cases h8:8≤h
   · have hm:mode h=0:=by simp only[mode,if_pos h8]
     rw[hdrHi,if_pos hm,if_pos h8]
     rfl
   · have hm:mode h≠0:=by unfold mode;split_ifs <;> omega
     rw[hdrHi,if_neg hm,if_neg h8]
-    exact labE_eval s h18 (by omega) hne
+    exact labE_eval s hc9 h18 (by omega) hne hev
 
 theorem padShift_eval (s : MachineState) {h : Nat} (h4:4≤h) (h8:h<8)
     (h18:s.getReg .x18=BitVec.ofNat 64 h) : padShift.eval s=BitVec.ofNat 64 (32*(h/2-2)) := by

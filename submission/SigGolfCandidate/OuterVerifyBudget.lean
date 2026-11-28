@@ -38,9 +38,9 @@ theorem installed_good (floors : Layer→Nat) (hcredit : CreditFloors74 floors)
     GoodQP
       (W9Fin.V7.Canonical.Pre (HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh witness))
         SigGolfCandidate.Research.SharedForest.jointAccountingCost 776 message witness)
-      state 10083 15784 True 6852
+      state 10083 15784 True 6848
       (ccM (ClaudeWCT.W9.T3M.Paired.verifyP message (decD pk) witness) Kb) := by
-  have H:=W9Fin.V7.Canonical.verify_good (cap:=776) (ovh:=851) (aG:=5214)
+  have H:=W9Fin.V7.Canonical.verify_good (cap:=776) (ovh:=847) (aG:=5214)
     (P:=fun w=>HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) (afterProgram:=fun p=>afterFts (decD p)) W9Fin.V7.prefixGood
     (fun _=>W9Fin.V7.Canonical.fts_installed)
     (fun pk w Q hQ answer top state hstate=>after_good floors hcredit pk w Q hQ answer top state hstate)

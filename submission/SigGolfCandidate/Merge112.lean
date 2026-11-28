@@ -3747,7 +3747,7 @@ def ok (c : NCtx) : Prop :=
   c.tree = 0 ∧ c.leaf < 4096 ∧ c.S3 % 8 = 0 ∧ Verify.WIT + 8208 + 1872 ≤ c.S3 ∧ c.S3 + 936 ≤ 15272 ∧
     c.ret < 209920
 def known (c : NCtx) : List (Reg × Word) :=
-  [(.x5, 0), (.x11, 64), (.x9, 0x7fc01), (.x13, 2), (.x19, 3), (.x20, 930564), (.x21, 989957),
+  [(.x5, 0), (.x11, 64), (.x9, 0x7fc01), (.x13, 989954), (.x19, 3), (.x20, 930564), (.x21, 989957),
    (.x26, 108112779336744966), (.x28, BitVec.ofNat 64 c.pre0), (.x4, BitVec.ofNat 64 c.S3), (.x2, BitVec.ofNat 64 0xffbde0), (.x4, 14336), (.x8, 0xFFF)]
 /-- Rank of top group `q`: the digit triple in radix `mx q + 1`; group 16 (the r7 pair, chains 48 and 49) has only two
 digits, `d48 + 7 d49`. -/
@@ -4308,7 +4308,7 @@ theorem posE_eval (c : NCtx) {s0 s : MachineState} (hk : ∀ p ∈ c.known, s0.g
   · rfl
   · rw [show (posE 1).eval s=s.getReg .x9 from rfl, kr .x9 0x7fc01 (by simp [known]) (by decide)]
     rfl
-  · exact congrArg (fun v : Word => v.truncate 8) (kr .x13 2 (by simp [known]) (by decide))
+  · exact (congrArg (fun v : Word => v.truncate 8) (kr .x13 989954 (by simp [known]) (by decide))).trans rfl
   · exact congrArg (fun v : Word => v.truncate 8) (kr .x19 3 (by simp [known]) (by decide))
   · rw [show (posE 4).eval s = s.getReg .x20 from rfl, kr .x20 930564 (by simp [known]) (by decide)]
     rfl

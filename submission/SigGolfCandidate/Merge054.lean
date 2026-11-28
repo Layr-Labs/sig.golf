@@ -87,7 +87,7 @@ theorem header0_ne_top (lay tree position index : Nat) {heap : Nat} (h1 : 2 ≤ 
   unfold topNodeWord at hm ht
   rw [hred] at hm ht
   rcases topWordN_cases heap with h | ⟨-, h⟩
-  · rcases h with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
+  · rcases h with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
       first | omega | simp [topWordN] at hm
   · rw [h] at hm ht
     omega
@@ -991,8 +991,10 @@ def keygenCode_4 : List (BitVec 32) := bv_list% 32 [0xb1c63,0x63023,0x63423,0x63
 def keygenCode : List (BitVec 32) :=
   [keygenCode_0, keygenCode_1, keygenCode_2, keygenCode_3, keygenCode_4].foldl (· ++ ·) [] ++ bv_list% 32 [0x1830333,0xfff30193,0x11b193,0x33b7,0x7ff38393,0x403001b3,0x71f1b3,0x330333,0xff930193,0x19663,0x7f337,0x968ff06f,0x80006f,0x960ff06f]
     ++ bv_list% 32 [0xff830193,0x19863,0x337,0x30313,0x94cff06f,0xff730193,0x2019463,0x71c72337,0xc7130313,0xb31313,0x63830313,0xb31313,0x71c30313,0xa31313,0x1c730313,0x920ff06f,0xff630193,0x19863,0x3337,0xf2030313,0x90cff06f,0xff530193,0x19863,0x3337,0xfd030313,0x8f8ff06f,0xff430193,0x19863,0x3337,0xef030313,0x8e4ff06f,0xff330193,0x19863,0x3337,0xec030313,0x8d0ff06f,0xff230193,0x19863,0x3337,0xf8030313,0x8bcff06f,0xff130193,0x19863,0x3337,0xf5030313,0x8a8ff06f,0x40006f]  -- C40: label remap of heaps 8..15 (1191..1237)
-    -- C42: label remap of heaps 4/5/6 (1238..1256)
-    ++ bv_list% 32 [0xffc30193,0x19863,0xe3337,0x30430313,0x890ff06f,0xffb30193,0x19863,0xf2337,0xb0530313,0x87cff06f,0xffa30193,0x19e63,0x60060337,0x831313,0x330313,0x1231313,0x630313,0x85cff06f,0x858ff06f]
+    -- C42: label remap of heaps 4/5/6 (1238..1255); C46: heap 2 (1256..1261)
+    ++ bv_list% 32 [0xffc30193,0x19863,0xe3337,0x30430313,0x890ff06f,0xffb30193,0x19863,0xf2337,0xb0530313,0x87cff06f,0xffa30193,0x19e63,0x60060337,0x831313,0x330313,0x1231313,0x630313,0x85cff06f,0xffe30193]
+    -- C46: top-tree heap 2 -> 0xf1b02 (1257..1261)
+    ++ bv_list% 32 [0x19863,0xf2337,0xb0230313,0x848ff06f,0x844ff06f]
 def keygenData : List (BitVec 8) := [
 ]
 def keygenImage : Riscv.Image := ⟨keygenCode, keygenData⟩
@@ -6357,6 +6359,10 @@ open SigGolfCandidate.T3 (Digest M)
 def heapReg : Nat → Reg
   | 2 => .x13 | 3 => .x19 | 4 => .x20 | 5 => .x21 | 6 => .x26 | 7 => .x11
   | _ => .x0
+/-- C46: the odd coordinates' two-word label registers for heaps 4..7 (t4, s2, s11, s1). -/
+def heapRegO : Nat → Reg
+  | 4 => .x29 | 5 => .x18 | 6 => .x27 | 7 => .x9
+  | _ => .x0
 structure Pre (L : Layout) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
     (ends : List Digest) (u : MachineState) : Prop where
   indexBound : index < 2 ^ 31
@@ -6370,6 +6376,8 @@ structure Pre (L : Layout) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
   returnPC : u.getReg .x1 = pcOf (L.returnWord k)
   /-- C42: the heap registers hold the FTS labels (`s4`/`s5`/`s10` are the path-table bases and the OR constant). -/
   heaps : ∀ h, 2 ≤ h → h ≤ 6 → u.getReg (heapReg h) = BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel h)
+  /-- C46: the odd coordinates' label registers (t4, s2, s11, s1) hold `ftsHeapLabelO` of heaps 4..7. -/
+  heapsO : ∀ h, 4 ≤ h → h ≤ 7 → u.getReg (heapRegO h) = BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabelO h)
   leafAt : ∀ i, i < 8 → DigAt u (Chain.base L k + 640 + 16 * i)
     (V3.leafFields k.val index j.val (V3.leafPad w k.val) ends i)
   padAt : ∀ l, l < 6 → DigAt u (Chain.base L k + V3.padOff j.val l) (V3.nodePad w k.val j.val l)
@@ -6417,6 +6425,7 @@ structure Pre (L : Layout) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
   nodeWord : u.getReg .x15 = BitVec.ofNat 64 (V3.nodeLow k.val index)
   returnPC : u.getReg .x1 = pcOf (L.returnWord k)
   heaps : ∀ h, 2 ≤ h → h ≤ 6 → u.getReg (Child.heapReg h) = BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel h)
+  heapsO : ∀ h, 4 ≤ h → h ≤ 7 → u.getReg (Child.heapRegO h) = BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabelO h)
   leafAt : ∀ i, i < 8 → DigAt u (Chain.base L k + 640 + 16 * i)
     (V3.leafFields k.val index j.val (V3.leafPad w k.val) ends i)
   padAt : ∀ l, l < 6 → DigAt u (Chain.base L k + SharedV3.blkOff (SharedV3.physical k.val j.val) l + 32) (SharedV3.nodePad w k.val (SharedV3.physical k.val j.val) l)
@@ -6450,7 +6459,7 @@ structure Post (L : Layout) (k : Fin 9) (raw : Fin 128) (u : MachineState)
     (computed : Digest) (t : MachineState) : Prop where
   /-- A/B return with `jalr zero,300(ra)`; the singleton (Cm, stage 2) with `jalr zero,316(ra)`, i.e. to word 854 for
   `returnWord 8 = 775`, the L3 entry. -/
-  pc : t.pc = pcOf (L.returnWord k + (if k.val = 8 then 506 else if k.val % 2 = 1 then 503 else 502))
+  pc : t.pc = pcOf (L.returnWord k + (if k.val = 8 then 506 else 503))
   hashLen : t.getReg .x11 = 64
   top : DigAt t (handAddr L k raw) computed
   a2 : t.getReg .x12 = BitVec.ofNat 64 (outputAddr L k raw)
@@ -6504,12 +6513,13 @@ structure Pre (L : Layout) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
   nodeWord : u.getReg .x15 = BitVec.ofNat 64 (V3.nodeLow k.val index)
   hashMode : u.getReg .x5 = 0
   stepOne : (u.getReg .x9).truncate 8 = 1#8
-  stepTwo : u.getReg .x13 = 2
+  stepTwo : (u.getReg .x13).truncate 8 = 2#8
   hashLen : u.getReg .x11 = 64
   /-- C42: `s7` is the child word plus a bias (4 or 5); the routine exit `jalr zero,0(s7)` lands on the next word. -/
   childPC : u.getReg .x23 &&& ~~~1#64 = pcOf (L.childWord j + 1)
   returnPC : u.getReg .x1 = pcOf (L.returnWord k)
   heaps : ∀ h, 2 ≤ h → h ≤ 6 → u.getReg (Child.heapReg h) = BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel h)
+  heapsO : ∀ h, 4 ≤ h → h ≤ 7 → u.getReg (Child.heapRegO h) = BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabelO h)
   witness : ∀ off, off < 848 → off % 8 = 0 →
     u.getMem (BitVec.ofNat 64 (base L k + off)) =
       w.extractLsb' (8 * (V3.regionOffset k.val + off)) 64
@@ -8152,7 +8162,7 @@ def x28v (c : LCtx) : Nat := 2 ^ 16 * packedHi c.lay c.tree c.leaf + c.koff
 theorem x28v_eq (c : LCtx) (h0 : c.koff = 0) : c.x28v = 2 ^ 16 * packedHi c.lay c.tree c.leaf := by
   unfold x28v; omega
 def known (c : LCtx) : List (Reg × Word) :=
-  [(.x5, 0), (.x11, 64), (.x13, 2), (.x19, 3), (.x20, 930564), (.x21, 989957), (.x26, 108112779336744966),
+  [(.x5, 0), (.x11, 64), (.x13, 989954), (.x19, 3), (.x20, 930564), (.x21, 989957), (.x26, 108112779336744966),
    (.x28, BitVec.ofNat 64 c.x28v), (.x9, 0x7fc01), (.x27, 0x3fe00), (.x5, 0),
    (.x16, c.d0), (.x17, c.d1), (.x29, 201#64 - BitVec.ofNat 64 c.ck),
    (.x4, BitVec.ofNat 64 c.bufferOffset)]
@@ -8842,7 +8852,7 @@ theorem posE_eval (c : LCtx) {s0 s : MachineState} (hk : ∀ p ∈ c.known, s0.g
   · rfl
   · rw [show (posE 1).eval s=s.getReg .x9 from rfl, kr .x9 0x7fc01 (by simp [known]) (by decide)]
     rfl
-  · exact congrArg (fun v : Word => v.truncate 8) (kr .x13 2 (by simp [known]) (by decide))
+  · exact (congrArg (fun v : Word => v.truncate 8) (kr .x13 989954 (by simp [known]) (by decide))).trans rfl
   · exact congrArg (fun v : Word => v.truncate 8) (kr .x19 3 (by simp [known]) (by decide))
   · exact (congrArg (fun v : Word => v.truncate 8) (kr .x20 930564 (by simp [known]) (by decide))).trans rfl
   · exact (congrArg (fun v : Word => v.truncate 8) (kr .x21 989957 (by simp [known]) (by decide))).trans rfl
@@ -9656,9 +9666,10 @@ section
 set_option autoImplicit false
 namespace W9Machine
 open SigGolfCandidate.T3M SigGolfCandidate.Rv RiscvZkvm.Rv64
-/-- C31: the prefix is `index · 2^33 + child · ftsSelMul coord + (2^16 - 2^11 · coord)`. -/
+/-- C46: the prefix is `index · 2^33 + child · ftsSelMul coord + (2^16 - 2^11 · (coord / 2)) + 0xc0000 · (coord % 2)`. -/
 theorem chainPrefix_value (index coord child : Nat) (hk : coord < 9) (hj : child < 128) :
-    V3.chainPrefix index coord child = index * 2 ^ 33 + child * ClaudeWCT.WCT9.ftsSelMul coord + (65536 - 2048 * coord) := by
+    V3.chainPrefix index coord child = index * 2 ^ 33 + child * ClaudeWCT.WCT9.ftsSelMul coord +
+      (65536 - 2048 * (coord / 2)) + 786432 * (coord % 2) := by
   unfold V3.chainPrefix
   rw [Nat.mod_eq_of_lt (by omega : coord < 16)]
   ring_nf
@@ -9706,7 +9717,7 @@ theorem packedHeader_eval (s : MachineState) (index coord child chain digit : Na
     show (1537#64) = 1536#64 + 1#64 by decide]
   abel
 theorem packedPos_eval (s : MachineState) (digit : Nat) (hd : digit < 4)
-    (h9 : (s.getReg .x9).truncate 8 = 1#8) (h13 : s.getReg .x13 = 2) (h19 : s.getReg .x19 = 3) :
+    (h9 : (s.getReg .x9).truncate 8 = 1#8) (h13 : (s.getReg .x13).truncate 8 = 2#8) (h19 : s.getReg .x19 = 3) :
     ((packedPos digit).eval s).truncate 8 = (BitVec.ofNat 64 digit).truncate 8 := by
   interval_cases digit <;> simp [packedPos, E.eval, h9, h13, h19]
 theorem wct_header_step (k index child t old digit : Nat) (hk : k < 9)
@@ -11096,7 +11107,7 @@ theorem Inv.rung {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 12
   have hp := hs.pointers hn
   have hstep := packedPos_eval s digit hd
     ((congrArg (fun v : Word => v.truncate 8) (hs.keep .x9 (by decide))).trans hu.stepOne)
-    ((hs.keep .x13 (by decide)).trans hu.stepTwo)
+    ((congrArg (fun v : Word => v.truncate 8) (hs.keep .x13 (by decide))).trans hu.stepTwo)
     ((hs.keep .x19 (by decide)).trans ((hu.heaps 3 (by decide) (by decide)).trans rfl))
   let prepared := (rungRRel .x8 digit (dst.map (fun d => BitVec.ofNat 64 (d + 241))) pc).toState s
   have h12 : prepared.getReg .x12 = BitVec.ofNat 64 (base L k + dst.getD tr.output) := by
@@ -11427,7 +11438,7 @@ theorem Inv.hashReady {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : F
       have hp := hs.pointers (by rw [← hs.count]; exact hn)
       have hstep := packedPos_eval s digit hd
         ((congrArg (fun v : Word => v.truncate 8) (hs.keep .x9 (by decide))).trans hu.stepOne)
-        ((hs.keep .x13 (by decide)).trans hu.stepTwo)
+        ((congrArg (fun v : Word => v.truncate 8) (hs.keep .x13 (by decide))).trans hu.stepTwo)
         ((hs.keep .x19 (by decide)).trans ((hu.heaps 3 (by decide) (by decide)).trans rfl))
       let prepared := (rungRRel .x8 digit (dst.map (fun d => BitVec.ofNat 64 (d + 241))) pc).toState s
       have h10 := ((rungRRel_keeps .x8 digit (dst.map (fun d => BitVec.ofNat 64 (d + 241))) pc).reg s (by decide)).trans hp.1
@@ -11599,7 +11610,7 @@ theorem Inv.leafPost {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fi
     hashInput := hp.1, hashLen := hp.2.1,
     nodeWord := (hkeep .x15 (by decide)).trans hu.nodeWord,
     returnPC := (hkeep .x1 (by decide)).trans hu.returnPC,
-    heaps := ?_, leafAt := ?_,
+    heaps := ?_, heapsO := ?_, leafAt := ?_,
     padAt := fun l hl => merklePad_of_frame hu hf l hl,
     sibAt := fun l hl => merkleSibling_of_frame hu hf l hl,
     twAt := fun l hl => merkleTw_of_frame hu hf l hl }
@@ -11607,6 +11618,9 @@ theorem Inv.leafPost {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fi
   · intro h hlo hhi
     have hn : Child.heapReg h ∉ clobbers := by interval_cases h <;> decide
     exact (hkeep _ hn).trans (hu.heaps h hlo hhi)
+  · intro h hlo hhi
+    have hn : Child.heapRegO h ∉ clobbers := by interval_cases h <;> decide
+    exact (hkeep _ hn).trans (hu.heapsO h hlo hhi)
   · intro i hi
     by_cases h0 : i = 0
     · subst i; simpa [V3.leafFields, traceLeafSlot] using hend 0 (by decide)
@@ -11829,7 +11843,7 @@ theorem Post.sharedChild {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {ra
   have hj := SharedV3.physical_lt k.val raw.val raw.isLt
   refine ⟨ht.child.indexBound, ht.length, ht.child.pc, ht.child.baseReg,
     ht.child.hashMode, ht.child.hashInput, ht.child.hashLen, ht.child.nodeWord,
-    ht.child.returnPC, ht.child.heaps, ht.child.leafAt, ?_, ?_, ?_⟩
+    ht.child.returnPC, ht.child.heaps, ht.child.heapsO, ht.child.leafAt, ?_, ?_, ?_⟩
   · intro l hl
     have hb := shared_field_bounds ⟨SharedV3.physical k.val raw.val, hj⟩ ⟨l, hl⟩
     have h := merkleField_of_frame hu ht.frame
@@ -12058,8 +12072,8 @@ open SigGolfCandidate.T3 (Digest HashOutput)
 structure SetupMask (u : MachineState) : Prop where
   /-- C42: the FTS OR constant `M` (bits 1, 2 are dropped by every dispatch mask; also heap 6's label in `s10`). -/
   rankPadAt : u.getMem (BitVec.ofNat 64 (stackBase7 + 48)) = BitVec.ofNat 64 0x1801800000c0006
-  /-- C42: the odd path-table base `+ 5` (heap 5's label in `s5`). -/
-  child : u.getMem (BitVec.ofNat 64 (dataBase7 + 368)) = BitVec.ofNat 64 0xf1b05
+  /-- C46: the odd path-table base `+ 2` (heap 2's label in `a3`; `s5 = a3 + 3`). -/
+  child : u.getMem (BitVec.ofNat 64 (dataBase7 + 368)) = BitVec.ofNat 64 0xf1b02
   jt : u.getMem (BitVec.ofNat 64 (dataBase7 + 376)) = BitVec.ofNat 64 0xfff01
   coord : u.getMem (BitVec.ofNat 64 (dataBase7 + 464)) = BitVec.ofNat 64 10879
   gate : u.getMem (BitVec.ofNat 64 (dataBase7 + 352)) = BitVec.ofNat 64 (929 * 2^50)
@@ -12068,6 +12082,8 @@ structure SetupMask (u : MachineState) : Prop where
   aTable : u.getMem (BitVec.ofNat 64 (dataBase7 + 56)) = BitVec.ofNat 64 0xe3304
   /-- C42: coordinate 8's path-table base `+ 4`. -/
   singleton : u.getMem (BitVec.ofNat 64 (dataBase7 + 64)) = BitVec.ofNat 64 0xe7404
+  /-- C46: the odd coordinates' child mask `s2` (bits 26..32 and the forced bits 18, 19). -/
+  oddMask : u.getMem (BitVec.ofNat 64 (dataBase7 + 72)) = BitVec.ofNat 64 0x1fc0c0000
 structure Pre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (u : MachineState) : Prop where
   pc : u.pc = pcOf 4
   glob : Glob [(.x5, 0)] w pk u

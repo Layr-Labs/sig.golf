@@ -322,9 +322,9 @@ theorem chainHeaderLow_toNat_old {lay : Layer} {tree leaf : Nat} (h : ¬ chainHo
     (chainHeaderLow lay tree leaf i step).toNat =
       128 + i % 64 + step % 8 * 2^8 +
       (tree % 2^31 * 2^height lay + leaf % 4096) % 2^32 * 2^16 +
-      lay.val * 2^48 + 193 * 2^56 +
+      lay.val * 2^48 + (193 + 2 * ((tree % 2^31 / 2^(32-height lay) + (leaf % 4096 / 2^height lay) * 2^(height lay-1)) / 32 % 2)) * 2^56 +
       (tree % 2^31 / 2^(32-height lay) + (leaf % 4096 / 2^height lay) * 2^(height lay-1)) % 2 * 2^6 +
-      (tree % 2^31 / 2^(32-height lay) + (leaf % 4096 / 2^height lay) * 2^(height lay-1)) / 2 % 32 * 2^11 +
+      (tree % 2^31 / 2^(32-height lay) + (leaf % 4096 / 2^height lay) * 2^(height lay-1)) / 2 % 16 * 2^11 +
       (tree % 2^31 / 2^(32-height lay) + (leaf % 4096 / 2^height lay) * 2^(height lay-1)) / 64 * 2^50 := by
   have hb := chainExtra_bound lay tree leaf
   have hl := lay.isLt
@@ -358,13 +358,21 @@ theorem chainHeaderLow_honest_range {lay : Layer} {tree leaf : Nat} (h : chainHo
   generalize tree % 2^31 * 2^height lay + leaf % 4096 = R at hR ⊢
   generalize 2 ^ hyperW lay.val = Q at hR h31 h12 ⊢
   omega
+/-- C46: a legacy word has type byte 193 or 195 (bit 5 of the extra field) and bit 55 clear. -/
 theorem chainHeaderLow_old_range {lay : Layer} {tree leaf : Nat} (h : ¬ chainHonest lay tree leaf) (i step : Nat) :
-    193 * 2^56 ≤ (chainHeaderLow lay tree leaf i step).toNat ∧
-      (chainHeaderLow lay tree leaf i step).toNat < 193 * 2^56 + 2^55 := by
+    (193 * 2^56 ≤ (chainHeaderLow lay tree leaf i step).toNat ∧
+      (chainHeaderLow lay tree leaf i step).toNat < 193 * 2^56 + 2^55) ∨
+    (195 * 2^56 ≤ (chainHeaderLow lay tree leaf i step).toNat ∧
+      (chainHeaderLow lay tree leaf i step).toNat < 195 * 2^56 + 2^55) := by
   rw [chainHeaderLow_toNat_old h]
   have hb := chainExtra_bound lay tree leaf
   have hl := lay.isLt
-  omega
+  have hR := Nat.mod_lt (tree % 2^31 * 2^height lay + leaf % 4096) (show 0 < 2^32 by decide)
+  have := Nat.mod_lt i (show 0 < 64 by decide)
+  have := Nat.mod_lt step (show 0 < 8 by decide)
+  generalize (tree % 2^31 * 2^height lay + leaf % 4096) % 2^32 = R at hR ⊢
+  generalize tree % 2^31 / 2^(32-height lay) + (leaf % 4096 / 2^height lay) * 2^(height lay-1) = E at hb ⊢
+  rcases Nat.mod_two_eq_zero_or_one (E / 32) with hp | hp <;> rw [hp] <;> omega
 theorem chainHeaderSpill_bound (tree leaf i step : Nat) :
     chainHeaderSpill tree leaf i step < 2^52 := by
   unfold chainHeaderSpill
@@ -374,7 +382,9 @@ either way it is at least `2^28` and bit 55 is clear. -/
 theorem chainHeaderLow_band (lay : Layer) (tree leaf i step : Nat) :
     (2^28 ≤ (chainHeaderLow lay tree leaf i step).toNat ∧ (chainHeaderLow lay tree leaf i step).toNat < 2^48) ∨
     (193 * 2^56 ≤ (chainHeaderLow lay tree leaf i step).toNat ∧
-      (chainHeaderLow lay tree leaf i step).toNat < 193 * 2^56 + 2^55) := by
+      (chainHeaderLow lay tree leaf i step).toNat < 193 * 2^56 + 2^55) ∨
+    (195 * 2^56 ≤ (chainHeaderLow lay tree leaf i step).toNat ∧
+      (chainHeaderLow lay tree leaf i step).toNat < 195 * 2^56 + 2^55) := by
   by_cases h : chainHonest lay tree leaf
   · exact Or.inl (chainHeaderLow_honest_range h i step)
   · exact Or.inr (chainHeaderLow_old_range h i step)
@@ -388,8 +398,10 @@ theorem chainHeaderFlaggedLow_toNat (lay : Layer) (tree leaf i step : Nat) :
   apply Nat.mod_eq_of_lt
   split_ifs <;> omega
 private theorem flaggedLow_base_eq (a b : BitVec 64) (f g : Nat)
-    (ha : (2^28 ≤ a.toNat ∧ a.toNat < 2^48) ∨ (193 * 2^56 ≤ a.toNat ∧ a.toNat < 193 * 2^56 + 2^55))
-    (hb : (2^28 ≤ b.toNat ∧ b.toNat < 2^48) ∨ (193 * 2^56 ≤ b.toNat ∧ b.toNat < 193 * 2^56 + 2^55))
+    (ha : (2^28 ≤ a.toNat ∧ a.toNat < 2^48) ∨ (193 * 2^56 ≤ a.toNat ∧ a.toNat < 193 * 2^56 + 2^55) ∨
+      (195 * 2^56 ≤ a.toNat ∧ a.toNat < 195 * 2^56 + 2^55))
+    (hb : (2^28 ≤ b.toNat ∧ b.toNat < 2^48) ∨ (193 * 2^56 ≤ b.toNat ∧ b.toNat < 193 * 2^56 + 2^55) ∨
+      (195 * 2^56 ≤ b.toNat ∧ b.toNat < 195 * 2^56 + 2^55))
     (hf : f ≤ 1) (hg : g ≤ 1)
     (he : a.toNat + f * 2^55 = b.toNat + g * 2^55) : a = b := by
   apply BitVec.eq_of_toNat_eq
@@ -490,7 +502,10 @@ theorem chainHeaderLow_fields {lay lay' : Layer} {tree leaf i step tree' leaf' i
       (leaf' % 4096 / 2^height lay') * 2^(height lay'-1)) = extra' at he hb'
     have hparts : lay.val = lay'.val ∧ i % 64 = i' % 64 ∧ step % 8 = step' % 8 ∧
         (tree % 2^31 * 2^height lay + leaf % 4096) % 2^32 =
-          (tree' % 2^31 * 2^height lay' + leaf' % 4096) % 2^32 ∧ extra = extra' := by omega
+          (tree' % 2^31 * 2^height lay' + leaf' % 4096) % 2^32 ∧ extra = extra' := by
+      -- C46: split on the type-byte bit (`extra / 32 % 2`) so `omega` sees fixed type bytes.
+      rcases Nat.mod_two_eq_zero_or_one (extra / 32) with hp | hp <;>
+      rcases Nat.mod_two_eq_zero_or_one (extra' / 32) with hp' | hp' <;> rw [hp, hp'] at he <;> omega
     have heq := Fin.ext hparts.1
     subst lay'
     have hmeta := hx.trans (hparts.2.2.2.2.trans hx'.symm)
@@ -630,6 +645,22 @@ theorem chainHeaderLow_byte1_mod8 (lay : Layer) (tree leaf i step : Nat) :
     generalize (tree % 2^31 * 2^height lay + leaf % 4096) % 2^32 = R
     generalize tree % 2^31 / 2^(32-height lay) + (leaf % 4096 / 2^height lay) * 2^(height lay-1) = E
     omega
+/-- C46: byte 1 of every chain header's low word is below 128 (honest: the step; legacy: step + 8·(extra/2 mod 16)),
+below every packed FTS tag (`>= 211`; odd coordinates' packed tags are 3 mod 8). -/
+theorem chainHeaderLow_byte1_lt128 (lay : Layer) (tree leaf i step : Nat) :
+    (chainHeaderLow lay tree leaf i step).toNat / 256 % 256 < 128 := by
+  by_cases hA : chainHonest lay tree leaf
+  · rw [chainHeaderLow_toNat_honest hA]
+    have := Nat.mod_lt i (show 0 < 64 by decide)
+    have := Nat.mod_lt step (show 0 < 8 by decide)
+    generalize tree % 2^31 * 2^height lay + leaf % 4096 + 2^hyperW lay.val = X
+    omega
+  · rw [chainHeaderLow_toNat_old hA]
+    have := Nat.mod_lt i (show 0 < 64 by decide)
+    have := Nat.mod_lt step (show 0 < 8 by decide)
+    generalize (tree % 2^31 * 2^height lay + leaf % 4096) % 2^32 = R
+    generalize tree % 2^31 / 2^(32-height lay) + (leaf % 4096 / 2^height lay) * 2^(height lay-1) = E
+    omega
 theorem header_firstByte (tag lay tree position index : Nat) :
     (header tag lay tree position index).toNat % 256 = 1 := by
   rw [header_toNat]
@@ -686,8 +717,8 @@ theorem chainHeader_ne_nodeTweak (lay : Layer) (tree leaf i step : Nat) (hst : s
       have := Nat.mod_lt step (show 0 < 8 by decide)
       generalize tree % 2^31 * 2^height lay + leaf % 4096 + 2^hyperW lay.val = X at hw
       split_ifs at hw <;> omega
-    · -- Y6 R-odd: a legacy chain word has byte 1 = step mod 8 (step < 7), a packed FTS word byte 1 = 247.
-      have hb := chainHeaderLow_byte1_mod8 lay tree leaf i step
+    · -- C46: a legacy chain word has byte 1 below 128, a packed FTS word byte 1 `>= 211`.
+      have hb := chainHeaderLow_byte1_lt128 lay tree leaf i step
       have := ftsNodeWordH_tag hn (lay' - 4) tree'
       generalize (chainHeaderLow lay tree leaf i step).toNat = W at hw hb
       split_ifs at hw <;> omega

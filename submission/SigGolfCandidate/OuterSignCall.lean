@@ -11,10 +11,10 @@ open SigGolfCandidate.FtsGrind OuterNodeSearchInvariant
 
 theorem raw {sk : BitVec 256} {A D coord index heap : Nat} {left right : Digest} {s : MachineState}
     (F : Input A D (OuterNodeRawModel.pre coord index heap left) (OuterNodeRawModel.rightBytes right) s)
-    (hA : A=328448) (hc : 1≤coord) (hc9 : coord<9) (hi : index<2^31) (hh : heap=2 ∨ heap=3)
+    (hA : A=328448) (hc : 1≤coord) (hc9 : coord<9) (hi : index<2^31) (hh : heap=2 ∨ heap=3) (hco : coord%2=1 ∨ coord=8)
     (hp : s.pc=pcOf 25338) (hz32 : s.getMem (BitVec.ofNat 64 (A+32))=0)
     (hz40 : s.getMem (BitVec.ofNat 64 (A+40))=0) :
-    TBSim OuterImages.signImage sk s 77856 (OuterNodeRawModel.raw coord index heap left right (OuterGroundCore.cap coord-1) 0)
+    TBSim OuterImages.signImage sk s 77859 (OuterNodeRawModel.raw coord index heap left right (OuterGroundCore.cap coord-1) 0)
       (fun r t=>OuterSignPlain.Out s D r.2 t) := by
   obtain ⟨u,su,up,ur,um⟩:=OuterControlRun.jump 25338 26156 (by decide) (by decide) OuterImageSignWindows.sign_jump s hp
   have fu : Frame s u (fun _=>False) := by intro X hX hn;exact um _
@@ -34,7 +34,8 @@ theorem raw {sk : BitVec 256} {A D coord index heap : Nat} {left right : Digest}
       dhi:=F.dhi
       da:=F.da
       disjoint:=F.disjoint }
-  have H:=OuterSignCanonical.run_raw (sk:=sk) F' hA hc hc9 hi hh OuterImageHelpers.sign_helper up
+  have H:=OuterSignCanonical.run_raw (sk:=sk) F' hA hc hc9 hi hh hco OuterImageHelpers.sign_helper
+    OuterSignClassifier.cls_at up
   refine TBSim.steps su (H.mono le_rfl ?_)
   intro r t ht
   have hc':=OuterSignPlainFinish.canonical_call ht (by rw [um];exact hz32) (by rw [um];exact hz40)

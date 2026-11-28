@@ -10,7 +10,8 @@ theorem sub16_add24 (x : Word) : x-16#64+24#64=x+8#64 := by
   rw [BitVec.sub_eq_add_neg,BitVec.add_assoc]
   rfl
 
-theorem values_two (s : MachineState) (hh : s.getMem (s.getReg .x10+24#64)=2#64) :
+/-- C46: the heap-2 label is `ftsHeapLabel 2 = 0xf1b02` (the code reads only its low bit). -/
+theorem values_two (s : MachineState) (hh : s.getMem (s.getReg .x10+24#64)=989954#64) :
     (c_check.res.toState s).getReg .x7=(s.getMem (s.getReg .x12+24#64) >>> 60) ∧
     (c_check.res.toState s).pc=(if s.getMem (s.getReg .x12+24#64) >>> 60=0 then pcOf 235828 else pcOf 235824) := by
   simp [Result.toState_getReg,Result.toState_pc,c_check.res,RegFile.get,E.eval,Addr.eval,BinOp.eval,CmpOp.eval,hh]
@@ -25,36 +26,37 @@ theorem obligs (s : MachineState) (input output heap : Nat)
     (ha : s.getReg .x10=BitVec.ofNat 64 input) (hb : s.getReg .x12=BitVec.ofNat 64 output)
     (hi : input < 2^20) (hil : 2048 ≤ input) (him : input % 8 = 0)
     (ho : output < 2^20) (hol : 2048 ≤ output) (hom : output % 8 = 0)
-    (hh : heap=2 ∨ heap=3) (hmem : s.getMem (BitVec.ofNat 64 (input+24))=BitVec.ofNat 64 heap) :
+    (hh : heap=2 ∨ heap=3) (hmem : s.getMem (BitVec.ofNat 64 (input+24))=BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap)) :
     c_check.res.obligs s := by
   rcases hh with rfl|rfl
   all_goals
     simp [c_check.res,Result.obligs,Oblig.all,Oblig.holds,Addr.eval,E.eval,BinOp.eval,UnOp.eval,LoadKind.fromWord,
-      ha,hb,ofNat_add_ofNat,hmem,sub16_add24,memAccessValid_iff,BitVec.toNat_ofNat,BitVec.toNat_sub,MEMORY_BYTES]
+      ha,hb,ofNat_add_ofNat,hmem,sub16_add24,memAccessValid_iff,BitVec.toNat_ofNat,BitVec.toNat_sub,MEMORY_BYTES,
+      SigGolfCandidate.T3.ftsHeapLabel]
     omega
 
 
 theorem values (s : MachineState) (heap : Nat) (hh : heap=2 ∨ heap=3)
-    (hmem : s.getMem (s.getReg .x10+24#64)=BitVec.ofNat 64 heap) :
+    (hmem : s.getMem (s.getReg .x10+24#64)=BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap)) :
     let off : Word:=if heap=3 then 8 else 24
     (c_check.res.toState s).getReg .x7=(s.getMem (s.getReg .x12+off) >>> 60) ∧
     (c_check.res.toState s).pc=(if s.getMem (s.getReg .x12+off) >>> 60=0 then pcOf 235828 else pcOf 235824) := by
   rcases hh with rfl|rfl
-  · simpa using values_two s hmem
-  · simpa using values_three s hmem
+  · simpa using values_two s (by simpa [SigGolfCandidate.T3.ftsHeapLabel] using hmem)
+  · simpa using values_three s (by simpa [SigGolfCandidate.T3.ftsHeapLabel] using hmem)
 
 theorem run {im : Image} (hc : CodeAt im (pcOf 235817) c_checkCode) (s : MachineState)
     (hp : s.pc=pcOf 235817) (input output heap : Nat)
     (ha : s.getReg .x10=BitVec.ofNat 64 input) (hb : s.getReg .x12=BitVec.ofNat 64 output)
     (hi : input < 2^20) (hil : 2048 ≤ input) (him : input % 8 = 0)
     (ho : output < 2^20) (hol : 2048 ≤ output) (hom : output % 8 = 0)
-    (hh : heap=2 ∨ heap=3) (hmem : s.getMem (BitVec.ofNat 64 (input+24))=BitVec.ofNat 64 heap) :
+    (hh : heap=2 ∨ heap=3) (hmem : s.getMem (BitVec.ofNat 64 (input+24))=BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap)) :
     let off : Word:=if heap=3 then 8 else 24
     ∃ t,Steps im s 7 7 t ∧ RegsExcept s t [.x7] ∧
       t.getReg .x7=(s.getMem (s.getReg .x12+off) >>> 60) ∧
       t.pc=(if s.getMem (s.getReg .x12+off) >>> 60=0 then pcOf 235828 else pcOf 235824) ∧
       (∀ a,t.getMem a=s.getMem a) := by
-  have hmem' : s.getMem (s.getReg .x10+24#64)=BitVec.ofNat 64 heap := by
+  have hmem' : s.getMem (s.getReg .x10+24#64)=BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap) := by
     simpa only [ha,ofNat_add_ofNat] using hmem
   have hv:=values s heap hh hmem'
   refine ⟨c_check.res.toState s,symRun_sound c_check hc s hp (obligs s input output heap ha hb hi hil him ho hol hom hh hmem),?_,

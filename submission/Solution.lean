@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 26016, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 4256 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 6937 := OuterCertificate.certificate
+theorem certificate : SigGolf.Certificate submission 6933 := OuterCertificate.certificate
 
 end SigGolf.Challenge
 

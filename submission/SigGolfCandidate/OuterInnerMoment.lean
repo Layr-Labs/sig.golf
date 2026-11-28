@@ -112,7 +112,7 @@ theorem notF_innerHeap (first : Bool) (index coord : Nat) (pads : Nat → PairRo
     omega
   unfold heapStep
   exact SigGolfCandidate.T3M.allQ_bind
-    (OuterGroundAvoid.notF_sharedNode_external hS first coord heap pads _ _ hc hm.2
+    (OuterGroundAvoid.notF_sharedNode_external hS first coord heap pads _ _ hc hm.2 (by omega)
       (fun h => by have := ho coord heap h;omega)) (fun _ => SigGolfCandidate.T3M.allQ_pure _)
 
 theorem inner_cost (secret : BitVec 256) (z f g : ℝ≥0∞) (hz : 1≤z) (first : Bool) (index coord : Nat)

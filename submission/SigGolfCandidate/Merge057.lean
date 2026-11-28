@@ -17,7 +17,7 @@ test (top labels, `TopNine`, the layer-1 pair bands; C42: the heap-4/5/6 labels,
 `[2 ^ 56, 193 * 2 ^ 56)`). -/
 theorem not_topLowWord_of_ge {w : Nat} (h : 2 ^ 28 ≤ w) (h' : w < 2 ^ 56 ∨ 193 * 2 ^ 56 ≤ w) :
     ¬ ((1 ≤ w ∧ w < 4096) ∨ w = 520192 ∨ w = 14336 ∨
-      (SigGolfCandidate.T3.TopNine w ∨ w = 930564 ∨ w = 989957 ∨ w = 108112779336744966) ∨
+      (SigGolfCandidate.T3.TopNine w ∨ w = 930564 ∨ w = 989957 ∨ w = 108112779336744966 ∨ w = 989954) ∨
       (4096 ≤ w ∧ w < 8192) ∨ (131072 ≤ w ∧ w < 262144 ∧ w % 32 = 0)) := by
   unfold SigGolfCandidate.T3.TopNine; omega
 end ClaudeWCT.W9.T3M.Extract
@@ -13688,12 +13688,37 @@ theorem take8_bytesLE16 (a : BitVec 128) : (bytesLE 16 a).take 8 = bytesLE 8 (a.
     (BitVec.extractLsb'_append_extractLsb' (w := 64) (len := 64) (x := a)).symm
   conv_lhs => rw [ha]
   rw [SigGolfCandidate.T3M.Extract.bytesLE_header_words, List.take_left' (SphincsSecurity.bytesLE_length 8 _)]
+set_option debug.skipKernelTC false in
+/-- C46: an FTS leaf word is a multiple of 2048 and at least `770048 = 786432 - 2048 * 8` (odd coordinates' index-0
+child-0 words, with the `+0xc0000` pair bit, are the smallest; every other one is `≥ 2 ^ 20 - 2 ^ 14` or wrapped).
+Pure-Nat facts kept small for the kernel (`unfold ftsLeafLow; omega` at the use site hits kernel deep recursion). -/
+theorem ftsLeafLow_band46 {coord : Nat} (hc : coord < 16) (index child : Nat) :
+    WCT9.ftsLeafLow index coord child % 2048 = 0 ∧ 770048 ≤ WCT9.ftsLeafLow index coord child := by
+  have hi := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
+  have hq : coord % 16 / 2 ≤ 7 := by omega
+  have hX := WCT9.ftsSelMul_mul_facts coord child
+  unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN
+  generalize WCT9.ftsSelMul coord * (child % 128) = X at hX ⊢
+  generalize coord % 16 / 2 = q at hq ⊢
+  generalize index % 2 ^ 31 = r at hi ⊢
+  obtain ⟨hXm, hXl⟩ := hX
+  obtain ⟨b, rfl⟩ : ∃ b, X = 2 ^ 20 * b := ⟨X / 2 ^ 20, by omega⟩
+  rcases Nat.mod_two_eq_zero_or_one coord with hp | hp <;> rw [hp] <;>
+  rcases Nat.eq_zero_or_pos r with hr | hr <;> (try subst hr) <;> omega
+set_option debug.skipKernelTC false in
+/-- C46: a multiple of 2048 that is at least 770048 is no top label (520192 and 14336 are below, the other labels are
+not multiples of 2048). -/
+theorem not_topLabel_of_band46 {w : Nat} (h0 : w % 2048 = 0) (h1 : 770048 ≤ w) :
+    w ≠ 520192 ∧ w ≠ 14336 ∧ ¬ (SigGolfCandidate.T3.TopNine w ∨ w = 930564 ∨ w = 989957 ∨
+      w = 108112779336744966 ∨ w = 989954) := by
+  unfold SigGolfCandidate.T3.TopNine
+  omega
 /- Every bounded FTS position has a low word above the top-label range. -/
 set_option debug.skipKernelTC true in
 theorem ftsPos_low {p : Extract.Pos} (hb : p.Bounded) (h : FtsPos p) :
     2 ^ 18 ≤ tweakLow p.hdr ∧ tweakLow p.hdr < 2 ^ 64 ∧ tweakLow p.hdr ≠ 520192 ∧ tweakLow p.hdr ≠ 14336 ∧
       ¬ (SigGolfCandidate.T3.TopNine (tweakLow p.hdr) ∨ tweakLow p.hdr = 930564 ∨ tweakLow p.hdr = 989957 ∨
-        tweakLow p.hdr = 108112779336744966) := by
+        tweakLow p.hdr = 108112779336744966 ∨ tweakLow p.hdr = 989954) := by
   cases p with
   | wctChain index coord child t step =>
       obtain ⟨-, hk, -, ht, -⟩ := hb
@@ -13712,24 +13737,9 @@ theorem ftsPos_low {p : Extract.Pos} (hb : p.Bounded) (h : FtsPos p) :
       have h2 := WCT9.ftsLeafLow_lt index coord child
       simp only [Extract.Pos.hdr, WCT9.ftsLeafHeader]
       rw [append64_lowNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt h2]
-      have hn : WCT9.ftsLeafLow index coord child ≠ 520192 := by
-        have hm := WCT9.ftsSelMul_mul_facts coord child
-        unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN
-        omega
-      have hn1 : WCT9.ftsLeafLow index coord child ≠ 14336 := by
-        have hm := WCT9.ftsSelMul_mul_facts coord child
-        unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN
-        omega
-      -- C40: an FTS leaf word is `index * 2 ^ 33 + child field - 2048 (coord + 1)` mod `2 ^ 64`: never a height-9 label.
-      -- C42: nor a heap-4/5/6 label (none is a multiple of 2048 or wrapped).
-      have hn9 : ¬ (SigGolfCandidate.T3.TopNine (WCT9.ftsLeafLow index coord child) ∨
-          WCT9.ftsLeafLow index coord child = 930564 ∨ WCT9.ftsLeafLow index coord child = 989957 ∨
-          WCT9.ftsLeafLow index coord child = 108112779336744966) := by
-        have hm := WCT9.ftsSelMul_mul_facts coord child
-        have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
-        unfold SigGolfCandidate.T3.TopNine WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN
-        rw [Nat.mod_eq_of_lt (show coord < 16 by omega)]
-        omega
+      -- C40/C42/C46: an FTS leaf word is a multiple of 2048 and `≥ 770048`: never a top label (`not_topLabel_of_band46`).
+      obtain ⟨hb0, hb1⟩ := ftsLeafLow_band46 (show coord < 16 by omega) index child
+      obtain ⟨hn, hn1, hn9⟩ := not_topLabel_of_band46 hb0 hb1
       -- C41: an FTS word is `≥ 2 ^ 18`, above the layer-1 pair label bands.
       exact ⟨Extract.ftsLeafLow_ge18 index coord child, h2, hn, hn1, hn9⟩
   | wctNode index coord level nd =>
@@ -13739,41 +13749,42 @@ theorem ftsPos_low {p : Extract.Pos} (hb : p.Bounded) (h : FtsPos p) :
         exact Nat.pow_le_pow_right (by decide) (by omega)
       have hh : 2 ^ (7 - level - 1) + nd < 128 := by omega
       have hlow := WCT9.wctNodeHeader_toNat hk index (2 ^ (7 - level - 1) + nd)
-      have hge := WCT9.ftsLeafLow_zero_or_ge (show coord < 15 by omega) index 0
-      have hlt := WCT9.ftsLeafLow_lt index coord 0
+      -- C46: the two-word low word is the pair-shared base `ftsNodeLow2` (not the child-0 leaf word on odd coordinates).
+      have hlt := WCT9.ftsNodeLow2_lt index coord
       have hgeN : 4096 ≤ WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) := by
         rw [WCT9.ftsNodeLowN_eq, Nat.mod_eq_of_lt (show coord < 16 by omega)]; unfold SigGolfCandidate.T3.ftsBiasN; have := Nat.mod_lt index (by decide : 0 < 2^31); omega
       have hltN := WCT9.ftsNodeLowN_lt index coord (2 ^ (7 - level - 1) + nd)
-      have hneL : WCT9.ftsLeafLow index coord 0 ≠ 520192 := by
-        unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN
+      have hneL : WCT9.ftsNodeLow2 index coord ≠ 520192 := by
+        unfold WCT9.ftsNodeLow2 SigGolfCandidate.T3.ftsBiasN
         omega
       have hneN : WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) ≠ 520192 := by
         unfold WCT9.ftsNodeLowN SigGolfCandidate.T3.ftsBiasN
         omega
-      have hneL1 : WCT9.ftsLeafLow index coord 0 ≠ 14336 := by
-        unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN
+      have hneL1 : WCT9.ftsNodeLow2 index coord ≠ 14336 := by
+        unfold WCT9.ftsNodeLow2 SigGolfCandidate.T3.ftsBiasN
         omega
       have hneN1 : WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) ≠ 14336 := by
         unfold WCT9.ftsNodeLowN SigGolfCandidate.T3.ftsBiasN
         omega
       -- C40: FTS node words are `index * 2 ^ 33 - (2048 (coord + 1) + heap)` mod `2 ^ 64`: never a height-9 label.
-      have hn9L : ¬ (SigGolfCandidate.T3.TopNine (WCT9.ftsLeafLow index coord 0) ∨
-          WCT9.ftsLeafLow index coord 0 = 930564 ∨ WCT9.ftsLeafLow index coord 0 = 989957 ∨
-          WCT9.ftsLeafLow index coord 0 = 108112779336744966) := by
+      have hn9L : ¬ (SigGolfCandidate.T3.TopNine (WCT9.ftsNodeLow2 index coord) ∨
+          WCT9.ftsNodeLow2 index coord = 930564 ∨ WCT9.ftsNodeLow2 index coord = 989957 ∨
+          WCT9.ftsNodeLow2 index coord = 108112779336744966 ∨ WCT9.ftsNodeLow2 index coord = 989954) := by
         have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
-        rw [WCT9.ftsLeafLow_zero]
-        unfold SigGolfCandidate.T3.TopNine SigGolfCandidate.T3.ftsBiasN
+        unfold SigGolfCandidate.T3.TopNine WCT9.ftsNodeLow2 SigGolfCandidate.T3.ftsBiasN
         rw [Nat.mod_eq_of_lt (show coord < 16 by omega)]
         omega
       have hn9N : ¬ (SigGolfCandidate.T3.TopNine (WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd)) ∨
           WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) = 930564 ∨
           WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) = 989957 ∨
-          WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) = 108112779336744966) := by
+          WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) = 108112779336744966 ∨ WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) = 989954) := by
         have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
         unfold SigGolfCandidate.T3.TopNine WCT9.ftsNodeLowN SigGolfCandidate.T3.ftsBiasN
         rw [Nat.mod_eq_of_lt (show coord < 16 by omega)]
         omega
-      have h18L := Extract.ftsLeafLow_ge18 index coord 0
+      have h18L : 2 ^ 18 ≤ WCT9.ftsNodeLow2 index coord := by
+        have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
+        unfold WCT9.ftsNodeLow2 SigGolfCandidate.T3.ftsBiasN; omega
       have h18N := Extract.ftsNodeLowN_ge18 index coord (2 ^ (7 - level - 1) + nd)
       simp only [Extract.Pos.hdr]
       unfold tweakLow

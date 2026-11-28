@@ -4019,7 +4019,7 @@ theorem bandHeap_top (heap : Nat) : bandHeap (T3.topNodeWord heap) = 0 := by
     · rw [h]; decide
     · rw [if_neg (by omega), if_neg (by omega)]
   · unfold T3.TopStep at h
-    rcases h with h | h | h <;> (rw [h]; decide)
+    rcases h with h | h | h | h <;> (rw [h]; decide)
 end pass
 
 end Grind

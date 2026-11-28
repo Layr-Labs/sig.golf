@@ -37,7 +37,7 @@ theorem runB {im : Image} {sk : BitVec 256} {b A D coord index heap : Nat} {left
 
 theorem runC {im : Image} {sk : BitVec 256} {b A D index heap : Nat} {left right : Digest}
     {s : MachineState} (hheap : heap=2 ∨ heap=3)
-    (hmem : s.getMem (BitVec.ofNat 64 (A+24))=BitVec.ofNat 64 heap)
+    (hmem : s.getMem (BitVec.ofNat 64 (A+24))=BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap))
     (F : Input A D (OuterNodeRawModel.pre 8 index heap left) (OuterNodeRawModel.rightBytes right) s)
     (hc : CodeAt im (pcOf b) OuterNodeHelper.cCode) (hp : s.pc=pcOf b) :
     TBSim im sk s 77838 (nodeAt 8 index heap left right)

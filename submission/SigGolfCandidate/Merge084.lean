@@ -969,7 +969,7 @@ theorem hdr0_node (c index : Nat) (hc : c < 9) (hidx : index < 2 ^ 32) :
 theorem wordsOf_node (c index h : Nat) (pad L R : Digest) (hc : c < 9) (hidx : index < 2 ^ 31) (hh : h < 128) :
     wordsOf (pad64 (nodeIn c index h pad L R)) =
       [L.extractLsb' 0 64, L.extractLsb' 64 64, BitVec.ofNat 64 (nodeLoN c index h),
-        BitVec.ofNat 64 (if 8 ≤ h then 0 else SigGolfCandidate.T3.ftsHeapLabel h), pad.extractLsb' 0 64, pad.extractLsb' 64 64,
+        BitVec.ofNat 64 (if 8 ≤ h then 0 else SigGolfCandidate.T3.ftsHeapLabelC c h), pad.extractLsb' 0 64, pad.extractLsb' 64 64,
         R.extractLsb' 0 64, R.extractLsb' 64 64] := by
   have hlo : (WCT9.wctNodeHeader c index h).extractLsb' 0 64 = BitVec.ofNat 64 (nodeLoN c index h) := by
     rw [WCT9.wctNodeHeader_low hc]
@@ -978,20 +978,21 @@ theorem wordsOf_node (c index h : Nat) (pad L R : Digest) (hc : c < 9) (hidx : i
     · rw [if_pos (show SigGolfCandidate.T3.FtsNew h from ⟨h8, hh⟩), if_pos h8]
       unfold nodeLo7 WCT9.ftsNodeLowN
       rw [Nat.mod_eq_of_lt (show c < 16 by omega), Nat.mod_eq_of_lt hidx]
+      have := Nat.mod_lt c (show 0 < 2 by decide)
       apply BitVec.eq_of_toNat_eq
       simp only [BitVec.toNat_ofNat]
       unfold SigGolfCandidate.T3.ftsBiasN
       simp only [Nat.mod_mod]
       omega
     · rw [if_neg (show ¬ SigGolfCandidate.T3.FtsNew h from fun h' => h8 h'.1), if_neg h8]
-      unfold nodeLo7
-      rw [WCT9.ftsLeafLow_zero, Nat.mod_eq_of_lt (show c < 16 by omega), Nat.mod_eq_of_lt hidx]
+      unfold nodeLo7 WCT9.ftsNodeLow2
+      rw [Nat.mod_eq_of_lt (show c < 16 by omega), Nat.mod_eq_of_lt hidx]
       apply BitVec.eq_of_toNat_eq
       simp only [BitVec.toNat_ofNat]
       unfold SigGolfCandidate.T3.ftsBiasN
       simp only [Nat.mod_mod]
       omega
-  have hhi : (WCT9.wctNodeHeader c index h).extractLsb' 64 64 = BitVec.ofNat 64 (if 8 ≤ h then 0 else SigGolfCandidate.T3.ftsHeapLabel h) := by
+  have hhi : (WCT9.wctNodeHeader c index h).extractLsb' 64 64 = BitVec.ofNat 64 (if 8 ≤ h then 0 else SigGolfCandidate.T3.ftsHeapLabelC c h) := by
     rw [WCT9.wctNodeHeader_high hc]
     by_cases h8 : 8 ≤ h
     · rw [if_pos (show SigGolfCandidate.T3.FtsNew h from ⟨h8, hh⟩), if_pos h8]
@@ -1690,7 +1691,7 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 100000
 set_option linter.unusedSimpArgs false
 
-theorem node_run {c m p : Nat} (hc:c<9) (hm:m<3) (hp:p<5) (hmp:m=1 ↔ p<4) :
+theorem node_run {c m p : Nat} (hc:c<9) (hm:m<3) (hp:p<6) (hmp:m=1 ↔ p<4) :
     runNode c m p=some (expected c m p) := by
   apply optBeq_eq
   match c,hc with
@@ -1763,14 +1764,14 @@ theorem branches_hold (s : MachineState) {h : Nat} (hh:h<128)
     interval_cases h <;>
       simp (config:={decide:=true}) only[mode,lab,branches,labBrs,labBr,↓reduceIte,List.cons_append,List.nil_append,
         List.mem_cons,List.not_mem_nil,or_false]at hb <;>
-      rcases hb with rfl|rfl|rfl|rfl|rfl|rfl <;>
+      rcases hb with rfl|rfl|rfl|rfl|rfl|rfl|rfl <;>
       simp only[Br.holds,E.eval,cE,h18] <;> decide
 
 def writes (A : Nat) : Prop := ∃k<8,A=NODEW+8*k
 
 def value (c m p off : Nat) : E :=
   if off=0 then nodeLd 0 else if off=8 then nodeLd 8 else if off=16 then hdrLo c m else
-  if off=24 then hdrHi m p else if off=32 then padWord c m 0 else if off=40 then padWord c m 8 else
+  if off=24 then hdrHi c m p else if off=32 then padWord c m 0 else if off=40 then padWord c m 8 else
   if off=48 then nodeLd 16 else nodeLd 24
 
 theorem mem_read (s : MachineState) (c m p : Nat) {k : Nat} (hk:k<8) :

@@ -14,13 +14,13 @@ theorem secure : OuterImageValidity.sub.Secure :=
   OuterSecurityBridge.submission_secure
     (OuterSecurityBridge.pending ClaudeWCT.W9.Machine.ExpandLink.I0) OuterSourceSecure.secure
 
-theorem legacy : SigGolfCandidate.Legacy.Certificate OuterImageValidity.sub 6937 :=
+theorem legacy : SigGolfCandidate.Legacy.Certificate OuterImageValidity.sub 6933 :=
   OuterConditionalCertificate.of_security secure
 
 def submission : SigGolf.Submission := currentOf OuterImageValidity.sub
 
-theorem certificate : SigGolf.Certificate submission 6937 := by
-  have hL : SigGolfCandidate.Legacy.Certificate (legacyOf submission) 6937 := by
+theorem certificate : SigGolf.Certificate submission 6933 := by
+  have hL : SigGolfCandidate.Legacy.Certificate (legacyOf submission) 6933 := by
     rw [submission,legacyOf_currentOf]
     exact legacy
   have hrun : RunAgrees submission:=runAgrees_of_admissible submission hL.admissible

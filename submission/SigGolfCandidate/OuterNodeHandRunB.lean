@@ -14,10 +14,10 @@ def Post (coord index j : Nat) (u : MachineState) (res : Nat×Digest) (t : Machi
   t.pc=pcOf (W9Drv.SharedBProof.childBase j+OuterNodeBankLayout.bSite j+2)-4#64 ∧
   t.getReg .x11=64 ∧ t.getReg .x12=BitVec.ofNat 64 (coordRegion coord-handO j) ∧
   DigAt t (coordRegion coord-handO j+16) res.2 ∧
-  t.getMem (BitVec.ofNat 64 (8323072+(15-coord)*4096))=BitVec.ofNat 64 res.1 ∧
+  t.getMem (BitVec.ofNat 64 (8323072+(15-coord/2)*4096))=BitVec.ofNat 64 res.1 ∧
   (∀ r : Reg, r ≠ .x3 → r ≠ .x10 → r ≠ .x11 → r ≠ .x12 → t.getReg r=u.getReg r) ∧
   Frame u t (fun X=>(∃ off∈stagesW j 6,X=coordRegion coord+off) ∨
-    Work (coordRegion coord+blkO j 5) (coordRegion coord-handO j) X ∨ X=8323072+(15-coord)*4096)
+    Work (coordRegion coord+blkO j 5) (coordRegion coord-handO j) X ∨ X=8323072+(15-coord/2)*4096)
 
 theorem run {im : Image} {sk : BitVec 256} (j : Fin 128) (coord : Fin 9) (index : Nat)
     (hc1 : 1≤coord.val) (hc8 : coord.val≠8) (hi : index<2^31)

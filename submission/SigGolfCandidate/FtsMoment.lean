@@ -80,8 +80,9 @@ theorem fTrial_ne {coord index heap coord' heap' : Nat} (h : FP coord index heap
   intro he
   have hh := congrArg queryHeader he
   rw [fTrial_header, fTrial_header] at hh
-  obtain ⟨e1, -, e3⟩ := ClaudeWCT.WCT9.wctNodeHeader_injective h'.1 h'.2.1 (by have := h'.heap; omega)
-    h.1 h.2.1 (by have := h.heap; omega) (bytesLE_injective hh)
+  obtain ⟨e1, -, e3⟩ := ClaudeWCT.WCT9.wctNodeHeader_injective_of h'.1 h'.2.1 (by have := h'.heap; omega)
+    h.1 h.2.1 (by have := h.heap; omega) (Or.inr (Or.inr (Or.inl (by have := h'.heap; unfold FtsNew; omega))))
+    (bytesLE_injective hh)
   exact hne ⟨e1, e3⟩
 
 /-! ## Freshness -/
@@ -185,7 +186,8 @@ theorem node_ne_ground (hS : GroundSet index S) {coord heap : Nat} (hc : coord <
   intro c x hs he
   have hp := hS c x hs
   have hx := hp.heap
-  obtain ⟨e1, -, e3⟩ := ClaudeWCT.WCT9.wctNodeHeader_injective hc hp.2.1 (by omega) hp.1 hp.2.1 (by omega) he
+  obtain ⟨e1, -, e3⟩ := ClaudeWCT.WCT9.wctNodeHeader_injective_of hc hp.2.1 (by omega) hp.1 hp.2.1 (by omega)
+    (Or.inr (Or.inr (Or.inr (by unfold FtsNew; omega)))) he
   subst e1 e3
   exact hng hp.2.2
 
@@ -195,7 +197,8 @@ theorem node_ne_ground_coord (hS : GroundSet index S) {coord heap : Nat} (hc : c
   intro c x hs he
   have hp := hS c x hs
   have hx := hp.heap
-  obtain ⟨e1, -, -⟩ := ClaudeWCT.WCT9.wctNodeHeader_injective hc hp.2.1 hh hp.1 hp.2.1 (by omega) he
+  obtain ⟨e1, -, -⟩ := ClaudeWCT.WCT9.wctNodeHeader_injective_of hc hp.2.1 hh hp.1 hp.2.1 (by omega)
+    (Or.inr (Or.inr (Or.inr (by unfold FtsNew; omega)))) he
   exact hco c x hs e1.symm
 
 end headers

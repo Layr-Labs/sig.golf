@@ -14,14 +14,14 @@ theorem runC {im : Image} {sk : BitVec 256} {b A D index heap : Nat} {left right
     (hc : CodeAt im (pcOf b) OuterNodeHelper.cCode) (hp : s.pc=pcOf b) :
     TBSim im sk s 77838 (nodeAt 8 index heap left right)
       (SourceOut 8 heap s A D (pcOf b-4#64)) := by
-  exact OuterNodeSourceSim.runC hheap (OuterNodeInputHeader.input_header F (by decide) hheap).2 F hc hp
+  exact OuterNodeSourceSim.runC hheap (OuterNodeInputHeader.input_label F (by decide) hheap (Or.inr rfl)) F hc hp
 
 theorem record {coord index heap A D : Nat} {left right : Digest} {s t : MachineState}
     {ret : Word} {res : Nat × Digest} (hc : 1≤coord) (hc9 : coord<9) (hi : index<2^31)
     (hh : heap=2 ∨ heap=3)
     (F : Input A D (OuterNodeRawModel.pre coord index heap left) (OuterNodeRawModel.rightBytes right) s)
     (hout : SourceOut coord heap s A D ret res t) :
-    t.getMem (BitVec.ofNat 64 (8323072+(15-coord)*4096))=BitVec.ofNat 64 res.1 := by
+    t.getMem (BitVec.ofNat 64 (8323072+(15-coord/2)*4096))=BitVec.ofNat 64 res.1 := by
   obtain ⟨raw,hkeep,ho⟩:=hout
   have hw:=OuterNodeInputHeader.input_header F hc9 hh
   have hrec:=OuterNodeRecordHeader.record_address s coord index hc hc9 hi (by

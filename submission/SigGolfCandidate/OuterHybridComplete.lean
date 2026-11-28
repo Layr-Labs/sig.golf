@@ -33,13 +33,13 @@ theorem trial_ne_hybrid {coord index heap coord' heap' : Nat} (h : FP coord inde
     (hne : ¬(coord'=coord ∧ heap'=heap)) (n m : Nat) (l r l' r' : Digest) :
     fTrial coord' index heap' m l' r'≠fTrial coord index heap n l r :=
   OuterGroundFresh.trial_ne ⟨h.1,h.2.1,by have := h.heap;omega⟩
-    ⟨h'.1,h'.2.1,h'.heap.2⟩ hne n m l r l' r'
+    ⟨h'.1,h'.2.1,h'.heap⟩ hne n m l r l' r'
 
 theorem notF_plain_inner {secret : BitVec 256} {index : Nat} {S : Nat → Nat → Prop}
     (hS : HybridSet index S) (first : Bool) (coord heap : Nat) (pads : Nat → PairRoot) (l r : Digest)
     (hc : coord<9) (hlo : 4≤heap) (hhi : heap<128) (hg : ¬ftsGround coord heap) :
     AllQueriesSatisfy (sharedNode first coord index heap pads l r) (NotF secret index S) := by
-  apply OuterGroundAvoid.notF_sharedNode_external (outerSet_of_hybrid hS) first coord heap pads l r hc hhi
+  apply OuterGroundAvoid.notF_sharedNode_external (outerSet_of_hybrid hS) first coord heap pads l r hc hhi (by omega)
   intro hs
   rcases (hS coord heap hs).2.2 with hg' | hout
   · exact hg hg'

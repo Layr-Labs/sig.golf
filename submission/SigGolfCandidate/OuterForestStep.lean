@@ -14,8 +14,8 @@ open ClaudeWCT.W9.Machine.Expand
 open ClaudeWCT.W9.Machine.Expand.SharedForestRun (RecInv RecInv16 pcWord eRegion)
 open OuterForestInv (Inv witness_view)
 
-/-- C42: the dispatch runs the step stub (`length k + 8 ≤ 47`). -/
-def stepW : Nat := 77831+47+89+102+SigGolfCandidate.FtsGrind.W_SEARCH 2+SigGolfCandidate.FtsGrind.W_SEARCH16
+/-- C42: the dispatch runs the step stub (`length k + 8 ≤ 47`); C46: `length k + 20 ≤ 59`. -/
+def stepW : Nat := 77831+59+89+102+SigGolfCandidate.FtsGrind.W_SEARCH 2+SigGolfCandidate.FtsGrind.W_SEARCH16
 
 theorem step_tbsim (image : Image) (sk : BitVec 256)
     (hstub : CodeAt image (pcOf 88780) SharedDispatch.stub)
@@ -77,7 +77,7 @@ theorem step_tbsim (image : Image) (sk : BitVec 256)
       SigGolfCandidate.FtsGrind.W_PLAIN16
     split_ifs <;> omega
   simpa only [OuterCoordinateModel.coordinate,N600.program,(show N600.embed=ClaudeWCT.WCT9.embed from N600.embed_eq_c1),bind_assoc,pure_bind] using
-    hh.mono (show SharedDispatch.length k.val+8+((89+OuterSharedBank.cost k)+0)≤ stepW by unfold stepW; omega)
+    hh.mono (show SharedDispatch.length k.val+20+((89+OuterSharedBank.cost k)+0)≤ stepW by unfold stepW; omega)
       (fun _ _ h=>h)
 
 
